@@ -19,24 +19,12 @@
 
         <TextView
             android:id="@+id/appTitle"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:includeFontPadding="false"
             android:text="콜태그"
             android:textColor="@color/text_primary"
             android:textSize="22sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/versionBadge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_badge"
-            android:includeFontPadding="false"
-            android:text="MVP"
-            android:textColor="@color/primary"
-            android:textSize="12sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -82,7 +70,7 @@
             android:drawablePadding="4dp"
             android:gravity="center"
             android:includeFontPadding="false"
-            android:text="오늘"
+            android:text="홈"
             android:textColor="@color/nav_inactive"
             android:textSize="12sp" />
 
