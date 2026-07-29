@@ -20,6 +20,7 @@
 - `docs/CUSTOMER_CLASSIFICATION_KO.md` — 신규·기존 고객 자동분류 기준
 - `docs/DATA_MODEL_KO.md` — 고객·상담건·후속업무 데이터 구조
 - `docs/SCREEN_FLOW_KO.md` — 주요 화면과 통화 후 처리 흐름
+- `docs/DESIGN_SYSTEM_KO.md` — 페이지로 콜링크 기반 UI 규칙
 - `docs/ROADMAP_KO.md` — 개발 단계와 출시 순서
 
 ## 핵심 원칙
@@ -29,3 +30,4 @@
 3. 통화 종료 후 10초 안에 처리가 끝나야 한다.
 4. 다음 행동이 없는 상담을 자동으로 찾아낸다.
 5. 초기 버전은 1인 영업자용으로 제한한다.
+6. 전체 UI는 페이지로 콜링크 디자인 시스템을 그대로 사용한다.
