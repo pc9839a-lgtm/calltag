@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.provider.CallLog;
+import android.view.Gravity;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -12,9 +13,7 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.text.DateFormat;
 import java.util.Calendar;
-import java.util.Date;
 
 public final class PostCallActivity extends Activity {
     public static final String EXTRA_PHONE = "phone";
@@ -24,8 +23,12 @@ public final class PostCallActivity extends Activity {
     public static final String EXTRA_ENDED_AT = "ended_at";
     public static final String EXTRA_DURATION_SEC = "duration_sec";
 
-    private final String[] resultCodes = {"INTERESTED", "QUOTE", "CALLBACK", "CONTRACT", "HOLD", "CLOSED"};
-    private final String[] resultLabels = {"관심 있음", "견적·자료 발송", "다시 연락", "계약·거래 완료", "보류", "상담 종료"};
+    private final String[] resultCodes = {
+            "INTERESTED", "QUOTE", "CALLBACK", "CONTRACT", "HOLD", "CLOSED"
+    };
+    private final String[] resultLabels = {
+            "관심 있음", "견적 발송", "다시 연락", "거래 완료", "보류", "종료"
+    };
 
     private CallTagDbHelper db;
     private Customer existingCustomer;
@@ -57,10 +60,13 @@ public final class PostCallActivity extends Activity {
         relationGroup = findViewById(R.id.relationGroup);
         followUpGroup = findViewById(R.id.followUpGroup);
         resultButtons = findViewById(R.id.postCallResultButtons);
+
         String cachedName = getIntent().getStringExtra(EXTRA_CACHED_NAME);
         if (existingCustomer != null) {
             nameInput.setText(existingCustomer.displayName);
-            ((RadioButton) findViewById(R.id.relationExisting)).setChecked(true);
+            boolean isExisting = CallTagDbHelper.STATUS_EXISTING.equals(existingCustomer.relationStatus)
+                    || CallTagDbHelper.STATUS_VIP.equals(existingCustomer.relationStatus);
+            ((RadioButton) findViewById(isExisting ? R.id.relationExisting : R.id.relationNew)).setChecked(true);
         } else {
             nameInput.setText(cachedName == null ? "" : cachedName);
             ((RadioButton) findViewById(R.id.relationNew)).setChecked(true);
@@ -71,48 +77,65 @@ public final class PostCallActivity extends Activity {
         TextView phoneView = findViewById(R.id.postCallPhone);
         TextView metaView = findViewById(R.id.postCallMeta);
         TextView existingInfo = findViewById(R.id.postCallExistingInfo);
-        phoneView.setText(phone.isEmpty() ? "번호를 확인할 수 없음" : phone);
+        phoneView.setText(phone.isEmpty() ? "번호 없음" : phone);
         int type = getIntent().getIntExtra(EXTRA_CALL_TYPE, CallLog.Calls.INCOMING_TYPE);
         long durationSec = getIntent().getLongExtra(EXTRA_DURATION_SEC, 0L);
-        long startedAt = getIntent().getLongExtra(EXTRA_STARTED_AT, System.currentTimeMillis());
-        String time = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(new Date(startedAt));
-        metaView.setText(callTypeLabel(type) + " · " + formatDuration(durationSec) + " · " + time);
-        existingInfo.setText(existingCustomer == null
-                ? "등록되지 않은 번호입니다. 신규 또는 기존 고객으로 분류해주세요."
-                : "등록 고객 · 현재 상태: " + statusLabel(existingCustomer.relationStatus));
+        metaView.setText(callTypeLabel(type) + " · " + formatDuration(durationSec));
+        existingInfo.setText(existingCustomer == null ? "신규 번호" : statusLabel(existingCustomer.relationStatus));
     }
 
     private void renderResultButtons() {
         resultButtons.removeAllViews();
-        for (int i = 0; i < resultCodes.length; i++) {
-            String code = resultCodes[i];
-            Button button = new Button(this);
-            button.setText(resultLabels[i]);
-            button.setAllCaps(false);
-            button.setTextSize(15f);
-            button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-            button.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            button.setPadding(dp(16), 0, dp(16), 0);
-            button.setTag(code);
-            button.setOnClickListener(v -> {
-                selectedResult = code;
-                refreshResultButtonStyles();
-                if ("CALLBACK".equals(code)) ((RadioButton) findViewById(R.id.followTomorrow)).setChecked(true);
-            });
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
-            params.bottomMargin = dp(9);
-            resultButtons.addView(button, params);
+        for (int i = 0; i < resultCodes.length; i += 2) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+
+            for (int j = 0; j < 2 && i + j < resultCodes.length; j++) {
+                int index = i + j;
+                String code = resultCodes[index];
+                Button button = new Button(this);
+                button.setText(resultLabels[index]);
+                button.setAllCaps(false);
+                button.setTextSize(14f);
+                button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                button.setGravity(Gravity.CENTER);
+                button.setPadding(dp(8), 0, dp(8), 0);
+                button.setTag(code);
+                button.setOnClickListener(v -> {
+                    selectedResult = code;
+                    refreshResultButtonStyles();
+                    if ("CALLBACK".equals(code)) {
+                        ((RadioButton) findViewById(R.id.followTomorrow)).setChecked(true);
+                    }
+                });
+
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(46), 1f);
+                if (j == 1) params.leftMargin = dp(8);
+                row.addView(button, params);
+            }
+
+            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            rowParams.bottomMargin = dp(8);
+            resultButtons.addView(row, rowParams);
         }
         refreshResultButtonStyles();
     }
 
     private void refreshResultButtonStyles() {
         for (int i = 0; i < resultButtons.getChildCount(); i++) {
-            Button button = (Button) resultButtons.getChildAt(i);
-            boolean selected = selectedResult.equals(button.getTag());
-            button.setBackgroundResource(selected ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
-            button.setTextColor(getColor(selected ? R.color.text_primary : R.color.text_secondary));
+            LinearLayout row = (LinearLayout) resultButtons.getChildAt(i);
+            for (int j = 0; j < row.getChildCount(); j++) {
+                Button button = (Button) row.getChildAt(j);
+                boolean selected = selectedResult.equals(button.getTag());
+                button.setBackgroundResource(selected
+                        ? R.drawable.bg_primary_button
+                        : R.drawable.bg_secondary_button);
+                button.setTextColor(getColor(selected
+                        ? R.color.text_primary
+                        : R.color.text_secondary));
+            }
         }
     }
 
@@ -123,32 +146,37 @@ public final class PostCallActivity extends Activity {
             boolean excluded = checkedId == R.id.relationExcluded;
             nameInput.setEnabled(!excluded);
             noteInput.setEnabled(!excluded);
-            resultButtons.setAlpha(excluded ? 0.45f : 1f);
-            followUpGroup.setAlpha(excluded ? 0.45f : 1f);
+            resultButtons.setAlpha(excluded ? 0.35f : 1f);
+            followUpGroup.setAlpha(excluded ? 0.35f : 1f);
         });
     }
 
     private void saveResult() {
         if (relationGroup.getCheckedRadioButtonId() == R.id.relationExcluded) {
-            db.addPhoneRule(phone, "EXCLUDED", "통화 후 사용자가 제외 처리");
-            Toast.makeText(this, "이 번호는 이후 고객 분류에서 제외합니다.", Toast.LENGTH_SHORT).show();
+            db.addPhoneRule(phone, "EXCLUDED", "사용자 제외");
+            Toast.makeText(this, "제외했습니다.", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
 
         String name = nameInput.getText().toString().trim();
-        String selectedRelation = relationGroup.getCheckedRadioButtonId() == R.id.relationExisting
-                ? CallTagDbHelper.STATUS_EXISTING : CallTagDbHelper.STATUS_NEW;
+        boolean selectedExisting = relationGroup.getCheckedRadioButtonId() == R.id.relationExisting;
+        String initialStatus = selectedExisting
+                ? CallTagDbHelper.STATUS_EXISTING
+                : CallTagDbHelper.STATUS_NEW;
+
         try {
             long customerId;
             if (existingCustomer == null) {
-                customerId = db.insertCustomer(name, phone, selectedRelation, "CALL");
+                customerId = db.insertCustomer(name, phone, initialStatus, "CALL");
             } else {
                 customerId = existingCustomer.id;
                 String nextStatus = existingCustomer.relationStatus;
-                if (relationGroup.getCheckedRadioButtonId() == R.id.relationExisting) {
+                if (selectedExisting) {
                     nextStatus = CallTagDbHelper.STATUS_EXISTING;
-                } else if (CallTagDbHelper.STATUS_NEW.equals(nextStatus) && "INTERESTED".equals(selectedResult)) {
+                } else if (!CallTagDbHelper.STATUS_EXISTING.equals(nextStatus)
+                        && !CallTagDbHelper.STATUS_VIP.equals(nextStatus)
+                        && isActiveResult(selectedResult)) {
                     nextStatus = CallTagDbHelper.STATUS_CONSULTING;
                 }
                 db.updateCustomer(customerId, name, nextStatus);
@@ -156,7 +184,7 @@ public final class PostCallActivity extends Activity {
 
             if ("CONTRACT".equals(selectedResult)) {
                 db.markTransactionCompleted(customerId);
-            } else if (existingCustomer == null && "INTERESTED".equals(selectedResult)) {
+            } else if (existingCustomer == null && isActiveResult(selectedResult)) {
                 db.updateCustomer(customerId, name, CallTagDbHelper.STATUS_CONSULTING);
             }
 
@@ -165,28 +193,38 @@ public final class PostCallActivity extends Activity {
             long durationSec = getIntent().getLongExtra(EXTRA_DURATION_SEC, 0L);
             int type = getIntent().getIntExtra(EXTRA_CALL_TYPE, CallLog.Calls.INCOMING_TYPE);
             long interactionId = db.insertInteraction(
-                    customerId, callTypeCode(type), startedAt, endedAt, durationSec,
-                    selectedResult, noteInput.getText().toString());
+                    customerId,
+                    callTypeCode(type),
+                    startedAt,
+                    endedAt,
+                    durationSec,
+                    selectedResult,
+                    noteInput.getText().toString().trim());
 
             long dueAt = selectedFollowUpTime();
             if (dueAt > 0L) {
-                db.insertFollowUpTask(customerId, interactionId, "CALL", "다시 연락하기", dueAt);
+                db.insertFollowUpTask(customerId, interactionId, "CALL", "다시 연락", dueAt);
             }
-            Toast.makeText(this, dueAt > 0L
-                    ? "고객과 다음 연락을 저장했습니다."
-                    : "상담 결과를 저장했습니다.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "저장했습니다.", Toast.LENGTH_SHORT).show();
             finish();
         } catch (IllegalArgumentException e) {
             Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
         } catch (RuntimeException e) {
-            Toast.makeText(this, "저장하지 못했습니다. 다시 시도해주세요.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "저장하지 못했습니다.", Toast.LENGTH_LONG).show();
         }
+    }
+
+    private boolean isActiveResult(String result) {
+        return "INTERESTED".equals(result)
+                || "QUOTE".equals(result)
+                || "CALLBACK".equals(result);
     }
 
     private long selectedFollowUpTime() {
         int checked = followUpGroup.getCheckedRadioButtonId();
         if (checked == R.id.followNone) return -1L;
-        long days = checked == R.id.followTomorrow ? 1L : checked == R.id.followThreeDays ? 3L : 7L;
+        long days = checked == R.id.followTomorrow ? 1L
+                : checked == R.id.followThreeDays ? 3L : 7L;
         Calendar calendar = Calendar.getInstance();
         calendar.setTimeInMillis(System.currentTimeMillis() + days * 24L * 60L * 60L * 1000L);
         calendar.set(Calendar.HOUR_OF_DAY, 10);
@@ -204,10 +242,10 @@ public final class PostCallActivity extends Activity {
     }
 
     private String callTypeLabel(int type) {
-        if (type == CallLog.Calls.OUTGOING_TYPE) return "발신 통화";
-        if (type == CallLog.Calls.MISSED_TYPE) return "부재중 전화";
-        if (type == CallLog.Calls.REJECTED_TYPE) return "거절한 전화";
-        return "수신 통화";
+        if (type == CallLog.Calls.OUTGOING_TYPE) return "발신";
+        if (type == CallLog.Calls.MISSED_TYPE) return "부재중";
+        if (type == CallLog.Calls.REJECTED_TYPE) return "거절";
+        return "수신";
     }
 
     private String statusLabel(String status) {
