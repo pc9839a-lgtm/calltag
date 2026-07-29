@@ -6,7 +6,7 @@
     android:background="@color/background"
     android:orientation="vertical"
     android:paddingLeft="20dp"
-    android:paddingTop="24dp"
+    android:paddingTop="18dp"
     android:paddingRight="20dp"
     android:paddingBottom="20dp"
     android:visibility="gone">
@@ -20,21 +20,13 @@
         android:textSize="28sp"
         android:textStyle="bold" />
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="신규·상담 중·기존 고객을 자동으로 구분합니다."
-        android:textColor="@color/text_secondary"
-        android:textSize="15sp" />
-
     <Button
         android:id="@+id/addCustomerButton"
         android:layout_width="match_parent"
         android:layout_height="52dp"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="18dp"
         android:background="@drawable/bg_primary_button"
-        android:text="고객 직접 추가"
+        android:text="고객 추가"
         android:textAllCaps="false"
         android:textColor="@color/text_primary"
         android:textSize="16sp"
@@ -43,7 +35,7 @@
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="18dp"
+        android:layout_marginTop="14dp"
         android:scrollbars="none">
 
         <LinearLayout
@@ -58,7 +50,7 @@
                 android:background="@drawable/bg_secondary_button"
                 android:text="전체"
                 android:textAllCaps="false"
-                android:textColor="@color/text_primary" />
+                android:textColor="@color/primary" />
 
             <Button
                 android:id="@+id/filterNew"
@@ -104,6 +96,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingBottom="20dp" />
+            android:paddingBottom="100dp" />
     </ScrollView>
 </LinearLayout>
