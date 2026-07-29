@@ -13,6 +13,7 @@
 - 패키지명: `kr.pagero.calltag`
 - 최소 Android: API 26
 - 개발 브랜치: `agent/calltag-foundation`
+- APK 빌드 검증 진행 중
 
 ## 핵심 문서
 
