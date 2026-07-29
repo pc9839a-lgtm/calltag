@@ -27,7 +27,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:gravity="center"
-            android:text="통화 후 정리"
+            android:text="통화 정리"
             android:textColor="@color/text_primary"
             android:textSize="19sp"
             android:textStyle="bold" />
@@ -47,16 +47,16 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:clipToPadding="false"
-        android:fillViewport="true"
-        android:paddingLeft="20dp"
-        android:paddingTop="22dp"
-        android:paddingRight="20dp"
-        android:paddingBottom="26dp">
+        android:fillViewport="true">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:paddingLeft="20dp"
+            android:paddingTop="18dp"
+            android:paddingRight="20dp"
+            android:paddingBottom="100dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -69,95 +69,112 @@
                     android:id="@+id/postCallPhone"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:includeFontPadding="false"
                     android:textColor="@color/text_primary"
                     android:textSize="21sp"
                     android:textStyle="bold" />
 
-                <TextView
-                    android:id="@+id/postCallMeta"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="7dp"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="14sp" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                <TextView
-                    android:id="@+id/postCallExistingInfo"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:textColor="@color/primary"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
+                    <TextView
+                        android:id="@+id/postCallMeta"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/postCallExistingInfo"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_badge"
+                        android:paddingLeft="9dp"
+                        android:paddingTop="5dp"
+                        android:paddingRight="9dp"
+                        android:paddingBottom="5dp"
+                        android:textColor="@color/primary"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="26dp"
-                android:text="고객 구분"
-                android:textColor="@color/text_primary"
-                android:textSize="17sp"
-                android:textStyle="bold" />
 
             <RadioGroup
                 android:id="@+id/relationGroup"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_card"
-                android:orientation="vertical"
-                android:padding="12dp">
+                android:layout_height="48dp"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
 
                 <RadioButton
                     android:id="@+id/relationNew"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:buttonTint="@color/primary"
-                    android:text="신규 문의 고객"
-                    android:textColor="@color/text_primary"
-                    android:textSize="15sp" />
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_choice"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:text="신규"
+                    android:textColor="@color/choice_text"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
 
                 <RadioButton
                     android:id="@+id/relationExisting"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:buttonTint="@color/primary"
-                    android:text="기존 고객"
-                    android:textColor="@color/text_primary"
-                    android:textSize="15sp" />
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginLeft="8dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_choice"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:text="기존"
+                    android:textColor="@color/choice_text"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
 
                 <RadioButton
                     android:id="@+id/relationExcluded"
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:buttonTint="@color/primary"
-                    android:text="개인전화·거래처·제외번호"
-                    android:textColor="@color/text_primary"
-                    android:textSize="15sp" />
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginLeft="8dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_choice"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:text="제외"
+                    android:textColor="@color/choice_text"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
             </RadioGroup>
 
             <EditText
                 android:id="@+id/postCallName"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_height="52dp"
+                android:layout_marginTop="10dp"
                 android:background="@drawable/bg_input"
                 android:hint="고객명 또는 업체명"
-                android:textColorHint="@color/text_muted"
                 android:inputType="textCapWords"
                 android:padding="15dp"
                 android:singleLine="true"
                 android:textColor="@color/text_primary"
-                android:textSize="16sp" />
+                android:textColorHint="@color/text_muted"
+                android:textSize="15sp" />
 
             <TextView
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="26dp"
+                android:layout_marginTop="24dp"
+                android:includeFontPadding="false"
                 android:text="상담 결과"
                 android:textColor="@color/text_primary"
-                android:textSize="17sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
 
             <LinearLayout
@@ -170,76 +187,98 @@
             <EditText
                 android:id="@+id/postCallNote"
                 android:layout_width="match_parent"
-                android:layout_height="110dp"
-                android:layout_marginTop="12dp"
+                android:layout_height="52dp"
+                android:layout_marginTop="2dp"
                 android:background="@drawable/bg_input"
-                android:gravity="top"
-                android:hint="상담 내용 한 줄 메모"
-                android:textColorHint="@color/text_muted"
-                android:inputType="textMultiLine"
+                android:hint="메모(선택)"
+                android:inputType="text"
                 android:padding="15dp"
+                android:singleLine="true"
                 android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_muted"
                 android:textSize="15sp" />
 
             <TextView
-                android:layout_width="match_parent"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="26dp"
+                android:layout_marginTop="24dp"
+                android:includeFontPadding="false"
                 android:text="다음 연락"
                 android:textColor="@color/text_primary"
-                android:textSize="17sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
 
             <RadioGroup
                 android:id="@+id/followUpGroup"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+                android:layout_height="46dp"
                 android:layout_marginTop="10dp"
-                android:background="@drawable/bg_card"
-                android:orientation="vertical"
-                android:padding="12dp">
+                android:orientation="horizontal">
 
                 <RadioButton
                     android:id="@+id/followNone"
-                    android:layout_width="match_parent"
-                    android:layout_height="46dp"
-                    android:buttonTint="@color/primary"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_choice"
+                    android:button="@null"
                     android:checked="true"
-                    android:text="등록하지 않음"
-                    android:textColor="@color/text_primary" />
+                    android:gravity="center"
+                    android:text="없음"
+                    android:textColor="@color/choice_text"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
 
                 <RadioButton
                     android:id="@+id/followTomorrow"
-                    android:layout_width="match_parent"
-                    android:layout_height="46dp"
-                    android:buttonTint="@color/primary"
-                    android:text="내일 다시 연락"
-                    android:textColor="@color/text_primary" />
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginLeft="6dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_choice"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:text="내일"
+                    android:textColor="@color/choice_text"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
 
                 <RadioButton
                     android:id="@+id/followThreeDays"
-                    android:layout_width="match_parent"
-                    android:layout_height="46dp"
-                    android:buttonTint="@color/primary"
-                    android:text="3일 후 다시 연락"
-                    android:textColor="@color/text_primary" />
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginLeft="6dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_choice"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:text="3일 후"
+                    android:textColor="@color/choice_text"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
 
                 <RadioButton
                     android:id="@+id/followWeek"
-                    android:layout_width="match_parent"
-                    android:layout_height="46dp"
-                    android:buttonTint="@color/primary"
-                    android:text="다음 주 다시 연락"
-                    android:textColor="@color/text_primary" />
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginLeft="6dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_choice"
+                    android:button="@null"
+                    android:gravity="center"
+                    android:text="다음 주"
+                    android:textColor="@color/choice_text"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
             </RadioGroup>
 
             <Button
                 android:id="@+id/postCallSave"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginTop="22dp"
+                android:layout_height="52dp"
+                android:layout_marginTop="18dp"
                 android:background="@drawable/bg_primary_button"
-                android:text="저장하고 끝내기"
+                android:text="저장"
                 android:textAllCaps="false"
                 android:textColor="@color/text_primary"
                 android:textSize="16sp"
