@@ -55,10 +55,7 @@ public final class MainActivity extends Activity {
         bindViews();
         bindActions();
         selectSection(sectionToday, navToday);
-
-        if (hasMonitorPermissions() && SettingsStore.isMonitorEnabled(this)) {
-            startMonitorService();
-        }
+        if (hasMonitorPermissions() && SettingsStore.isMonitorEnabled(this)) startMonitorService();
     }
 
     @Override
@@ -100,18 +97,17 @@ public final class MainActivity extends Activity {
         findViewById(R.id.filterExisting).setOnClickListener(v -> setCustomerFilter(CallTagDbHelper.STATUS_EXISTING));
     }
 
-    private void selectSection(View selectedSection, NavItemTextView selectedNav) {
-        sectionToday.setVisibility(selectedSection == sectionToday ? View.VISIBLE : View.GONE);
-        sectionCustomers.setVisibility(selectedSection == sectionCustomers ? View.VISIBLE : View.GONE);
-        sectionConsultations.setVisibility(selectedSection == sectionConsultations ? View.VISIBLE : View.GONE);
-        sectionMore.setVisibility(selectedSection == sectionMore ? View.VISIBLE : View.GONE);
-
+    private void selectSection(View section, NavItemTextView nav) {
+        sectionToday.setVisibility(section == sectionToday ? View.VISIBLE : View.GONE);
+        sectionCustomers.setVisibility(section == sectionCustomers ? View.VISIBLE : View.GONE);
+        sectionConsultations.setVisibility(section == sectionConsultations ? View.VISIBLE : View.GONE);
+        sectionMore.setVisibility(section == sectionMore ? View.VISIBLE : View.GONE);
         int active = getColor(R.color.primary);
         int inactive = getColor(R.color.nav_inactive);
-        navToday.setTextColor(selectedNav == navToday ? active : inactive);
-        navCustomers.setTextColor(selectedNav == navCustomers ? active : inactive);
-        navConsultations.setTextColor(selectedNav == navConsultations ? active : inactive);
-        navMore.setTextColor(selectedNav == navMore ? active : inactive);
+        navToday.setTextColor(nav == navToday ? active : inactive);
+        navCustomers.setTextColor(nav == navCustomers ? active : inactive);
+        navConsultations.setTextColor(nav == navConsultations ? active : inactive);
+        navMore.setTextColor(nav == navMore ? active : inactive);
         refreshAll();
     }
 
@@ -136,28 +132,27 @@ public final class MainActivity extends Activity {
     }
 
     private void requestMonitorPermissions() {
-        List<String> permissions = new ArrayList<>();
+        List<String> missing = new ArrayList<>();
         if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
-            permissions.add(Manifest.permission.READ_PHONE_STATE);
+            missing.add(Manifest.permission.READ_PHONE_STATE);
         }
         if (checkSelfPermission(Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
-            permissions.add(Manifest.permission.READ_CALL_LOG);
+            missing.add(Manifest.permission.READ_CALL_LOG);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
+            missing.add(Manifest.permission.POST_NOTIFICATIONS);
         }
-        if (permissions.isEmpty()) {
+        if (missing.isEmpty()) {
             startMonitorService();
             return;
         }
-
         new AlertDialog.Builder(this)
                 .setTitle("통화 감지 권한이 필요합니다")
                 .setMessage("전화 상태와 최근 통화번호를 확인해야 통화가 끝난 뒤 신규·기존 고객 분류 화면을 표시할 수 있습니다. 통화 내용은 녹음하지 않습니다.")
                 .setNegativeButton("나중에", null)
                 .setPositiveButton("권한 허용", (dialog, which) -> requestPermissions(
-                        permissions.toArray(new String[0]), REQUEST_MONITOR_PERMISSIONS))
+                        missing.toArray(new String[0]), REQUEST_MONITOR_PERMISSIONS))
                 .show();
     }
 
@@ -175,20 +170,20 @@ public final class MainActivity extends Activity {
     }
 
     private boolean hasMonitorPermissions() {
-        boolean core = checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+        boolean granted = checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
                 && checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            core = core && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+            granted = granted && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
         }
-        return core;
+        return granted;
     }
 
     private void startMonitorService() {
         SettingsStore.setMonitorEnabled(this, true);
-        Intent service = new Intent(this, CallMonitorService.class).setAction(CallMonitorService.ACTION_START);
+        Intent intent = new Intent(this, CallMonitorService.class).setAction(CallMonitorService.ACTION_START);
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(service);
-            else startService(service);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent);
+            else startService(intent);
         } catch (RuntimeException e) {
             SettingsStore.setMonitorEnabled(this, false);
             Toast.makeText(this, "통화 감지를 시작하지 못했습니다.", Toast.LENGTH_LONG).show();
@@ -205,6 +200,7 @@ public final class MainActivity extends Activity {
         if (!hasMonitorPermissions()) {
             monitorStateText.setText("권한을 허용하면 통화 종료 후 고객 분류가 시작됩니다.");
             enableMonitorButton.setText("권한 허용");
+            enableMonitorButton.setBackgroundResource(R.drawable.bg_primary_button);
             return;
         }
         boolean enabled = SettingsStore.isMonitorEnabled(this);
@@ -221,69 +217,46 @@ public final class MainActivity extends Activity {
         List<FollowUpTask> tasks = db.listPendingTasks();
         todayEmpty.setVisibility(tasks.isEmpty() ? View.VISIBLE : View.GONE);
         DateFormat formatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
-
         for (FollowUpTask task : tasks) {
-            LinearLayout card = new LinearLayout(this);
-            card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(dp(18), dp(16), dp(18), dp(16));
-            card.setBackgroundResource(R.drawable.bg_card);
-
-            TextView name = new TextView(this);
-            name.setText(task.customerName);
-            name.setTextColor(getColor(R.color.text_primary));
-            name.setTextSize(17f);
-            name.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+            LinearLayout card = verticalCard();
+            TextView name = titleText(task.customerName, 17f);
             card.addView(name, matchWrap());
-
-            TextView title = createBodyText(task.title);
-            LinearLayout.LayoutParams titleParams = matchWrap();
-            titleParams.topMargin = dp(7);
-            card.addView(title, titleParams);
-
-            TextView due = createMutedText((task.isOverdue() ? "기한 지남 · " : "예정 · ")
+            TextView title = bodyText(task.title);
+            card.addView(title, topMargin(7));
+            TextView due = mutedText((task.isOverdue() ? "기한 지남 · " : "예정 · ")
                     + formatter.format(new Date(task.dueAt)));
             due.setTextColor(getColor(task.isOverdue() ? R.color.danger : R.color.text_muted));
-            LinearLayout.LayoutParams dueParams = matchWrap();
-            dueParams.topMargin = dp(6);
-            card.addView(due, dueParams);
+            card.addView(due, topMargin(6));
 
             LinearLayout actions = new LinearLayout(this);
             actions.setOrientation(LinearLayout.HORIZONTAL);
-            actions.setGravity(Gravity.CENTER_VERTICAL);
-
-            Button call = smallButton("전화");
+            Button call = smallButton("전화", false);
             call.setOnClickListener(v -> dial(task.phone));
             actions.addView(call, new LinearLayout.LayoutParams(0, dp(44), 1f));
-
-            Button complete = smallButton("완료");
-            complete.setBackgroundResource(R.drawable.bg_primary_button);
-            LinearLayout.LayoutParams completeParams = new LinearLayout.LayoutParams(0, dp(44), 1f);
-            completeParams.leftMargin = dp(9);
-            actions.addView(complete, completeParams);
-            complete.setOnClickListener(v -> {
+            Button done = smallButton("완료", true);
+            LinearLayout.LayoutParams doneParams = new LinearLayout.LayoutParams(0, dp(44), 1f);
+            doneParams.leftMargin = dp(9);
+            actions.addView(done, doneParams);
+            done.setOnClickListener(v -> {
                 db.completeTask(task.id);
                 refreshAll();
                 Toast.makeText(this, "완료 처리했습니다.", Toast.LENGTH_SHORT).show();
             });
-
-            LinearLayout.LayoutParams actionParams = matchWrap();
-            actionParams.topMargin = dp(14);
-            card.addView(actions, actionParams);
-
+            card.addView(actions, topMargin(14));
             LinearLayout.LayoutParams cardParams = matchWrap();
             cardParams.bottomMargin = dp(12);
             todayTaskList.addView(card, cardParams);
         }
     }
 
-    private Button smallButton(String label) {
+    private Button smallButton(String label, boolean primary) {
         Button button = new Button(this);
         button.setText(label);
-        button.setTextAllCaps(false);
+        button.setAllCaps(false);
         button.setTextColor(getColor(R.color.text_primary));
         button.setTextSize(14f);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setBackgroundResource(R.drawable.bg_secondary_button);
+        button.setBackgroundResource(primary ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
         return button;
     }
 
@@ -296,8 +269,8 @@ public final class MainActivity extends Activity {
         setFilterColor(R.id.filterExisting, CallTagDbHelper.STATUS_EXISTING.equals(status));
     }
 
-    private void setFilterColor(int viewId, boolean selected) {
-        Button button = findViewById(viewId);
+    private void setFilterColor(int id, boolean selected) {
+        Button button = findViewById(id);
         button.setTextColor(getColor(selected ? R.color.primary : R.color.text_secondary));
     }
 
@@ -305,7 +278,7 @@ public final class MainActivity extends Activity {
         customerList.removeAllViews();
         List<Customer> customers = db.listCustomers(activeCustomerFilter);
         if (customers.isEmpty()) {
-            TextView empty = createBodyText(activeCustomerFilter == null
+            TextView empty = bodyText(activeCustomerFilter == null
                     ? "아직 등록된 고객이 없습니다.\n통화가 끝난 뒤 신규 또는 기존 고객으로 저장할 수 있습니다."
                     : "해당 상태의 고객이 없습니다.");
             empty.setGravity(Gravity.CENTER);
@@ -315,50 +288,26 @@ public final class MainActivity extends Activity {
             return;
         }
 
-        DateFormat dateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM);
+        DateFormat formatter = DateFormat.getDateInstance(DateFormat.MEDIUM);
         for (Customer customer : customers) {
-            LinearLayout card = new LinearLayout(this);
-            card.setOrientation(LinearLayout.VERTICAL);
-            card.setPadding(dp(18), dp(17), dp(18), dp(17));
-            card.setBackgroundResource(R.drawable.bg_card);
+            LinearLayout card = verticalCard();
             card.setOnClickListener(v -> showCustomerActions(customer));
-
             LinearLayout header = new LinearLayout(this);
             header.setGravity(Gravity.CENTER_VERTICAL);
-            header.setOrientation(LinearLayout.HORIZONTAL);
-
-            TextView name = new TextView(this);
-            name.setText(customer.displayName);
-            name.setTextColor(getColor(R.color.text_primary));
-            name.setTextSize(17f);
-            name.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-            name.setIncludeFontPadding(false);
+            TextView name = titleText(customer.displayName, 17f);
             header.addView(name, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
-            TextView badge = new TextView(this);
-            badge.setText(statusLabel(customer.relationStatus));
+            TextView badge = titleText(statusLabel(customer.relationStatus), 12f);
             badge.setTextColor(statusColor(customer.relationStatus));
-            badge.setTextSize(12f);
-            badge.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
             badge.setGravity(Gravity.CENTER);
             badge.setPadding(dp(10), dp(6), dp(10), dp(6));
             badge.setBackgroundResource(R.drawable.bg_badge);
             header.addView(badge);
             card.addView(header, matchWrap());
-
-            TextView phone = createBodyText(customer.primaryPhone);
-            LinearLayout.LayoutParams phoneParams = matchWrap();
-            phoneParams.topMargin = dp(11);
-            card.addView(phone, phoneParams);
-
-            TextView meta = createMutedText("최근 상담  " + dateFormat.format(new Date(customer.lastContactAt)));
-            LinearLayout.LayoutParams metaParams = matchWrap();
-            metaParams.topMargin = dp(6);
-            card.addView(meta, metaParams);
-
-            LinearLayout.LayoutParams cardParams = matchWrap();
-            cardParams.bottomMargin = dp(12);
-            customerList.addView(card, cardParams);
+            card.addView(bodyText(customer.primaryPhone), topMargin(11));
+            card.addView(mutedText("최근 상담  " + formatter.format(new Date(customer.lastContactAt))), topMargin(6));
+            LinearLayout.LayoutParams params = matchWrap();
+            params.bottomMargin = dp(12);
+            customerList.addView(card, params);
         }
     }
 
@@ -369,14 +318,9 @@ public final class MainActivity extends Activity {
                 .setMessage(customer.primaryPhone + "\n현재 상태: " + statusLabel(customer.relationStatus))
                 .setItems(actions, (dialog, which) -> {
                     if (which == 0) dial(customer.primaryPhone);
-                    if (which == 1) {
-                        db.updateCustomer(customer.id, customer.displayName, CallTagDbHelper.STATUS_CONSULTING);
-                        refreshAll();
-                    }
-                    if (which == 2) {
-                        db.updateCustomer(customer.id, customer.displayName, CallTagDbHelper.STATUS_EXISTING);
-                        refreshAll();
-                    }
+                    if (which == 1) db.updateCustomer(customer.id, customer.displayName, CallTagDbHelper.STATUS_CONSULTING);
+                    if (which == 2) db.updateCustomer(customer.id, customer.displayName, CallTagDbHelper.STATUS_EXISTING);
+                    if (which > 0) refreshAll();
                 })
                 .setNegativeButton("닫기", null)
                 .show();
@@ -384,10 +328,26 @@ public final class MainActivity extends Activity {
 
     private void renderConsultationSummary() {
         consultationSummary.removeAllViews();
-        addMetricCard(consultationSummary, "미완료 다음 연락", db.countPendingTasks() + "건", false);
-        addMetricCard(consultationSummary, "신규 고객", db.countCustomersByStatus(CallTagDbHelper.STATUS_NEW) + "명", false);
-        addMetricCard(consultationSummary, "상담 중 고객", db.countCustomersByStatus(CallTagDbHelper.STATUS_CONSULTING) + "명", false);
-        addMetricCard(consultationSummary, "기존 고객", db.countCustomersByStatus(CallTagDbHelper.STATUS_EXISTING) + "명", false);
+        addMetricCard("미완료 다음 연락", db.countPendingTasks() + "건");
+        addMetricCard("신규 고객", db.countCustomersByStatus(CallTagDbHelper.STATUS_NEW) + "명");
+        addMetricCard("상담 중 고객", db.countCustomersByStatus(CallTagDbHelper.STATUS_CONSULTING) + "명");
+        addMetricCard("기존 고객", db.countCustomersByStatus(CallTagDbHelper.STATUS_EXISTING) + "명");
+    }
+
+    private void addMetricCard(String label, String value) {
+        LinearLayout card = new LinearLayout(this);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(18), dp(18), dp(18), dp(18));
+        card.setBackgroundResource(R.drawable.bg_card);
+        TextView labelView = bodyText(label);
+        labelView.setTextColor(getColor(R.color.text_primary));
+        labelView.setTextSize(16f);
+        card.addView(labelView, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView valueView = titleText(value, 22f);
+        card.addView(valueView);
+        LinearLayout.LayoutParams params = matchWrap();
+        params.bottomMargin = dp(12);
+        consultationSummary.addView(card, params);
     }
 
     private void renderMoreMenu() {
@@ -401,76 +361,34 @@ public final class MainActivity extends Activity {
         addMenuCard("개인정보 및 데이터", "통화 내용은 녹음하지 않으며 고객 데이터는 휴대전화 내부에 저장합니다.", null);
     }
 
+    private void addMenuCard(String title, String description, View.OnClickListener listener) {
+        LinearLayout card = verticalCard();
+        if (listener != null) card.setOnClickListener(listener);
+        card.addView(titleText(title, 16f), matchWrap());
+        card.addView(mutedText(description), topMargin(7));
+        LinearLayout.LayoutParams params = matchWrap();
+        params.bottomMargin = dp(12);
+        moreMenuList.addView(card, params);
+    }
+
     private void openPostCallTest() {
-        Intent intent = new Intent(this, PostCallActivity.class)
+        startActivity(new Intent(this, PostCallActivity.class)
                 .putExtra(PostCallActivity.EXTRA_PHONE, "010-0000-1234")
                 .putExtra(PostCallActivity.EXTRA_CACHED_NAME, "")
                 .putExtra(PostCallActivity.EXTRA_CALL_TYPE, CallLog.Calls.INCOMING_TYPE)
                 .putExtra(PostCallActivity.EXTRA_STARTED_AT, System.currentTimeMillis() - 185_000L)
                 .putExtra(PostCallActivity.EXTRA_ENDED_AT, System.currentTimeMillis())
-                .putExtra(PostCallActivity.EXTRA_DURATION_SEC, 185L);
-        startActivity(intent);
-    }
-
-    private void addMetricCard(LinearLayout parent, String label, String value, boolean danger) {
-        LinearLayout card = new LinearLayout(this);
-        card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setOrientation(LinearLayout.HORIZONTAL);
-        card.setPadding(dp(18), dp(18), dp(18), dp(18));
-        card.setBackgroundResource(R.drawable.bg_card);
-
-        TextView labelView = new TextView(this);
-        labelView.setText(label);
-        labelView.setTextColor(getColor(R.color.text_primary));
-        labelView.setTextSize(16f);
-        card.addView(labelView, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
-        TextView valueView = new TextView(this);
-        valueView.setText(value);
-        valueView.setTextColor(getColor(danger ? R.color.danger : R.color.text_primary));
-        valueView.setTextSize(22f);
-        valueView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        card.addView(valueView);
-
-        LinearLayout.LayoutParams params = matchWrap();
-        params.bottomMargin = dp(12);
-        parent.addView(card, params);
-    }
-
-    private void addMenuCard(String title, String description, View.OnClickListener listener) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(18), dp(17), dp(18), dp(17));
-        card.setBackgroundResource(R.drawable.bg_card);
-        if (listener != null) card.setOnClickListener(listener);
-
-        TextView titleView = new TextView(this);
-        titleView.setText(title);
-        titleView.setTextColor(getColor(R.color.text_primary));
-        titleView.setTextSize(16f);
-        titleView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        card.addView(titleView, matchWrap());
-
-        TextView descriptionView = createMutedText(description);
-        LinearLayout.LayoutParams descriptionParams = matchWrap();
-        descriptionParams.topMargin = dp(7);
-        card.addView(descriptionView, descriptionParams);
-
-        LinearLayout.LayoutParams params = matchWrap();
-        params.bottomMargin = dp(12);
-        moreMenuList.addView(card, params);
+                .putExtra(PostCallActivity.EXTRA_DURATION_SEC, 185L));
     }
 
     private void showAddCustomerDialog() {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(20), dp(6), dp(20), 0);
-        EditText nameInput = createInput("고객명 또는 업체명", InputType.TYPE_CLASS_TEXT);
+        EditText nameInput = input("고객명 또는 업체명", InputType.TYPE_CLASS_TEXT);
+        EditText phoneInput = input("전화번호", InputType.TYPE_CLASS_PHONE);
         form.addView(nameInput, matchWrap());
-        EditText phoneInput = createInput("전화번호", InputType.TYPE_CLASS_PHONE);
-        LinearLayout.LayoutParams phoneParams = matchWrap();
-        phoneParams.topMargin = dp(12);
-        form.addView(phoneInput, phoneParams);
+        form.addView(phoneInput, topMargin(12));
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("신규 고객 등록")
@@ -482,13 +400,11 @@ public final class MainActivity extends Activity {
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             try {
                 db.insertNewLead(nameInput.getText().toString(), phoneInput.getText().toString());
-                Toast.makeText(this, "신규 고객으로 등록했습니다.", Toast.LENGTH_SHORT).show();
                 dialog.dismiss();
                 setCustomerFilter(null);
+                Toast.makeText(this, "신규 고객으로 등록했습니다.", Toast.LENGTH_SHORT).show();
             } catch (IllegalArgumentException e) {
                 Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
-            } catch (RuntimeException e) {
-                Toast.makeText(this, "고객을 등록하지 못했습니다.", Toast.LENGTH_LONG).show();
             }
         }));
         dialog.show();
@@ -502,20 +418,25 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private EditText createInput(String hint, int inputType) {
-        EditText input = new EditText(this);
-        input.setHint(hint);
-        input.setHintTextColor(getColor(R.color.text_muted));
-        input.setTextColor(getColor(R.color.text_primary));
-        input.setTextSize(16f);
-        input.setSingleLine(true);
-        input.setInputType(inputType);
-        input.setBackgroundResource(R.drawable.bg_input);
-        input.setPadding(dp(14), dp(12), dp(14), dp(12));
-        return input;
+    private LinearLayout verticalCard() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(18), dp(17), dp(18), dp(17));
+        card.setBackgroundResource(R.drawable.bg_card);
+        return card;
     }
 
-    private TextView createBodyText(String value) {
+    private TextView titleText(String value, float size) {
+        TextView text = new TextView(this);
+        text.setText(value);
+        text.setTextColor(getColor(R.color.text_primary));
+        text.setTextSize(size);
+        text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        text.setIncludeFontPadding(false);
+        return text;
+    }
+
+    private TextView bodyText(String value) {
         TextView text = new TextView(this);
         text.setText(value);
         text.setTextColor(getColor(R.color.text_secondary));
@@ -524,12 +445,25 @@ public final class MainActivity extends Activity {
         return text;
     }
 
-    private TextView createMutedText(String value) {
+    private TextView mutedText(String value) {
         TextView text = new TextView(this);
         text.setText(value);
         text.setTextColor(getColor(R.color.text_muted));
         text.setTextSize(13f);
         return text;
+    }
+
+    private EditText input(String hint, int type) {
+        EditText input = new EditText(this);
+        input.setHint(hint);
+        input.setHintTextColor(getColor(R.color.text_muted));
+        input.setTextColor(getColor(R.color.text_primary));
+        input.setTextSize(16f);
+        input.setSingleLine(true);
+        input.setInputType(type);
+        input.setBackgroundResource(R.drawable.bg_input);
+        input.setPadding(dp(14), dp(12), dp(14), dp(12));
+        return input;
     }
 
     private String statusLabel(String status) {
@@ -555,6 +489,12 @@ public final class MainActivity extends Activity {
         return new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
+    }
+
+    private LinearLayout.LayoutParams topMargin(int value) {
+        LinearLayout.LayoutParams params = matchWrap();
+        params.topMargin = dp(value);
+        return params;
     }
 
     private int dp(int value) {
