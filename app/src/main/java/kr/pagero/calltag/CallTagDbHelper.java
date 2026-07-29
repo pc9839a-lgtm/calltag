@@ -138,12 +138,16 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
     }
 
     public void updateCustomer(long customerId, String displayName, String status) {
-        long now = System.currentTimeMillis();
+        Customer customer = findCustomerById(customerId);
+        updateCustomerProfile(customerId, displayName, status, customer == null ? "" : customer.memo);
+    }
+
+    public void updateCustomerProfile(long customerId, String displayName, String status, String memo) {
         ContentValues values = new ContentValues();
         values.put("display_name", safeName(displayName));
         values.put("relation_status", status);
-        values.put("last_contact_at", now);
-        values.put("updated_at", now);
+        values.put("memo", memo == null ? "" : memo.trim());
+        values.put("updated_at", System.currentTimeMillis());
         getWritableDatabase().update("customers", values, "id = ?", new String[]{String.valueOf(customerId)});
     }
 
@@ -180,7 +184,7 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
                                    String title, long dueAt) {
         ContentValues values = new ContentValues();
         values.put("customer_id", customerId);
-        values.put("interaction_id", interactionId);
+        if (interactionId > 0L) values.put("interaction_id", interactionId);
         values.put("task_type", taskType);
         values.put("title", title);
         values.put("due_at", dueAt);
@@ -211,6 +215,31 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
         return tasks;
     }
 
+    public List<InteractionRecord> listInteractionsForCustomer(long customerId) {
+        return listInteractions("WHERE i.customer_id = ?", new String[]{String.valueOf(customerId)}, 100);
+    }
+
+    public List<InteractionRecord> listRecentInteractions(int limit) {
+        return listInteractions("", null, Math.max(1, limit));
+    }
+
+    private List<InteractionRecord> listInteractions(String where, String[] args, int limit) {
+        List<InteractionRecord> rows = new ArrayList<>();
+        String sql = "SELECT i.id,i.customer_id,c.display_name,c.primary_phone,i.type,i.started_at," +
+                "i.duration_sec,i.result,i.note FROM interactions i " +
+                "JOIN customers c ON c.id=i.customer_id " + where +
+                " ORDER BY i.started_at DESC,i.id DESC LIMIT " + limit;
+        try (Cursor cursor = getReadableDatabase().rawQuery(sql, args)) {
+            while (cursor.moveToNext()) {
+                rows.add(new InteractionRecord(
+                        cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getString(3),
+                        cursor.getString(4), cursor.getLong(5), cursor.getLong(6),
+                        cursor.getString(7), cursor.getString(8)));
+            }
+        }
+        return rows;
+    }
+
     public void addPhoneRule(String phone, String ruleType, String reason) {
         String normalized = PhoneNumberNormalizer.normalize(phone);
         if (normalized.isEmpty()) return;
@@ -235,6 +264,13 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
         if (normalized.isEmpty()) return null;
         try (Cursor cursor = getReadableDatabase().query("customers", null, "normalized_phone = ?",
                 new String[]{normalized}, null, null, null, "1")) {
+            return cursor.moveToFirst() ? readCustomer(cursor) : null;
+        }
+    }
+
+    public Customer findCustomerById(long customerId) {
+        try (Cursor cursor = getReadableDatabase().query("customers", null, "id = ?",
+                new String[]{String.valueOf(customerId)}, null, null, null, "1")) {
             return cursor.moveToFirst() ? readCustomer(cursor) : null;
         }
     }
