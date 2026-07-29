@@ -16,6 +16,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -38,9 +39,10 @@ public final class MainActivity extends Activity {
     private NavItemTextView navMore;
     private TextView todayDueCount;
     private TextView overdueCount;
+    private TextView todayNewCount;
     private TextView todayEmpty;
     private TextView monitorStateText;
-    private Button enableMonitorButton;
+    private Switch enableMonitorButton;
     private LinearLayout todayTaskList;
     private LinearLayout customerList;
     private LinearLayout consultationSummary;
@@ -55,7 +57,9 @@ public final class MainActivity extends Activity {
         bindViews();
         bindActions();
         selectSection(sectionToday, navToday);
-        if (hasMonitorPermissions() && SettingsStore.isMonitorEnabled(this)) startMonitorService();
+        if (hasMonitorPermissions() && SettingsStore.isMonitorEnabled(this)) {
+            startMonitorService();
+        }
     }
 
     @Override
@@ -75,6 +79,7 @@ public final class MainActivity extends Activity {
         navMore = findViewById(R.id.navMore);
         todayDueCount = findViewById(R.id.todayDueCount);
         overdueCount = findViewById(R.id.overdueCount);
+        todayNewCount = findViewById(R.id.todayNewCount);
         todayEmpty = findViewById(R.id.todayEmpty);
         monitorStateText = findViewById(R.id.monitorStateText);
         enableMonitorButton = findViewById(R.id.enableMonitorButton);
@@ -90,6 +95,9 @@ public final class MainActivity extends Activity {
         navConsultations.setOnClickListener(v -> selectSection(sectionConsultations, navConsultations));
         navMore.setOnClickListener(v -> selectSection(sectionMore, navMore));
         enableMonitorButton.setOnClickListener(v -> toggleMonitor());
+        findViewById(R.id.quickAddCustomer).setOnClickListener(v -> showAddCustomerDialog());
+        findViewById(R.id.quickCustomers).setOnClickListener(v -> selectSection(sectionCustomers, navCustomers));
+        findViewById(R.id.quickConsultations).setOnClickListener(v -> selectSection(sectionConsultations, navConsultations));
         findViewById(R.id.addCustomerButton).setOnClickListener(v -> showAddCustomerDialog());
         findViewById(R.id.filterAll).setOnClickListener(v -> setCustomerFilter(null));
         findViewById(R.id.filterNew).setOnClickListener(v -> setCustomerFilter(CallTagDbHelper.STATUS_NEW));
@@ -112,8 +120,9 @@ public final class MainActivity extends Activity {
     }
 
     private void refreshAll() {
-        todayDueCount.setText(String.valueOf(db.countDueTodayTasks()));
-        overdueCount.setText(String.valueOf(db.countOverdueTasks()));
+        todayDueCount.setText(db.countDueTodayTasks() + "\n오늘 연락");
+        overdueCount.setText(db.countOverdueTasks() + "\n기한 지남");
+        todayNewCount.setText(db.countCustomersByStatus(CallTagDbHelper.STATUS_NEW) + "\n신규 고객");
         renderMonitorState();
         renderTasks();
         renderCustomers();
@@ -126,8 +135,11 @@ public final class MainActivity extends Activity {
             requestMonitorPermissions();
             return;
         }
-        if (SettingsStore.isMonitorEnabled(this)) stopMonitorService();
-        else startMonitorService();
+        if (SettingsStore.isMonitorEnabled(this)) {
+            stopMonitorService();
+        } else {
+            startMonitorService();
+        }
         renderMonitorState();
     }
 
@@ -148,10 +160,9 @@ public final class MainActivity extends Activity {
             return;
         }
         new AlertDialog.Builder(this)
-                .setTitle("통화 감지 권한이 필요합니다")
-                .setMessage("전화 상태와 최근 통화번호를 확인해야 통화가 끝난 뒤 신규·기존 고객 분류 화면을 표시할 수 있습니다. 통화 내용은 녹음하지 않습니다.")
-                .setNegativeButton("나중에", null)
-                .setPositiveButton("권한 허용", (dialog, which) -> requestPermissions(
+                .setTitle("권한 허용")
+                .setNegativeButton("취소", null)
+                .setPositiveButton("허용", (dialog, which) -> requestPermissions(
                         missing.toArray(new String[0]), REQUEST_MONITOR_PERMISSIONS))
                 .show();
     }
@@ -162,9 +173,9 @@ public final class MainActivity extends Activity {
         if (requestCode != REQUEST_MONITOR_PERMISSIONS) return;
         if (hasMonitorPermissions()) {
             startMonitorService();
-            Toast.makeText(this, "통화 감지를 시작했습니다.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "통화 감지를 켰습니다.", Toast.LENGTH_SHORT).show();
         } else {
-            Toast.makeText(this, "통화 감지에 필요한 권한이 허용되지 않았습니다.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "권한이 필요합니다.", Toast.LENGTH_SHORT).show();
         }
         renderMonitorState();
     }
@@ -173,7 +184,8 @@ public final class MainActivity extends Activity {
         boolean granted = checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
                 && checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            granted = granted && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+            granted = granted
+                    && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
         }
         return granted;
     }
@@ -182,34 +194,27 @@ public final class MainActivity extends Activity {
         SettingsStore.setMonitorEnabled(this, true);
         Intent intent = new Intent(this, CallMonitorService.class).setAction(CallMonitorService.ACTION_START);
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent);
-            else startService(intent);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
         } catch (RuntimeException e) {
             SettingsStore.setMonitorEnabled(this, false);
-            Toast.makeText(this, "통화 감지를 시작하지 못했습니다.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "시작하지 못했습니다.", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void stopMonitorService() {
         SettingsStore.setMonitorEnabled(this, false);
         stopService(new Intent(this, CallMonitorService.class));
-        Toast.makeText(this, "통화 감지를 중지했습니다.", Toast.LENGTH_SHORT).show();
     }
 
     private void renderMonitorState() {
-        if (!hasMonitorPermissions()) {
-            monitorStateText.setText("권한을 허용하면 통화 종료 후 고객 분류가 시작됩니다.");
-            enableMonitorButton.setText("권한 허용");
-            enableMonitorButton.setBackgroundResource(R.drawable.bg_primary_button);
-            return;
-        }
-        boolean enabled = SettingsStore.isMonitorEnabled(this);
-        monitorStateText.setText(enabled
-                ? "실행 중 · 통화가 끝나면 정리 알림이 표시됩니다."
-                : "중지됨 · 통화 종료를 감지하지 않습니다.");
-        enableMonitorButton.setText(enabled ? "끄기" : "켜기");
-        enableMonitorButton.setBackgroundResource(enabled
-                ? R.drawable.bg_secondary_button : R.drawable.bg_primary_button);
+        boolean ready = hasMonitorPermissions();
+        boolean enabled = ready && SettingsStore.isMonitorEnabled(this);
+        monitorStateText.setText(enabled ? "통화 감지가 작동 중이에요" : "통화 감지를 켜주세요");
+        enableMonitorButton.setChecked(enabled);
     }
 
     private void renderTasks() {
@@ -219,12 +224,9 @@ public final class MainActivity extends Activity {
         DateFormat formatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
         for (FollowUpTask task : tasks) {
             LinearLayout card = verticalCard();
-            TextView name = titleText(task.customerName, 17f);
-            card.addView(name, matchWrap());
-            TextView title = bodyText(task.title);
-            card.addView(title, topMargin(7));
-            TextView due = mutedText((task.isOverdue() ? "기한 지남 · " : "예정 · ")
-                    + formatter.format(new Date(task.dueAt)));
+            card.addView(titleText(task.customerName, 17f), matchWrap());
+            card.addView(bodyText(task.title), topMargin(7));
+            TextView due = mutedText(formatter.format(new Date(task.dueAt)));
             due.setTextColor(getColor(task.isOverdue() ? R.color.danger : R.color.text_muted));
             card.addView(due, topMargin(6));
 
@@ -240,7 +242,6 @@ public final class MainActivity extends Activity {
             done.setOnClickListener(v -> {
                 db.completeTask(task.id);
                 refreshAll();
-                Toast.makeText(this, "완료 처리했습니다.", Toast.LENGTH_SHORT).show();
             });
             card.addView(actions, topMargin(14));
             LinearLayout.LayoutParams cardParams = matchWrap();
@@ -256,7 +257,9 @@ public final class MainActivity extends Activity {
         button.setTextColor(getColor(R.color.text_primary));
         button.setTextSize(14f);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setBackgroundResource(primary ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        button.setBackgroundResource(primary
+                ? R.drawable.bg_primary_button
+                : R.drawable.bg_secondary_button);
         return button;
     }
 
@@ -278,9 +281,7 @@ public final class MainActivity extends Activity {
         customerList.removeAllViews();
         List<Customer> customers = db.listCustomers(activeCustomerFilter);
         if (customers.isEmpty()) {
-            TextView empty = bodyText(activeCustomerFilter == null
-                    ? "아직 등록된 고객이 없습니다.\n통화가 끝난 뒤 신규 또는 기존 고객으로 저장할 수 있습니다."
-                    : "해당 상태의 고객이 없습니다.");
+            TextView empty = bodyText("고객이 없습니다.");
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(dp(24), dp(30), dp(24), dp(30));
             empty.setBackgroundResource(R.drawable.bg_card);
@@ -295,7 +296,8 @@ public final class MainActivity extends Activity {
             LinearLayout header = new LinearLayout(this);
             header.setGravity(Gravity.CENTER_VERTICAL);
             TextView name = titleText(customer.displayName, 17f);
-            header.addView(name, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            header.addView(name, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             TextView badge = titleText(statusLabel(customer.relationStatus), 12f);
             badge.setTextColor(statusColor(customer.relationStatus));
             badge.setGravity(Gravity.CENTER);
@@ -304,7 +306,7 @@ public final class MainActivity extends Activity {
             header.addView(badge);
             card.addView(header, matchWrap());
             card.addView(bodyText(customer.primaryPhone), topMargin(11));
-            card.addView(mutedText("최근 상담  " + formatter.format(new Date(customer.lastContactAt))), topMargin(6));
+            card.addView(mutedText(formatter.format(new Date(customer.lastContactAt))), topMargin(6));
             LinearLayout.LayoutParams params = matchWrap();
             params.bottomMargin = dp(12);
             customerList.addView(card, params);
@@ -312,14 +314,19 @@ public final class MainActivity extends Activity {
     }
 
     private void showCustomerActions(Customer customer) {
-        String[] actions = {"전화 걸기", "상담 중으로 변경", "기존 고객으로 변경"};
+        String[] actions = {"전화", "상담 중", "기존 고객"};
         new AlertDialog.Builder(this)
                 .setTitle(customer.displayName)
-                .setMessage(customer.primaryPhone + "\n현재 상태: " + statusLabel(customer.relationStatus))
                 .setItems(actions, (dialog, which) -> {
                     if (which == 0) dial(customer.primaryPhone);
-                    if (which == 1) db.updateCustomer(customer.id, customer.displayName, CallTagDbHelper.STATUS_CONSULTING);
-                    if (which == 2) db.updateCustomer(customer.id, customer.displayName, CallTagDbHelper.STATUS_EXISTING);
+                    if (which == 1) {
+                        db.updateCustomer(customer.id, customer.displayName,
+                                CallTagDbHelper.STATUS_CONSULTING);
+                    }
+                    if (which == 2) {
+                        db.updateCustomer(customer.id, customer.displayName,
+                                CallTagDbHelper.STATUS_EXISTING);
+                    }
                     if (which > 0) refreshAll();
                 })
                 .setNegativeButton("닫기", null)
@@ -328,47 +335,79 @@ public final class MainActivity extends Activity {
 
     private void renderConsultationSummary() {
         consultationSummary.removeAllViews();
-        addMetricCard("미완료 다음 연락", db.countPendingTasks() + "건");
-        addMetricCard("신규 고객", db.countCustomersByStatus(CallTagDbHelper.STATUS_NEW) + "명");
-        addMetricCard("상담 중 고객", db.countCustomersByStatus(CallTagDbHelper.STATUS_CONSULTING) + "명");
-        addMetricCard("기존 고객", db.countCustomersByStatus(CallTagDbHelper.STATUS_EXISTING) + "명");
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(0, dp(18), 0, dp(18));
+        card.setBackgroundResource(R.drawable.bg_card);
+        addMetricColumn(card, db.countCustomersByStatus(CallTagDbHelper.STATUS_NEW), "신규");
+        addDivider(card);
+        addMetricColumn(card, db.countCustomersByStatus(CallTagDbHelper.STATUS_CONSULTING), "상담 중");
+        addDivider(card);
+        addMetricColumn(card, db.countCustomersByStatus(CallTagDbHelper.STATUS_EXISTING), "기존");
+        consultationSummary.addView(card, matchWrap());
+
+        LinearLayout pending = new LinearLayout(this);
+        pending.setGravity(Gravity.CENTER_VERTICAL);
+        pending.setPadding(dp(18), dp(18), dp(18), dp(18));
+        pending.setBackgroundResource(R.drawable.bg_card);
+        TextView label = bodyText("다음 연락");
+        label.setTextColor(getColor(R.color.text_primary));
+        pending.addView(label, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        pending.addView(titleText(db.countPendingTasks() + "건", 22f));
+        consultationSummary.addView(pending, topMargin(12));
     }
 
-    private void addMetricCard(String label, String value) {
-        LinearLayout card = new LinearLayout(this);
-        card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setPadding(dp(18), dp(18), dp(18), dp(18));
-        card.setBackgroundResource(R.drawable.bg_card);
-        TextView labelView = bodyText(label);
-        labelView.setTextColor(getColor(R.color.text_primary));
-        labelView.setTextSize(16f);
-        card.addView(labelView, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        TextView valueView = titleText(value, 22f);
-        card.addView(valueView);
-        LinearLayout.LayoutParams params = matchWrap();
-        params.bottomMargin = dp(12);
-        consultationSummary.addView(card, params);
+    private void addMetricColumn(LinearLayout parent, int value, String label) {
+        TextView text = new TextView(this);
+        text.setText(value + "\n" + label);
+        text.setGravity(Gravity.CENTER);
+        text.setIncludeFontPadding(false);
+        text.setLineSpacing(0f, 1.35f);
+        text.setTextColor(getColor(R.color.text_primary));
+        text.setTextSize(15f);
+        text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        parent.addView(text, new LinearLayout.LayoutParams(0, dp(76), 1f));
+    }
+
+    private void addDivider(LinearLayout parent) {
+        View divider = new View(this);
+        divider.setBackgroundColor(getColor(R.color.border));
+        parent.addView(divider, new LinearLayout.LayoutParams(dp(1), dp(44)));
     }
 
     private void renderMoreMenu() {
         moreMenuList.removeAllViews();
-        addMenuCard("통화 후 처리 테스트", "실제 전화 없이 신규·기존 고객 분류 화면을 확인합니다.", v -> openPostCallTest());
-        addMenuCard("통화 감지 설정", hasMonitorPermissions()
-                ? (SettingsStore.isMonitorEnabled(this) ? "현재 실행 중입니다." : "현재 중지되어 있습니다.")
-                : "전화·통화기록·알림 권한이 필요합니다.", v -> toggleMonitor());
-        addMenuCard("고객 분류 설정", "신규·상담 중·기존 고객 상태는 고객 카드에서 변경합니다.", null);
-        addMenuCard("제외번호", "통화 후 처리 화면에서 개인전화·거래처·스팸 번호를 제외할 수 있습니다.", null);
-        addMenuCard("개인정보 및 데이터", "통화 내용은 녹음하지 않으며 고객 데이터는 휴대전화 내부에 저장합니다.", null);
+        addMenuRow("통화 후 화면 테스트", v -> openPostCallTest());
+        addMenuRow("제외번호", v -> Toast.makeText(this, "준비 중입니다.", Toast.LENGTH_SHORT).show());
+        addMenuRow("데이터 관리", v -> Toast.makeText(this, "준비 중입니다.", Toast.LENGTH_SHORT).show());
     }
 
-    private void addMenuCard(String title, String description, View.OnClickListener listener) {
-        LinearLayout card = verticalCard();
-        if (listener != null) card.setOnClickListener(listener);
-        card.addView(titleText(title, 16f), matchWrap());
-        card.addView(mutedText(description), topMargin(7));
-        LinearLayout.LayoutParams params = matchWrap();
-        params.bottomMargin = dp(12);
-        moreMenuList.addView(card, params);
+    private void addMenuRow(String title, View.OnClickListener listener) {
+        if (moreMenuList.getChildCount() > 0) {
+            View divider = new View(this);
+            divider.setBackgroundColor(getColor(R.color.border));
+            moreMenuList.addView(divider, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(1)));
+        }
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, 0, 0, 0);
+        row.setOnClickListener(listener);
+        TextView titleView = new TextView(this);
+        titleView.setText(title);
+        titleView.setTextColor(getColor(R.color.text_primary));
+        titleView.setTextSize(16f);
+        row.addView(titleView, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView arrow = new TextView(this);
+        arrow.setText("›");
+        arrow.setTextColor(getColor(R.color.text_muted));
+        arrow.setTextSize(26f);
+        row.addView(arrow);
+        moreMenuList.addView(row, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(58)));
     }
 
     private void openPostCallTest() {
@@ -391,22 +430,22 @@ public final class MainActivity extends Activity {
         form.addView(phoneInput, topMargin(12));
 
         AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("신규 고객 등록")
-                .setMessage("거래 완료 전까지 신규 고객으로 분류합니다.")
+                .setTitle("고객 추가")
                 .setView(form)
                 .setNegativeButton("취소", null)
                 .setPositiveButton("등록", null)
                 .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            try {
-                db.insertNewLead(nameInput.getText().toString(), phoneInput.getText().toString());
-                dialog.dismiss();
-                setCustomerFilter(null);
-                Toast.makeText(this, "신규 고객으로 등록했습니다.", Toast.LENGTH_SHORT).show();
-            } catch (IllegalArgumentException e) {
-                Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
-            }
-        }));
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    try {
+                        db.insertNewLead(nameInput.getText().toString(),
+                                phoneInput.getText().toString());
+                        dialog.dismiss();
+                        setCustomerFilter(null);
+                    } catch (IllegalArgumentException e) {
+                        Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
+                    }
+                }));
         dialog.show();
     }
 
@@ -441,7 +480,6 @@ public final class MainActivity extends Activity {
         text.setText(value);
         text.setTextColor(getColor(R.color.text_secondary));
         text.setTextSize(15f);
-        text.setLineSpacing(0f, 1.3f);
         return text;
     }
 
