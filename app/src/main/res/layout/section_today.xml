@@ -30,14 +30,58 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:includeFontPadding="false"
-            android:text="다시 연락할 고객과 아직 끝내지 않은 업무를 확인합니다."
+            android:text="통화가 끝나면 고객을 분류하고 다음 연락을 놓치지 않습니다."
             android:textColor="@color/text_secondary"
             android:textSize="15sp" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
+            android:layout_marginTop="20dp"
+            android:background="@drawable/bg_card"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="18dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="통화 감지"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/monitorStateText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="권한 확인 중"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/enableMonitorButton"
+                android:layout_width="100dp"
+                android:layout_height="46dp"
+                android:background="@drawable/bg_primary_button"
+                android:text="켜기"
+                android:textAllCaps="false"
+                android:textColor="@color/text_primary"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
             android:orientation="horizontal">
 
             <LinearLayout
