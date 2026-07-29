@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootApp"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="66dp"
+        android:background="@color/background"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="20dp"
+        android:paddingTop="8dp"
+        android:paddingRight="20dp"
+        android:paddingBottom="8dp">
+
+        <TextView
+            android:id="@+id/appTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:includeFontPadding="false"
+            android:text="콜태그"
+            android:textColor="@color/text_primary"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/versionBadge"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_badge"
+            android:includeFontPadding="false"
+            android:text="MVP"
+            android:textColor="@color/primary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/border" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+        <include layout="@layout/section_today" />
+        <include layout="@layout/section_customers" />
+        <include layout="@layout/section_consultations" />
+        <include layout="@layout/section_more" />
+    </FrameLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/border" />
+
+    <LinearLayout
+        android:id="@+id/bottomNavigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="82dp"
+        android:background="@color/surface_soft"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingLeft="4dp"
+        android:paddingTop="8dp"
+        android:paddingRight="4dp"
+        android:paddingBottom="4dp">
+
+        <kr.pagero.calltag.NavItemTextView
+            android:id="@+id/navToday"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:drawableTop="@drawable/ic_nav_today"
+            android:drawablePadding="4dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="오늘"
+            android:textColor="@color/nav_inactive"
+            android:textSize="12sp" />
+
+        <kr.pagero.calltag.NavItemTextView
+            android:id="@+id/navCustomers"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:drawableTop="@drawable/ic_nav_customers"
+            android:drawablePadding="4dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="고객"
+            android:textColor="@color/nav_inactive"
+            android:textSize="12sp" />
+
+        <kr.pagero.calltag.NavItemTextView
+            android:id="@+id/navConsultations"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:drawableTop="@drawable/ic_nav_consultations"
+            android:drawablePadding="4dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="상담"
+            android:textColor="@color/nav_inactive"
+            android:textSize="12sp" />
+
+        <kr.pagero.calltag.NavItemTextView
+            android:id="@+id/navMore"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:drawableTop="@drawable/ic_nav_more"
+            android:drawablePadding="4dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="전체"
+            android:textColor="@color/nav_inactive"
+            android:textSize="12sp" />
+    </LinearLayout>
+</LinearLayout>
