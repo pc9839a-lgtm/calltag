@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.provider.CallLog;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -14,6 +13,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.text.DateFormat;
+import java.util.Calendar;
 import java.util.Date;
 
 public final class PostCallActivity extends Activity {
@@ -24,34 +24,27 @@ public final class PostCallActivity extends Activity {
     public static final String EXTRA_ENDED_AT = "ended_at";
     public static final String EXTRA_DURATION_SEC = "duration_sec";
 
+    private final String[] resultCodes = {"INTERESTED", "QUOTE", "CALLBACK", "CONTRACT", "HOLD", "CLOSED"};
+    private final String[] resultLabels = {"관심 있음", "견적·자료 발송", "다시 연락", "계약·거래 완료", "보류", "상담 종료"};
+
     private CallTagDbHelper db;
     private Customer existingCustomer;
     private String phone;
     private String selectedResult = "INTERESTED";
-
     private EditText nameInput;
     private EditText noteInput;
     private RadioGroup relationGroup;
     private RadioGroup followUpGroup;
     private LinearLayout resultButtons;
 
-    private final String[] resultCodes = {
-            "INTERESTED", "QUOTE", "CALLBACK", "CONTRACT", "HOLD", "CLOSED"
-    };
-    private final String[] resultLabels = {
-            "관심 있음", "견적·자료 발송", "다시 연락", "계약·거래 완료", "보류", "상담 종료"
-    };
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_post_call);
         db = new CallTagDbHelper(this);
-
         phone = getIntent().getStringExtra(EXTRA_PHONE);
         if (phone == null) phone = "";
         existingCustomer = db.findByPhone(phone);
-
         bindViews();
         renderHeader();
         renderResultButtons();
@@ -64,7 +57,6 @@ public final class PostCallActivity extends Activity {
         relationGroup = findViewById(R.id.relationGroup);
         followUpGroup = findViewById(R.id.followUpGroup);
         resultButtons = findViewById(R.id.postCallResultButtons);
-
         String cachedName = getIntent().getStringExtra(EXTRA_CACHED_NAME);
         if (existingCustomer != null) {
             nameInput.setText(existingCustomer.displayName);
@@ -79,20 +71,15 @@ public final class PostCallActivity extends Activity {
         TextView phoneView = findViewById(R.id.postCallPhone);
         TextView metaView = findViewById(R.id.postCallMeta);
         TextView existingInfo = findViewById(R.id.postCallExistingInfo);
-
         phoneView.setText(phone.isEmpty() ? "번호를 확인할 수 없음" : phone);
         int type = getIntent().getIntExtra(EXTRA_CALL_TYPE, CallLog.Calls.INCOMING_TYPE);
         long durationSec = getIntent().getLongExtra(EXTRA_DURATION_SEC, 0L);
         long startedAt = getIntent().getLongExtra(EXTRA_STARTED_AT, System.currentTimeMillis());
-        String time = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
-                .format(new Date(startedAt));
+        String time = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(new Date(startedAt));
         metaView.setText(callTypeLabel(type) + " · " + formatDuration(durationSec) + " · " + time);
-
-        if (existingCustomer == null) {
-            existingInfo.setText("등록되지 않은 번호입니다. 신규 또는 기존 고객으로 분류해주세요.");
-        } else {
-            existingInfo.setText("등록 고객 · 현재 상태: " + statusLabel(existingCustomer.relationStatus));
-        }
+        existingInfo.setText(existingCustomer == null
+                ? "등록되지 않은 번호입니다. 신규 또는 기존 고객으로 분류해주세요."
+                : "등록 고객 · 현재 상태: " + statusLabel(existingCustomer.relationStatus));
     }
 
     private void renderResultButtons() {
@@ -101,19 +88,17 @@ public final class PostCallActivity extends Activity {
             String code = resultCodes[i];
             Button button = new Button(this);
             button.setText(resultLabels[i]);
-            button.setTextAllCaps(false);
+            button.setAllCaps(false);
             button.setTextSize(15f);
             button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
             button.setGravity(android.view.Gravity.CENTER_VERTICAL);
             button.setPadding(dp(16), 0, dp(16), 0);
+            button.setTag(code);
             button.setOnClickListener(v -> {
                 selectedResult = code;
                 refreshResultButtonStyles();
-                if ("CALLBACK".equals(code)) {
-                    ((RadioButton) findViewById(R.id.followTomorrow)).setChecked(true);
-                }
+                if ("CALLBACK".equals(code)) ((RadioButton) findViewById(R.id.followTomorrow)).setChecked(true);
             });
-            button.setTag(code);
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
             params.bottomMargin = dp(9);
@@ -152,22 +137,19 @@ public final class PostCallActivity extends Activity {
         }
 
         String name = nameInput.getText().toString().trim();
-        String relationStatus = relationGroup.getCheckedRadioButtonId() == R.id.relationExisting
-                ? CallTagDbHelper.STATUS_EXISTING
-                : CallTagDbHelper.STATUS_NEW;
-
+        String selectedRelation = relationGroup.getCheckedRadioButtonId() == R.id.relationExisting
+                ? CallTagDbHelper.STATUS_EXISTING : CallTagDbHelper.STATUS_NEW;
         try {
             long customerId;
             if (existingCustomer == null) {
-                customerId = db.insertCustomer(name, phone, relationStatus, "CALL");
+                customerId = db.insertCustomer(name, phone, selectedRelation, "CALL");
             } else {
                 customerId = existingCustomer.id;
                 String nextStatus = existingCustomer.relationStatus;
-                if (CallTagDbHelper.STATUS_NEW.equals(nextStatus) && "INTERESTED".equals(selectedResult)) {
-                    nextStatus = CallTagDbHelper.STATUS_CONSULTING;
-                }
                 if (relationGroup.getCheckedRadioButtonId() == R.id.relationExisting) {
                     nextStatus = CallTagDbHelper.STATUS_EXISTING;
+                } else if (CallTagDbHelper.STATUS_NEW.equals(nextStatus) && "INTERESTED".equals(selectedResult)) {
+                    nextStatus = CallTagDbHelper.STATUS_CONSULTING;
                 }
                 db.updateCustomer(customerId, name, nextStatus);
             }
@@ -183,24 +165,13 @@ public final class PostCallActivity extends Activity {
             long durationSec = getIntent().getLongExtra(EXTRA_DURATION_SEC, 0L);
             int type = getIntent().getIntExtra(EXTRA_CALL_TYPE, CallLog.Calls.INCOMING_TYPE);
             long interactionId = db.insertInteraction(
-                    customerId,
-                    callTypeCode(type),
-                    startedAt,
-                    endedAt,
-                    durationSec,
-                    selectedResult,
-                    noteInput.getText().toString());
+                    customerId, callTypeCode(type), startedAt, endedAt, durationSec,
+                    selectedResult, noteInput.getText().toString());
 
             long dueAt = selectedFollowUpTime();
             if (dueAt > 0L) {
-                db.insertFollowUpTask(
-                        customerId,
-                        interactionId,
-                        "CALL",
-                        "다시 연락하기",
-                        dueAt);
+                db.insertFollowUpTask(customerId, interactionId, "CALL", "다시 연락하기", dueAt);
             }
-
             Toast.makeText(this, dueAt > 0L
                     ? "고객과 다음 연락을 저장했습니다."
                     : "상담 결과를 저장했습니다.", Toast.LENGTH_SHORT).show();
@@ -216,13 +187,12 @@ public final class PostCallActivity extends Activity {
         int checked = followUpGroup.getCheckedRadioButtonId();
         if (checked == R.id.followNone) return -1L;
         long days = checked == R.id.followTomorrow ? 1L : checked == R.id.followThreeDays ? 3L : 7L;
-        long base = System.currentTimeMillis() + days * 24L * 60L * 60L * 1000L;
-        java.util.Calendar calendar = java.util.Calendar.getInstance();
-        calendar.setTimeInMillis(base);
-        calendar.set(java.util.Calendar.HOUR_OF_DAY, 10);
-        calendar.set(java.util.Calendar.MINUTE, 0);
-        calendar.set(java.util.Calendar.SECOND, 0);
-        calendar.set(java.util.Calendar.MILLISECOND, 0);
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTimeInMillis(System.currentTimeMillis() + days * 24L * 60L * 60L * 1000L);
+        calendar.set(Calendar.HOUR_OF_DAY, 10);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
         return calendar.getTimeInMillis();
     }
 
@@ -256,5 +226,11 @@ public final class PostCallActivity extends Activity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (db != null) db.close();
+        super.onDestroy();
     }
 }
