@@ -15,6 +15,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.provider.CallLog;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyCallback;
 import android.telephony.TelephonyManager;
@@ -170,11 +171,15 @@ public final class CallMonitorService extends Service {
         if (record == null || PhoneNumberNormalizer.normalize(record.phone).length() < 8) return;
 
         CallTagDbHelper db = new CallTagDbHelper(this);
+        PendingCallStore pendingStore = new PendingCallStore(this);
         try {
             if (db.isExcluded(record.phone)) return;
-            Customer customer = db.findByPhone(record.phone);
+            pendingStore.upsert(record);
+            sendPendingChanged();
 
+            Customer customer = db.findByPhone(record.phone);
             Intent review = new Intent(this, PostCallActivity.class)
+                    .putExtra(PostCallActivity.EXTRA_PENDING_CALL_ID, record.id)
                     .putExtra(PostCallActivity.EXTRA_PHONE, record.phone)
                     .putExtra(PostCallActivity.EXTRA_CACHED_NAME, record.cachedName)
                     .putExtra(PostCallActivity.EXTRA_CALL_TYPE, record.type)
@@ -183,41 +188,63 @@ public final class CallMonitorService extends Service {
                     .putExtra(PostCallActivity.EXTRA_DURATION_SEC, Math.max(0L, record.durationSec))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
+            if (needsDeferredHandling(record)) {
+                showReviewNotification(record, customer, review, db);
+                return;
+            }
+
             if (isAppInForeground()) {
                 try {
                     startActivity(review);
                 } catch (RuntimeException ignored) {
-                    showReviewNotification(record, customer, review);
+                    showReviewNotification(record, customer, review, db);
                 }
                 return;
             }
-            showReviewNotification(record, customer, review);
+            showReviewNotification(record, customer, review, db);
         } finally {
+            pendingStore.close();
             db.close();
         }
     }
 
-    private void showReviewNotification(CallRecord record, Customer customer, Intent review) {
+    private boolean needsDeferredHandling(CallRecord record) {
+        return record.type == CallLog.Calls.MISSED_TYPE
+                || record.type == CallLog.Calls.REJECTED_TYPE
+                || (record.type == CallLog.Calls.OUTGOING_TYPE && record.durationSec == 0L);
+    }
+
+    private void showReviewNotification(CallRecord record, Customer customer,
+                                        Intent review, CallTagDbHelper db) {
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this,
                 (int) (record.id & 0x7fffffff),
                 review,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        String title = customer == null ? "새 번호 통화가 끝났습니다" : customer.displayName + " 고객 통화가 끝났습니다";
-        String body = customer == null
-                ? record.phone + " · 신규/기존 고객을 분류해주세요."
-                : "이전 상태: " + statusLabel(customer.relationStatus) + " · 상담 결과를 기록해주세요.";
+        String callLabel = callTypeLabel(record);
+        String title;
+        String body;
+        if (customer == null) {
+            title = callLabel + " · " + (record.cachedName.trim().isEmpty() ? record.phone : record.cachedName);
+            body = "등록되지 않은 번호입니다. 고객 등록 또는 다음 연락을 정리해주세요.";
+        } else {
+            title = callLabel + " · " + customer.displayName;
+            String memo = CustomerInsightResolver.latestMemo(db, customer);
+            body = customer.relationStatus;
+            if (!memo.isEmpty()) body += "\n최근 메모 · " + memo;
+        }
 
         Notification notification = new Notification.Builder(this, REVIEW_CHANNEL)
                 .setSmallIcon(android.R.drawable.sym_action_call)
                 .setContentTitle(title)
-                .setContentText(body)
+                .setContentText(customer == null ? record.phone : customer.relationStatus)
                 .setStyle(new Notification.BigTextStyle().bigText(body))
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
                 .setCategory(Notification.CATEGORY_REMINDER)
                 .setPriority(Notification.PRIORITY_HIGH)
+                .setVisibility(Notification.VISIBILITY_PRIVATE)
                 .build();
         try {
             NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
@@ -227,6 +254,20 @@ public final class CallMonitorService extends Service {
         } catch (RuntimeException ignored) {
             // Notification permission or OEM restrictions can block delivery.
         }
+    }
+
+    private String callTypeLabel(CallRecord record) {
+        if (record.type == CallLog.Calls.MISSED_TYPE) return "부재중";
+        if (record.type == CallLog.Calls.REJECTED_TYPE) return "거절한 전화";
+        if (record.type == CallLog.Calls.OUTGOING_TYPE && record.durationSec == 0L) {
+            return "발신 · 연결 안 됨";
+        }
+        if (record.type == CallLog.Calls.OUTGOING_TYPE) return "발신 통화";
+        return "수신 통화";
+    }
+
+    private void sendPendingChanged() {
+        sendBroadcast(new Intent(PendingCallSectionView.ACTION_CHANGED).setPackage(getPackageName()));
     }
 
     private boolean isAppInForeground() {
@@ -254,7 +295,7 @@ public final class CallMonitorService extends Service {
 
         NotificationChannel review = new NotificationChannel(
                 REVIEW_CHANNEL, "통화 후 처리", NotificationManager.IMPORTANCE_HIGH);
-        review.setDescription("통화가 끝난 뒤 고객 분류와 다음 행동을 알려줍니다.");
+        review.setDescription("발신·수신·부재중·거절 통화의 다음 행동을 알려줍니다.");
         review.enableVibration(true);
         manager.createNotificationChannel(review);
     }
@@ -267,19 +308,11 @@ public final class CallMonitorService extends Service {
         return new Notification.Builder(this, MONITOR_CHANNEL)
                 .setSmallIcon(android.R.drawable.sym_action_call)
                 .setContentTitle("콜태그 실행 중")
-                .setContentText("통화가 끝나면 고객 분류 화면을 안내합니다.")
+                .setContentText("발신·수신·부재중 통화를 고객 흐름으로 정리합니다.")
                 .setContentIntent(pending)
                 .setOngoing(true)
                 .setCategory(Notification.CATEGORY_SERVICE)
                 .build();
-    }
-
-    private String statusLabel(String status) {
-        if (CallTagDbHelper.STATUS_EXISTING.equals(status)) return "기존 고객";
-        if (CallTagDbHelper.STATUS_CONSULTING.equals(status)) return "상담 중";
-        if (CallTagDbHelper.STATUS_VIP.equals(status)) return "VIP";
-        if (CallTagDbHelper.STATUS_DORMANT.equals(status)) return "휴면";
-        return "신규 고객";
     }
 
     @Override
