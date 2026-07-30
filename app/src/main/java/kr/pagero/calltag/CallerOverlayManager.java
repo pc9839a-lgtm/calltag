@@ -53,7 +53,26 @@ public final class CallerOverlayManager {
     public static boolean show(Context context, Customer customer, String memo, String stageColor) {
         if (customer == null || !canShow(context)) return false;
         Context app = context.getApplicationContext();
-        HANDLER.post(() -> showOnMain(app, customer, memo, stageColor));
+        HANDLER.post(() -> showOnMain(app, customer, memo, stageColor, false));
+        return true;
+    }
+
+    public static boolean showSetupTest(Context context) {
+        if (!canShow(context)) return false;
+        Context app = context.getApplicationContext();
+        long now = System.currentTimeMillis();
+        Customer demo = new Customer(
+                -1L,
+                "테스트 고객",
+                "010-1234-5678",
+                "01012345678",
+                "진행 중",
+                "",
+                "견적서 수정 후 금요일 오전에 다시 연락하기",
+                now - 86_400_000L,
+                now - 3_600_000L,
+                null);
+        HANDLER.post(() -> showOnMain(app, demo, demo.memo, "#F5A524", true));
         return true;
     }
 
@@ -61,13 +80,14 @@ public final class CallerOverlayManager {
         HANDLER.post(CallerOverlayManager::hideOnMain);
     }
 
-    private static void showOnMain(Context context, Customer customer, String memo, String stageColor) {
+    private static void showOnMain(Context context, Customer customer, String memo,
+                                   String stageColor, boolean setupTest) {
         hideOnMain();
         try {
             windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
             if (windowManager == null) return;
 
-            overlayView = buildView(context, customer, memo, stageColor);
+            overlayView = buildView(context, customer, memo, stageColor, setupTest);
             WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                     WindowManager.LayoutParams.MATCH_PARENT,
                     WindowManager.LayoutParams.WRAP_CONTENT,
@@ -87,7 +107,8 @@ public final class CallerOverlayManager {
         }
     }
 
-    private static View buildView(Context context, Customer customer, String memo, String stageColor) {
+    private static View buildView(Context context, Customer customer, String memo,
+                                  String stageColor, boolean setupTest) {
         LinearLayout outer = new LinearLayout(context);
         outer.setOrientation(LinearLayout.VERTICAL);
         outer.setPadding(dp(context, 12), 0, dp(context, 12), 0);
@@ -103,16 +124,19 @@ public final class CallerOverlayManager {
 
         LinearLayout header = new LinearLayout(context);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView label = text(context, "콜태그 · 전화 온 고객", 13f,
-                context.getColor(R.color.primary), true);
+        TextView label = text(context,
+                setupTest ? "콜태그 · 수신 화면 테스트" : "콜태그 · 전화 온 고객",
+                13f, context.getColor(R.color.primary), true);
         header.addView(label, new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView close = text(context, "닫기", 13f, context.getColor(R.color.text_primary), true);
+        TextView close = text(context, setupTest ? "다시 설정" : "닫기", 13f,
+                context.getColor(R.color.text_primary), true);
         close.setGravity(Gravity.CENTER);
         close.setBackgroundResource(R.drawable.bg_secondary_button);
         close.setOnClickListener(v -> hide(context));
-        header.addView(close, new LinearLayout.LayoutParams(dp(context, 62), dp(context, 40)));
+        header.addView(close, new LinearLayout.LayoutParams(
+                setupTest ? dp(context, 86) : dp(context, 62), dp(context, 40)));
         card.addView(header);
 
         TextView name = text(context, customer.displayName, 24f,
@@ -181,16 +205,30 @@ public final class CallerOverlayManager {
         lastParams.topMargin = dp(context, 9);
         card.addView(lastContact, lastParams);
 
-        Button detail = new Button(context);
-        detail.setText("고객 상세 보기");
-        detail.setAllCaps(false);
-        detail.setTextSize(15f);
-        detail.setTextColor(context.getColor(R.color.text_primary));
-        detail.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        detail.setMinHeight(0);
-        detail.setMinWidth(0);
-        detail.setBackgroundResource(R.drawable.bg_primary_button);
-        detail.setOnClickListener(v -> {
+        Button primary = new Button(context);
+        primary.setText(setupTest ? "정상적으로 보입니다 · 앱 시작" : "고객 상세 보기");
+        primary.setAllCaps(false);
+        primary.setTextSize(15f);
+        primary.setTextColor(context.getColor(R.color.text_primary));
+        primary.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        primary.setMinHeight(0);
+        primary.setMinWidth(0);
+        primary.setBackgroundResource(R.drawable.bg_primary_button);
+        primary.setOnClickListener(v -> {
+            if (setupTest) {
+                SetupRequirements.markOverlayTestPassed(context);
+                SetupRequirements.startCallMonitoring(context);
+                hide(context);
+                try {
+                    context.startActivity(new Intent(context, MainActivity.class)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                                    | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+                } catch (RuntimeException ignored) {
+                    context.startActivity(SetupRequirements.requiredSetupIntent(context)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                }
+                return;
+            }
             hide(context);
             try {
                 context.startActivity(new Intent(context, CustomerDetailActivity.class)
@@ -202,10 +240,10 @@ public final class CallerOverlayManager {
                 // 전화 화면은 그대로 유지한다.
             }
         });
-        LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams primaryParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(context, 48));
-        detailParams.topMargin = dp(context, 12);
-        card.addView(detail, detailParams);
+        primaryParams.topMargin = dp(context, 12);
+        card.addView(primary, primaryParams);
         return outer;
     }
 
