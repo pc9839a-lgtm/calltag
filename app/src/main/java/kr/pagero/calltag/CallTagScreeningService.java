@@ -11,7 +11,7 @@ import android.telecom.Call;
 import android.telecom.CallScreeningService;
 
 public final class CallTagScreeningService extends CallScreeningService {
-    private static final String CHANNEL_ID = "calltag_caller_info";
+    private static final String CHANNEL_ID = "calltag_caller_info_v2";
 
     @Override
     public void onScreenCall(Call.Details callDetails) {
@@ -39,56 +39,95 @@ public final class CallTagScreeningService extends CallScreeningService {
             if (db.isExcluded(phone)) return;
             Customer customer = db.findByPhone(phone);
             if (customer == null) return;
-            showCustomerNotification(customer, CustomerInsightResolver.latestMemo(db, customer));
+            String memo = CustomerInsightResolver.latestMemo(db, customer);
+            showCustomerNotification(customer, memo, db.stageColor(customer.relationStatus));
         } finally {
             db.close();
         }
     }
 
-    private void showCustomerNotification(Customer customer, String memo) {
+    private void showCustomerNotification(Customer customer, String memo, String stageColor) {
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (manager == null) return;
+
         NotificationChannel channel = new NotificationChannel(
                 CHANNEL_ID, "수신 고객정보", NotificationManager.IMPORTANCE_HIGH);
         channel.setDescription("전화가 올 때 저장된 고객 단계와 최근 메모를 표시합니다.");
         channel.enableVibration(false);
+        channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
         manager.createNotificationChannel(channel);
 
-        Intent detail = new Intent(this, CustomerDetailActivity.class)
-                .putExtra(CustomerDetailActivity.EXTRA_CUSTOMER_ID, customer.id)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent pending = PendingIntent.getActivity(
+        int notificationId = 6400 + Math.abs(customer.normalizedPhone.hashCode() % 1000);
+        String stage = customer.relationStatus == null || customer.relationStatus.trim().isEmpty()
+                ? "상태 미지정" : customer.relationStatus.trim();
+        String compactMemo = compactFirstLine(memo);
+
+        Intent callerInfo = new Intent(this, CallerInfoActivity.class)
+                .putExtra(CallerInfoActivity.EXTRA_CUSTOMER_ID, customer.id)
+                .putExtra(CallerInfoActivity.EXTRA_NAME, customer.displayName)
+                .putExtra(CallerInfoActivity.EXTRA_PHONE, customer.primaryPhone)
+                .putExtra(CallerInfoActivity.EXTRA_STAGE, stage)
+                .putExtra(CallerInfoActivity.EXTRA_STAGE_COLOR, stageColor)
+                .putExtra(CallerInfoActivity.EXTRA_MEMO, memo)
+                .putExtra(CallerInfoActivity.EXTRA_LAST_CONTACT_AT, customer.lastContactAt)
+                .putExtra(CallerInfoActivity.EXTRA_NOTIFICATION_ID, notificationId)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent fullScreen = PendingIntent.getActivity(
                 this,
-                (int) (customer.id & 0x7fffffff),
-                detail,
+                notificationId,
+                callerInfo,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        String stage = customer.relationStatus == null || customer.relationStatus.trim().isEmpty()
-                ? "영업 단계 미지정" : customer.relationStatus.trim();
-        String body = memo.isEmpty() ? stage : stage + "\n최근 메모 · " + memo;
+        String defaultText = compactMemo.isEmpty() ? stage : "메모 · " + compactMemo;
+        String expandedText = compactMemo.isEmpty()
+                ? stage
+                : stage + "\n최근 메모 · " + memo;
 
-        Notification publicVersion = new Notification.Builder(this, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.sym_action_call)
-                .setContentTitle(customer.displayName)
-                .setContentText("등록된 고객 전화")
-                .build();
-
+        Notification publicVersion = buildPublicVersion(customer.displayName, stage, compactMemo);
         Notification notification = new Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.sym_action_call)
                 .setContentTitle(customer.displayName + " 고객 전화")
-                .setContentText(stage)
-                .setStyle(new Notification.BigTextStyle().bigText(body))
-                .setContentIntent(pending)
+                .setContentText(defaultText)
+                .setStyle(new Notification.BigTextStyle().bigText(expandedText))
+                .setContentIntent(fullScreen)
+                .setFullScreenIntent(fullScreen, true)
                 .setAutoCancel(true)
+                .setTimeoutAfter(45000L)
                 .setCategory(Notification.CATEGORY_CALL)
-                .setPriority(Notification.PRIORITY_HIGH)
+                .setPriority(Notification.PRIORITY_MAX)
                 .setVisibility(Notification.VISIBILITY_PRIVATE)
                 .setPublicVersion(publicVersion)
                 .build();
         try {
-            manager.notify(6400 + Math.abs(customer.normalizedPhone.hashCode() % 1000), notification);
+            manager.notify(notificationId, notification);
         } catch (RuntimeException ignored) {
             // Notification permission or OEM restrictions can block delivery.
         }
+    }
+
+    private Notification buildPublicVersion(String name, String stage, String memo) {
+        int privacy = SettingsStore.callerPrivacyMode(this);
+        String text;
+        if (privacy == SettingsStore.CALLER_PRIVACY_MEMO && !memo.isEmpty()) {
+            text = "메모 · " + memo;
+        } else if (privacy >= SettingsStore.CALLER_PRIVACY_STAGE) {
+            text = stage;
+        } else {
+            text = "등록된 고객 전화";
+        }
+        return new Notification.Builder(this, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.sym_action_call)
+                .setContentTitle(name)
+                .setContentText(text)
+                .build();
+    }
+
+    private String compactFirstLine(String value) {
+        if (value == null) return "";
+        String compact = value.trim().replaceAll("\\s+", " ");
+        if (compact.length() <= 58) return compact;
+        return compact.substring(0, 55) + "…";
     }
 }
