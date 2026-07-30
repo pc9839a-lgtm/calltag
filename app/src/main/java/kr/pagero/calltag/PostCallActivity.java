@@ -5,6 +5,8 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.provider.CallLog;
 import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -33,12 +35,15 @@ public final class PostCallActivity extends Activity {
     private CallTagDbHelper db;
     private Customer existingCustomer;
     private String phone;
+    private String callFingerprint;
     private String selectedResult = "INTERESTED";
     private EditText nameInput;
     private EditText noteInput;
     private RadioGroup relationGroup;
     private RadioGroup followUpGroup;
     private LinearLayout resultButtons;
+    private Button saveButton;
+    private boolean saving;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,6 +53,7 @@ public final class PostCallActivity extends Activity {
         phone = getIntent().getStringExtra(EXTRA_PHONE);
         if (phone == null) phone = "";
         existingCustomer = db.findByPhone(phone);
+        callFingerprint = buildCallFingerprint();
         bindViews();
         renderHeader();
         renderResultButtons();
@@ -60,6 +66,7 @@ public final class PostCallActivity extends Activity {
         relationGroup = findViewById(R.id.relationGroup);
         followUpGroup = findViewById(R.id.followUpGroup);
         resultButtons = findViewById(R.id.postCallResultButtons);
+        saveButton = findViewById(R.id.postCallSave);
 
         String cachedName = getIntent().getStringExtra(EXTRA_CACHED_NAME);
         if (existingCustomer != null) {
@@ -102,6 +109,7 @@ public final class PostCallActivity extends Activity {
                 button.setPadding(dp(8), 0, dp(8), 0);
                 button.setTag(code);
                 button.setOnClickListener(v -> {
+                    if (saving || !v.isEnabled()) return;
                     selectedResult = code;
                     refreshResultButtonStyles();
                     if ("CALLBACK".equals(code)) {
@@ -140,22 +148,44 @@ public final class PostCallActivity extends Activity {
     }
 
     private void bindActions() {
-        findViewById(R.id.postCallClose).setOnClickListener(v -> finish());
-        findViewById(R.id.postCallSave).setOnClickListener(v -> saveResult());
+        findViewById(R.id.postCallClose).setOnClickListener(v -> {
+            if (!saving) finish();
+        });
+        saveButton.setOnClickListener(v -> saveResult());
         relationGroup.setOnCheckedChangeListener((group, checkedId) -> {
             boolean excluded = checkedId == R.id.relationExcluded;
             nameInput.setEnabled(!excluded);
             noteInput.setEnabled(!excluded);
+            setEnabledRecursively(resultButtons, !excluded);
+            setEnabledRecursively(followUpGroup, !excluded);
             resultButtons.setAlpha(excluded ? 0.35f : 1f);
             followUpGroup.setAlpha(excluded ? 0.35f : 1f);
         });
     }
 
     private void saveResult() {
-        if (relationGroup.getCheckedRadioButtonId() == R.id.relationExcluded) {
-            db.addPhoneRule(phone, "EXCLUDED", "사용자 제외");
-            Toast.makeText(this, "제외했습니다.", Toast.LENGTH_SHORT).show();
+        if (saving) return;
+        if (PhoneNumberNormalizer.normalize(phone).length() < 8) {
+            Toast.makeText(this, "전화번호를 확인해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (SettingsStore.isCallProcessed(this, callFingerprint)) {
+            Toast.makeText(this, "이미 처리한 통화입니다.", Toast.LENGTH_SHORT).show();
             finish();
+            return;
+        }
+
+        setSaving(true);
+        if (relationGroup.getCheckedRadioButtonId() == R.id.relationExcluded) {
+            try {
+                db.addPhoneRule(phone, "EXCLUDED", "사용자 제외");
+                SettingsStore.markCallProcessed(this, callFingerprint);
+                Toast.makeText(this, "제외했습니다.", Toast.LENGTH_SHORT).show();
+                finish();
+            } catch (RuntimeException e) {
+                setSaving(false);
+                Toast.makeText(this, "저장하지 못했습니다.", Toast.LENGTH_LONG).show();
+            }
             return;
         }
 
@@ -166,12 +196,13 @@ public final class PostCallActivity extends Activity {
                 : CallTagDbHelper.STATUS_NEW;
 
         try {
+            Customer latestCustomer = db.findByPhone(phone);
             long customerId;
-            if (existingCustomer == null) {
+            if (latestCustomer == null) {
                 customerId = db.insertCustomer(name, phone, initialStatus, "CALL");
             } else {
-                customerId = existingCustomer.id;
-                String nextStatus = existingCustomer.relationStatus;
+                customerId = latestCustomer.id;
+                String nextStatus = latestCustomer.relationStatus;
                 if (selectedExisting) {
                     nextStatus = CallTagDbHelper.STATUS_EXISTING;
                 } else if (!CallTagDbHelper.STATUS_EXISTING.equals(nextStatus)
@@ -184,19 +215,19 @@ public final class PostCallActivity extends Activity {
 
             if ("CONTRACT".equals(selectedResult)) {
                 db.markTransactionCompleted(customerId);
-            } else if (existingCustomer == null && isActiveResult(selectedResult)) {
+            } else if (latestCustomer == null && isActiveResult(selectedResult)) {
                 db.updateCustomer(customerId, name, CallTagDbHelper.STATUS_CONSULTING);
             }
 
             long startedAt = getIntent().getLongExtra(EXTRA_STARTED_AT, System.currentTimeMillis());
             long endedAt = getIntent().getLongExtra(EXTRA_ENDED_AT, System.currentTimeMillis());
-            long durationSec = getIntent().getLongExtra(EXTRA_DURATION_SEC, 0L);
+            long durationSec = Math.max(0L, getIntent().getLongExtra(EXTRA_DURATION_SEC, 0L));
             int type = getIntent().getIntExtra(EXTRA_CALL_TYPE, CallLog.Calls.INCOMING_TYPE);
             long interactionId = db.insertInteraction(
                     customerId,
                     callTypeCode(type),
                     startedAt,
-                    endedAt,
+                    Math.max(startedAt, endedAt),
                     durationSec,
                     selectedResult,
                     noteInput.getText().toString().trim());
@@ -205,13 +236,44 @@ public final class PostCallActivity extends Activity {
             if (dueAt > 0L) {
                 db.insertFollowUpTask(customerId, interactionId, "CALL", "다시 연락", dueAt);
             }
+            SettingsStore.markCallProcessed(this, callFingerprint);
             Toast.makeText(this, "저장했습니다.", Toast.LENGTH_SHORT).show();
             finish();
         } catch (IllegalArgumentException e) {
+            setSaving(false);
             Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
         } catch (RuntimeException e) {
+            setSaving(false);
             Toast.makeText(this, "저장하지 못했습니다.", Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void setSaving(boolean value) {
+        saving = value;
+        saveButton.setEnabled(!value);
+        saveButton.setAlpha(value ? 0.55f : 1f);
+        saveButton.setText(value ? "저장 중" : "저장");
+        relationGroup.setEnabled(!value);
+        nameInput.setEnabled(!value && relationGroup.getCheckedRadioButtonId() != R.id.relationExcluded);
+        noteInput.setEnabled(!value && relationGroup.getCheckedRadioButtonId() != R.id.relationExcluded);
+    }
+
+    private void setEnabledRecursively(View view, boolean enabled) {
+        view.setEnabled(enabled && !saving);
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                setEnabledRecursively(group.getChildAt(i), enabled);
+            }
+        }
+    }
+
+    private String buildCallFingerprint() {
+        String normalized = PhoneNumberNormalizer.normalize(phone);
+        long startedAt = getIntent().getLongExtra(EXTRA_STARTED_AT, 0L);
+        long durationSec = getIntent().getLongExtra(EXTRA_DURATION_SEC, 0L);
+        int type = getIntent().getIntExtra(EXTRA_CALL_TYPE, CallLog.Calls.INCOMING_TYPE);
+        return normalized + ":" + startedAt + ":" + durationSec + ":" + type;
     }
 
     private boolean isActiveResult(String result) {
@@ -226,7 +288,7 @@ public final class PostCallActivity extends Activity {
         long days = checked == R.id.followTomorrow ? 1L
                 : checked == R.id.followThreeDays ? 3L : 7L;
         Calendar calendar = Calendar.getInstance();
-        calendar.setTimeInMillis(System.currentTimeMillis() + days * 24L * 60L * 60L * 1000L);
+        calendar.add(Calendar.DAY_OF_MONTH, (int) days);
         calendar.set(Calendar.HOUR_OF_DAY, 10);
         calendar.set(Calendar.MINUTE, 0);
         calendar.set(Calendar.SECOND, 0);
@@ -257,8 +319,9 @@ public final class PostCallActivity extends Activity {
     }
 
     private String formatDuration(long seconds) {
-        long minutes = seconds / 60L;
-        long remain = seconds % 60L;
+        long safeSeconds = Math.max(0L, seconds);
+        long minutes = safeSeconds / 60L;
+        long remain = safeSeconds % 60L;
         return minutes > 0 ? minutes + "분 " + remain + "초" : remain + "초";
     }
 
