@@ -31,15 +31,16 @@ public final class CallerIdSetupActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_caller_id_setup);
-        CallerPopupNotification.ensureChannel(this);
+        CallPopupNotificationManager.ensureChannels(this);
         status = findViewById(R.id.callerIdSetupStatus);
         action = findViewById(R.id.callerIdSetupAction);
         privacyGroup = findViewById(R.id.callerIdPrivacyGroup);
         findViewById(R.id.callerIdSetupBack).setOnClickListener(v -> finish());
         action.setOnClickListener(v -> beginSetup());
         findViewById(R.id.callerIdTestPopup).setOnClickListener(v -> showTestPopup());
-        findViewById(R.id.callerIdNotificationSettings).setOnClickListener(
-                v -> CallerPopupNotification.openChannelSettings(this));
+        findViewById(R.id.callerIdNotificationSettings).setOnClickListener(v ->
+                CallPopupNotificationManager.openChannelSettings(
+                        this, CallPopupNotificationManager.INCOMING_CHANNEL_ID));
         bindPrivacyOptions();
         render();
     }
@@ -47,7 +48,7 @@ public final class CallerIdSetupActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        CallerPopupNotification.ensureChannel(this);
+        CallPopupNotificationManager.ensureChannels(this);
         render();
     }
 
@@ -88,12 +89,14 @@ public final class CallerIdSetupActivity extends Activity {
             return;
         }
 
-        CallerPopupNotification.ensureChannel(this);
-        if (!CallerPopupNotification.isPopupEnabled(this)) {
+        CallPopupNotificationManager.ensureChannels(this);
+        if (!CallPopupNotificationManager.isPopupReady(
+                this, CallPopupNotificationManager.INCOMING_CHANNEL_ID)) {
             Toast.makeText(this,
                     "‘전화 수신 고객정보 팝업’에서 알림 허용과 팝업 표시를 켜주세요.",
                     Toast.LENGTH_LONG).show();
-            CallerPopupNotification.openChannelSettings(this);
+            CallPopupNotificationManager.openChannelSettings(
+                    this, CallPopupNotificationManager.INCOMING_CHANNEL_ID);
             return;
         }
         Toast.makeText(this,
@@ -157,7 +160,8 @@ public final class CallerIdSetupActivity extends Activity {
         boolean contacts = hasContactsPermission();
         boolean notifications = hasNotificationPermission();
         boolean roleHeld = hasScreeningRole();
-        boolean popup = CallerPopupNotification.isPopupEnabled(this);
+        boolean popup = CallPopupNotificationManager.isPopupReady(
+                this, CallPopupNotificationManager.INCOMING_CHANNEL_ID);
         long checkedAt = SettingsStore.lastCallerScreeningAt(this);
         String diagnostic = SettingsStore.lastCallerScreeningStatus(this);
         String diagnosticAt = checkedAt <= 0L ? ""
@@ -193,20 +197,21 @@ public final class CallerIdSetupActivity extends Activity {
                 Toast.makeText(this, "테스트할 고객을 먼저 추가해주세요.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            CallerPopupNotification.ensureChannel(this);
-            if (!CallerPopupNotification.isPopupEnabled(this)) {
+            CallPopupNotificationManager.ensureChannels(this);
+            if (!CallPopupNotificationManager.isPopupReady(
+                    this, CallPopupNotificationManager.INCOMING_CHANNEL_ID)) {
                 Toast.makeText(this,
                         "먼저 전화 수신 고객정보 알림의 팝업 표시를 켜주세요.", Toast.LENGTH_LONG).show();
-                CallerPopupNotification.openChannelSettings(this);
+                CallPopupNotificationManager.openChannelSettings(
+                        this, CallPopupNotificationManager.INCOMING_CHANNEL_ID);
                 return;
             }
             Customer customer = customers.get(0);
-            boolean shown = CallerPopupNotification.post(
+            boolean shown = CallPopupNotificationManager.showIncoming(
                     this,
                     customer,
                     CustomerInsightResolver.latestMemo(db, customer),
-                    db.stageColor(customer.relationStatus),
-                    true);
+                    db.stageColor(customer.relationStatus));
             Toast.makeText(this,
                     shown ? "전화 수신 알림 팝업 테스트를 보냈습니다."
                             : "알림 팝업을 표시하지 못했습니다.",
