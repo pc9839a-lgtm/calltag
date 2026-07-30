@@ -173,6 +173,18 @@
                 android:textStyle="bold" />
 
             <Button
+                android:id="@+id/callerIdTestPopup"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_secondary_button"
+                android:text="고객정보 팝업 테스트"
+                android:textAllCaps="false"
+                android:textColor="@color/primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <Button
                 android:id="@+id/callerIdNotificationSettings"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
