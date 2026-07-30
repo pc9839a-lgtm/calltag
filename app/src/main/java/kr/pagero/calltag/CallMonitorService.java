@@ -1,13 +1,11 @@
 package kr.pagero.calltag;
 
 import android.Manifest;
-import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
@@ -20,14 +18,11 @@ import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyCallback;
 import android.telephony.TelephonyManager;
 
-import java.util.List;
-
 public final class CallMonitorService extends Service {
     public static final String ACTION_START = "kr.pagero.calltag.START_MONITOR";
     public static final String ACTION_STOP = "kr.pagero.calltag.STOP_MONITOR";
 
     private static final String MONITOR_CHANNEL = "calltag_monitor";
-    private static final String REVIEW_CHANNEL = "calltag_post_call";
     private static final int MONITOR_NOTIFICATION_ID = 4101;
     private static final long[] LOOKUP_DELAYS = {1500L, 3500L, 7000L};
 
@@ -193,24 +188,15 @@ public final class CallMonitorService extends Service {
                     .putExtra(PostCallActivity.EXTRA_CACHED_NAME, record.cachedName)
                     .putExtra(PostCallActivity.EXTRA_CALL_TYPE, record.type)
                     .putExtra(PostCallActivity.EXTRA_STARTED_AT, record.startedAt)
-                    .putExtra(PostCallActivity.EXTRA_ENDED_AT, Math.max(record.endedAt(), System.currentTimeMillis()))
+                    .putExtra(PostCallActivity.EXTRA_ENDED_AT,
+                            Math.max(record.endedAt(), System.currentTimeMillis()))
                     .putExtra(PostCallActivity.EXTRA_DURATION_SEC, Math.max(0L, record.durationSec))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                            | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                            | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
-            if (deferred) {
-                showReviewNotification(record, customer, review, db);
-                return;
-            }
-
-            if (isAppInForeground()) {
-                try {
-                    startActivity(review);
-                } catch (RuntimeException ignored) {
-                    showReviewNotification(record, customer, review, db);
-                }
-                return;
-            }
-            showReviewNotification(record, customer, review, db);
+            String memo = customer == null ? "" : CustomerInsightResolver.latestMemo(db, customer);
+            CallPopupNotificationManager.showPostCall(this, record, customer, review, memo);
         } finally {
             pendingStore.close();
             db.close();
@@ -223,77 +209,8 @@ public final class CallMonitorService extends Service {
                 || (record.type == CallLog.Calls.OUTGOING_TYPE && record.durationSec == 0L);
     }
 
-    private void showReviewNotification(CallRecord record, Customer customer,
-                                        Intent review, CallTagDbHelper db) {
-        PendingIntent pendingIntent = PendingIntent.getActivity(
-                this,
-                (int) (record.id & 0x7fffffff),
-                review,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        String callLabel = callTypeLabel(record);
-        String title;
-        String body;
-        if (customer == null) {
-            title = callLabel + " · " + (record.cachedName.trim().isEmpty() ? record.phone : record.cachedName);
-            body = needsDeferredHandling(record)
-                    ? "다시 전화하거나 할 일을 등록해주세요."
-                    : "통화 결과와 메모를 남겨주세요.";
-        } else {
-            title = callLabel + " · " + customer.displayName;
-            String memo = CustomerInsightResolver.latestMemo(db, customer);
-            body = customer.relationStatus;
-            if (!memo.isEmpty()) body += "\n최근 메모 · " + memo;
-        }
-
-        Notification notification = new Notification.Builder(this, REVIEW_CHANNEL)
-                .setSmallIcon(android.R.drawable.sym_action_call)
-                .setContentTitle(title)
-                .setContentText(customer == null ? record.phone : customer.relationStatus)
-                .setStyle(new Notification.BigTextStyle().bigText(body))
-                .setContentIntent(pendingIntent)
-                .setAutoCancel(true)
-                .setCategory(Notification.CATEGORY_REMINDER)
-                .setPriority(Notification.PRIORITY_HIGH)
-                .setVisibility(Notification.VISIBILITY_PRIVATE)
-                .build();
-        try {
-            NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-            if (manager != null) {
-                manager.notify(5000 + (int) (record.id % 100000), notification);
-            }
-        } catch (RuntimeException ignored) {
-            // Notification permission or OEM restrictions can block delivery.
-        }
-    }
-
-    private String callTypeLabel(CallRecord record) {
-        if (record.type == CallLog.Calls.MISSED_TYPE) return "부재중";
-        if (record.type == CallLog.Calls.REJECTED_TYPE) return "거절한 전화";
-        if (record.type == CallLog.Calls.OUTGOING_TYPE && record.durationSec == 0L) {
-            return "발신 · 연결 안 됨";
-        }
-        if (record.type == CallLog.Calls.OUTGOING_TYPE) return "발신 통화 완료";
-        return "수신 통화 완료";
-    }
-
     private void sendPendingChanged() {
         sendBroadcast(new Intent(PendingCallSectionView.ACTION_CHANGED).setPackage(getPackageName()));
-    }
-
-    private boolean isAppInForeground() {
-        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        if (manager == null) return false;
-        List<ActivityManager.RunningAppProcessInfo> processes = manager.getRunningAppProcesses();
-        if (processes == null) return false;
-        String packageName = getPackageName();
-        for (ActivityManager.RunningAppProcessInfo process : processes) {
-            if (packageName.equals(process.processName)
-                    && process.importance == ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void createChannels() {
@@ -303,12 +220,7 @@ public final class CallMonitorService extends Service {
                 MONITOR_CHANNEL, "통화 감지", NotificationManager.IMPORTANCE_LOW);
         monitor.setDescription("콜태그가 통화 종료를 감지하는 동안 표시됩니다.");
         manager.createNotificationChannel(monitor);
-
-        NotificationChannel review = new NotificationChannel(
-                REVIEW_CHANNEL, "통화 후 처리", NotificationManager.IMPORTANCE_HIGH);
-        review.setDescription("발신·수신·부재중·거절 통화의 다음 행동을 알려줍니다.");
-        review.enableVibration(true);
-        manager.createNotificationChannel(review);
+        CallPopupNotificationManager.ensureChannels(this);
     }
 
     private Notification monitorNotification() {
@@ -350,7 +262,8 @@ public final class CallMonitorService extends Service {
         return null;
     }
 
-    private final class CallStateCallback extends TelephonyCallback implements TelephonyCallback.CallStateListener {
+    private final class CallStateCallback extends TelephonyCallback
+            implements TelephonyCallback.CallStateListener {
         @Override
         public void onCallStateChanged(int state) {
             handleCallState(state);
