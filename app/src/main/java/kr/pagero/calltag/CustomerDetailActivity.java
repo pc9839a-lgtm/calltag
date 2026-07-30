@@ -10,7 +10,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -85,8 +84,8 @@ public final class CustomerDetailActivity extends Activity {
         }
         nameView.setText(customer.displayName);
         phoneView.setText(customer.primaryPhone);
-        statusView.setText(statusLabel(customer.relationStatus) + "  ›");
-        statusView.setTextColor(getColor(statusColor(customer.relationStatus)));
+        statusView.setText(customer.relationStatus + "  ▾");
+        statusView.setTextColor(getColor(R.color.primary));
         if (!memoInput.hasFocus()) memoInput.setText(customer.memo);
         renderTasks();
         renderInteractions();
@@ -95,7 +94,7 @@ public final class CustomerDetailActivity extends Activity {
     private void renderTasks() {
         taskList.removeAllViews();
         List<FollowUpTask> tasks = db.listTasksForCustomer(customerId);
-        taskEmpty.setVisibility(tasks.isEmpty() ? View.VISIBLE : View.GONE);
+        taskEmpty.setVisibility(tasks.isEmpty() ? android.view.View.VISIBLE : android.view.View.GONE);
         SimpleDateFormat formatter = new SimpleDateFormat("M월 d일 E a h:mm", Locale.KOREA);
 
         for (FollowUpTask task : tasks) {
@@ -151,7 +150,7 @@ public final class CustomerDetailActivity extends Activity {
     private void renderInteractions() {
         interactionList.removeAllViews();
         List<InteractionRecord> records = db.listInteractionsForCustomer(customerId);
-        interactionEmpty.setVisibility(records.isEmpty() ? View.VISIBLE : View.GONE);
+        interactionEmpty.setVisibility(records.isEmpty() ? android.view.View.VISIBLE : android.view.View.GONE);
         DateFormat formatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
 
         for (InteractionRecord record : records) {
@@ -203,36 +202,32 @@ public final class CustomerDetailActivity extends Activity {
 
     private void showStatusDialog() {
         if (customer == null) return;
-        String[] labels = {"신규", "상담 중", "기존", "VIP", "휴면"};
-        String[] values = {
-                CallTagDbHelper.STATUS_NEW,
-                CallTagDbHelper.STATUS_CONSULTING,
-                CallTagDbHelper.STATUS_EXISTING,
-                CallTagDbHelper.STATUS_VIP,
-                CallTagDbHelper.STATUS_DORMANT
-        };
+        List<StageOption> stages = db.listStages();
+        String[] labels = new String[stages.size()];
         int selected = 0;
-        for (int i = 0; i < values.length; i++) {
-            if (values[i].equals(customer.relationStatus)) selected = i;
+        for (int i = 0; i < stages.size(); i++) {
+            labels[i] = stages.get(i).name;
+            if (labels[i].equals(customer.relationStatus)) selected = i;
         }
         new AlertDialog.Builder(this)
-                .setTitle("고객 상태 변경")
+                .setTitle("영업 상태 변경")
                 .setSingleChoiceItems(labels, selected, (dialog, which) -> {
                     String oldStatus = customer.relationStatus;
-                    String newStatus = values[which];
+                    String newStatus = stages.get(which).name;
                     if (!oldStatus.equals(newStatus)) {
                         db.updateCustomerProfile(customer.id, customer.displayName,
                                 newStatus, memoInput.getText().toString());
                         long now = System.currentTimeMillis();
                         db.insertInteraction(customer.id, "STATUS_CHANGE", now, now, 0L,
-                                "STATUS_" + newStatus,
-                                statusLabel(oldStatus) + " → " + statusLabel(newStatus));
-                        Toast.makeText(this, statusLabel(newStatus) + "으로 변경했습니다.",
+                                "STATUS_" + newStatus, oldStatus + " → " + newStatus);
+                        Toast.makeText(this, newStatus + "으로 변경했습니다.",
                                 Toast.LENGTH_SHORT).show();
                     }
                     dialog.dismiss();
                     loadCustomer();
                 })
+                .setNeutralButton("단계 편집", (dialog, which) ->
+                        startActivity(new Intent(this, StageSettingsActivity.class)))
                 .setNegativeButton("닫기", null)
                 .show();
     }
@@ -302,14 +297,9 @@ public final class CustomerDetailActivity extends Activity {
     private void createSchedule(String title, String taskType, long dueAt) {
         if (customer == null) return;
         db.insertFollowUpTask(customer.id, 0L, taskType, title, dueAt);
-        String statusNote = "";
-        if (CallTagDbHelper.STATUS_NEW.equals(customer.relationStatus)) {
-            db.updateCustomer(customer.id, customer.displayName, CallTagDbHelper.STATUS_CONSULTING);
-            statusNote = " · 신규 → 상담 중";
-        }
         long now = System.currentTimeMillis();
         db.insertInteraction(customer.id, "SCHEDULE_CREATE", now, now, 0L,
-                "SCHEDULED", title + statusNote);
+                "SCHEDULED", title);
         Toast.makeText(this, "일정을 추가했습니다.", Toast.LENGTH_SHORT).show();
         loadCustomer();
     }
@@ -390,20 +380,6 @@ public final class CustomerDetailActivity extends Activity {
         }
     }
 
-    private String statusLabel(String status) {
-        if (CallTagDbHelper.STATUS_CONSULTING.equals(status)) return "상담 중";
-        if (CallTagDbHelper.STATUS_EXISTING.equals(status)) return "기존";
-        if (CallTagDbHelper.STATUS_VIP.equals(status)) return "VIP";
-        if (CallTagDbHelper.STATUS_DORMANT.equals(status)) return "휴면";
-        return "신규";
-    }
-
-    private int statusColor(String status) {
-        if (CallTagDbHelper.STATUS_NEW.equals(status)) return R.color.primary;
-        if (CallTagDbHelper.STATUS_EXISTING.equals(status)) return R.color.text_primary;
-        return R.color.text_secondary;
-    }
-
     private String resultLabel(String result) {
         if ("QUOTE".equals(result)) return "견적·자료 발송";
         if ("CALLBACK".equals(result)) return "다시 연락";
@@ -413,7 +389,7 @@ public final class CustomerDetailActivity extends Activity {
         if ("SCHEDULED".equals(result)) return "일정 등록·변경";
         if ("TASK_COMPLETED".equals(result)) return "일정 완료";
         if (result != null && result.startsWith("STATUS_")) {
-            return "상태 변경 · " + statusLabel(result.substring("STATUS_".length()));
+            return "상태 변경 · " + result.substring("STATUS_".length());
         }
         return "관심 있음";
     }
@@ -422,7 +398,7 @@ public final class CustomerDetailActivity extends Activity {
         if ("OUTGOING_CALL".equals(type)) return "발신 통화";
         if ("MISSED_CALL".equals(type)) return "부재중";
         if ("REJECTED_CALL".equals(type)) return "거절";
-        if ("STATUS_CHANGE".equals(type)) return "고객 상태";
+        if ("STATUS_CHANGE".equals(type)) return "영업 상태";
         if ("SCHEDULE_CREATE".equals(type)) return "일정 등록";
         if ("SCHEDULE_CHANGE".equals(type)) return "일정 변경";
         if ("TASK_COMPLETE".equals(type)) return "일정 처리";
