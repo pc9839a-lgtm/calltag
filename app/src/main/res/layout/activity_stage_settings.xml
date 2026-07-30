@@ -32,11 +32,20 @@
             android:layout_marginLeft="14dp"
             android:layout_weight="1"
             android:includeFontPadding="false"
-            android:text="영업 단계 편집"
+            android:text="고객 상태"
             android:textColor="@color/text_primary"
             android:textSize="24sp"
             android:textStyle="bold" />
     </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:lineSpacingExtra="3dp"
+        android:text="기본 상태는 3개만 제공합니다. 이름과 태그 색상은 모두 수정할 수 있습니다."
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp" />
 
     <TextView
         android:id="@+id/stageSettingsAdd"
@@ -45,7 +54,7 @@
         android:layout_marginTop="18dp"
         android:background="@drawable/bg_primary_button"
         android:gravity="center"
-        android:text="+ 영업 단계 추가"
+        android:text="+ 사용자 상태 추가"
         android:textColor="@android:color/white"
         android:textSize="16sp"
         android:textStyle="bold" />
@@ -53,7 +62,7 @@
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="18dp"
         android:layout_weight="1"
         android:clipToPadding="false">
 
