@@ -37,18 +37,19 @@ public final class CallMonitorService extends Service {
     private PhoneStateListener legacyListener;
     private boolean sawCall;
     private boolean lookupRunning;
+    private boolean listenerRegistered;
     private long callEventStartedAt;
 
     @Override
     public void onCreate() {
         super.onCreate();
         createChannels();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(MONITOR_NOTIFICATION_ID, monitorNotification(),
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-        } else {
-            startForeground(MONITOR_NOTIFICATION_ID, monitorNotification());
+        if (!hasRequiredPermissions()) {
+            SettingsStore.setMonitorEnabled(this, false);
+            stopSelf();
+            return;
         }
+        startForegroundSafely();
         registerCallListener();
     }
 
@@ -59,28 +60,61 @@ public final class CallMonitorService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
+        if (!hasRequiredPermissions()) {
+            SettingsStore.setMonitorEnabled(this, false);
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         SettingsStore.setMonitorEnabled(this, true);
+        if (!listenerRegistered) registerCallListener();
         return START_STICKY;
     }
 
+    private void startForegroundSafely() {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                startForeground(MONITOR_NOTIFICATION_ID, monitorNotification(),
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            } else {
+                startForeground(MONITOR_NOTIFICATION_ID, monitorNotification());
+            }
+        } catch (RuntimeException e) {
+            SettingsStore.setMonitorEnabled(this, false);
+            stopSelf();
+        }
+    }
+
+    private boolean hasRequiredPermissions() {
+        return checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED;
+    }
+
     private void registerCallListener() {
-        if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
+        if (listenerRegistered || !hasRequiredPermissions()) return;
+        telephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
+        if (telephonyManager == null) {
+            SettingsStore.setMonitorEnabled(this, false);
             stopSelf();
             return;
         }
 
-        telephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            callback31 = new CallStateCallback();
-            telephonyManager.registerTelephonyCallback(getMainExecutor(), callback31);
-        } else {
-            legacyListener = new PhoneStateListener() {
-                @Override
-                public void onCallStateChanged(int state, String phoneNumber) {
-                    handleCallState(state);
-                }
-            };
-            telephonyManager.listen(legacyListener, PhoneStateListener.LISTEN_CALL_STATE);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                callback31 = new CallStateCallback();
+                telephonyManager.registerTelephonyCallback(getMainExecutor(), callback31);
+            } else {
+                legacyListener = new PhoneStateListener() {
+                    @Override
+                    public void onCallStateChanged(int state, String phoneNumber) {
+                        handleCallState(state);
+                    }
+                };
+                telephonyManager.listen(legacyListener, PhoneStateListener.LISTEN_CALL_STATE);
+            }
+            listenerRegistered = true;
+        } catch (SecurityException | RuntimeException e) {
+            SettingsStore.setMonitorEnabled(this, false);
+            stopSelf();
         }
     }
 
@@ -98,7 +132,18 @@ public final class CallMonitorService extends Service {
     }
 
     private void lookupCall(int attempt) {
+        if (attempt < 0 || attempt >= LOOKUP_DELAYS.length) {
+            resetLookupState();
+            return;
+        }
         handler.postDelayed(() -> {
+            if (!hasRequiredPermissions()) {
+                SettingsStore.setMonitorEnabled(this, false);
+                resetLookupState();
+                stopSelf();
+                return;
+            }
+
             CallRecord record = CallLogRepository.findLatest(this, callEventStartedAt - 120_000L);
             if (record == null && attempt + 1 < LOOKUP_DELAYS.length) {
                 lookupCall(attempt + 1);
@@ -108,31 +153,48 @@ public final class CallMonitorService extends Service {
                 SettingsStore.setLastCallId(this, record.id);
                 onCallResolved(record);
             }
-            sawCall = false;
-            lookupRunning = false;
+            resetLookupState();
         }, LOOKUP_DELAYS[attempt]);
     }
 
+    private void resetLookupState() {
+        sawCall = false;
+        lookupRunning = false;
+        callEventStartedAt = 0L;
+    }
+
     private void onCallResolved(CallRecord record) {
-        if (record.phone.trim().isEmpty()) return;
+        if (record == null || PhoneNumberNormalizer.normalize(record.phone).length() < 8) return;
+
         CallTagDbHelper db = new CallTagDbHelper(this);
-        if (db.isExcluded(record.phone)) return;
-        Customer customer = db.findByPhone(record.phone);
+        try {
+            if (db.isExcluded(record.phone)) return;
+            Customer customer = db.findByPhone(record.phone);
 
-        Intent review = new Intent(this, PostCallActivity.class)
-                .putExtra(PostCallActivity.EXTRA_PHONE, record.phone)
-                .putExtra(PostCallActivity.EXTRA_CACHED_NAME, record.cachedName)
-                .putExtra(PostCallActivity.EXTRA_CALL_TYPE, record.type)
-                .putExtra(PostCallActivity.EXTRA_STARTED_AT, record.startedAt)
-                .putExtra(PostCallActivity.EXTRA_ENDED_AT, Math.max(record.endedAt(), System.currentTimeMillis()))
-                .putExtra(PostCallActivity.EXTRA_DURATION_SEC, record.durationSec)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            Intent review = new Intent(this, PostCallActivity.class)
+                    .putExtra(PostCallActivity.EXTRA_PHONE, record.phone)
+                    .putExtra(PostCallActivity.EXTRA_CACHED_NAME, record.cachedName)
+                    .putExtra(PostCallActivity.EXTRA_CALL_TYPE, record.type)
+                    .putExtra(PostCallActivity.EXTRA_STARTED_AT, record.startedAt)
+                    .putExtra(PostCallActivity.EXTRA_ENDED_AT, Math.max(record.endedAt(), System.currentTimeMillis()))
+                    .putExtra(PostCallActivity.EXTRA_DURATION_SEC, Math.max(0L, record.durationSec))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
-        if (isAppInForeground()) {
-            startActivity(review);
-            return;
+            if (isAppInForeground()) {
+                try {
+                    startActivity(review);
+                } catch (RuntimeException ignored) {
+                    showReviewNotification(record, customer, review);
+                }
+                return;
+            }
+            showReviewNotification(record, customer, review);
+        } finally {
+            db.close();
         }
+    }
 
+    private void showReviewNotification(CallRecord record, Customer customer, Intent review) {
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this,
                 (int) (record.id & 0x7fffffff),
@@ -154,12 +216,17 @@ public final class CallMonitorService extends Service {
                 .setCategory(Notification.CATEGORY_REMINDER)
                 .setPriority(Notification.PRIORITY_HIGH)
                 .build();
-        ((NotificationManager) getSystemService(NOTIFICATION_SERVICE))
-                .notify(5000 + (int) (record.id % 100000), notification);
+        try {
+            ((NotificationManager) getSystemService(NOTIFICATION_SERVICE))
+                    .notify(5000 + (int) (record.id % 100000), notification);
+        } catch (RuntimeException ignored) {
+            // Notification permission or OEM restrictions can block delivery.
+        }
     }
 
     private boolean isAppInForeground() {
         ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        if (manager == null) return false;
         List<ActivityManager.RunningAppProcessInfo> processes = manager.getRunningAppProcesses();
         if (processes == null) return false;
         String packageName = getPackageName();
@@ -174,6 +241,7 @@ public final class CallMonitorService extends Service {
 
     private void createChannels() {
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        if (manager == null) return;
         NotificationChannel monitor = new NotificationChannel(
                 MONITOR_CHANNEL, "통화 감지", NotificationManager.IMPORTANCE_LOW);
         monitor.setDescription("콜태그가 통화 종료를 감지하는 동안 표시됩니다.");
@@ -187,7 +255,8 @@ public final class CallMonitorService extends Service {
     }
 
     private Notification monitorNotification() {
-        Intent open = new Intent(this, MainActivity.class);
+        Intent open = new Intent(this, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pending = PendingIntent.getActivity(
                 this, 1, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, MONITOR_CHANNEL)
@@ -211,13 +280,19 @@ public final class CallMonitorService extends Service {
     @Override
     public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
-        if (telephonyManager != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && callback31 != null) {
-                telephonyManager.unregisterTelephonyCallback(callback31);
-            } else if (legacyListener != null) {
-                telephonyManager.listen(legacyListener, PhoneStateListener.LISTEN_NONE);
+        if (telephonyManager != null && listenerRegistered) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && callback31 != null) {
+                    telephonyManager.unregisterTelephonyCallback(callback31);
+                } else if (legacyListener != null) {
+                    telephonyManager.listen(legacyListener, PhoneStateListener.LISTEN_NONE);
+                }
+            } catch (RuntimeException ignored) {
+                // Listener may already be unregistered by the system.
             }
         }
+        listenerRegistered = false;
+        resetLookupState();
         super.onDestroy();
     }
 
