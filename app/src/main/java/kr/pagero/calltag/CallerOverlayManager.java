@@ -30,6 +30,10 @@ public final class CallerOverlayManager {
 
     private CallerOverlayManager() {}
 
+    public interface ShowCallback {
+        void onResult(boolean shown);
+    }
+
     public static boolean canShow(Context context) {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.M || Settings.canDrawOverlays(context);
     }
@@ -51,9 +55,20 @@ public final class CallerOverlayManager {
     }
 
     public static boolean show(Context context, Customer customer, String memo, String stageColor) {
-        if (customer == null || !canShow(context)) return false;
+        return show(context, customer, memo, stageColor, null);
+    }
+
+    public static boolean show(Context context, Customer customer, String memo, String stageColor,
+                               ShowCallback callback) {
+        if (customer == null || !canShow(context)) {
+            if (callback != null) HANDLER.post(() -> callback.onResult(false));
+            return false;
+        }
         Context app = context.getApplicationContext();
-        HANDLER.post(() -> showOnMain(app, customer, memo, stageColor, false));
+        HANDLER.post(() -> {
+            boolean shown = showOnMain(app, customer, memo, stageColor, false);
+            if (callback != null) callback.onResult(shown);
+        });
         return true;
     }
 
@@ -76,16 +91,21 @@ public final class CallerOverlayManager {
         return true;
     }
 
+    public static boolean isShowing() {
+        View current = overlayView;
+        return current != null && current.isAttachedToWindow();
+    }
+
     public static void hide(Context context) {
         HANDLER.post(CallerOverlayManager::hideOnMain);
     }
 
-    private static void showOnMain(Context context, Customer customer, String memo,
-                                   String stageColor, boolean setupTest) {
+    private static boolean showOnMain(Context context, Customer customer, String memo,
+                                      String stageColor, boolean setupTest) {
         hideOnMain();
         try {
             windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-            if (windowManager == null) return;
+            if (windowManager == null) return false;
 
             overlayView = buildView(context, customer, memo, stageColor, setupTest);
             WindowManager.LayoutParams params = new WindowManager.LayoutParams(
@@ -102,8 +122,10 @@ public final class CallerOverlayManager {
             params.y = dp(context, 54);
             params.windowAnimations = android.R.style.Animation_Dialog;
             windowManager.addView(overlayView, params);
+            return overlayView.isAttachedToWindow();
         } catch (RuntimeException ignored) {
             hideOnMain();
+            return false;
         }
     }
 
