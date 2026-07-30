@@ -11,7 +11,10 @@ public final class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if (!SettingsStore.isMonitorEnabled(context)) return;
-        if (context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) return;
+        if (!hasRequiredPermissions(context)) {
+            SettingsStore.setMonitorEnabled(context, false);
+            return;
+        }
 
         Intent service = new Intent(context, CallMonitorService.class)
                 .setAction(CallMonitorService.ACTION_START);
@@ -22,7 +25,19 @@ public final class BootReceiver extends BroadcastReceiver {
                 context.startService(service);
             }
         } catch (RuntimeException ignored) {
-            // The app will restart monitoring the next time the user opens it.
+            SettingsStore.setMonitorEnabled(context, false);
         }
+    }
+
+    private boolean hasRequiredPermissions(Context context) {
+        boolean granted = context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE)
+                == PackageManager.PERMISSION_GRANTED
+                && context.checkSelfPermission(Manifest.permission.READ_CALL_LOG)
+                == PackageManager.PERMISSION_GRANTED;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            granted = granted && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+        return granted;
     }
 }
