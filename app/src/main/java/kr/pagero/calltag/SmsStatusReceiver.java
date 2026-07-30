@@ -23,6 +23,7 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
 
         MessageLogStore store = new MessageLogStore(context);
         try {
+            MessageRecord before = store.find(messageId);
             if (getResultCode() == Activity.RESULT_OK) {
                 synchronized (SmsStatusReceiver.class) {
                     SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -31,20 +32,45 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
                     if (success >= partCount) {
                         prefs.edit().remove(key).apply();
                         store.markSent(messageId);
+                        recordTimeline(context, before, true, "");
                     } else {
                         prefs.edit().putInt(key, success).apply();
                     }
                 }
             } else {
-                store.markFailed(messageId, errorLabel(getResultCode()));
+                String error = errorLabel(getResultCode());
+                boolean firstFailure = before != null
+                        && !MessageLogStore.STATUS_FAILED.equals(before.status)
+                        && !MessageLogStore.STATUS_SENT.equals(before.status);
+                store.markFailed(messageId, error);
                 context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                         .edit().remove("ok_" + messageId).apply();
+                if (firstFailure) recordTimeline(context, before, false, error);
             }
         } finally {
             store.close();
         }
         context.sendBroadcast(new Intent(MessageSectionView.ACTION_CHANGED)
                 .setPackage(context.getPackageName()));
+    }
+
+    private void recordTimeline(Context context, MessageRecord record,
+                                boolean sent, String error) {
+        if (record == null || record.customerId <= 0L) return;
+        CallTagDbHelper db = new CallTagDbHelper(context);
+        try {
+            long now = System.currentTimeMillis();
+            db.insertInteraction(
+                    record.customerId,
+                    sent ? "MESSAGE_SENT" : "MESSAGE_FAILED",
+                    now,
+                    now,
+                    0L,
+                    sent ? "SENT" : "FAILED",
+                    sent ? record.body : error + " · " + record.body);
+        } finally {
+            db.close();
+        }
     }
 
     private String errorLabel(int resultCode) {
