@@ -11,6 +11,8 @@ public final class SettingsStore {
     private static final String KEY_CALLER_PRIVACY_MODE = "caller_privacy_mode";
     private static final String KEY_LAST_SCREENING_STATUS = "last_screening_status";
     private static final String KEY_LAST_SCREENING_AT = "last_screening_at";
+    private static final String KEY_CONTACT_NAME_SYNC_ENABLED = "contact_name_sync_enabled";
+    private static final String KEY_CONTACT_NAME_SYNC_STATUS = "contact_name_sync_status";
 
     public static final int CALLER_PRIVACY_NAME = 0;
     public static final int CALLER_PRIVACY_STAGE = 1;
@@ -59,6 +61,24 @@ public final class SettingsStore {
     public static void setCallerPrivacyMode(Context context, int mode) {
         int safe = Math.max(CALLER_PRIVACY_NAME, Math.min(CALLER_PRIVACY_MEMO, mode));
         prefs(context).edit().putInt(KEY_CALLER_PRIVACY_MODE, safe).apply();
+    }
+
+    public static boolean isContactNameSyncEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_CONTACT_NAME_SYNC_ENABLED, false);
+    }
+
+    public static void setContactNameSyncEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_CONTACT_NAME_SYNC_ENABLED, enabled).apply();
+    }
+
+    public static void setContactNameSyncStatus(Context context, String status) {
+        prefs(context).edit().putString(KEY_CONTACT_NAME_SYNC_STATUS,
+                status == null ? "" : status.trim()).apply();
+    }
+
+    public static String contactNameSyncStatus(Context context) {
+        return prefs(context).getString(KEY_CONTACT_NAME_SYNC_STATUS,
+                "아직 연락처 이름을 동기화하지 않았습니다.");
     }
 
     public static void setCallerScreeningStatus(Context context, String status) {
