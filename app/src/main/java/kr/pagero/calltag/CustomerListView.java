@@ -23,13 +23,29 @@ public final class CustomerListView extends LinearLayout {
 
     @Override
     public void addView(View child, ViewGroup.LayoutParams params) {
+        styleChild(child, params);
+        super.addView(child, params);
+    }
+
+    private void styleChild(View child, ViewGroup.LayoutParams params) {
         if (child instanceof TextView) {
             TextView empty = (TextView) child;
-            empty.setMinHeight(dp(78));
+            empty.setMinHeight(dp(72));
             empty.setGravity(Gravity.CENTER);
-            empty.setPadding(dp(16), dp(14), dp(16), dp(14));
+            empty.setPadding(dp(14), dp(12), dp(14), dp(12));
+            return;
         }
-        super.addView(child, params);
+
+        if (!(child instanceof LinearLayout)) return;
+        LinearLayout card = (LinearLayout) child;
+        card.setPadding(dp(14), dp(12), dp(14), dp(12));
+        card.setClickable(false);
+        card.setFocusable(false);
+        card.setMinimumHeight(dp(112));
+
+        if (params instanceof LinearLayout.LayoutParams) {
+            ((LinearLayout.LayoutParams) params).bottomMargin = dp(8);
+        }
     }
 
     private int dp(int value) {
