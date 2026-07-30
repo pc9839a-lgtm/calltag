@@ -3,6 +3,8 @@ package kr.pagero.calltag;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.DatePickerDialog;
+import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
@@ -21,9 +23,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public final class MainActivity extends Activity {
     private static final int REQUEST_MONITOR_PERMISSIONS = 1201;
@@ -48,12 +53,15 @@ public final class MainActivity extends Activity {
     private LinearLayout consultationSummary;
     private LinearLayout moreMenuList;
     private String activeCustomerFilter;
+    private final Calendar visibleCalendarMonth = Calendar.getInstance();
+    private final Calendar selectedCalendarDate = Calendar.getInstance();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         db = new CallTagDbHelper(this);
+        normalizeCalendarState();
         bindViews();
         bindActions();
         selectSection(sectionToday, navToday);
@@ -64,6 +72,12 @@ public final class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         refreshAll();
+    }
+
+    private void normalizeCalendarState() {
+        visibleCalendarMonth.set(Calendar.DAY_OF_MONTH, 1);
+        clearTime(visibleCalendarMonth);
+        clearTime(selectedCalendarDate);
     }
 
     private void bindViews() {
@@ -234,10 +248,7 @@ public final class MainActivity extends Activity {
             call.setOnClickListener(v -> dial(task.phone));
             actions.addView(call, new LinearLayout.LayoutParams(0, dp(44), 1f));
             Button done = smallButton("완료", true);
-            done.setOnClickListener(v -> {
-                db.completeTask(task.id);
-                refreshAll();
-            });
+            done.setOnClickListener(v -> completeCalendarTask(task));
             LinearLayout.LayoutParams doneParams = new LinearLayout.LayoutParams(0, dp(44), 1f);
             doneParams.leftMargin = dp(9);
             actions.addView(done, doneParams);
@@ -269,7 +280,7 @@ public final class MainActivity extends Activity {
         if (customers.isEmpty()) {
             TextView empty = bodyText("고객이 없습니다.");
             empty.setGravity(Gravity.CENTER);
-            empty.setPadding(dp(24), dp(30), dp(24), dp(30));
+            empty.setPadding(dp(24), dp(22), dp(24), dp(22));
             empty.setBackgroundResource(R.drawable.bg_card);
             customerList.addView(empty, matchWrap());
             return;
@@ -289,6 +300,9 @@ public final class MainActivity extends Activity {
             badge.setPadding(dp(10), dp(6), dp(10), dp(6));
             badge.setBackgroundResource(R.drawable.bg_badge);
             header.addView(badge);
+            TextView arrow = titleText("  ›", 22f);
+            arrow.setTextColor(getColor(R.color.text_muted));
+            header.addView(arrow);
             card.addView(header, matchWrap());
             card.addView(bodyText(customer.primaryPhone), topMargin(10));
             card.addView(mutedText(formatter.format(new Date(customer.lastContactAt))), topMargin(5));
@@ -301,48 +315,369 @@ public final class MainActivity extends Activity {
     private void renderConsultations() {
         consultationSummary.removeAllViews();
 
-        LinearLayout stats = new LinearLayout(this);
-        stats.setOrientation(LinearLayout.HORIZONTAL);
-        stats.setGravity(Gravity.CENTER);
-        stats.setPadding(0, dp(18), 0, dp(18));
-        stats.setBackgroundResource(R.drawable.bg_card);
-        addMetricColumn(stats, db.countCustomersByStatus(CallTagDbHelper.STATUS_NEW), "신규");
-        addDivider(stats);
-        addMetricColumn(stats, db.countCustomersByStatus(CallTagDbHelper.STATUS_CONSULTING), "상담 중");
-        addDivider(stats);
-        addMetricColumn(stats, db.countCustomersByStatus(CallTagDbHelper.STATUS_EXISTING), "기존");
-        consultationSummary.addView(stats, matchWrap());
+        Calendar monthStart = (Calendar) visibleCalendarMonth.clone();
+        monthStart.set(Calendar.DAY_OF_MONTH, 1);
+        clearTime(monthStart);
+        Calendar monthEnd = (Calendar) monthStart.clone();
+        monthEnd.add(Calendar.MONTH, 1);
+        List<FollowUpTask> monthTasks = db.listTasksBetween(
+                monthStart.getTimeInMillis(), monthEnd.getTimeInMillis());
 
-        TextView title = titleText("최근 상담", 18f);
-        consultationSummary.addView(title, topMargin(26));
-        List<InteractionRecord> records = db.listRecentInteractions(30);
-        if (records.isEmpty()) {
-            TextView empty = bodyText("상담 기록이 없습니다.");
+        consultationSummary.addView(buildMonthHeader(), matchWrap());
+        consultationSummary.addView(buildWeekdayHeader(), topMargin(12));
+        consultationSummary.addView(buildCalendarGrid(monthStart, monthTasks), topMargin(5));
+        consultationSummary.addView(buildSelectedDateHeader(), topMargin(24));
+        renderSelectedDateTasks(monthTasks);
+    }
+
+    private View buildMonthHeader() {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+
+        TextView prev = calendarArrow("‹");
+        prev.setOnClickListener(v -> changeCalendarMonth(-1));
+        row.addView(prev, new LinearLayout.LayoutParams(dp(48), dp(48)));
+
+        TextView title = titleText(new SimpleDateFormat("yyyy년 M월", Locale.KOREA)
+                .format(visibleCalendarMonth.getTime()), 20f);
+        title.setGravity(Gravity.CENTER);
+        row.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1f));
+
+        TextView next = calendarArrow("›");
+        next.setOnClickListener(v -> changeCalendarMonth(1));
+        row.addView(next, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        return row;
+    }
+
+    private TextView calendarArrow(String label) {
+        TextView view = titleText(label, 30f);
+        view.setGravity(Gravity.CENTER);
+        view.setBackgroundResource(R.drawable.bg_secondary_button);
+        view.setClickable(true);
+        view.setFocusable(true);
+        return view;
+    }
+
+    private View buildWeekdayHeader() {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        String[] labels = {"일", "월", "화", "수", "목", "금", "토"};
+        for (int i = 0; i < labels.length; i++) {
+            TextView day = mutedText(labels[i]);
+            day.setGravity(Gravity.CENTER);
+            if (i == 0) day.setTextColor(getColor(R.color.danger));
+            if (i == 6) day.setTextColor(getColor(R.color.primary));
+            row.addView(day, new LinearLayout.LayoutParams(0, dp(34), 1f));
+        }
+        return row;
+    }
+
+    private View buildCalendarGrid(Calendar monthStart, List<FollowUpTask> monthTasks) {
+        LinearLayout calendar = new LinearLayout(this);
+        calendar.setOrientation(LinearLayout.VERTICAL);
+        calendar.setPadding(dp(6), dp(8), dp(6), dp(8));
+        calendar.setBackgroundResource(R.drawable.bg_card);
+
+        int offset = monthStart.get(Calendar.DAY_OF_WEEK) - Calendar.SUNDAY;
+        int maxDay = monthStart.getActualMaximum(Calendar.DAY_OF_MONTH);
+        Calendar today = Calendar.getInstance();
+        clearTime(today);
+
+        for (int week = 0; week < 6; week++) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            for (int column = 0; column < 7; column++) {
+                int index = week * 7 + column;
+                int dayNumber = index - offset + 1;
+                TextView cell = new TextView(this);
+                cell.setGravity(Gravity.CENTER);
+                cell.setIncludeFontPadding(false);
+                cell.setTextSize(13f);
+                cell.setLineSpacing(0f, 1.2f);
+                cell.setBackgroundResource(R.drawable.bg_calendar_day);
+
+                if (dayNumber >= 1 && dayNumber <= maxDay) {
+                    Calendar date = (Calendar) monthStart.clone();
+                    date.set(Calendar.DAY_OF_MONTH, dayNumber);
+                    clearTime(date);
+                    int total = countTasksForDate(monthTasks, date, false);
+                    int completed = countTasksForDate(monthTasks, date, true);
+                    String secondLine = total == 0 ? "" : (completed == total ? "\n✓ " + total : "\n" + total + "건");
+                    cell.setText(dayNumber + secondLine);
+                    cell.setTextColor(getColor(column == 0 ? R.color.danger
+                            : column == 6 ? R.color.primary : R.color.text_primary));
+
+                    if (sameDay(date, selectedCalendarDate)) {
+                        cell.setBackgroundResource(R.drawable.bg_calendar_day_selected);
+                        cell.setTextColor(getColor(R.color.text_primary));
+                        cell.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                    } else if (sameDay(date, today)) {
+                        cell.setBackgroundResource(R.drawable.bg_calendar_day_today);
+                        cell.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                    }
+                    cell.setOnClickListener(v -> {
+                        selectedCalendarDate.setTimeInMillis(date.getTimeInMillis());
+                        renderConsultations();
+                    });
+                    cell.setClickable(true);
+                    cell.setFocusable(true);
+                }
+                LinearLayout.LayoutParams cellParams = new LinearLayout.LayoutParams(0, dp(58), 1f);
+                cellParams.setMargins(dp(2), dp(2), dp(2), dp(2));
+                row.addView(cell, cellParams);
+            }
+            calendar.addView(row, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        }
+        return calendar;
+    }
+
+    private int countTasksForDate(List<FollowUpTask> tasks, Calendar date, boolean completedOnly) {
+        int count = 0;
+        for (FollowUpTask task : tasks) {
+            if (sameDay(task.dueAt, date) && (!completedOnly || task.isCompleted())) count++;
+        }
+        return count;
+    }
+
+    private View buildSelectedDateHeader() {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+
+        TextView title = titleText(new SimpleDateFormat("M월 d일 EEEE", Locale.KOREA)
+                .format(selectedCalendarDate.getTime()), 18f);
+        row.addView(title, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView add = titleText("+ 일정 추가", 14f);
+        add.setTextColor(getColor(R.color.primary));
+        add.setGravity(Gravity.CENTER);
+        add.setPadding(dp(14), 0, dp(14), 0);
+        add.setBackgroundResource(R.drawable.bg_secondary_button);
+        add.setOnClickListener(v -> showAddScheduleFlow());
+        row.addView(add, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)));
+        return row;
+    }
+
+    private void renderSelectedDateTasks(List<FollowUpTask> monthTasks) {
+        List<FollowUpTask> selectedTasks = new ArrayList<>();
+        for (FollowUpTask task : monthTasks) {
+            if (sameDay(task.dueAt, selectedCalendarDate)) selectedTasks.add(task);
+        }
+
+        if (selectedTasks.isEmpty()) {
+            TextView empty = bodyText("등록된 일정이 없습니다.");
             empty.setGravity(Gravity.CENTER);
-            empty.setPadding(dp(20), dp(28), dp(20), dp(28));
+            empty.setPadding(dp(20), dp(24), dp(20), dp(24));
             empty.setBackgroundResource(R.drawable.bg_card);
             consultationSummary.addView(empty, topMargin(12));
             return;
         }
 
-        DateFormat formatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
-        for (InteractionRecord record : records) {
+        SimpleDateFormat timeFormat = new SimpleDateFormat("a h:mm", Locale.KOREA);
+        for (FollowUpTask task : selectedTasks) {
             LinearLayout card = verticalCard();
-            card.setOnClickListener(v -> openCustomer(record.customerId));
+            card.setOnClickListener(v -> openCustomer(task.customerId));
+
             LinearLayout header = new LinearLayout(this);
             header.setGravity(Gravity.CENTER_VERTICAL);
-            header.addView(titleText(record.customerName, 16f), new LinearLayout.LayoutParams(
+            TextView customerName = titleText(task.customerName, 16f);
+            header.addView(customerName, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            header.addView(mutedText(formatter.format(new Date(record.startedAt))));
+            Customer customer = db.findCustomerById(task.customerId);
+            TextView status = titleText(customer == null ? "" : statusLabel(customer.relationStatus), 12f);
+            status.setTextColor(customer == null ? getColor(R.color.text_muted) : statusColor(customer.relationStatus));
+            status.setPadding(dp(10), dp(5), dp(10), dp(5));
+            status.setBackgroundResource(R.drawable.bg_badge);
+            header.addView(status);
             card.addView(header, matchWrap());
-            card.addView(bodyText(resultLabel(record.result)), topMargin(7));
-            if (record.note != null && !record.note.trim().isEmpty()) {
-                card.addView(mutedText(record.note.trim()), topMargin(6));
-            }
-            LinearLayout.LayoutParams params = matchWrap();
-            params.topMargin = dp(10);
-            consultationSummary.addView(card, params);
+
+            TextView taskTitle = bodyText((task.isCompleted() ? "완료 · " : "") + task.title);
+            if (task.isCompleted()) taskTitle.setTextColor(getColor(R.color.text_muted));
+            card.addView(taskTitle, topMargin(9));
+            card.addView(mutedText(timeFormat.format(new Date(task.dueAt))), topMargin(5));
+
+            LinearLayout actions = new LinearLayout(this);
+            actions.setOrientation(LinearLayout.HORIZONTAL);
+            Button change = smallButton(task.isCompleted() ? "다시 열기" : "변경", false);
+            change.setOnClickListener(v -> {
+                if (task.isCompleted()) {
+                    db.reopenTask(task.id);
+                    refreshAll();
+                } else {
+                    showTaskOptions(task);
+                }
+            });
+            actions.addView(change, new LinearLayout.LayoutParams(0, dp(42), 1f));
+
+            Button action = smallButton(task.isCompleted() ? "삭제" : "완료", !task.isCompleted());
+            action.setOnClickListener(v -> {
+                if (task.isCompleted()) confirmDeleteTask(task);
+                else completeCalendarTask(task);
+            });
+            LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(0, dp(42), 1f);
+            actionParams.leftMargin = dp(8);
+            actions.addView(action, actionParams);
+            card.addView(actions, topMargin(12));
+
+            LinearLayout.LayoutParams cardParams = matchWrap();
+            cardParams.topMargin = dp(10);
+            consultationSummary.addView(card, cardParams);
         }
+    }
+
+    private void changeCalendarMonth(int delta) {
+        visibleCalendarMonth.add(Calendar.MONTH, delta);
+        visibleCalendarMonth.set(Calendar.DAY_OF_MONTH, 1);
+        clearTime(visibleCalendarMonth);
+        selectedCalendarDate.setTimeInMillis(visibleCalendarMonth.getTimeInMillis());
+        renderConsultations();
+    }
+
+    private void showAddScheduleFlow() {
+        List<Customer> customers = db.listCustomers(null);
+        if (customers.isEmpty()) {
+            Toast.makeText(this, "먼저 고객을 추가해주세요.", Toast.LENGTH_SHORT).show();
+            selectSection(sectionCustomers, navCustomers);
+            showAddCustomerDialog();
+            return;
+        }
+
+        String[] labels = new String[customers.size()];
+        for (int i = 0; i < customers.size(); i++) {
+            Customer customer = customers.get(i);
+            labels[i] = customer.displayName + "  ·  " + statusLabel(customer.relationStatus);
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("고객 선택")
+                .setItems(labels, (dialog, which) -> showScheduleTypeDialog(customers.get(which)))
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void showScheduleTypeDialog(Customer customer) {
+        String[] labels = {"전화하기", "방문·미팅", "자료 보내기", "직접 입력"};
+        String[] types = {"CALL", "MEETING", "SEND", "CUSTOM"};
+        new AlertDialog.Builder(this)
+                .setTitle("일정 종류")
+                .setItems(labels, (dialog, which) -> {
+                    if (which == 3) showCustomScheduleTitle(customer);
+                    else showNewTaskTimePicker(customer, labels[which], types[which]);
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void showCustomScheduleTitle(Customer customer) {
+        EditText input = input("일정 내용", InputType.TYPE_CLASS_TEXT);
+        input.setPadding(dp(14), dp(12), dp(14), dp(12));
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setPadding(dp(20), dp(8), dp(20), 0);
+        wrap.addView(input, matchWrap());
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("일정 내용")
+                .setView(wrap)
+                .setNegativeButton("취소", null)
+                .setPositiveButton("다음", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    String title = input.getText().toString().trim();
+                    if (title.isEmpty()) {
+                        Toast.makeText(this, "일정 내용을 입력해주세요.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    dialog.dismiss();
+                    showNewTaskTimePicker(customer, title, "CUSTOM");
+                }));
+        dialog.show();
+    }
+
+    private void showNewTaskTimePicker(Customer customer, String title, String taskType) {
+        int defaultHour = 10;
+        int defaultMinute = 0;
+        new TimePickerDialog(this, (view, hourOfDay, minute) -> {
+            Calendar due = (Calendar) selectedCalendarDate.clone();
+            due.set(Calendar.HOUR_OF_DAY, hourOfDay);
+            due.set(Calendar.MINUTE, minute);
+            due.set(Calendar.SECOND, 0);
+            due.set(Calendar.MILLISECOND, 0);
+            db.insertFollowUpTask(customer.id, 0L, taskType, title, due.getTimeInMillis());
+
+            String statusNote = "";
+            if (CallTagDbHelper.STATUS_NEW.equals(customer.relationStatus)) {
+                db.updateCustomer(customer.id, customer.displayName, CallTagDbHelper.STATUS_CONSULTING);
+                statusNote = " · 신규 → 상담 중";
+            }
+            long now = System.currentTimeMillis();
+            db.insertInteraction(customer.id, "SCHEDULE_CREATE", now, now, 0L,
+                    "SCHEDULED", title + statusNote);
+            Toast.makeText(this, "일정을 추가했습니다.", Toast.LENGTH_SHORT).show();
+            refreshAll();
+        }, defaultHour, defaultMinute, false).show();
+    }
+
+    private void showTaskOptions(FollowUpTask task) {
+        String[] actions = {"날짜·시간 변경", "고객 보기", "삭제"};
+        new AlertDialog.Builder(this)
+                .setTitle(task.title)
+                .setItems(actions, (dialog, which) -> {
+                    if (which == 0) showRescheduleDatePicker(task);
+                    if (which == 1) openCustomer(task.customerId);
+                    if (which == 2) confirmDeleteTask(task);
+                })
+                .setNegativeButton("닫기", null)
+                .show();
+    }
+
+    private void showRescheduleDatePicker(FollowUpTask task) {
+        Calendar current = Calendar.getInstance();
+        current.setTimeInMillis(task.dueAt);
+        new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
+            Calendar changed = Calendar.getInstance();
+            changed.set(year, month, dayOfMonth,
+                    current.get(Calendar.HOUR_OF_DAY), current.get(Calendar.MINUTE), 0);
+            changed.set(Calendar.MILLISECOND, 0);
+            new TimePickerDialog(this, (timeView, hourOfDay, minute) -> {
+                changed.set(Calendar.HOUR_OF_DAY, hourOfDay);
+                changed.set(Calendar.MINUTE, minute);
+                db.updateTaskDue(task.id, changed.getTimeInMillis());
+                selectedCalendarDate.setTimeInMillis(changed.getTimeInMillis());
+                visibleCalendarMonth.setTimeInMillis(changed.getTimeInMillis());
+                visibleCalendarMonth.set(Calendar.DAY_OF_MONTH, 1);
+                clearTime(visibleCalendarMonth);
+                long now = System.currentTimeMillis();
+                db.insertInteraction(task.customerId, "SCHEDULE_CHANGE", now, now, 0L,
+                        "SCHEDULED", task.title + " 일정 변경");
+                Toast.makeText(this, "일정을 변경했습니다.", Toast.LENGTH_SHORT).show();
+                refreshAll();
+            }, current.get(Calendar.HOUR_OF_DAY), current.get(Calendar.MINUTE), false).show();
+        }, current.get(Calendar.YEAR), current.get(Calendar.MONTH), current.get(Calendar.DAY_OF_MONTH)).show();
+    }
+
+    private void completeCalendarTask(FollowUpTask task) {
+        db.completeTask(task.id);
+        long now = System.currentTimeMillis();
+        db.insertInteraction(task.customerId, "TASK_COMPLETE", now, now, 0L,
+                "TASK_COMPLETED", task.title + " 완료");
+        Toast.makeText(this, "일정을 완료했습니다.", Toast.LENGTH_SHORT).show();
+        refreshAll();
+    }
+
+    private void confirmDeleteTask(FollowUpTask task) {
+        new AlertDialog.Builder(this)
+                .setTitle("일정 삭제")
+                .setMessage(task.title)
+                .setNegativeButton("취소", null)
+                .setPositiveButton("삭제", (dialog, which) -> {
+                    db.deleteTask(task.id);
+                    Toast.makeText(this, "삭제했습니다.", Toast.LENGTH_SHORT).show();
+                    refreshAll();
+                })
+                .show();
     }
 
     private void renderMoreMenu() {
@@ -413,24 +748,6 @@ public final class MainActivity extends Activity {
         dialog.show();
     }
 
-    private void addMetricColumn(LinearLayout parent, int value, String label) {
-        TextView text = new TextView(this);
-        text.setText(value + "\n" + label);
-        text.setGravity(Gravity.CENTER);
-        text.setIncludeFontPadding(false);
-        text.setLineSpacing(0f, 1.35f);
-        text.setTextColor(getColor(R.color.text_primary));
-        text.setTextSize(15f);
-        text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        parent.addView(text, new LinearLayout.LayoutParams(0, dp(76), 1f));
-    }
-
-    private void addDivider(LinearLayout parent) {
-        View divider = new View(this);
-        divider.setBackgroundColor(getColor(R.color.border));
-        parent.addView(divider, new LinearLayout.LayoutParams(dp(1), dp(44)));
-    }
-
     private Button smallButton(String label, boolean primary) {
         Button button = new Button(this);
         button.setText(label);
@@ -447,6 +764,8 @@ public final class MainActivity extends Activity {
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(18), dp(16), dp(18), dp(16));
         card.setBackgroundResource(R.drawable.bg_card);
+        card.setClickable(true);
+        card.setFocusable(true);
         return card;
     }
 
@@ -509,6 +828,11 @@ public final class MainActivity extends Activity {
         if ("CONTRACT".equals(result)) return "계약·거래 완료";
         if ("HOLD".equals(result)) return "보류";
         if ("CLOSED".equals(result)) return "상담 종료";
+        if ("SCHEDULED".equals(result)) return "일정 등록·변경";
+        if ("TASK_COMPLETED".equals(result)) return "일정 완료";
+        if (result != null && result.startsWith("STATUS_")) {
+            return "상태 변경 · " + statusLabel(result.substring("STATUS_".length()));
+        }
         return "관심 있음";
     }
 
@@ -518,6 +842,24 @@ public final class MainActivity extends Activity {
         } catch (RuntimeException e) {
             Toast.makeText(this, "전화 앱을 열 수 없습니다.", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private boolean sameDay(long millis, Calendar date) {
+        Calendar other = Calendar.getInstance();
+        other.setTimeInMillis(millis);
+        return sameDay(other, date);
+    }
+
+    private boolean sameDay(Calendar a, Calendar b) {
+        return a.get(Calendar.YEAR) == b.get(Calendar.YEAR)
+                && a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR);
+    }
+
+    private void clearTime(Calendar calendar) {
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
     }
 
     private LinearLayout.LayoutParams matchWrap() {
