@@ -21,7 +21,7 @@
         <item name="android:listPreferredItemHeightSmall">64dp</item>
         <item name="android:listViewStyle">@style/Widget.CallTag.DialogList</item>
         <item name="android:backgroundDimEnabled">true</item>
-        <item name="android:windowDimAmount">0.72</item>
+        <item name="android:backgroundDimAmount">0.72</item>
     </style>
 
     <style name="Widget.CallTag.DialogList" parent="android:style/Widget.Material.ListView">
