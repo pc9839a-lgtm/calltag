@@ -94,7 +94,7 @@
             android:drawablePadding="4dp"
             android:gravity="center"
             android:includeFontPadding="false"
-            android:text="상담"
+            android:text="캘린더"
             android:textColor="@color/nav_inactive"
             android:textSize="12sp" />
 
