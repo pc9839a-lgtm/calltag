@@ -21,6 +21,21 @@ public final class TaskTypeStore extends SQLiteOpenHelper {
 
     public TaskTypeStore(Context context) {
         super(context.getApplicationContext(), DB_NAME, null, DB_VERSION);
+        migrateNewCustomerColor(context.getApplicationContext());
+    }
+
+    private void migrateNewCustomerColor(Context context) {
+        CallTagDbHelper crm = new CallTagDbHelper(context);
+        try {
+            crm.getWritableDatabase().execSQL(
+                    "UPDATE crm_stages SET color='#7A5AF8',updated_at=? " +
+                            "WHERE position=0 AND color='#4389FF'",
+                    new Object[]{System.currentTimeMillis()});
+        } catch (RuntimeException ignored) {
+            // The CRM database may not be created yet; it will be retried on the next open.
+        } finally {
+            crm.close();
+        }
     }
 
     @Override
