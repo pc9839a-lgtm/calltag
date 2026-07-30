@@ -174,12 +174,21 @@ public final class CallMonitorService extends Service {
         PendingCallStore pendingStore = new PendingCallStore(this);
         try {
             if (db.isExcluded(record.phone)) return;
-            pendingStore.upsert(record);
-            sendPendingChanged();
+
+            boolean deferred = needsDeferredHandling(record);
+            boolean connected = !deferred && record.durationSec > 0L;
+            if (deferred) {
+                pendingStore.upsert(record);
+                sendPendingChanged();
+            } else if (connected) {
+                pendingStore.markUnansweredHandledByPhone(record.phone, record.startedAt + 1L);
+                TaskAutomation.completeNextCallTask(this, record.phone);
+                sendPendingChanged();
+            }
 
             Customer customer = db.findByPhone(record.phone);
             Intent review = new Intent(this, PostCallActivity.class)
-                    .putExtra(PostCallActivity.EXTRA_PENDING_CALL_ID, record.id)
+                    .putExtra(PostCallActivity.EXTRA_PENDING_CALL_ID, deferred ? record.id : -1L)
                     .putExtra(PostCallActivity.EXTRA_PHONE, record.phone)
                     .putExtra(PostCallActivity.EXTRA_CACHED_NAME, record.cachedName)
                     .putExtra(PostCallActivity.EXTRA_CALL_TYPE, record.type)
@@ -188,7 +197,7 @@ public final class CallMonitorService extends Service {
                     .putExtra(PostCallActivity.EXTRA_DURATION_SEC, Math.max(0L, record.durationSec))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
-            if (needsDeferredHandling(record)) {
+            if (deferred) {
                 showReviewNotification(record, customer, review, db);
                 return;
             }
@@ -227,7 +236,9 @@ public final class CallMonitorService extends Service {
         String body;
         if (customer == null) {
             title = callLabel + " · " + (record.cachedName.trim().isEmpty() ? record.phone : record.cachedName);
-            body = "등록되지 않은 번호입니다. 고객 등록 또는 다음 연락을 정리해주세요.";
+            body = needsDeferredHandling(record)
+                    ? "다시 전화하거나 할 일을 등록해주세요."
+                    : "통화 결과와 메모를 남겨주세요.";
         } else {
             title = callLabel + " · " + customer.displayName;
             String memo = CustomerInsightResolver.latestMemo(db, customer);
@@ -262,8 +273,8 @@ public final class CallMonitorService extends Service {
         if (record.type == CallLog.Calls.OUTGOING_TYPE && record.durationSec == 0L) {
             return "발신 · 연결 안 됨";
         }
-        if (record.type == CallLog.Calls.OUTGOING_TYPE) return "발신 통화";
-        return "수신 통화";
+        if (record.type == CallLog.Calls.OUTGOING_TYPE) return "발신 통화 완료";
+        return "수신 통화 완료";
     }
 
     private void sendPendingChanged() {
@@ -308,7 +319,7 @@ public final class CallMonitorService extends Service {
         return new Notification.Builder(this, MONITOR_CHANNEL)
                 .setSmallIcon(android.R.drawable.sym_action_call)
                 .setContentTitle("콜태그 실행 중")
-                .setContentText("발신·수신·부재중 통화를 고객 흐름으로 정리합니다.")
+                .setContentText("통화와 고객 할 일을 자동으로 연결합니다.")
                 .setContentIntent(pending)
                 .setOngoing(true)
                 .setCategory(Notification.CATEGORY_SERVICE)
