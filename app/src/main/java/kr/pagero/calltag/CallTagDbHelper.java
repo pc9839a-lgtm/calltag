@@ -12,28 +12,31 @@ import java.util.List;
 
 public final class CallTagDbHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "calltag.db";
-    private static final int DB_VERSION = 2;
+    private static final int DB_VERSION = 3;
 
-    public static final String STATUS_NEW = "신규 문의";
-    public static final String STATUS_CONSULTING = "요구 확인";
-    public static final String STATUS_QUOTE = "견적·자료 발송";
-    public static final String STATUS_REVIEW = "검토 중";
-    public static final String STATUS_EXPECTED = "계약 예정";
-    public static final String STATUS_EXISTING = "계약 완료";
+    public static final String STATUS_NEW = "신규";
+    public static final String STATUS_CONSULTING = "진행 중";
+    public static final String STATUS_EXISTING = "완료";
 
     // 구버전 코드와 기존 호출부 호환용. 화면에는 노출하지 않는다.
+    public static final String STATUS_QUOTE = STATUS_CONSULTING;
+    public static final String STATUS_REVIEW = STATUS_CONSULTING;
+    public static final String STATUS_EXPECTED = STATUS_CONSULTING;
     public static final String STATUS_VIP = STATUS_EXISTING;
-    public static final String STATUS_DORMANT = STATUS_REVIEW;
-    public static final String STATUS_OPT_OUT = STATUS_REVIEW;
-    public static final String STATUS_EXCLUDED = STATUS_REVIEW;
+    public static final String STATUS_DORMANT = STATUS_CONSULTING;
+    public static final String STATUS_OPT_OUT = STATUS_CONSULTING;
+    public static final String STATUS_EXCLUDED = STATUS_CONSULTING;
 
     private static final String[] DEFAULT_STAGES = {
             STATUS_NEW,
             STATUS_CONSULTING,
-            STATUS_QUOTE,
-            STATUS_REVIEW,
-            STATUS_EXPECTED,
             STATUS_EXISTING
+    };
+
+    private static final String[] DEFAULT_STAGE_COLORS = {
+            "#4389FF",
+            "#F5A524",
+            "#32D583"
     };
 
     public CallTagDbHelper(Context context) {
@@ -67,6 +70,7 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
                 "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                 "name TEXT NOT NULL UNIQUE," +
                 "position INTEGER NOT NULL," +
+                "color TEXT NOT NULL DEFAULT '#4389FF'," +
                 "created_at INTEGER NOT NULL," +
                 "updated_at INTEGER NOT NULL" +
                 ")");
@@ -140,12 +144,48 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
                     "id INTEGER PRIMARY KEY AUTOINCREMENT," +
                     "name TEXT NOT NULL UNIQUE," +
                     "position INTEGER NOT NULL," +
+                    "color TEXT NOT NULL DEFAULT '#4389FF'," +
                     "created_at INTEGER NOT NULL," +
                     "updated_at INTEGER NOT NULL" +
                     ")");
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_stages_position ON crm_stages(position, id)");
+        }
+        if (oldVersion < 3) {
+            if (!hasColumn(db, "crm_stages", "color")) {
+                db.execSQL("ALTER TABLE crm_stages ADD COLUMN color TEXT NOT NULL DEFAULT '#4389FF'");
+            }
+            migrateToSimpleStages(db);
+        }
+    }
+
+    private boolean hasColumn(SQLiteDatabase db, String table, String column) {
+        try (Cursor cursor = db.rawQuery("PRAGMA table_info(" + table + ")", null)) {
+            while (cursor.moveToNext()) {
+                if (column.equals(cursor.getString(cursor.getColumnIndexOrThrow("name")))) return true;
+            }
+        }
+        return false;
+    }
+
+    private void migrateToSimpleStages(SQLiteDatabase db) {
+        db.beginTransaction();
+        try {
+            db.execSQL("UPDATE customers SET relation_status=? WHERE relation_status IN ('NEW','신규','신규 문의')",
+                    new Object[]{STATUS_NEW});
+            db.execSQL("UPDATE customers SET relation_status=? WHERE relation_status IN " +
+                            "('CONSULTING','상담 중','요구 확인','견적·자료 발송','검토 중','계약 예정','DORMANT','OPT_OUT','EXCLUDED','휴면')",
+                    new Object[]{STATUS_CONSULTING});
+            db.execSQL("UPDATE customers SET relation_status=? WHERE relation_status IN " +
+                            "('EXISTING','VIP','기존','거래 고객','계약 완료')",
+                    new Object[]{STATUS_EXISTING});
+
+            db.execSQL("DELETE FROM crm_stages WHERE name IN " +
+                    "('신규 문의','요구 확인','견적·자료 발송','검토 중','계약 예정','계약 완료')");
             seedStages(db);
-            migrateLegacyStatuses(db);
+            normalizeStagePositions(db);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
         }
     }
 
@@ -155,30 +195,48 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
             ContentValues values = new ContentValues();
             values.put("name", DEFAULT_STAGES[i]);
             values.put("position", i);
+            values.put("color", DEFAULT_STAGE_COLORS[i]);
             values.put("created_at", now);
             values.put("updated_at", now);
             db.insertWithOnConflict("crm_stages", null, values, SQLiteDatabase.CONFLICT_IGNORE);
+
+            ContentValues update = new ContentValues();
+            update.put("position", i);
+            update.put("color", DEFAULT_STAGE_COLORS[i]);
+            update.put("updated_at", now);
+            db.update("crm_stages", update, "name=?", new String[]{DEFAULT_STAGES[i]});
         }
     }
 
-    private void migrateLegacyStatuses(SQLiteDatabase db) {
-        db.execSQL("UPDATE customers SET relation_status=? WHERE relation_status IN ('NEW','신규')",
-                new Object[]{STATUS_NEW});
-        db.execSQL("UPDATE customers SET relation_status=? WHERE relation_status IN ('CONSULTING','상담 중')",
-                new Object[]{STATUS_CONSULTING});
-        db.execSQL("UPDATE customers SET relation_status=? WHERE relation_status IN ('EXISTING','VIP','기존','거래 고객')",
-                new Object[]{STATUS_EXISTING});
-        db.execSQL("UPDATE customers SET relation_status=? WHERE relation_status IN ('DORMANT','OPT_OUT','EXCLUDED','휴면')",
-                new Object[]{STATUS_REVIEW});
+    private void normalizeStagePositions(SQLiteDatabase db) {
+        int next = 3;
+        for (int i = 0; i < DEFAULT_STAGES.length; i++) {
+            ContentValues base = new ContentValues();
+            base.put("position", i);
+            base.put("color", DEFAULT_STAGE_COLORS[i]);
+            db.update("crm_stages", base, "name=?", new String[]{DEFAULT_STAGES[i]});
+        }
+
+        String placeholders = "?,?,?";
+        try (Cursor cursor = db.query("crm_stages", new String[]{"id"},
+                "name NOT IN (" + placeholders + ")", DEFAULT_STAGES,
+                null, null, "position ASC,id ASC")) {
+            while (cursor.moveToNext()) {
+                ContentValues custom = new ContentValues();
+                custom.put("position", next++);
+                db.update("crm_stages", custom, "id=?", new String[]{String.valueOf(cursor.getLong(0))});
+            }
+        }
     }
 
     public List<StageOption> listStages() {
         List<StageOption> stages = new ArrayList<>();
         try (Cursor cursor = getReadableDatabase().query("crm_stages",
-                new String[]{"id", "name", "position"}, null, null,
+                new String[]{"id", "name", "position", "color"}, null, null,
                 null, null, "position ASC,id ASC")) {
             while (cursor.moveToNext()) {
-                stages.add(new StageOption(cursor.getLong(0), cursor.getString(1), cursor.getInt(2)));
+                stages.add(new StageOption(cursor.getLong(0), cursor.getString(1),
+                        cursor.getInt(2), cursor.getString(3)));
             }
         }
         if (stages.isEmpty()) {
@@ -195,30 +253,50 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
 
     public String completedStage() {
         List<StageOption> stages = listStages();
-        return stages.isEmpty() ? STATUS_EXISTING : stages.get(stages.size() - 1).name;
+        if (stages.isEmpty()) return STATUS_EXISTING;
+        return stages.get(Math.min(2, stages.size() - 1)).name;
+    }
+
+    public String stageColor(String stageName) {
+        if (stageName == null) return DEFAULT_STAGE_COLORS[0];
+        try (Cursor cursor = getReadableDatabase().query("crm_stages", new String[]{"color"},
+                "name=?", new String[]{stageName}, null, null, null, "1")) {
+            if (cursor.moveToFirst()) return sanitizeColor(cursor.getString(0));
+        }
+        return DEFAULT_STAGE_COLORS[0];
     }
 
     public long addStage(String rawName) {
+        return addStage(rawName, "#7A5AF8");
+    }
+
+    public long addStage(String rawName, String rawColor) {
         String name = cleanStageName(rawName);
-        if (stageExists(name, -1L)) throw new IllegalArgumentException("이미 등록된 단계입니다.");
+        if (stageExists(name, -1L)) throw new IllegalArgumentException("이미 등록된 상태입니다.");
         int position = count("SELECT COUNT(*) FROM crm_stages", null);
         long now = System.currentTimeMillis();
         ContentValues values = new ContentValues();
         values.put("name", name);
         values.put("position", position);
+        values.put("color", sanitizeColor(rawColor));
         values.put("created_at", now);
         values.put("updated_at", now);
         return getWritableDatabase().insertOrThrow("crm_stages", null, values);
     }
 
     public void renameStage(long stageId, String oldName, String rawName) {
+        updateStage(stageId, oldName, rawName, stageColor(oldName));
+    }
+
+    public void updateStage(long stageId, String oldName, String rawName, String rawColor) {
         String name = cleanStageName(rawName);
-        if (stageExists(name, stageId)) throw new IllegalArgumentException("이미 등록된 단계입니다.");
+        if (stageExists(name, stageId)) throw new IllegalArgumentException("이미 등록된 상태입니다.");
         SQLiteDatabase database = getWritableDatabase();
         database.beginTransaction();
         try {
             ContentValues stage = new ContentValues();
             stage.put("name", name);
+            stage.put("color", sanitizeColor(rawColor));
             stage.put("updated_at", System.currentTimeMillis());
             database.update("crm_stages", stage, "id=?", new String[]{String.valueOf(stageId)});
 
@@ -234,16 +312,14 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
 
     public void deleteStage(long stageId, String stageName) {
         List<StageOption> stages = listStages();
-        if (stages.size() <= 1) throw new IllegalArgumentException("영업 단계는 최소 1개가 필요합니다.");
-        String replacement = null;
-        for (StageOption stage : stages) {
-            if (stage.id != stageId) {
-                replacement = stage.name;
-                break;
+        for (int i = 0; i < Math.min(3, stages.size()); i++) {
+            if (stages.get(i).id == stageId) {
+                throw new IllegalArgumentException("기본 상태 3개는 삭제할 수 없습니다.");
             }
         }
-        if (replacement == null) throw new IllegalStateException("대체 단계를 찾지 못했습니다.");
+        if (stages.size() <= 3) throw new IllegalArgumentException("삭제할 사용자 상태가 없습니다.");
 
+        String replacement = stages.get(0).name;
         SQLiteDatabase database = getWritableDatabase();
         database.beginTransaction();
         try {
@@ -253,36 +329,6 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
             database.update("customers", customer, "relation_status=?", new String[]{stageName});
             database.delete("crm_stages", "id=?", new String[]{String.valueOf(stageId)});
             compactStagePositions(database);
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
-    }
-
-    public void moveStage(long stageId, int direction) {
-        List<StageOption> stages = listStages();
-        int index = -1;
-        for (int i = 0; i < stages.size(); i++) {
-            if (stages.get(i).id == stageId) {
-                index = i;
-                break;
-            }
-        }
-        int target = index + direction;
-        if (index < 0 || target < 0 || target >= stages.size()) return;
-        StageOption current = stages.get(index);
-        StageOption other = stages.get(target);
-        SQLiteDatabase database = getWritableDatabase();
-        database.beginTransaction();
-        try {
-            ContentValues first = new ContentValues();
-            first.put("position", other.position);
-            first.put("updated_at", System.currentTimeMillis());
-            database.update("crm_stages", first, "id=?", new String[]{String.valueOf(current.id)});
-            ContentValues second = new ContentValues();
-            second.put("position", current.position);
-            second.put("updated_at", System.currentTimeMillis());
-            database.update("crm_stages", second, "id=?", new String[]{String.valueOf(other.id)});
             database.setTransactionSuccessful();
         } finally {
             database.endTransaction();
@@ -313,9 +359,14 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
 
     private String cleanStageName(String rawName) {
         String name = rawName == null ? "" : rawName.trim().replaceAll("\\s+", " ");
-        if (name.isEmpty()) throw new IllegalArgumentException("단계명을 입력해주세요.");
-        if (name.length() > 18) throw new IllegalArgumentException("단계명은 18자 이하로 입력해주세요.");
+        if (name.isEmpty()) throw new IllegalArgumentException("상태 이름을 입력해주세요.");
+        if (name.length() > 18) throw new IllegalArgumentException("상태 이름은 18자 이하로 입력해주세요.");
         return name;
+    }
+
+    private String sanitizeColor(String rawColor) {
+        String color = rawColor == null ? "" : rawColor.trim().toUpperCase();
+        return color.matches("#[0-9A-F]{6}") ? color : "#4389FF";
     }
 
     public long insertNewLead(String displayName, String phone) {
@@ -343,13 +394,18 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
 
     private String normalizeLegacyStatus(String status) {
         if (status == null || status.trim().isEmpty()) return firstStage();
-        if ("NEW".equals(status)) return STATUS_NEW;
-        if ("CONSULTING".equals(status)) return STATUS_CONSULTING;
-        if ("EXISTING".equals(status) || "VIP".equals(status)) return completedStage();
-        if ("DORMANT".equals(status) || "OPT_OUT".equals(status) || "EXCLUDED".equals(status)) {
-            return STATUS_REVIEW;
+        String value = status.trim();
+        if ("NEW".equals(value) || "신규 문의".equals(value)) return firstStage();
+        if ("CONSULTING".equals(value) || "상담 중".equals(value)
+                || "요구 확인".equals(value) || "견적·자료 발송".equals(value)
+                || "검토 중".equals(value) || "계약 예정".equals(value)) {
+            List<StageOption> stages = listStages();
+            return stages.size() > 1 ? stages.get(1).name : firstStage();
         }
-        return status.trim();
+        if ("EXISTING".equals(value) || "VIP".equals(value) || "계약 완료".equals(value)) {
+            return completedStage();
+        }
+        return value;
     }
 
     public void updateCustomer(long customerId, String displayName, String status) {
