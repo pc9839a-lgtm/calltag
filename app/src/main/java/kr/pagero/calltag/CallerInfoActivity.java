@@ -58,7 +58,7 @@ public final class CallerInfoActivity extends Activity {
         TextView nameView = findViewById(R.id.callerInfoName);
         TextView phoneView = findViewById(R.id.callerInfoPhone);
         TextView stageView = findViewById(R.id.callerInfoStage);
-        TextView memoWrap = findViewById(R.id.callerInfoMemoWrap);
+        View memoWrap = findViewById(R.id.callerInfoMemoWrap);
         TextView memoView = findViewById(R.id.callerInfoMemo);
         TextView lastContactView = findViewById(R.id.callerInfoLastContact);
         TextView privacyMessage = findViewById(R.id.callerInfoPrivacyMessage);
