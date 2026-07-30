@@ -7,7 +7,10 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.CallLog;
+import android.provider.Settings;
 import android.widget.Button;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -24,6 +27,7 @@ public final class CallerIdSetupActivity extends Activity {
     private static final int REQUEST_SCREENING_ROLE = 7302;
     private static final int REQUEST_NOTIFICATIONS = 7303;
 
+    private final Handler handler = new Handler(Looper.getMainLooper());
     private TextView status;
     private Button action;
     private RadioGroup privacyGroup;
@@ -39,13 +43,8 @@ public final class CallerIdSetupActivity extends Activity {
         findViewById(R.id.callerIdSetupBack).setOnClickListener(v -> finish());
         action.setOnClickListener(v -> beginSetup());
         findViewById(R.id.callerIdTestPopup).setOnClickListener(v -> showIncomingTestPopup());
-        findViewById(R.id.postCallTestPopup).setOnClickListener(v -> showPostCallTestPopup());
-        findViewById(R.id.callerIdNotificationSettings).setOnClickListener(v ->
-                CallPopupNotificationManager.openChannelSettings(
-                        this, CallPopupNotificationManager.INCOMING_CHANNEL_ID));
-        findViewById(R.id.postCallNotificationSettings).setOnClickListener(v ->
-                CallPopupNotificationManager.openChannelSettings(
-                        this, CallPopupNotificationManager.POST_CALL_CHANNEL_ID));
+        findViewById(R.id.callerIdTestPostCallPopup).setOnClickListener(v -> showPostCallTestPopup());
+        findViewById(R.id.callerIdNotificationSettings).setOnClickListener(v -> openPopupSettings());
         bindPrivacyOptions();
         render();
     }
@@ -217,13 +216,12 @@ public final class CallerIdSetupActivity extends Activity {
                 return;
             }
             Customer customer = customers.get(0);
-            boolean shown = CallPopupNotificationManager.showIncoming(
-                    this, customer, CustomerInsightResolver.latestMemo(db, customer),
-                    db.stageColor(customer.relationStatus));
-            Toast.makeText(this,
-                    shown ? "전화 수신 상단 팝업 테스트를 보냈습니다."
-                            : "수신 팝업을 표시하지 못했습니다.",
-                    Toast.LENGTH_SHORT).show();
+            String memo = CustomerInsightResolver.latestMemo(db, customer);
+            String color = db.stageColor(customer.relationStatus);
+            Toast.makeText(this, "홈 화면으로 이동합니다. 2초 후 수신 팝업이 표시됩니다.", Toast.LENGTH_LONG).show();
+            moveTaskToBack(true);
+            handler.postDelayed(() -> CallPopupNotificationManager.showIncoming(
+                    this, customer, memo, color), 2000L);
         } finally {
             db.close();
         }
@@ -250,13 +248,11 @@ public final class CallerIdSetupActivity extends Activity {
             Intent detail = new Intent(this, CustomerDetailActivity.class)
                     .putExtra(CustomerDetailActivity.EXTRA_CUSTOMER_ID, customer.id)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            boolean shown = CallPopupNotificationManager.showPostCall(
-                    this, record, customer, detail,
-                    CustomerInsightResolver.latestMemo(db, customer));
-            Toast.makeText(this,
-                    shown ? "통화 종료 상단 팝업 테스트를 보냈습니다."
-                            : "통화 종료 팝업을 표시하지 못했습니다.",
-                    Toast.LENGTH_SHORT).show();
+            String memo = CustomerInsightResolver.latestMemo(db, customer);
+            Toast.makeText(this, "홈 화면으로 이동합니다. 2초 후 통화 종료 팝업이 표시됩니다.", Toast.LENGTH_LONG).show();
+            moveTaskToBack(true);
+            handler.postDelayed(() -> CallPopupNotificationManager.showPostCall(
+                    this, record, customer, detail, memo), 2000L);
         } finally {
             db.close();
         }
@@ -291,5 +287,31 @@ public final class CallerIdSetupActivity extends Activity {
 
     private String state(boolean complete) {
         return complete ? "완료" : "필요";
+    }
+
+    private void openPopupSettings() {
+        if (!incomingPopupReady()) {
+            CallPopupNotificationManager.openChannelSettings(
+                    this, CallPopupNotificationManager.INCOMING_CHANNEL_ID);
+            return;
+        }
+        if (!postCallPopupReady()) {
+            CallPopupNotificationManager.openChannelSettings(
+                    this, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
+            return;
+        }
+        try {
+            Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+            startActivity(intent);
+        } catch (RuntimeException error) {
+            Toast.makeText(this, "알림 설정을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        handler.removeCallbacksAndMessages(null);
+        super.onDestroy();
     }
 }
