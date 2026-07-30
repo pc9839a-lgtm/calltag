@@ -1,6 +1,7 @@
 package kr.pagero.calltag;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.provider.CallLog;
@@ -18,6 +19,7 @@ import android.widget.Toast;
 import java.util.Calendar;
 
 public final class PostCallActivity extends Activity {
+    public static final String EXTRA_PENDING_CALL_ID = "pending_call_id";
     public static final String EXTRA_PHONE = "phone";
     public static final String EXTRA_CACHED_NAME = "cached_name";
     public static final String EXTRA_CALL_TYPE = "call_type";
@@ -82,11 +84,23 @@ public final class PostCallActivity extends Activity {
         TextView phoneView = findViewById(R.id.postCallPhone);
         TextView metaView = findViewById(R.id.postCallMeta);
         TextView existingInfo = findViewById(R.id.postCallExistingInfo);
+        TextView existingMemo = findViewById(R.id.postCallExistingMemo);
         phoneView.setText(phone.isEmpty() ? "번호 없음" : phone);
         int type = getIntent().getIntExtra(EXTRA_CALL_TYPE, CallLog.Calls.INCOMING_TYPE);
         long durationSec = getIntent().getLongExtra(EXTRA_DURATION_SEC, 0L);
-        metaView.setText(callTypeLabel(type) + " · " + formatDuration(durationSec));
-        existingInfo.setText(existingCustomer == null ? "등록되지 않은 번호" : statusLabel(existingCustomer.relationStatus));
+        metaView.setText(callTypeLabel(type, durationSec) + " · " + formatDuration(durationSec));
+        existingInfo.setText(existingCustomer == null
+                ? "등록되지 않은 번호" : statusLabel(existingCustomer.relationStatus));
+
+        if (existingCustomer == null) {
+            existingMemo.setVisibility(View.GONE);
+        } else {
+            String memo = CustomerInsightResolver.latestMemo(db, existingCustomer);
+            existingMemo.setVisibility(View.VISIBLE);
+            existingMemo.setText(memo.isEmpty()
+                    ? "저장된 최근 메모가 없습니다."
+                    : "최근 메모 · " + memo);
+        }
     }
 
     private void renderResultButtons() {
@@ -168,6 +182,7 @@ public final class PostCallActivity extends Activity {
             return;
         }
         if (SettingsStore.isCallProcessed(this, callFingerprint)) {
+            markPendingHandled();
             Toast.makeText(this, "이미 처리한 통화입니다.", Toast.LENGTH_SHORT).show();
             finish();
             return;
@@ -178,6 +193,7 @@ public final class PostCallActivity extends Activity {
             try {
                 db.addPhoneRule(phone, "EXCLUDED", "사용자 제외");
                 SettingsStore.markCallProcessed(this, callFingerprint);
+                markPendingHandled();
                 Toast.makeText(this, "제외했습니다.", Toast.LENGTH_SHORT).show();
                 finish();
             } catch (RuntimeException e) {
@@ -198,11 +214,9 @@ public final class PostCallActivity extends Activity {
                 customerId = db.insertCustomer(name, phone, initialStage, "");
             } else {
                 customerId = latestCustomer.id;
-                // 이미 등록된 고객의 사용자 지정 영업 단계는 통화 저장만으로 변경하지 않는다.
                 db.updateCustomer(customerId, name, latestCustomer.relationStatus);
             }
 
-            // 거래 완료를 명시적으로 선택한 경우에만 사용자가 설정한 마지막 단계로 이동한다.
             if ("CONTRACT".equals(selectedResult)) {
                 db.markTransactionCompleted(customerId);
             }
@@ -225,6 +239,7 @@ public final class PostCallActivity extends Activity {
                 db.insertFollowUpTask(customerId, interactionId, "CALL", "다시 연락", dueAt);
             }
             SettingsStore.markCallProcessed(this, callFingerprint);
+            markPendingHandled();
             Toast.makeText(this, "저장했습니다.", Toast.LENGTH_SHORT).show();
             finish();
         } catch (IllegalArgumentException e) {
@@ -234,6 +249,18 @@ public final class PostCallActivity extends Activity {
             setSaving(false);
             Toast.makeText(this, "저장하지 못했습니다.", Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void markPendingHandled() {
+        long callLogId = getIntent().getLongExtra(EXTRA_PENDING_CALL_ID, -1L);
+        if (callLogId <= 0L) return;
+        PendingCallStore store = new PendingCallStore(this);
+        try {
+            store.markHandled(callLogId);
+        } finally {
+            store.close();
+        }
+        sendBroadcast(new Intent(PendingCallSectionView.ACTION_CHANGED).setPackage(getPackageName()));
     }
 
     private void setSaving(boolean value) {
@@ -285,7 +312,8 @@ public final class PostCallActivity extends Activity {
         return "INCOMING_CALL";
     }
 
-    private String callTypeLabel(int type) {
+    private String callTypeLabel(int type, long durationSec) {
+        if (type == CallLog.Calls.OUTGOING_TYPE && durationSec == 0L) return "발신 · 연결 안 됨";
         if (type == CallLog.Calls.OUTGOING_TYPE) return "발신";
         if (type == CallLog.Calls.MISSED_TYPE) return "부재중";
         if (type == CallLog.Calls.REJECTED_TYPE) return "거절";
