@@ -58,7 +58,7 @@
             android:layout_weight="1"
             android:background="@drawable/bg_secondary_button"
             android:gravity="center"
-            android:text="영업 단계 편집"
+            android:text="상태·색상 편집"
             android:textColor="@color/primary"
             android:textSize="14sp"
             android:textStyle="bold" />
