@@ -38,7 +38,7 @@
                 android:layout_weight="1"
                 android:includeFontPadding="false"
                 android:lineSpacingExtra="3dp"
-                android:text="통화 감지를 꺼져 있어요"
+                android:text="통화 감지가 꺼져 있어요"
                 android:textColor="@color/text_primary"
                 android:textSize="28sp"
                 android:textStyle="bold" />
@@ -50,10 +50,22 @@
                 android:layout_marginStart="12dp" />
         </LinearLayout>
 
+        <kr.pagero.calltag.CallerIdSetupButton
+            android:id="@+id/callerIdSetupButton"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_primary_button"
+            android:text="수신 고객정보 표시 켜기"
+            android:textAllCaps="false"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
+            android:layout_marginTop="16dp"
             android:background="@drawable/bg_card"
             android:gravity="center"
             android:orientation="horizontal"
@@ -104,7 +116,7 @@
                 android:gravity="center"
                 android:includeFontPadding="false"
                 android:lineSpacingExtra="6dp"
-                android:text="0\n신규 고객"
+                android:text="0\n첫 단계"
                 android:textColor="@color/text_primary"
                 android:textSize="15sp"
                 android:textStyle="bold" />
@@ -164,6 +176,12 @@
                 android:textSize="15sp"
                 android:textStyle="bold" />
         </LinearLayout>
+
+        <kr.pagero.calltag.PendingCallSectionView
+            android:id="@+id/pendingCallSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp" />
 
         <TextView
             android:layout_width="wrap_content"
