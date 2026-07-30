@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="description" content="통화 후 고객, 상담 상태, 다음 할 일을 한 번에 관리하는 콜태그 웹서비스" />
+  <title>콜태그 | 통화 고객관리</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+  <style>
+    :root {
+      --ink: #111827;
+      --muted: #667085;
+      --line: #e5e7eb;
+      --line-strong: #d0d5dd;
+      --surface: #ffffff;
+      --surface-soft: #f7f8fa;
+      --blue: #2563eb;
+      --blue-soft: #eff6ff;
+      --danger: #b42318;
+      --danger-soft: #fff3f2;
+      --warning: #9a6700;
+      --warning-soft: #fff8e6;
+      --success: #067647;
+      --success-soft: #ecfdf3;
+      --sidebar: 244px;
+      --topbar: 72px;
+      --radius: 14px;
+      --shadow: 0 8px 28px rgba(17, 24, 39, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+    html { font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--surface-soft); }
+    body { margin: 0; min-width: 320px; background: var(--surface-soft); }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
+    a { color: inherit; text-decoration: none; }
+    svg { width: 20px; height: 20px; display: block; }
+
+    .skip-link { position: fixed; top: -60px; left: 16px; z-index: 999; background: var(--ink); color: white; padding: 10px 14px; border-radius: 8px; }
+    .skip-link:focus { top: 12px; }
+
+    .app { min-height: 100dvh; }
+    .sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: var(--sidebar);
+      background: var(--surface);
+      border-right: 1px solid var(--line);
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 14px 18px;
+    }
+
+    .brand { height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 10px; font-size: 20px; font-weight: 800; letter-spacing: -0.04em; }
+    .brand-mark { width: 32px; height: 32px; border-radius: 9px; background: var(--blue); color: white; display: grid; place-items: center; font-size: 14px; font-weight: 800; }
+    .brand small { display: block; margin-left: auto; padding: 4px 7px; border-radius: 999px; background: var(--blue-soft); color: var(--blue); font-size: 10px; font-weight: 700; letter-spacing: 0; }
+
+    .workspace { margin: 18px 8px 12px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
+    .workspace-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; }
+    .workspace-name { display: flex; align-items: center; justify-content: space-between; font-size: 13px; font-weight: 700; }
+
+    .nav { display: grid; gap: 4px; margin-top: 8px; }
+    .nav-button {
+      min-height: 44px;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: #344054;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 12px;
+      text-align: left;
+      font-weight: 650;
+    }
+    .nav-button:hover { background: var(--surface-soft); color: var(--ink); }
+    .nav-button.active { background: var(--blue-soft); color: var(--blue); }
+    .nav-button .badge { margin-left: auto; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; display: grid; place-items: center; background: var(--surface-soft); color: var(--muted); font-size: 11px; }
+    .nav-button.active .badge { background: white; color: var(--blue); }
+
+    .sidebar-footer { margin-top: auto; }
+    .sync-card { margin: 0 8px 12px; border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+    .sync-row { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; }
+    .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+    .sync-card p { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .user-card { display: flex; align-items: center; gap: 10px; padding: 10px; border-top: 1px solid var(--line); }
+    .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--ink); color: white; display: grid; place-items: center; font-size: 12px; font-weight: 800; }
+    .user-copy strong { display: block; font-size: 13px; }
+    .user-copy span { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+    .main { margin-left: var(--sidebar); min-height: 100dvh; }
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      min-height: var(--topbar);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 28px;
+      background: rgba(255,255,255,.96);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(10px);
+    }
+    .mobile-menu { display: none; }
+    .page-heading { min-width: 0; }
+    .page-heading h1 { margin: 0; font-size: 21px; line-height: 1.2; letter-spacing: -0.04em; }
+    .page-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+    .top-actions { margin-left: auto; display: flex; gap: 8px; }
+
+    .btn {
+      min-height: 40px;
+      border: 1px solid var(--line-strong);
+      border-radius: 10px;
+      background: white;
+      color: var(--ink);
+      padding: 0 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .btn:hover { border-color: #98a2b3; }
+    .btn.primary { border-color: var(--blue); background: var(--blue); color: white; }
+    .btn.primary:hover { background: #1d4ed8; }
+    .btn.ghost { border-color: transparent; background: transparent; }
+    .btn.small { min-height: 34px; padding: 0 10px; font-size: 12px; border-radius: 8px; }
+    .btn.icon { width: 40px; padding: 0; }
+
+    .content { width: min(1440px, 100%); margin: 0 auto; padding: 28px; }
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .notice {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 18px;
+      border: 1px solid #bfdbfe;
+      border-radius: 12px;
+      background: var(--blue-soft);
+      padding: 13px 15px;
+    }
+    .notice strong { display: block; font-size: 13px; }
+    .notice p { margin: 4px 0 0; color: #475467; font-size: 12px; line-height: 1.55; }
+    .notice button { margin-left: auto; }
+
+    .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .summary-card { min-height: 124px; border: 1px solid var(--line); border-radius: var(--radius); background: white; padding: 18px; }
+    .summary-card .label { color: var(--muted); font-size: 12px; font-weight: 650; }
+    .summary-card .value { margin-top: 14px; font-size: 30px; line-height: 1; letter-spacing: -0.05em; font-weight: 800; }
+    .summary-card .meta { display: flex; align-items: center; gap: 6px; margin-top: 12px; color: var(--muted); font-size: 11px; }
+    .summary-card.alert .value { color: var(--danger); }
+
+    .two-column { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, .55fr); gap: 16px; margin-top: 16px; }
+    .panel { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); background: white; overflow: hidden; }
+    .panel-header { min-height: 62px; display: flex; align-items: center; gap: 10px; padding: 0 18px; border-bottom: 1px solid var(--line); }
+    .panel-header h2 { margin: 0; font-size: 15px; letter-spacing: -0.03em; }
+    .panel-header p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+    .panel-header .panel-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+    .task-list { display: grid; }
+    .task-item {
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      min-height: 86px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .task-item:last-child { border-bottom: 0; }
+    .task-time { text-align: center; }
+    .task-time strong { display: block; font-size: 13px; }
+    .task-time span { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }
+    .task-main { min-width: 0; }
+    .task-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .task-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+    .task-main p { margin: 5px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+    .task-actions { display: flex; gap: 6px; }
+    .task-item.done { opacity: .5; }
+    .task-item.done .task-main strong { text-decoration: line-through; }
+
+    .tag { display: inline-flex; align-items: center; min-height: 23px; padding: 0 8px; border-radius: 999px; background: var(--surface-soft); color: #475467; font-size: 10px; font-weight: 750; white-space: nowrap; }
+    .tag.blue { background: var(--blue-soft); color: var(--blue); }
+    .tag.red { background: var(--danger-soft); color: var(--danger); }
+    .tag.yellow { background: var(--warning-soft); color: var(--warning); }
+    .tag.green { background: var(--success-soft); color: var(--success); }
+
+    .activity-list { padding: 4px 18px 10px; }
+    .activity { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .activity:last-child { border-bottom: 0; }
+    .activity-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; background: var(--surface-soft); color: var(--blue); }
+    .activity strong { display: block; font-size: 12px; }
+    .activity p { margin: 3px 0 0; color: var(--muted); font-size: 11px; }
+    .activity time { color: var(--muted); font-size: 10px; }
+
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .search { position: relative; flex: 1 1 260px; max-width: 420px; }
+    .search svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); width: 17px; height: 17px; color: #98a2b3; }
+    .search input { width: 100%; min-height: 42px; border: 1px solid var(--line-strong); border-radius: 10px; padding: 0 14px 0 40px; outline: none; background: white; }
+    .search input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.10); }
+    .chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+    .chip { min-height: 36px; border: 1px solid var(--line); border-radius: 999px; background: white; padding: 0 12px; color: var(--muted); font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .chip.active { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { height: 45px; padding: 0 16px; background: #fafafa; color: var(--muted); text-align: left; font-size: 11px; font-weight: 700; border-bottom: 1px solid var(--line); }
+    td { height: 66px; padding: 0 16px; border-bottom: 1px solid var(--line); font-size: 12px; vertical-align: middle; }
+    tr:last-child td { border-bottom: 0; }
+    tbody tr:hover { background: #fcfcfd; }
+    .customer-cell { display: flex; align-items: center; gap: 10px; min-width: 170px; }
+    .customer-avatar { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-soft); color: var(--ink); font-weight: 800; }
+    .customer-cell strong { display: block; font-size: 13px; }
+    .customer-cell span { display: block; margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .table-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+    .pipeline { display: grid; grid-template-columns: repeat(4, minmax(240px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 8px; }
+    .pipeline-column { min-width: 240px; border: 1px solid var(--line); border-radius: var(--radius); background: #f9fafb; }
+    .pipeline-header { height: 50px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-bottom: 1px solid var(--line); }
+    .pipeline-header strong { font-size: 13px; }
+    .pipeline-header span { margin-left: auto; min-width: 22px; height: 22px; display: grid; place-items: center; border-radius: 999px; background: white; border: 1px solid var(--line); font-size: 10px; }
+    .pipeline-body { display: grid; gap: 8px; padding: 10px; }
+    .deal-card { border: 1px solid var(--line); border-radius: 11px; background: white; padding: 13px; box-shadow: 0 1px 2px rgba(17,24,39,.03); }
+    .deal-card strong { display: block; font-size: 13px; }
+    .deal-card p { margin: 6px 0 10px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .deal-meta { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 10px; }
+
+    .calendar-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
+    .calendar { border: 1px solid var(--line); border-radius: var(--radius); background: white; overflow: hidden; }
+    .calendar-head { min-height: 64px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-bottom: 1px solid var(--line); }
+    .calendar-head strong { font-size: 17px; }
+    .calendar-head .spacer { flex: 1; }
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(80px, 1fr)); }
+    .weekday { min-height: 36px; display: grid; place-items: center; background: #fafafa; color: var(--muted); font-size: 11px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+    .weekday:nth-child(7) { border-right: 0; }
+    .day { min-height: 112px; padding: 8px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); background: white; }
+    .day:nth-child(7n) { border-right: 0; }
+    .day.muted { background: #fcfcfd; color: #c2c7d0; }
+    .day.today .day-number { background: var(--blue); color: white; }
+    .day-number { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%; font-size: 11px; font-weight: 700; }
+    .event { margin-top: 5px; padding: 5px 6px; border-left: 3px solid var(--blue); border-radius: 4px; background: var(--blue-soft); color: #1d4ed8; font-size: 9px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .event.overdue { border-left-color: var(--danger); background: var(--danger-soft); color: var(--danger); }
+    .schedule-panel { border: 1px solid var(--line); border-radius: var(--radius); background: white; overflow: hidden; }
+    .schedule-list { padding: 6px 16px 14px; }
+    .schedule-item { padding: 14px 0; border-bottom: 1px solid var(--line); }
+    .schedule-item:last-child { border-bottom: 0; }
+    .schedule-item time { color: var(--blue); font-size: 11px; font-weight: 800; }
+    .schedule-item strong { display: block; margin-top: 6px; font-size: 13px; }
+    .schedule-item p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+
+    .settings-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+    .setting-list { padding: 0 18px; }
+    .setting-row { min-height: 72px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }
+    .setting-row:last-child { border-bottom: 0; }
+    .setting-copy { min-width: 0; }
+    .setting-copy strong { display: block; font-size: 13px; }
+    .setting-copy p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+    .setting-control { margin-left: auto; }
+    .switch { width: 42px; height: 24px; border: 0; border-radius: 999px; padding: 2px; background: #d0d5dd; transition: .2s ease; }
+    .switch::after { content: ""; display: block; width: 20px; height: 20px; border-radius: 50%; background: white; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: .2s ease; }
+    .switch.on { background: var(--blue); }
+    .switch.on::after { transform: translateX(18px); }
+
+    .empty { padding: 54px 20px; text-align: center; color: var(--muted); }
+    .empty strong { display: block; color: var(--ink); font-size: 14px; }
+    .empty p { margin: 7px 0 0; font-size: 12px; }
+
+    .modal-backdrop { position: fixed; inset: 0; z-index: 100; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(17,24,39,.48); }
+    .modal-backdrop.open { display: flex; }
+    .modal { width: min(520px, 100%); max-height: min(760px, 90dvh); overflow-y: auto; border-radius: 18px; background: white; box-shadow: 0 24px 80px rgba(17,24,39,.28); }
+    .modal-header { min-height: 66px; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid var(--line); }
+    .modal-header h2 { margin: 0; font-size: 17px; }
+    .modal-header button { margin-left: auto; }
+    .modal-body { display: grid; gap: 14px; padding: 20px; }
+    .field { display: grid; gap: 7px; }
+    .field label { font-size: 12px; font-weight: 700; }
+    .field input, .field select, .field textarea { width: 100%; min-height: 42px; border: 1px solid var(--line-strong); border-radius: 10px; padding: 10px 12px; outline: none; background: white; }
+    .field textarea { min-height: 90px; resize: vertical; }
+    .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.10); }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 20px; border-top: 1px solid var(--line); }
+
+    .toast { position: fixed; right: 24px; bottom: 24px; z-index: 200; transform: translateY(20px); opacity: 0; pointer-events: none; padding: 12px 16px; border-radius: 10px; background: var(--ink); color: white; font-size: 12px; font-weight: 700; box-shadow: var(--shadow); transition: .2s ease; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+
+    .mobile-bottom { display: none; }
+
+    @media (max-width: 1180px) {
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .two-column { grid-template-columns: 1fr; }
+      .calendar-layout { grid-template-columns: 1fr; }
+      .schedule-panel { display: none; }
+    }
+
+    @media (max-width: 820px) {
+      :root { --topbar: 64px; }
+      body { padding-bottom: 74px; }
+      .sidebar { transform: translateX(-100%); transition: .2s ease; box-shadow: var(--shadow); }
+      .sidebar.open { transform: translateX(0); }
+      .main { margin-left: 0; }
+      .mobile-menu { display: inline-flex; }
+      .topbar { padding: 10px 14px; }
+      .page-heading h1 { font-size: 18px; }
+      .page-heading p { display: none; }
+      .top-actions .btn:not(.primary) { display: none; }
+      .content { padding: 18px 14px; }
+      .notice { align-items: center; }
+      .notice button { display: none; }
+      .summary-card { min-height: 108px; padding: 15px; }
+      .summary-card .value { font-size: 26px; }
+      .task-item { grid-template-columns: 42px minmax(0, 1fr); }
+      .task-actions { grid-column: 2; justify-content: flex-start; }
+      .settings-grid { grid-template-columns: 1fr; }
+      .calendar-grid { min-width: 720px; }
+      .calendar { overflow-x: auto; }
+      .mobile-bottom {
+        position: fixed;
+        inset: auto 0 0 0;
+        z-index: 40;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        padding: 7px max(8px, env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+        border-top: 1px solid var(--line);
+        background: rgba(255,255,255,.98);
+      }
+      .mobile-nav { min-height: 52px; border: 0; background: transparent; color: var(--muted); display: grid; place-items: center; gap: 3px; font-size: 10px; }
+      .mobile-nav svg { width: 19px; height: 19px; }
+      .mobile-nav.active { color: var(--blue); font-weight: 800; }
+    }
+
+    @media (max-width: 560px) {
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .summary-card { min-height: 100px; padding: 13px; }
+      .summary-card .label { font-size: 11px; }
+      .summary-card .value { margin-top: 12px; font-size: 24px; }
+      .summary-card .meta { margin-top: 9px; }
+      .panel-header { padding: 0 14px; }
+      .task-item { padding: 13px 14px; }
+      .activity-list { padding-inline: 14px; }
+      .field-row { grid-template-columns: 1fr; }
+      th, td { padding-inline: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">본문으로 이동</a>
+  <div class="app">
+    <aside class="sidebar" id="sidebar" aria-label="주요 메뉴">
+      <div class="brand">
+        <span class="brand-mark">CT</span>
+        콜태그
+        <small>WEB</small>
+      </div>
+
+      <div class="workspace">
+        <div class="workspace-label">현재 작업공간</div>
+        <div class="workspace-name">페이지로 <span>⌄</span></div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-button active" data-view="today">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9 21v-6h6v6"/></svg>
+          오늘 <span class="badge">5</span>
+        </button>
+        <button class="nav-button" data-view="customers">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c.5-4 2.5-6 6-6s5.5 2 6 6"/><path d="M16 6.5a3 3 0 0 1 0 5.5"/><path d="M16.5 15c2.7.4 4.2 2 4.5 5"/></svg>
+          고객 <span class="badge">38</span>
+        </button>
+        <button class="nav-button" data-view="consultations">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+          상담 <span class="badge">12</span>
+        </button>
+        <button class="nav-button" data-view="calendar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg>
+          캘린더
+        </button>
+        <button class="nav-button" data-view="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3A1.7 1.7 0 0 0 10 3v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9A1.7 1.7 0 0 0 21 10h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+          설정
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sync-card">
+          <div class="sync-row"><span class="sync-dot"></span> Android 앱 연결됨</div>
+          <p>마지막 동기화: 방금 전<br />기기 1대 · 자동 동기화 중</p>
+        </div>
+        <div class="user-card">
+          <div class="avatar">김</div>
+          <div class="user-copy"><strong>김도윤</strong><span>관리자</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main" id="main-content">
+      <header class="topbar">
+        <button class="btn icon mobile-menu" id="menuButton" aria-label="메뉴 열기">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div class="page-heading">
+          <h1 id="pageTitle">오늘</h1>
+          <p id="pageSubtitle">놓치면 안 되는 고객 업무를 우선순위대로 확인합니다.</p>
+        </div>
+        <div class="top-actions">
+          <button class="btn" id="newScheduleButton">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+            일정 추가
+          </button>
+          <button class="btn primary" id="newCustomerButton">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c.5-4 2.5-6 6-6s5.5 2 6 6M18 8v6M15 11h6"/></svg>
+            고객 추가
+          </button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="view active" id="view-today">
+          <div class="notice" id="syncNotice">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="color:var(--blue);flex:none"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v6h-6"/></svg>
+            <div><strong>통화 기록이 최신 상태입니다.</strong><p>휴대폰에서 처리한 고객 2명과 상담 기록 4건이 방금 반영됐습니다.</p></div>
+            <button class="btn small ghost" id="dismissNotice">닫기</button>
+          </div>
+
+          <div class="summary-grid">
+            <article class="summary-card alert"><div class="label">기한 지난 업무</div><div class="value" id="overdueCount">2</div><div class="meta"><span class="tag red">지금 확인</span> 어제보다 1건 증가</div></article>
+            <article class="summary-card"><div class="label">오늘 재연락</div><div class="value">5</div><div class="meta"><span class="tag blue">오늘</span> 오후 일정 3건</div></article>
+            <article class="summary-card"><div class="label">정리 안 된 통화</div><div class="value">3</div><div class="meta"><span class="tag yellow">미처리</span> 최근 2시간</div></article>
+            <article class="summary-card"><div class="label">진행 중 상담</div><div class="value">12</div><div class="meta"><span class="tag green">정상</span> 이번 주 계약 예정 2건</div></article>
+          </div>
+
+          <div class="two-column">
+            <section class="panel">
+              <div class="panel-header"><div><h2>오늘 할 일</h2><p>기한 초과 업무부터 먼저 표시됩니다.</p></div><div class="panel-actions"><button class="btn small" data-view-jump="calendar">캘린더 보기</button></div></div>
+              <div class="task-list" id="taskList">
+                <article class="task-item" data-task-id="1" data-overdue="true">
+                  <div class="task-time"><strong>09:30</strong><span>어제</span></div>
+                  <div class="task-main"><div class="task-title-row"><strong>김민수 고객 재연락</strong><span class="tag red">기한 초과</span></div><p>홈페이지 견적 검토 여부 확인 · 010-8821-1432</p></div>
+                  <div class="task-actions"><button class="btn small" data-action="snooze">미루기</button><button class="btn small primary" data-action="done">완료</button></div>
+                </article>
+                <article class="task-item" data-task-id="2" data-overdue="true">
+                  <div class="task-time"><strong>11:00</strong><span>어제</span></div>
+                  <div class="task-main"><div class="task-title-row"><strong>이정훈 고객 견적서 발송</strong><span class="tag red">기한 초과</span></div><p>로고 포함 최종 견적서 전달 · 상담건: 쇼핑몰 리뉴얼</p></div>
+                  <div class="task-actions"><button class="btn small" data-action="snooze">미루기</button><button class="btn small primary" data-action="done">완료</button></div>
+                </article>
+                <article class="task-item" data-task-id="3">
+                  <div class="task-time"><strong>13:30</strong><span>오늘</span></div>
+                  <div class="task-main"><div class="task-title-row"><strong>박서연 고객 전화</strong><span class="tag blue">재연락</span></div><p>보험 가입 서류 준비 여부 확인 · 마지막 상담 3일 전</p></div>
+                  <div class="task-actions"><button class="btn small">문자</button><button class="btn small primary" data-action="done">완료</button></div>
+                </article>
+                <article class="task-item" data-task-id="4">
+                  <div class="task-time"><strong>15:00</strong><span>오늘</span></div>
+                  <div class="task-main"><div class="task-title-row"><strong>강남부동산 미팅</strong><span class="tag green">방문</span></div><p>광고 운영안 1차 설명 · 서울 강남구 테헤란로</p></div>
+                  <div class="task-actions"><button class="btn small">메모</button><button class="btn small primary" data-action="done">완료</button></div>
+                </article>
+                <article class="task-item" data-task-id="5">
+                  <div class="task-time"><strong>17:20</strong><span>오늘</span></div>
+                  <div class="task-main"><div class="task-title-row"><strong>최지우 고객 자료 발송</strong><span class="tag yellow">자료</span></div><p>서비스 소개서와 계약 절차 안내 발송</p></div>
+                  <div class="task-actions"><button class="btn small">문자</button><button class="btn small primary" data-action="done">완료</button></div>
+                </article>
+              </div>
+            </section>
+
+            <aside class="panel">
+              <div class="panel-header"><div><h2>최근 통화</h2><p>앱에서 들어온 최신 기록입니다.</p></div><div class="panel-actions"><button class="btn small">전체</button></div></div>
+              <div class="activity-list">
+                <div class="activity"><div class="activity-icon">↙</div><div><strong>010-4928-7711</strong><p>미등록 번호 · 4분 12초</p></div><time>12:24</time></div>
+                <div class="activity"><div class="activity-icon">↗</div><div><strong>김민수</strong><p>홈페이지 제작 상담 · 7분 03초</p></div><time>11:05</time></div>
+                <div class="activity"><div class="activity-icon">↙</div><div><strong>박서연</strong><p>보험 상담 · 2분 48초</p></div><time>10:32</time></div>
+                <div class="activity"><div class="activity-icon">↗</div><div><strong>강남부동산</strong><p>광고 문의 · 5분 16초</p></div><time>09:18</time></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="view-customers">
+          <div class="toolbar">
+            <div class="search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+              <input id="customerSearch" type="search" placeholder="이름, 전화번호, 상담 내용으로 검색" />
+            </div>
+            <div class="chips" id="customerFilters">
+              <button class="chip active" data-filter="all">전체 38</button>
+              <button class="chip" data-filter="new">신규 7</button>
+              <button class="chip" data-filter="consulting">상담 중 12</button>
+              <button class="chip" data-filter="existing">기존 15</button>
+              <button class="chip" data-filter="dormant">휴면 4</button>
+            </div>
+          </div>
+          <section class="panel">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>고객</th><th>상태</th><th>진행 중 상담</th><th>마지막 연락</th><th>다음 업무</th><th style="text-align:right">작업</th></tr></thead>
+                <tbody id="customerTableBody">
+                  <tr data-name="김민수 01088211432 홈페이지 견적" data-status="consulting"><td><div class="customer-cell"><div class="customer-avatar">김</div><div><strong>김민수</strong><span>010-8821-1432</span></div></div></td><td><span class="tag blue">상담 중</span></td><td>홈페이지 제작 견적</td><td>오늘 11:05</td><td><span class="tag red">기한 초과</span></td><td><div class="table-actions"><button class="btn small">전화</button><button class="btn small">상세</button></div></td></tr>
+                  <tr data-name="박서연 01044322711 보험 가입" data-status="new"><td><div class="customer-cell"><div class="customer-avatar">박</div><div><strong>박서연</strong><span>010-4432-2711</span></div></div></td><td><span class="tag yellow">신규</span></td><td>보험 가입 상담</td><td>오늘 10:32</td><td>오늘 13:30</td><td><div class="table-actions"><button class="btn small">전화</button><button class="btn small">상세</button></div></td></tr>
+                  <tr data-name="강남부동산 025551420 광고 운영" data-status="consulting"><td><div class="customer-cell"><div class="customer-avatar">강</div><div><strong>강남부동산</strong><span>02-555-1420</span></div></div></td><td><span class="tag blue">상담 중</span></td><td>검색광고 운영</td><td>오늘 09:18</td><td>오늘 15:00</td><td><div class="table-actions"><button class="btn small">전화</button><button class="btn small">상세</button></div></td></tr>
+                  <tr data-name="이정훈 01033218890 쇼핑몰 리뉴얼" data-status="existing"><td><div class="customer-cell"><div class="customer-avatar">이</div><div><strong>이정훈</strong><span>010-3321-8890</span></div></div></td><td><span class="tag green">기존</span></td><td>쇼핑몰 리뉴얼</td><td>어제 16:42</td><td><span class="tag red">견적 발송</span></td><td><div class="table-actions"><button class="btn small">전화</button><button class="btn small">상세</button></div></td></tr>
+                  <tr data-name="최지우 01051990624 서비스 소개서" data-status="dormant"><td><div class="customer-cell"><div class="customer-avatar">최</div><div><strong>최지우</strong><span>010-5199-0624</span></div></div></td><td><span class="tag">휴면</span></td><td>서비스 재문의</td><td>24일 전</td><td>오늘 17:20</td><td><div class="table-actions"><button class="btn small">전화</button><button class="btn small">상세</button></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="empty" id="customerEmpty" hidden><strong>검색 결과가 없습니다.</strong><p>이름이나 전화번호를 다시 확인해 주세요.</p></div>
+          </section>
+        </section>
+
+        <section class="view" id="view-consultations">
+          <div class="toolbar">
+            <div class="chips"><button class="chip active">진행 중 12</button><button class="chip">이번 주 완료 4</button><button class="chip">보류 3</button></div>
+          </div>
+          <div class="pipeline">
+            <section class="pipeline-column"><div class="pipeline-header"><strong>신규 문의</strong><span>3</span></div><div class="pipeline-body">
+              <article class="deal-card"><strong>박서연 · 보험 가입 상담</strong><p>보장 범위와 월 보험료 문의. 오늘 첫 상담 완료.</p><div class="deal-meta"><span>오늘 10:32</span><span class="tag yellow">재연락</span></div></article>
+              <article class="deal-card"><strong>010-4928-7711 · 미등록 문의</strong><p>통화 후 고객 등록과 문의 분야 선택이 필요합니다.</p><div class="deal-meta"><span>오늘 12:24</span><span class="tag red">미정리</span></div></article>
+            </div></section>
+            <section class="pipeline-column"><div class="pipeline-header"><strong>상담 중</strong><span>5</span></div><div class="pipeline-body">
+              <article class="deal-card"><strong>김민수 · 홈페이지 제작</strong><p>견적서 검토 중. 수정 범위와 제작 일정 확인 필요.</p><div class="deal-meta"><span>예상 320만원</span><span class="tag blue">견적</span></div></article>
+              <article class="deal-card"><strong>강남부동산 · 광고 운영</strong><p>오늘 15시 미팅. 키워드 광고 운영안 설명 예정.</p><div class="deal-meta"><span>예상 월 150만원</span><span class="tag green">미팅</span></div></article>
+            </div></section>
+            <section class="pipeline-column"><div class="pipeline-header"><strong>검토·재연락</strong><span>4</span></div><div class="pipeline-body">
+              <article class="deal-card"><strong>최지우 · 서비스 재문의</strong><p>소개서 발송 후 다음 주 도입 여부 재확인.</p><div class="deal-meta"><span>오늘 17:20</span><span class="tag yellow">자료</span></div></article>
+              <article class="deal-card"><strong>세움학원 · 상담 시스템</strong><p>원장님 내부 검토 중. 금요일 오전 재연락.</p><div class="deal-meta"><span>8월 1일</span><span class="tag blue">재연락</span></div></article>
+            </div></section>
+            <section class="pipeline-column"><div class="pipeline-header"><strong>계약 예정</strong><span>2</span></div><div class="pipeline-body">
+              <article class="deal-card"><strong>이정훈 · 쇼핑몰 리뉴얼</strong><p>최종 견적서 발송 후 계약서 회신 대기.</p><div class="deal-meta"><span>확정 580만원</span><span class="tag green">계약 예정</span></div></article>
+            </div></section>
+          </div>
+        </section>
+
+        <section class="view" id="view-calendar">
+          <div class="calendar-layout">
+            <section class="calendar">
+              <div class="calendar-head"><button class="btn icon small" id="prevMonth" aria-label="이전 달">‹</button><strong id="calendarTitle"></strong><button class="btn icon small" id="nextMonth" aria-label="다음 달">›</button><span class="spacer"></span><button class="btn small" id="todayButton">오늘</button><button class="btn small primary" id="calendarAddButton">일정 추가</button></div>
+              <div class="calendar-grid" id="calendarGrid"></div>
+            </section>
+            <aside class="schedule-panel">
+              <div class="panel-header"><div><h2>오늘 일정</h2><p>7월 30일 목요일</p></div></div>
+              <div class="schedule-list">
+                <div class="schedule-item"><time>13:30</time><strong>박서연 고객 재연락</strong><p>보험 가입 서류 준비 여부 확인</p></div>
+                <div class="schedule-item"><time>15:00</time><strong>강남부동산 미팅</strong><p>광고 운영안 1차 설명</p></div>
+                <div class="schedule-item"><time>17:20</time><strong>최지우 고객 자료 발송</strong><p>서비스 소개서와 계약 절차 안내</p></div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="view-settings">
+          <div class="settings-grid">
+            <section class="panel"><div class="panel-header"><div><h2>앱 연동</h2><p>휴대폰 통화 기록과 동기화합니다.</p></div></div><div class="setting-list">
+              <div class="setting-row"><div class="setting-copy"><strong>Android 기기</strong><p>Galaxy S25+ · 방금 전 동기화</p></div><div class="setting-control"><span class="tag green">연결됨</span></div></div>
+              <div class="setting-row"><div class="setting-copy"><strong>자동 동기화</strong><p>Wi-Fi와 모바일 데이터에서 자동 반영</p></div><div class="setting-control"><button class="switch on" aria-label="자동 동기화 켜짐"></button></div></div>
+              <div class="setting-row"><div class="setting-copy"><strong>업무시간 외 통화 제외</strong><p>설정 시간 외 통화를 고객 후보에서 제외</p></div><div class="setting-control"><button class="switch" aria-label="업무시간 외 통화 제외 꺼짐"></button></div></div>
+            </div></section>
+            <section class="panel"><div class="panel-header"><div><h2>고객 분류</h2><p>고객과 상담의 기본 상태를 설정합니다.</p></div></div><div class="setting-list">
+              <div class="setting-row"><div class="setting-copy"><strong>휴면 고객 기준</strong><p>마지막 연락 후 90일</p></div><div class="setting-control"><button class="btn small">변경</button></div></div>
+              <div class="setting-row"><div class="setting-copy"><strong>통화 후 처리창</strong><p>30초 이상 업무 통화 종료 후 표시</p></div><div class="setting-control"><button class="btn small">변경</button></div></div>
+              <div class="setting-row"><div class="setting-copy"><strong>제외번호</strong><p>개인통화, 스팸, 수신거부 번호 관리</p></div><div class="setting-control"><button class="btn small">관리</button></div></div>
+            </div></section>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <nav class="mobile-bottom" aria-label="모바일 주요 메뉴">
+    <button class="mobile-nav active" data-view="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/></svg><span>오늘</span></button>
+    <button class="mobile-nav" data-view="customers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c.5-4 2.5-6 6-6s5.5 2 6 6"/></svg><span>고객</span></button>
+    <button class="mobile-nav" data-view="consultations"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>상담</span></button>
+    <button class="mobile-nav" data-view="calendar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg><span>캘린더</span></button>
+    <button class="mobile-nav" data-view="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6 7 7M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4"/></svg><span>설정</span></button>
+  </nav>
+
+  <div class="modal-backdrop" id="customerModal" role="dialog" aria-modal="true" aria-labelledby="customerModalTitle">
+    <div class="modal">
+      <div class="modal-header"><h2 id="customerModalTitle">고객 추가</h2><button class="btn icon ghost" data-close-modal="customerModal" aria-label="닫기">×</button></div>
+      <form id="customerForm">
+        <div class="modal-body">
+          <div class="field-row"><div class="field"><label for="customerName">고객명</label><input id="customerName" required placeholder="이름 또는 업체명" /></div><div class="field"><label for="customerPhone">전화번호</label><input id="customerPhone" required inputmode="tel" placeholder="010-0000-0000" /></div></div>
+          <div class="field-row"><div class="field"><label for="customerStatus">고객 상태</label><select id="customerStatus"><option value="new">신규</option><option value="consulting">상담 중</option><option value="existing">기존</option></select></div><div class="field"><label for="customerSource">유입 경로</label><select id="customerSource"><option>통화</option><option>네이버</option><option>소개</option><option>홈페이지</option><option>기존 고객</option></select></div></div>
+          <div class="field"><label for="customerMemo">메모</label><textarea id="customerMemo" placeholder="고객 공통 메모를 입력하세요."></textarea></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn" data-close-modal="customerModal">취소</button><button type="submit" class="btn primary">저장</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="scheduleModal" role="dialog" aria-modal="true" aria-labelledby="scheduleModalTitle">
+    <div class="modal">
+      <div class="modal-header"><h2 id="scheduleModalTitle">일정 추가</h2><button class="btn icon ghost" data-close-modal="scheduleModal" aria-label="닫기">×</button></div>
+      <form id="scheduleForm">
+        <div class="modal-body">
+          <div class="field"><label for="scheduleTitle">할 일</label><input id="scheduleTitle" required placeholder="예: 김민수 고객 재연락" /></div>
+          <div class="field-row"><div class="field"><label for="scheduleDate">날짜</label><input id="scheduleDate" type="date" required /></div><div class="field"><label for="scheduleTime">시간</label><input id="scheduleTime" type="time" required /></div></div>
+          <div class="field-row"><div class="field"><label for="scheduleType">업무 유형</label><select id="scheduleType"><option>전화</option><option>문자</option><option>견적 발송</option><option>자료 발송</option><option>방문</option><option>결제 확인</option></select></div><div class="field"><label for="scheduleCustomer">연결 고객</label><select id="scheduleCustomer"><option>고객 선택 안 함</option><option>김민수</option><option>박서연</option><option>강남부동산</option><option>이정훈</option></select></div></div>
+          <div class="field"><label for="scheduleMemo">메모</label><textarea id="scheduleMemo" placeholder="일정에 필요한 내용을 입력하세요."></textarea></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn" data-close-modal="scheduleModal">취소</button><button type="submit" class="btn primary">일정 저장</button></div>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const pageMeta = {
+      today: ['오늘', '놓치면 안 되는 고객 업무를 우선순위대로 확인합니다.'],
+      customers: ['고객', '고객 상태, 상담 이력, 다음 업무를 함께 관리합니다.'],
+      consultations: ['상담', '고객별 문의와 계약 진행 단계를 한눈에 확인합니다.'],
+      calendar: ['캘린더', '재연락, 자료 발송, 방문 일정을 흐름대로 관리합니다.'],
+      settings: ['설정', '앱 연동과 고객 분류 기준을 관리합니다.']
+    };
+
+    const allViewButtons = document.querySelectorAll('[data-view]');
+    const sidebar = document.getElementById('sidebar');
+    const title = document.getElementById('pageTitle');
+    const subtitle = document.getElementById('pageSubtitle');
+
+    function switchView(viewName) {
+      document.querySelectorAll('.view').forEach(view => view.classList.toggle('active', view.id === `view-${viewName}`));
+      allViewButtons.forEach(button => button.classList.toggle('active', button.dataset.view === viewName));
+      title.textContent = pageMeta[viewName][0];
+      subtitle.textContent = pageMeta[viewName][1];
+      sidebar.classList.remove('open');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    allViewButtons.forEach(button => button.addEventListener('click', () => switchView(button.dataset.view)));
+    document.querySelectorAll('[data-view-jump]').forEach(button => button.addEventListener('click', () => switchView(button.dataset.viewJump)));
+    document.getElementById('menuButton').addEventListener('click', () => sidebar.classList.toggle('open'));
+
+    document.addEventListener('click', event => {
+      if (window.innerWidth <= 820 && sidebar.classList.contains('open') && !sidebar.contains(event.target) && !event.target.closest('#menuButton')) sidebar.classList.remove('open');
+    });
+
+    const toast = document.getElementById('toast');
+    let toastTimer;
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+    }
+
+    const completedTasks = new Set(JSON.parse(localStorage.getItem('calltagCompletedTasks') || '[]'));
+    document.querySelectorAll('[data-task-id]').forEach(task => {
+      if (completedTasks.has(task.dataset.taskId)) task.classList.add('done');
+    });
+
+    function refreshOverdueCount() {
+      const count = [...document.querySelectorAll('[data-overdue="true"]')].filter(task => !task.classList.contains('done')).length;
+      document.getElementById('overdueCount').textContent = count;
+    }
+
+    document.getElementById('taskList').addEventListener('click', event => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      const task = button.closest('[data-task-id]');
+      if (button.dataset.action === 'done') {
+        task.classList.toggle('done');
+        if (task.classList.contains('done')) completedTasks.add(task.dataset.taskId); else completedTasks.delete(task.dataset.taskId);
+        localStorage.setItem('calltagCompletedTasks', JSON.stringify([...completedTasks]));
+        showToast(task.classList.contains('done') ? '업무를 완료 처리했습니다.' : '완료 처리를 취소했습니다.');
+        refreshOverdueCount();
+      }
+      if (button.dataset.action === 'snooze') {
+        task.querySelector('.task-time strong').textContent = '내일';
+        task.querySelector('.task-time span').textContent = '09:00';
+        task.dataset.overdue = 'false';
+        const overdueTag = task.querySelector('.tag.red');
+        if (overdueTag) { overdueTag.className = 'tag blue'; overdueTag.textContent = '미룸'; }
+        showToast('내일 오전 9시로 미뤘습니다.');
+        refreshOverdueCount();
+      }
+    });
+    refreshOverdueCount();
+
+    document.getElementById('dismissNotice').addEventListener('click', () => document.getElementById('syncNotice').remove());
+
+    const searchInput = document.getElementById('customerSearch');
+    let activeCustomerFilter = 'all';
+    function filterCustomers() {
+      const keyword = searchInput.value.trim().toLowerCase().replaceAll('-', '');
+      let visible = 0;
+      document.querySelectorAll('#customerTableBody tr').forEach(row => {
+        const text = row.dataset.name.toLowerCase().replaceAll('-', '');
+        const filterMatch = activeCustomerFilter === 'all' || row.dataset.status === activeCustomerFilter;
+        const keywordMatch = !keyword || text.includes(keyword);
+        row.hidden = !(filterMatch && keywordMatch);
+        if (!row.hidden) visible += 1;
+      });
+      document.getElementById('customerEmpty').hidden = visible !== 0;
+    }
+    searchInput.addEventListener('input', filterCustomers);
+    document.getElementById('customerFilters').addEventListener('click', event => {
+      const chip = event.target.closest('[data-filter]');
+      if (!chip) return;
+      activeCustomerFilter = chip.dataset.filter;
+      document.querySelectorAll('#customerFilters .chip').forEach(item => item.classList.toggle('active', item === chip));
+      filterCustomers();
+    });
+
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      modal.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => modal.querySelector('input, select, textarea')?.focus(), 30);
+    }
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('open');
+      document.body.style.overflow = '';
+    }
+    document.getElementById('newCustomerButton').addEventListener('click', () => openModal('customerModal'));
+    document.getElementById('newScheduleButton').addEventListener('click', () => openModal('scheduleModal'));
+    document.getElementById('calendarAddButton').addEventListener('click', () => openModal('scheduleModal'));
+    document.querySelectorAll('[data-close-modal]').forEach(button => button.addEventListener('click', () => closeModal(button.dataset.closeModal)));
+    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.addEventListener('click', event => { if (event.target === backdrop) closeModal(backdrop.id); }));
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') document.querySelectorAll('.modal-backdrop.open').forEach(modal => closeModal(modal.id)); });
+
+    document.getElementById('customerForm').addEventListener('submit', event => {
+      event.preventDefault();
+      showToast(`${document.getElementById('customerName').value} 고객을 추가했습니다.`);
+      event.currentTarget.reset();
+      closeModal('customerModal');
+    });
+    document.getElementById('scheduleForm').addEventListener('submit', event => {
+      event.preventDefault();
+      showToast('일정을 저장했습니다.');
+      event.currentTarget.reset();
+      closeModal('scheduleModal');
+    });
+
+    document.querySelectorAll('.switch').forEach(button => button.addEventListener('click', () => {
+      button.classList.toggle('on');
+      button.setAttribute('aria-label', button.classList.contains('on') ? '설정 켜짐' : '설정 꺼짐');
+      showToast('설정을 변경했습니다.');
+    }));
+
+    const calendarEvents = [
+      { date: '2026-07-29', title: '김민수 재연락', overdue: true },
+      { date: '2026-07-30', title: '박서연 재연락' },
+      { date: '2026-07-30', title: '강남부동산 미팅' },
+      { date: '2026-07-30', title: '최지우 자료 발송' },
+      { date: '2026-08-01', title: '세움학원 재연락' },
+      { date: '2026-08-03', title: '이정훈 계약 확인' }
+    ];
+    let calendarCursor = new Date(2026, 6, 1);
+    const calendarGrid = document.getElementById('calendarGrid');
+    const calendarTitle = document.getElementById('calendarTitle');
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+    function dateKey(year, month, date) { return `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`; }
+    function renderCalendar() {
+      const year = calendarCursor.getFullYear();
+      const month = calendarCursor.getMonth();
+      calendarTitle.textContent = `${year}년 ${month + 1}월`;
+      calendarGrid.innerHTML = weekdays.map(day => `<div class="weekday">${day}</div>`).join('');
+      const firstDay = new Date(year, month, 1).getDay();
+      const lastDate = new Date(year, month + 1, 0).getDate();
+      const prevLastDate = new Date(year, month, 0).getDate();
+      const cells = [];
+      for (let i = firstDay - 1; i >= 0; i--) cells.push({ date: prevLastDate - i, offset: -1 });
+      for (let date = 1; date <= lastDate; date++) cells.push({ date, offset: 0 });
+      let next = 1;
+      while (cells.length < 42) cells.push({ date: next++, offset: 1 });
+      cells.forEach(cell => {
+        const d = new Date(year, month + cell.offset, cell.date);
+        const key = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+        const events = calendarEvents.filter(event => event.date === key);
+        const isToday = key === '2026-07-30';
+        const day = document.createElement('div');
+        day.className = `day${cell.offset ? ' muted' : ''}${isToday ? ' today' : ''}`;
+        day.innerHTML = `<div class="day-number">${cell.date}</div>${events.map(event => `<div class="event${event.overdue ? ' overdue' : ''}" title="${event.title}">${event.title}</div>`).join('')}`;
+        calendarGrid.appendChild(day);
+      });
+    }
+    document.getElementById('prevMonth').addEventListener('click', () => { calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1); renderCalendar(); });
+    document.getElementById('nextMonth').addEventListener('click', () => { calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1); renderCalendar(); });
+    document.getElementById('todayButton').addEventListener('click', () => { calendarCursor = new Date(2026, 6, 1); renderCalendar(); });
+    renderCalendar();
+
+    const today = new Date(2026, 6, 30);
+    document.getElementById('scheduleDate').value = dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+    document.getElementById('scheduleTime').value = '14:00';
+  </script>
+</body>
+</html>
