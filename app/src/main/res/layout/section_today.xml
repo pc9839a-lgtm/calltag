@@ -56,7 +56,7 @@
             android:layout_height="52dp"
             android:layout_marginTop="16dp"
             android:background="@drawable/bg_primary_button"
-            android:text="수신 고객정보 표시 켜기"
+            android:text="수신 고객정보 표시 설정"
             android:textAllCaps="false"
             android:textColor="@color/text_primary"
             android:textSize="15sp"
@@ -80,7 +80,7 @@
                 android:gravity="center"
                 android:includeFontPadding="false"
                 android:lineSpacingExtra="6dp"
-                android:text="0\n오늘 연락"
+                android:text="0\n오늘 할 일"
                 android:textColor="@color/text_primary"
                 android:textSize="15sp"
                 android:textStyle="bold" />
@@ -116,7 +116,7 @@
                 android:gravity="center"
                 android:includeFontPadding="false"
                 android:lineSpacingExtra="6dp"
-                android:text="0\n첫 단계"
+                android:text="0\n신규 고객"
                 android:textColor="@color/text_primary"
                 android:textSize="15sp"
                 android:textStyle="bold" />
@@ -188,7 +188,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
             android:includeFontPadding="false"
-            android:text="다음 연락"
+            android:text="고객 할 일"
             android:textColor="@color/text_primary"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -207,7 +207,7 @@
             android:layout_marginTop="12dp"
             android:background="@drawable/bg_card"
             android:gravity="center"
-            android:text="등록된 일정이 없습니다."
+            android:text="등록된 할 일이 없습니다."
             android:textColor="@color/text_secondary"
             android:textSize="13sp" />
     </LinearLayout>
