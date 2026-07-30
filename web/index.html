@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0b0c0f" />
-  <meta name="description" content="통화가 끝난 직후 고객 상태와 다음 할 일을 빠르게 남기는 Android 고객관리 앱 콜태그." />
+  <meta name="theme-color" content="#090a0d" />
+  <meta name="description" content="통화가 끝난 직후 고객 구분, 상담 상태, 다음 할 일과 재연락 일정을 기록하는 Android 고객관리 서비스 콜태그." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://calltag.pagero.kr/" />
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="ko_KR" />
   <meta property="og:site_name" content="콜태그" />
-  <meta property="og:title" content="콜태그 | 통화가 끝나면 고객과 다음 할 일까지" />
-  <meta property="og:description" content="신규 고객 확인부터 상담 상태, 재연락 일정까지 통화 직후 빠르게 정리하세요." />
+  <meta property="og:title" content="콜태그 | 통화 끝. 고객 정리 끝." />
+  <meta property="og:description" content="통화 직후 고객 상태와 다음 할 일을 남기고 웹에서 일정과 상담 이력을 확인하세요." />
   <meta property="og:url" content="https://calltag.pagero.kr/" />
-  <title>콜태그 | 통화가 끝나면 고객과 다음 할 일까지</title>
+  <title>콜태그 | 통화 끝. 고객 정리 끝.</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%233b6fff'/%3E%3Cpath d='M20 17h24v21a9 9 0 0 1-9 9h-3l-8 6v-6h-4V17Z' fill='white'/%3E%3Ccircle cx='27' cy='31' r='3' fill='%233b6fff'/%3E%3Ccircle cx='37' cy='31' r='3' fill='%233b6fff'/%3E%3C/svg%3E" />
@@ -30,16 +30,22 @@
   </script>
   <style>
     :root {
-      --bg: #0b0c0f;
-      --surface: #15171c;
-      --surface-2: #1b1e24;
-      --line: rgba(255,255,255,.1);
+      --bg: #090a0d;
+      --surface: #12141a;
+      --surface-2: #181b22;
+      --surface-3: #20242d;
+      --line: rgba(255,255,255,.105);
+      --line-strong: rgba(255,255,255,.17);
       --text: #f7f8fb;
-      --muted: #a5a9b3;
+      --muted: #a4a9b4;
+      --muted-2: #737986;
       --blue: #3b6fff;
-      --blue-2: #6a8cff;
-      --blue-soft: rgba(59,111,255,.14);
-      --max: 1180px;
+      --blue-2: #7c99ff;
+      --blue-soft: rgba(59,111,255,.15);
+      --green: #32c879;
+      --yellow: #f5b83d;
+      --red: #ff6666;
+      --max: 1320px;
     }
 
     * { box-sizing: border-box; }
@@ -54,277 +60,346 @@
       -webkit-font-smoothing: antialiased;
     }
     a { color: inherit; text-decoration: none; }
-    button { font: inherit; }
+    button, input { font: inherit; }
     svg { display: block; }
-    .wrap { width: min(var(--max), calc(100% - 40px)); margin: 0 auto; }
+    .wrap { width: min(var(--max), calc(100% - 48px)); margin: 0 auto; }
 
     .header {
       position: fixed;
       inset: 0 0 auto;
-      z-index: 50;
-      height: 70px;
+      z-index: 100;
+      height: 72px;
       border-bottom: 1px solid transparent;
-      transition: .2s ease;
+      transition: background .2s ease, border-color .2s ease, backdrop-filter .2s ease;
     }
-    .header.scrolled {
-      background: rgba(11,12,15,.88);
-      border-color: var(--line);
-      backdrop-filter: blur(16px);
-    }
-    .header-inner { height: 100%; display: flex; align-items: center; gap: 28px; }
-    .logo { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 900; letter-spacing: -.04em; }
-    .logo-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: var(--blue); }
-    .logo-mark svg { width: 20px; height: 20px; }
-    .nav { margin-left: auto; display: flex; align-items: center; gap: 28px; }
-    .nav a { color: var(--muted); font-size: 14px; font-weight: 700; }
+    .header.scrolled { background: rgba(9,10,13,.9); border-color: var(--line); backdrop-filter: blur(18px); }
+    .header-inner { height: 100%; display: flex; align-items: center; gap: 34px; }
+    .logo { display: inline-flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 900; letter-spacing: -.045em; }
+    .logo-mark { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 11px; background: var(--blue); }
+    .logo-mark svg { width: 21px; height: 21px; }
+    .nav { margin-left: auto; display: flex; gap: 28px; }
+    .nav a { color: var(--muted); font-size: 14px; font-weight: 750; }
     .nav a:hover { color: white; }
-    .header-cta {
-      min-height: 40px;
-      display: inline-flex;
-      align-items: center;
-      padding: 0 17px;
-      border-radius: 10px;
-      background: var(--blue);
-      color: white;
-      font-size: 13px;
-      font-weight: 800;
-    }
 
-    .hero { min-height: 100svh; padding: 130px 0 80px; display: flex; align-items: center; overflow: hidden; }
+    .hero { padding: 136px 0 92px; overflow: hidden; }
     .hero::before {
       content: "";
       position: absolute;
-      width: 740px;
-      height: 740px;
-      top: -300px;
-      right: -160px;
+      width: 900px;
+      height: 900px;
+      top: -520px;
+      left: 50%;
       border-radius: 50%;
       background: radial-gradient(circle, rgba(59,111,255,.24), rgba(59,111,255,0) 68%);
+      transform: translateX(-50%);
       pointer-events: none;
     }
-    .hero-grid { display: grid; grid-template-columns: .9fr 1.1fr; align-items: center; gap: 76px; }
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 32px;
-      padding: 0 12px;
-      border: 1px solid rgba(106,140,255,.3);
-      border-radius: 999px;
-      background: var(--blue-soft);
-      color: #aabaff;
-      font-size: 12px;
-      font-weight: 800;
-    }
-    .badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--blue-2); box-shadow: 0 0 0 5px rgba(106,140,255,.12); }
-    .hero h1 { margin: 27px 0 0; font-size: clamp(48px, 6.2vw, 82px); line-height: 1.02; letter-spacing: -.075em; }
+    .hero-copy { position: relative; z-index: 1; text-align: center; }
+    .hero h1 { margin: 0; font-size: clamp(62px, 8.2vw, 118px); line-height: .93; letter-spacing: -.085em; }
     .hero h1 span { color: var(--blue-2); }
-    .hero-copy { margin: 26px 0 0; max-width: 540px; color: var(--muted); font-size: clamp(17px, 1.8vw, 21px); line-height: 1.7; letter-spacing: -.025em; }
-    .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 36px; }
-    .btn {
-      min-height: 52px;
-      display: inline-flex;
+    .hero p { margin: 24px auto 0; max-width: 680px; color: var(--muted); font-size: clamp(17px, 1.75vw, 22px); line-height: 1.55; letter-spacing: -.025em; }
+
+    .live-demo {
+      position: relative;
+      margin-top: 64px;
+      padding: 24px;
+      border: 1px solid var(--line-strong);
+      border-radius: 30px;
+      background: linear-gradient(145deg, rgba(24,27,34,.94), rgba(13,15,19,.96));
+      box-shadow: 0 42px 120px rgba(0,0,0,.46);
+      overflow: hidden;
+    }
+    .live-demo::before {
+      content: "";
+      position: absolute;
+      width: 560px;
+      height: 560px;
+      left: -250px;
+      bottom: -320px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(59,111,255,.18), rgba(59,111,255,0) 67%);
+      pointer-events: none;
+    }
+    .demo-top { min-height: 60px; display: flex; align-items: center; gap: 16px; padding: 0 6px 18px; }
+    .demo-live { display: inline-flex; align-items: center; gap: 8px; color: #b8c5ff; font-size: 13px; font-weight: 850; }
+    .demo-live i { width: 8px; height: 8px; border-radius: 50%; background: var(--blue-2); box-shadow: 0 0 0 7px rgba(124,153,255,.11); }
+    .demo-caption { margin-left: auto; color: var(--muted); font-size: 13px; font-weight: 700; }
+    .demo-progress { width: 170px; height: 3px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.08); }
+    .demo-progress span { display: block; width: 25%; height: 100%; border-radius: inherit; background: var(--blue-2); transition: width .45s ease; }
+
+    .demo-grid { position: relative; display: grid; grid-template-columns: 368px minmax(0, 1fr); gap: 28px; align-items: stretch; }
+    .phone-shell {
+      position: relative;
+      width: 100%;
+      min-height: 690px;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 46px;
+      background: #040507;
+      box-shadow: 0 32px 80px rgba(0,0,0,.52);
+    }
+    .phone-screen { position: relative; min-height: 668px; overflow: hidden; border-radius: 36px; background: #101218; }
+    .phone-status { height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0 23px; color: #c9cdd5; font-size: 10px; font-weight: 750; }
+    .app-screen {
+      position: absolute;
+      inset: 38px 0 0;
+      padding: 9px 20px 24px;
+      opacity: 0;
+      transform: translateX(34px) scale(.985);
+      pointer-events: none;
+      transition: opacity .42s ease, transform .42s cubic-bezier(.2,.75,.2,1);
+    }
+    .app-screen.active { opacity: 1; transform: none; pointer-events: auto; }
+    .app-title { margin: 6px 0 0; font-size: 25px; line-height: 1.15; letter-spacing: -.055em; }
+    .app-sub { margin: 9px 0 22px; color: var(--muted-2); font-size: 12px; line-height: 1.55; }
+    .customer-card { padding: 17px; border: 1px solid var(--line); border-radius: 17px; background: var(--surface-2); }
+    .customer-row { display: flex; align-items: center; gap: 12px; }
+    .avatar { width: 44px; height: 44px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; background: var(--blue-soft); color: #aebcff; font-size: 11px; font-weight: 900; }
+    .customer-row strong { display: block; font-size: 14px; }
+    .customer-row span { display: block; margin-top: 4px; color: var(--muted-2); font-size: 10px; }
+    .call-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+    .summary-cell { padding: 11px; border-radius: 11px; background: #13161c; }
+    .summary-cell span { display: block; color: var(--muted-2); font-size: 9px; }
+    .summary-cell b { display: block; margin-top: 6px; font-size: 12px; }
+    .done-ring { width: 112px; height: 112px; display: grid; place-items: center; margin: 52px auto 0; border: 2px solid var(--blue); border-radius: 50%; color: var(--blue-2); box-shadow: 0 0 0 14px var(--blue-soft); }
+    .done-ring svg { width: 46px; height: 46px; }
+    .done-copy { margin-top: 30px; text-align: center; }
+    .done-copy strong { display: block; font-size: 19px; }
+    .done-copy span { display: block; margin-top: 8px; color: var(--muted); font-size: 12px; }
+    .field-label { margin: 20px 0 9px; color: var(--muted-2); font-size: 10px; font-weight: 800; }
+    .option-list { display: grid; gap: 8px; }
+    .option {
+      min-height: 50px;
+      display: grid;
+      grid-template-columns: 11px minmax(0,1fr) 20px;
       align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 0 22px;
+      gap: 11px;
+      padding: 0 14px;
       border: 1px solid var(--line);
       border-radius: 12px;
-      font-size: 14px;
-      font-weight: 850;
-      transition: transform .18s ease, border-color .18s ease;
+      background: var(--surface-2);
+      color: #c2c6cf;
+      font-size: 12px;
+      font-weight: 760;
     }
-    .btn:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.25); }
-    .btn.primary { border-color: var(--blue); background: var(--blue); color: white; }
-    .btn.secondary { background: var(--surface); color: white; }
-    .hero-note { margin-top: 18px; color: #727782; font-size: 12px; }
+    .option i { width: 9px; height: 9px; border-radius: 50%; background: #707681; }
+    .option.active { border-color: rgba(59,111,255,.55); background: var(--blue-soft); color: white; }
+    .option.active i { background: var(--blue); box-shadow: 0 0 0 5px rgba(59,111,255,.12); }
+    .option svg { width: 18px; height: 18px; color: var(--blue-2); opacity: 0; }
+    .option.active svg { opacity: 1; }
+    .input-box { min-height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 15px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); font-size: 12px; font-weight: 750; }
+    .input-box span { color: var(--muted-2); font-weight: 650; }
+    .memo-box { min-height: 88px; align-items: flex-start; padding-top: 15px; line-height: 1.55; }
+    .save-bar { min-height: 52px; display: grid; place-items: center; margin-top: 18px; border-radius: 13px; background: var(--blue); color: white; font-size: 13px; font-weight: 900; }
+    .saved-toast { display: flex; align-items: center; gap: 10px; margin-top: 15px; padding: 12px 14px; border: 1px solid rgba(50,200,121,.25); border-radius: 12px; background: rgba(50,200,121,.09); color: #7de1aa; font-size: 11px; font-weight: 800; }
+    .saved-toast i { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
 
-    .device-stage { position: relative; min-height: 610px; }
-    .web-frame {
-      position: absolute;
-      top: 32px;
-      right: 0;
-      width: 88%;
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 20px;
-      background: #111318;
-      box-shadow: 0 34px 90px rgba(0,0,0,.42);
-      transform: rotate(1.2deg);
-    }
-    .web-top { height: 43px; display: flex; align-items: center; gap: 6px; padding: 0 14px; border-bottom: 1px solid var(--line); background: #181a20; }
-    .web-top i { width: 7px; height: 7px; border-radius: 50%; background: #464a54; }
-    .web-address { margin-left: 9px; width: 38%; height: 18px; border-radius: 5px; background: #22252c; }
-    .web-body { display: grid; grid-template-columns: 112px 1fr; min-height: 420px; }
-    .web-side { padding: 18px 12px; border-right: 1px solid var(--line); background: #121419; }
-    .web-brand { display: flex; align-items: center; gap: 7px; margin-bottom: 23px; font-size: 10px; font-weight: 900; }
-    .web-brand b { width: 23px; height: 23px; display: grid; place-items: center; border-radius: 7px; background: var(--blue); }
-    .web-nav { height: 29px; display: flex; align-items: center; padding: 0 8px; margin-bottom: 5px; border-radius: 7px; color: #727782; font-size: 8px; font-weight: 700; }
-    .web-nav.active { background: var(--blue-soft); color: #9eb0ff; }
-    .web-main { padding: 27px; }
-    .web-main small { color: #707580; font-size: 8px; font-weight: 700; }
-    .web-main h3 { margin: 7px 0 22px; font-size: 21px; letter-spacing: -.05em; }
-    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .stat { padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: #17191f; }
-    .stat span { display: block; color: #747985; font-size: 7px; }
-    .stat strong { display: block; margin-top: 9px; font-size: 18px; }
-    .schedule { margin-top: 13px; overflow: hidden; border: 1px solid var(--line); border-radius: 11px; }
-    .schedule-head, .schedule-row { display: grid; grid-template-columns: 70px 1fr 74px; align-items: center; }
-    .schedule-head { min-height: 32px; padding: 0 12px; color: #6e737e; background: #17191e; font-size: 7px; font-weight: 800; }
-    .schedule-row { min-height: 52px; padding: 0 12px; border-top: 1px solid var(--line); font-size: 8px; }
-    .schedule-row b { font-size: 8px; }
-    .schedule-row span:last-child { justify-self: start; padding: 4px 7px; border-radius: 999px; background: var(--blue-soft); color: #9eb0ff; font-size: 7px; font-weight: 800; }
+    .web-shell { min-width: 0; min-height: 690px; overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: #0f1116; }
+    .web-top { height: 48px; display: flex; align-items: center; gap: 7px; padding: 0 17px; border-bottom: 1px solid var(--line); background: #17191f; }
+    .web-top i { width: 8px; height: 8px; border-radius: 50%; background: #444954; }
+    .web-address { width: 250px; height: 23px; margin-left: 10px; border-radius: 6px; background: #21242b; }
+    .web-body { display: grid; grid-template-columns: 150px minmax(0, 1fr); min-height: 640px; }
+    .web-side { padding: 22px 14px; border-right: 1px solid var(--line); background: #101217; }
+    .web-brand { display: flex; align-items: center; gap: 8px; margin: 0 5px 28px; font-size: 12px; font-weight: 900; }
+    .web-brand b { width: 27px; height: 27px; display: grid; place-items: center; border-radius: 8px; background: var(--blue); }
+    .web-nav { min-height: 39px; display: flex; align-items: center; gap: 9px; margin-bottom: 5px; padding: 0 11px; border-radius: 9px; color: #747a86; font-size: 10px; font-weight: 750; }
+    .web-nav.active { background: var(--blue-soft); color: #a7b6ff; }
+    .web-nav svg { width: 15px; height: 15px; }
+    .web-main { min-width: 0; padding: 30px; }
+    .web-date { color: var(--muted-2); font-size: 10px; font-weight: 700; }
+    .web-heading { display: flex; align-items: flex-end; gap: 12px; margin-top: 6px; }
+    .web-heading h2 { margin: 0; font-size: 27px; letter-spacing: -.055em; }
+    .web-heading span { margin-bottom: 4px; color: var(--muted); font-size: 10px; }
+    .web-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 21px; }
+    .web-stat { padding: 15px; border: 1px solid var(--line); border-radius: 12px; background: #16191f; }
+    .web-stat span { color: var(--muted-2); font-size: 9px; }
+    .web-stat strong { display: block; margin-top: 9px; font-size: 24px; }
+    .task-board { margin-top: 16px; overflow: hidden; border: 1px solid var(--line); border-radius: 14px; }
+    .task-head, .task-row { display: grid; grid-template-columns: 68px minmax(125px,1fr) minmax(130px,1.3fr) 98px; align-items: center; }
+    .task-head { min-height: 38px; padding: 0 15px; background: #17191f; color: var(--muted-2); font-size: 8px; font-weight: 800; }
+    .task-row { position: relative; min-height: 65px; padding: 0 15px; border-top: 1px solid var(--line); font-size: 10px; transition: background .35s ease, box-shadow .35s ease; }
+    .task-row::after { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: transparent; transition: background .35s ease; }
+    .task-row.highlight { background: rgba(59,111,255,.095); box-shadow: inset 0 0 0 1px rgba(59,111,255,.15); }
+    .task-row.highlight::after { background: var(--blue); }
+    .task-row time { color: var(--blue-2); font-weight: 900; }
+    .task-row strong { font-size: 10px; }
+    .task-row p { margin: 4px 0 0; color: var(--muted-2); font-size: 8px; }
+    .task-tag { justify-self: start; padding: 5px 8px; border-radius: 999px; background: var(--blue-soft); color: #aab8ff; font-size: 8px; font-weight: 850; }
+    .task-tag.overdue { background: rgba(255,102,102,.12); color: #ff9191; }
+    .web-lower { display: grid; grid-template-columns: 1.2fr .8fr; gap: 12px; margin-top: 13px; }
+    .mini-panel { min-width: 0; padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: #15181e; }
+    .mini-panel h3 { margin: 0; font-size: 11px; }
+    .mini-panel p { margin: 5px 0 0; color: var(--muted-2); font-size: 8px; }
+    .mini-calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 12px; }
+    .mini-day { aspect-ratio: 1; display: grid; place-items: center; border-radius: 6px; background: #1b1e25; color: #727885; font-size: 7px; }
+    .mini-day.mark { background: var(--blue); color: white; font-weight: 900; }
+    .mini-history { margin-top: 10px; }
+    .mini-history div { display: grid; grid-template-columns: 7px 1fr; gap: 8px; margin-bottom: 9px; }
+    .mini-history i { width: 7px; height: 7px; margin-top: 3px; border-radius: 50%; background: var(--blue); }
+    .mini-history strong { display: block; font-size: 8px; }
+    .mini-history span { display: block; margin-top: 3px; color: var(--muted-2); font-size: 7px; }
 
-    .phone {
-      position: absolute;
-      left: 2px;
-      bottom: 0;
-      width: 245px;
-      padding: 8px;
-      border: 1px solid rgba(255,255,255,.16);
-      border-radius: 37px;
-      background: #050608;
-      box-shadow: 0 30px 80px rgba(0,0,0,.55);
-      transform: rotate(-4.5deg);
-    }
-    .phone-screen { min-height: 500px; overflow: hidden; border-radius: 30px; background: #111318; }
-    .phone-status { height: 31px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; color: #b9bdc6; font-size: 8px; }
-    .phone-head { padding: 8px 17px 15px; }
-    .phone-head small { color: #6e737e; font-size: 8px; }
-    .phone-head h3 { margin: 5px 0 0; font-size: 18px; letter-spacing: -.05em; }
-    .call-card { margin: 0 13px; padding: 15px; border: 1px solid var(--line); border-radius: 16px; background: #191b21; }
-    .call-person { display: flex; align-items: center; gap: 10px; }
-    .call-avatar { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: var(--blue-soft); color: #9eb0ff; font-size: 10px; font-weight: 900; }
-    .call-person strong { display: block; font-size: 11px; }
-    .call-person span { display: block; margin-top: 3px; color: #777c87; font-size: 8px; }
-    .phone-label { margin: 16px 0 7px; color: #6d727d; font-size: 8px; font-weight: 700; }
-    .choice-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
-    .choice { min-height: 34px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 9px; background: #13151a; color: #979ca7; font-size: 8px; font-weight: 750; }
-    .choice.active { border-color: rgba(59,111,255,.4); background: var(--blue-soft); color: #aabaff; }
-    .phone-action { min-height: 39px; margin-top: 13px; display: grid; place-items: center; border-radius: 10px; background: var(--blue); font-size: 9px; font-weight: 900; }
-    .phone-list { padding: 13px; }
-    .phone-task { display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: center; min-height: 48px; border-bottom: 1px solid var(--line); }
-    .phone-task b { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; background: #1b1e24; color: #8fa5ff; font-size: 9px; }
-    .phone-task strong { display: block; font-size: 8px; }
-    .phone-task span { display: block; margin-top: 3px; color: #707580; font-size: 7px; }
+    .fact-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 1px; margin-top: 18px; overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: var(--line); }
+    .fact { min-height: 108px; display: flex; flex-direction: column; justify-content: center; padding: 20px 24px; background: #111319; }
+    .fact b { font-size: 20px; letter-spacing: -.04em; }
+    .fact span { margin-top: 7px; color: var(--muted-2); font-size: 12px; }
 
-    .section { padding: 130px 0; border-top: 1px solid var(--line); }
+    .section { padding: 140px 0; border-top: 1px solid var(--line); }
     .section-head { max-width: 760px; }
-    .kicker { margin: 0 0 16px; color: var(--blue-2); font-size: 13px; font-weight: 850; }
-    .title { margin: 0; font-size: clamp(38px, 5.3vw, 68px); line-height: 1.08; letter-spacing: -.065em; }
-    .copy { margin: 22px 0 0; max-width: 650px; color: var(--muted); font-size: clamp(16px, 1.8vw, 20px); line-height: 1.7; }
+    .section-kicker { margin: 0 0 14px; color: var(--blue-2); font-size: 13px; font-weight: 850; }
+    .section-title { margin: 0; font-size: clamp(43px, 5.5vw, 76px); line-height: 1.06; letter-spacing: -.07em; }
+    .section-copy { margin: 20px 0 0; color: var(--muted); font-size: clamp(16px, 1.6vw, 20px); line-height: 1.65; }
 
-    .problem-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 54px; }
-    .problem-card { min-height: 220px; padding: 28px; border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
-    .problem-card span { color: var(--blue-2); font-size: 12px; font-weight: 900; }
-    .problem-card h3 { margin: 60px 0 0; font-size: 26px; line-height: 1.25; letter-spacing: -.05em; }
-    .problem-card p { margin: 12px 0 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+    .feature-block { display: grid; grid-template-columns: .72fr 1.28fr; gap: 64px; align-items: center; }
+    .feature-block + .feature-block { margin-top: 150px; }
+    .feature-block.reverse { grid-template-columns: 1.28fr .72fr; }
+    .feature-block.reverse .feature-copy { order: 2; }
+    .feature-copy h3 { margin: 0; font-size: clamp(40px, 4.7vw, 66px); line-height: 1.07; letter-spacing: -.07em; }
+    .feature-copy p { margin: 19px 0 0; max-width: 480px; color: var(--muted); font-size: 18px; line-height: 1.65; }
+    .feature-points { display: grid; gap: 10px; margin-top: 30px; }
+    .feature-points div { display: flex; align-items: center; gap: 11px; color: #c9ccd3; font-size: 14px; font-weight: 720; }
+    .feature-points i { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 5px var(--blue-soft); }
+    .product-panel { min-width: 0; padding: 24px; border: 1px solid var(--line-strong); border-radius: 26px; background: linear-gradient(145deg, #171a20, #101217); box-shadow: 0 30px 80px rgba(0,0,0,.32); }
 
-    .flow-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-top: 58px; overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--line); }
-    .flow-item { min-height: 300px; padding: 30px; background: var(--surface); }
-    .flow-item b { color: var(--blue-2); font-size: 13px; }
-    .flow-item h3 { margin: 74px 0 0; font-size: 27px; letter-spacing: -.05em; }
-    .flow-item p { margin: 13px 0 0; color: var(--muted); font-size: 14px; line-height: 1.65; }
-    .tag-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 20px; }
-    .tag-row span { padding: 7px 9px; border: 1px solid var(--line); border-radius: 999px; color: #c0c3ca; font-size: 11px; font-weight: 750; }
+    .today-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 2px 20px; }
+    .today-header h4 { margin: 0; font-size: 25px; letter-spacing: -.05em; }
+    .today-header span { color: var(--muted-2); font-size: 11px; }
+    .today-card { display: grid; grid-template-columns: 80px minmax(0,1fr) auto; align-items: center; gap: 15px; min-height: 86px; padding: 0 17px; margin-top: 9px; border: 1px solid var(--line); border-radius: 15px; background: #1a1d24; }
+    .today-card.overdue { border-color: rgba(255,102,102,.25); background: rgba(255,102,102,.055); }
+    .today-time { color: var(--blue-2); font-size: 14px; font-weight: 900; }
+    .today-card.overdue .today-time { color: #ff8e8e; }
+    .today-main strong { display: block; font-size: 15px; }
+    .today-main p { margin: 6px 0 0; color: var(--muted-2); font-size: 11px; }
+    .today-actions { display: flex; gap: 6px; }
+    .ui-action { min-height: 34px; display: inline-flex; align-items: center; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; color: #b9bdc6; font-size: 10px; font-weight: 800; }
+    .ui-action.done { border-color: rgba(59,111,255,.35); background: var(--blue-soft); color: #aab8ff; }
 
-    .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 54px; }
-    .feature-card { min-height: 330px; padding: 32px; overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
-    .feature-card h3 { margin: 0; font-size: 30px; letter-spacing: -.055em; }
-    .feature-card p { margin: 13px 0 0; max-width: 430px; color: var(--muted); font-size: 15px; line-height: 1.65; }
-    .feature-visual { margin-top: 35px; height: 150px; position: relative; }
-    .task-line { min-height: 45px; display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 10px; padding: 0 12px; margin-bottom: 7px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); font-size: 10px; }
-    .task-line b { color: var(--blue-2); }
-    .task-line span:last-child { color: #727782; font-size: 8px; }
-    .history-line { display: grid; grid-template-columns: 10px 1fr; gap: 11px; margin-bottom: 12px; }
-    .history-line i { width: 10px; height: 10px; margin-top: 5px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 5px var(--blue-soft); }
-    .history-line strong { display: block; font-size: 10px; }
-    .history-line span { display: block; margin-top: 4px; color: #747985; font-size: 9px; }
-    .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-    .day { aspect-ratio: 1; display: grid; place-items: center; border-radius: 7px; background: var(--surface-2); color: #6f7480; font-size: 8px; }
-    .day.mark { background: var(--blue); color: white; font-weight: 900; }
-    .sync-visual { display: flex; align-items: center; justify-content: center; gap: 18px; height: 100%; }
-    .sync-box { width: 95px; min-height: 90px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); font-size: 12px; font-weight: 850; text-align: center; }
-    .sync-arrow { color: var(--blue-2); font-size: 24px; }
+    .customer-detail { display: grid; grid-template-columns: 220px minmax(0,1fr); min-height: 520px; overflow: hidden; border: 1px solid var(--line); border-radius: 19px; background: #101217; }
+    .customer-side { padding: 24px; border-right: 1px solid var(--line); background: #14171d; }
+    .large-avatar { width: 58px; height: 58px; display: grid; place-items: center; border-radius: 50%; background: var(--blue-soft); color: #aab8ff; font-weight: 900; }
+    .customer-side h4 { margin: 16px 0 0; font-size: 20px; }
+    .customer-side p { margin: 6px 0 0; color: var(--muted-2); font-size: 11px; }
+    .customer-state { display: inline-flex; margin-top: 15px; padding: 6px 9px; border-radius: 999px; background: var(--blue-soft); color: #aab8ff; font-size: 9px; font-weight: 850; }
+    .detail-meta { display: grid; gap: 10px; margin-top: 25px; }
+    .detail-meta div { padding: 12px; border-radius: 10px; background: #1a1d23; }
+    .detail-meta span { display: block; color: var(--muted-2); font-size: 8px; }
+    .detail-meta b { display: block; margin-top: 6px; font-size: 10px; }
+    .customer-history { padding: 26px; }
+    .customer-history h4 { margin: 0; font-size: 18px; }
+    .timeline { margin-top: 25px; }
+    .timeline-row { display: grid; grid-template-columns: 16px 92px 1fr; gap: 13px; min-height: 91px; }
+    .timeline-dot { position: relative; width: 10px; height: 10px; margin-top: 5px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 0 6px var(--blue-soft); }
+    .timeline-dot::after { content: ""; position: absolute; width: 1px; height: 75px; top: 16px; left: 4px; background: var(--line-strong); }
+    .timeline-row:last-child .timeline-dot::after { display: none; }
+    .timeline-time { color: var(--muted-2); font-size: 10px; line-height: 1.5; }
+    .timeline-content { padding-bottom: 18px; }
+    .timeline-content strong { display: block; font-size: 13px; }
+    .timeline-content p { margin: 7px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .timeline-content span { display: inline-flex; margin-top: 9px; padding: 5px 8px; border-radius: 999px; background: var(--blue-soft); color: #aab8ff; font-size: 8px; font-weight: 850; }
 
-    .audience-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 46px; }
-    .audience-row span { min-height: 46px; display: inline-flex; align-items: center; padding: 0 17px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: #c8cbd2; font-size: 14px; font-weight: 750; }
+    .calendar-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 22px; }
+    .calendar-head h4 { margin: 0; font-size: 25px; letter-spacing: -.05em; }
+    .calendar-head span { color: var(--muted-2); font-size: 11px; }
+    .calendar-board { display: grid; grid-template-columns: repeat(7,1fr); gap: 7px; }
+    .calendar-label { min-height: 30px; display: grid; place-items: center; color: var(--muted-2); font-size: 10px; font-weight: 800; }
+    .calendar-day { position: relative; min-height: 88px; padding: 10px; border: 1px solid var(--line); border-radius: 11px; background: #191c22; color: #8d929e; font-size: 10px; }
+    .calendar-day.muted { opacity: .38; }
+    .calendar-day.today { border-color: rgba(59,111,255,.48); box-shadow: inset 0 0 0 1px rgba(59,111,255,.18); color: white; }
+    .calendar-event { display: block; margin-top: 13px; padding: 6px 7px; overflow: hidden; border-radius: 7px; background: var(--blue-soft); color: #aab8ff; font-size: 8px; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+    .calendar-event.yellow { background: rgba(245,184,61,.11); color: #f2c86f; }
+    .calendar-event.red { background: rgba(255,102,102,.11); color: #ff9696; }
 
-    .final { padding: 130px 0; border-top: 1px solid var(--line); }
-    .final-box { padding: 74px; border-radius: 26px; background: var(--blue); text-align: center; }
-    .final-box h2 { margin: 0; font-size: clamp(42px, 6vw, 76px); line-height: 1.05; letter-spacing: -.07em; }
-    .final-box p { margin: 21px auto 0; max-width: 560px; color: rgba(255,255,255,.78); font-size: 17px; line-height: 1.65; }
-    .final-box .btn { margin-top: 31px; border-color: white; background: white; color: #1946d8; }
-
-    .footer { padding: 30px 0 100px; color: #6f7480; font-size: 12px; }
-    .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-    .footer strong { color: #b5b9c2; }
-    .mobile-fixed { display: none; }
+    .audience { padding: 120px 0 150px; border-top: 1px solid var(--line); }
+    .audience h2 { margin: 0; font-size: clamp(42px, 5.5vw, 74px); line-height: 1.06; letter-spacing: -.07em; }
+    .audience-list { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 42px; }
+    .audience-list span { min-height: 47px; display: inline-flex; align-items: center; padding: 0 17px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: #c5c9d1; font-size: 14px; font-weight: 750; }
+    .footer { padding: 30px 0 46px; border-top: 1px solid var(--line); color: var(--muted-2); font-size: 12px; }
+    .footer-inner { display: flex; justify-content: space-between; gap: 20px; }
+    .footer strong { color: #b8bcc5; }
 
     .reveal { opacity: 0; transform: translateY(24px); transition: opacity .65s ease, transform .65s ease; }
     .reveal.visible { opacity: 1; transform: none; }
 
-    @media (max-width: 980px) {
-      .hero { padding-top: 120px; }
-      .hero-grid { grid-template-columns: 1fr; gap: 40px; }
-      .hero-copy { max-width: 620px; }
-      .device-stage { min-height: 600px; width: min(680px, 100%); margin: 0 auto; }
-      .problem-grid, .flow-list { grid-template-columns: 1fr; }
-      .flow-list { gap: 1px; }
-      .flow-item { min-height: 235px; }
-      .flow-item h3 { margin-top: 46px; }
+    @media (max-width: 1120px) {
+      .demo-grid { grid-template-columns: 330px minmax(0,1fr); }
+      .phone-shell { min-height: 650px; }
+      .phone-screen { min-height: 628px; }
+      .web-body { grid-template-columns: 120px minmax(0,1fr); }
+      .web-main { padding: 24px 18px; }
+      .task-head, .task-row { grid-template-columns: 58px minmax(105px,1fr) minmax(110px,1.2fr) 84px; }
+      .feature-block, .feature-block.reverse { grid-template-columns: 1fr; gap: 42px; }
+      .feature-block.reverse .feature-copy { order: 0; }
+      .feature-copy p { max-width: 650px; }
     }
 
-    @media (max-width: 720px) {
-      .wrap { width: min(100% - 32px, var(--max)); }
-      .header { height: 64px; }
+    @media (max-width: 820px) {
+      .wrap { width: min(var(--max), calc(100% - 32px)); }
       .nav { display: none; }
-      .header-cta { margin-left: auto; min-height: 38px; padding: 0 14px; }
-      .hero { min-height: auto; padding: 112px 0 70px; }
-      .hero h1 { font-size: clamp(46px, 14vw, 66px); }
-      .hero-copy { font-size: 17px; }
-      .hero-actions { display: grid; grid-template-columns: 1fr; }
-      .btn { width: 100%; }
-      .device-stage { min-height: 520px; }
-      .web-frame { top: 15px; width: 96%; }
-      .web-body { grid-template-columns: 83px 1fr; min-height: 350px; }
-      .web-side { padding: 13px 8px; }
-      .web-main { padding: 20px 14px; }
-      .web-main h3 { font-size: 17px; }
-      .stats { gap: 5px; }
-      .stat { padding: 8px; }
-      .phone { width: 195px; }
-      .phone-screen { min-height: 402px; }
-      .call-card { padding: 12px; }
-      .section { padding: 88px 0; }
-      .title { font-size: 42px; }
-      .problem-grid, .feature-grid { grid-template-columns: 1fr; }
-      .problem-card { min-height: 185px; }
-      .problem-card h3 { margin-top: 40px; }
-      .feature-card { min-height: 300px; padding: 25px; }
-      .final { padding: 88px 0; }
-      .final-box { padding: 58px 22px; }
-      .footer { padding-bottom: 90px; }
-      .footer-inner { align-items: flex-start; flex-direction: column; }
-      .mobile-fixed {
-        position: fixed;
-        inset: auto 12px 12px;
-        z-index: 60;
-        min-height: 52px;
-        display: grid;
-        place-items: center;
-        border-radius: 13px;
-        background: var(--blue);
-        color: white;
-        box-shadow: 0 12px 30px rgba(0,0,0,.35);
-        font-size: 14px;
-        font-weight: 900;
-      }
+      .hero { padding-top: 112px; }
+      .hero h1 { font-size: clamp(56px, 15vw, 86px); }
+      .hero p { font-size: 17px; }
+      .live-demo { padding: 15px; border-radius: 23px; }
+      .demo-top { flex-wrap: wrap; padding: 4px 4px 16px; }
+      .demo-caption { margin-left: 0; order: 3; width: 100%; }
+      .demo-progress { margin-left: auto; }
+      .demo-grid { grid-template-columns: 1fr; }
+      .phone-shell { width: min(360px,100%); margin: 0 auto; }
+      .web-shell { min-height: 590px; }
+      .web-body { grid-template-columns: 94px minmax(0,1fr); min-height: 540px; }
+      .web-side { padding: 17px 8px; }
+      .web-brand { font-size: 9px; }
+      .web-brand b { width: 23px; height: 23px; }
+      .web-nav { padding: 0 8px; font-size: 8px; }
+      .web-main { padding: 20px 12px; }
+      .web-heading h2 { font-size: 21px; }
+      .web-stats { gap: 6px; }
+      .web-stat { padding: 10px; }
+      .web-stat strong { font-size: 19px; }
+      .task-head, .task-row { grid-template-columns: 52px 1fr 84px; }
+      .task-head span:nth-child(3), .task-row > div:nth-child(3) { display: none; }
+      .web-lower { grid-template-columns: 1fr; }
+      .fact-strip { grid-template-columns: 1fr 1fr; }
+      .section { padding: 96px 0; }
+      .feature-block + .feature-block { margin-top: 110px; }
+      .today-card { grid-template-columns: 64px 1fr; padding: 14px; }
+      .today-actions { grid-column: 1 / -1; }
+      .customer-detail { grid-template-columns: 1fr; }
+      .customer-side { border-right: 0; border-bottom: 1px solid var(--line); }
+      .calendar-day { min-height: 66px; padding: 7px; }
+      .calendar-event { padding: 5px; font-size: 7px; }
+      .audience { padding: 90px 0 110px; }
+    }
+
+    @media (max-width: 560px) {
+      .header { height: 64px; }
+      .logo { font-size: 18px; }
+      .hero { padding: 102px 0 70px; }
+      .hero h1 { font-size: 53px; }
+      .hero p { max-width: 320px; font-size: 16px; }
+      .demo-top { min-height: 72px; }
+      .demo-progress { width: 120px; }
+      .phone-shell { min-height: 620px; border-radius: 40px; }
+      .phone-screen { min-height: 598px; border-radius: 31px; }
+      .app-screen { padding-inline: 17px; }
+      .web-shell { overflow-x: auto; }
+      .web-body { min-width: 650px; }
+      .fact-strip { grid-template-columns: 1fr; }
+      .fact { min-height: 88px; }
+      .section-title { font-size: 43px; }
+      .feature-copy h3 { font-size: 40px; }
+      .feature-copy p { font-size: 16px; }
+      .product-panel { padding: 14px; border-radius: 20px; overflow-x: auto; }
+      .today-content, .calendar-content { min-width: 650px; }
+      .customer-detail { min-width: 620px; }
+      .calendar-day { min-height: 72px; }
+      .audience h2 { font-size: 43px; }
+      .footer-inner { flex-direction: column; }
     }
 
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
       .reveal { opacity: 1; transform: none; transition: none; }
+      .app-screen { transition: none; }
     }
   </style>
 </head>
@@ -338,165 +413,229 @@
         콜태그
       </a>
       <nav class="nav" aria-label="주요 메뉴">
-        <a href="#why">필요한 이유</a>
-        <a href="#how">사용 방법</a>
-        <a href="#features">주요 기능</a>
+        <a href="#flow">사용 흐름</a>
+        <a href="#tasks">오늘 할 일</a>
+        <a href="#history">상담 이력</a>
+        <a href="#calendar">캘린더</a>
       </nav>
-      <a class="header-cta" href="https://pagero.kr" target="_blank" rel="noopener">도입 문의</a>
     </div>
   </header>
 
   <main id="top">
     <section class="hero">
-      <div class="wrap hero-grid">
-        <div class="hero-content reveal">
-          <span class="badge">Android 앱 · 웹 연동 준비 중</span>
-          <h1>통화가 끝나면,<br /><span>고객과 다음 할 일까지.</span></h1>
-          <p class="hero-copy">신규 고객인지 확인하고 상담 상태와 재연락 일정을 통화 직후 빠르게 남깁니다.</p>
-          <div class="hero-actions">
-            <a class="btn primary" href="https://pagero.kr" target="_blank" rel="noopener">도입 문의</a>
-            <a class="btn secondary" href="#how">어떻게 쓰는지 보기</a>
-          </div>
-          <p class="hero-note">전화 상담이 많은 1인 사업자와 영업 담당자를 위한 서비스</p>
+      <div class="wrap">
+        <div class="hero-copy reveal">
+          <h1>통화 끝.<br /><span>고객 정리 끝.</span></h1>
+          <p>고객 구분, 상담 상태, 다음 할 일, 재연락 일정을 통화 직후 남깁니다.</p>
         </div>
 
-        <div class="device-stage reveal" aria-label="콜태그 앱과 웹 화면 미리보기">
-          <div class="web-frame">
-            <div class="web-top"><i></i><i></i><i></i><span class="web-address"></span></div>
-            <div class="web-body">
-              <aside class="web-side">
-                <div class="web-brand"><b>C</b> 콜태그</div>
-                <div class="web-nav active">오늘</div>
-                <div class="web-nav">고객</div>
-                <div class="web-nav">상담</div>
-                <div class="web-nav">캘린더</div>
+        <div class="live-demo reveal" id="flow" aria-label="콜태그 실제 사용 흐름">
+          <div class="demo-top">
+            <span class="demo-live"><i></i>실사용 흐름</span>
+            <span class="demo-caption" id="demoCaption">1 / 4 · 통화 종료 감지</span>
+            <div class="demo-progress" aria-hidden="true"><span id="demoProgress"></span></div>
+          </div>
+
+          <div class="demo-grid">
+            <div class="phone-shell">
+              <div class="phone-screen">
+                <div class="phone-status"><span>12:48</span><span>● ● ●</span></div>
+
+                <section class="app-screen active" data-screen="0">
+                  <h2 class="app-title">통화 종료</h2>
+                  <p class="app-sub">방금 끝난 통화를 확인했습니다.</p>
+                  <div class="customer-card">
+                    <div class="customer-row"><div class="avatar">미등록</div><div><strong>010-4821-****</strong><span>수신 통화 · 2분 18초</span></div></div>
+                    <div class="call-summary"><div class="summary-cell"><span>통화 시각</span><b>오후 12:46</b></div><div class="summary-cell"><span>고객 조회</span><b>등록 정보 없음</b></div></div>
+                  </div>
+                  <div class="done-ring"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m5 12 4 4L19 6"/></svg></div>
+                  <div class="done-copy"><strong>통화가 끝났습니다</strong><span>상담 결과를 바로 남겨보세요.</span></div>
+                </section>
+
+                <section class="app-screen" data-screen="1">
+                  <h2 class="app-title">이 번호는 누구인가요?</h2>
+                  <p class="app-sub">미등록 번호를 업무 고객과 개인통화로 구분합니다.</p>
+                  <div class="customer-card"><div class="customer-row"><div class="avatar">신규</div><div><strong>010-4821-****</strong><span>방금 전 · 수신 통화</span></div></div></div>
+                  <div class="field-label">고객 구분</div>
+                  <div class="option-list">
+                    <div class="option active"><i></i><span>신규 문의</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4L19 6"/></svg></div>
+                    <div class="option"><i></i><span>기존 고객 연결</span><svg></svg></div>
+                    <div class="option"><i></i><span>거래처</span><svg></svg></div>
+                    <div class="option"><i></i><span>개인 전화</span><svg></svg></div>
+                    <div class="option"><i></i><span>고객관리에서 제외</span><svg></svg></div>
+                  </div>
+                  <div class="save-bar">다음</div>
+                </section>
+
+                <section class="app-screen" data-screen="2">
+                  <h2 class="app-title">상담 상태</h2>
+                  <p class="app-sub">현재 상담이 어디까지 진행됐는지 선택합니다.</p>
+                  <div class="customer-card"><div class="customer-row"><div class="avatar">김</div><div><strong>김민수 고객</strong><span>신규 문의 · 방금 등록</span></div></div></div>
+                  <div class="field-label">상담 결과</div>
+                  <div class="option-list">
+                    <div class="option"><i style="background:var(--green)"></i><span>상담 완료</span><svg></svg></div>
+                    <div class="option active"><i></i><span>상품 문의 · 진행 중</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4L19 6"/></svg></div>
+                    <div class="option"><i style="background:var(--yellow)"></i><span>자료·견적 발송</span><svg></svg></div>
+                    <div class="option"><i></i><span>추가 검토</span><svg></svg></div>
+                    <div class="option"><i></i><span>보류·종료</span><svg></svg></div>
+                  </div>
+                  <div class="save-bar">다음</div>
+                </section>
+
+                <section class="app-screen" data-screen="3">
+                  <h2 class="app-title">다음 할 일</h2>
+                  <p class="app-sub">해야 할 업무와 날짜를 정하면 웹 일정에도 표시됩니다.</p>
+                  <div class="customer-card"><div class="customer-row"><div class="avatar">김</div><div><strong>김민수 고객</strong><span>상품 문의 · 진행 중</span></div></div></div>
+                  <div class="field-label">다음 행동</div>
+                  <div class="input-box"><strong>자료·견적 발송</strong><span>⌄</span></div>
+                  <div class="field-label">재연락 예정일</div>
+                  <div class="input-box"><strong>7월 31일 금요일 · 오전 10:30</strong><span>▣</span></div>
+                  <div class="field-label">메모</div>
+                  <div class="input-box memo-box"><strong>견적서와 소개자료 이메일 발송</strong></div>
+                  <div class="save-bar">저장 완료</div>
+                  <div class="saved-toast"><i></i>오늘 할 일과 웹 캘린더에 추가됨</div>
+                </section>
+              </div>
+            </div>
+
+            <div class="web-shell">
+              <div class="web-top"><i></i><i></i><i></i><span class="web-address"></span></div>
+              <div class="web-body">
+                <aside class="web-side">
+                  <div class="web-brand"><b>C</b> 콜태그</div>
+                  <div class="web-nav active"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11 12 4l9 7v9H3v-9Z"/></svg>오늘</div>
+                  <div class="web-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M3 20c0-4 2-6 6-6s6 2 6 6M16 5c3 0 5 2 5 5s-2 5-5 5"/></svg>고객</div>
+                  <div class="web-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v14H4zM8 9h8M8 13h5"/></svg>상담</div>
+                  <div class="web-nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></svg>캘린더</div>
+                </aside>
+                <div class="web-main">
+                  <div class="web-date">2026년 7월 30일 목요일</div>
+                  <div class="web-heading"><h2>오늘 할 일</h2><span>우선순위 순</span></div>
+                  <div class="web-stats"><div class="web-stat"><span>재연락</span><strong>4</strong></div><div class="web-stat"><span>자료 발송</span><strong>3</strong></div><div class="web-stat"><span>기한 초과</span><strong>1</strong></div></div>
+                  <div class="task-board">
+                    <div class="task-head"><span>시간</span><span>고객</span><span>내용</span><span>상태</span></div>
+                    <div class="task-row overdue"><time>어제</time><div><strong>박지훈 고객</strong><p>방문 확인</p></div><div><strong>방문 가능 시간 다시 확인</strong></div><span class="task-tag overdue">기한 초과</span></div>
+                    <div class="task-row" id="newTask"><time>10:30</time><div><strong>김민수 고객</strong><p>상품 문의 · 진행 중</p></div><div><strong>견적서와 소개자료 발송</strong></div><span class="task-tag">자료 발송</span></div>
+                    <div class="task-row"><time>14:00</time><div><strong>이서연 고객</strong><p>계약 검토</p></div><div><strong>진행 여부 재연락</strong></div><span class="task-tag">재연락</span></div>
+                  </div>
+                  <div class="web-lower">
+                    <div class="mini-panel"><h3>후속 일정 캘린더</h3><p>재연락·자료 발송·방문</p><div class="mini-calendar"><span class="mini-day">27</span><span class="mini-day">28</span><span class="mini-day">29</span><span class="mini-day mark">30</span><span class="mini-day mark">31</span><span class="mini-day">1</span><span class="mini-day">2</span><span class="mini-day">3</span><span class="mini-day">4</span><span class="mini-day mark">5</span><span class="mini-day">6</span><span class="mini-day">7</span><span class="mini-day">8</span><span class="mini-day">9</span></div></div>
+                    <div class="mini-panel"><h3>김민수 고객</h3><p>최근 상담</p><div class="mini-history"><div><i></i><span><strong>자료 발송 예정</strong><span>7월 31일 10:30</span></span></div><div><i></i><span><strong>상품 문의 · 진행 중</strong><span>오늘 12:48</span></span></div><div><i></i><span><strong>신규 고객 등록</strong><span>오늘 12:47</span></span></div></div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="fact-strip reveal" aria-label="콜태그 핵심 기능">
+          <div class="fact"><b>10초 안에</b><span>통화 직후 빠른 기록</span></div>
+          <div class="fact"><b>신규·기존 구분</b><span>미등록 번호도 바로 분류</span></div>
+          <div class="fact"><b>다음 할 일 저장</b><span>재연락·자료 발송·방문</span></div>
+          <div class="fact"><b>앱과 웹</b><span>휴대폰에서 기록, 큰 화면에서 확인</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="tasks">
+      <div class="wrap">
+        <article class="feature-block reveal">
+          <div class="feature-copy">
+            <h3>놓친 일부터<br />먼저 보입니다.</h3>
+            <p>기한이 지난 재연락, 오늘 연락할 고객, 보내지 않은 자료를 우선순위대로 보여줍니다.</p>
+            <div class="feature-points"><div><i></i>전화·문자·미루기·완료 처리</div><div><i></i>기한 초과 업무는 별도 표시</div><div><i></i>처리하지 않은 업무는 사라지지 않음</div></div>
+          </div>
+          <div class="product-panel">
+            <div class="today-content">
+              <div class="today-header"><h4>오늘 할 일</h4><span>7월 30일 목요일 · 5건</span></div>
+              <div class="today-card overdue"><div class="today-time">어제</div><div class="today-main"><strong>박지훈 고객 방문 확인</strong><p>약속 시간을 다시 확인해야 합니다.</p></div><div class="today-actions"><span class="ui-action">전화</span><span class="ui-action">미루기</span><span class="ui-action done">완료</span></div></div>
+              <div class="today-card"><div class="today-time">10:30</div><div class="today-main"><strong>김민수 고객 자료 발송</strong><p>견적서와 소개자료 이메일 발송</p></div><div class="today-actions"><span class="ui-action">문자</span><span class="ui-action">미루기</span><span class="ui-action done">완료</span></div></div>
+              <div class="today-card"><div class="today-time">14:00</div><div class="today-main"><strong>이서연 고객 재연락</strong><p>계약 검토 결과 확인</p></div><div class="today-actions"><span class="ui-action">전화</span><span class="ui-action">미루기</span><span class="ui-action done">완료</span></div></div>
+              <div class="today-card"><div class="today-time">16:20</div><div class="today-main"><strong>최준호 고객 상담 정리</strong><p>통화 후 상담 결과 미입력</p></div><div class="today-actions"><span class="ui-action">정리</span><span class="ui-action done">완료</span></div></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="feature-block reverse reveal" id="history">
+          <div class="product-panel">
+            <div class="customer-detail">
+              <aside class="customer-side">
+                <div class="large-avatar">김</div><h4>김민수 고객</h4><p>010-1234-5678</p><span class="customer-state">상품 문의 · 진행 중</span>
+                <div class="detail-meta"><div><span>다음 업무</span><b>견적서 발송</b></div><div><span>재연락</span><b>7월 31일 10:30</b></div><div><span>최근 통화</span><b>오늘 · 2분 18초</b></div></div>
               </aside>
-              <div class="web-main">
-                <small>7월 30일 목요일</small>
-                <h3>오늘 할 일</h3>
-                <div class="stats">
-                  <div class="stat"><span>재연락</span><strong>4</strong></div>
-                  <div class="stat"><span>자료 발송</span><strong>2</strong></div>
-                  <div class="stat"><span>기한 초과</span><strong>1</strong></div>
-                </div>
-                <div class="schedule">
-                  <div class="schedule-head"><span>시간</span><span>고객</span><span>업무</span></div>
-                  <div class="schedule-row"><span>10:30</span><b>김민수 고객</b><span>재연락</span></div>
-                  <div class="schedule-row"><span>14:00</span><b>이서진 고객</b><span>견적 발송</span></div>
-                  <div class="schedule-row"><span>16:20</span><b>박지훈 고객</b><span>방문 확인</span></div>
+              <div class="customer-history">
+                <h4>상담 이력</h4>
+                <div class="timeline">
+                  <div class="timeline-row"><i class="timeline-dot"></i><time class="timeline-time">오늘<br />12:48</time><div class="timeline-content"><strong>상품 문의 · 진행 중</strong><p>신규 고객으로 등록. 프리미엄 상품 견적 요청.</p><span>다음: 견적서 발송</span></div></div>
+                  <div class="timeline-row"><i class="timeline-dot"></i><time class="timeline-time">오늘<br />12:47</time><div class="timeline-content"><strong>첫 통화</strong><p>수신 통화 2분 18초. 미등록 번호에서 신규 문의로 분류.</p><span>신규 고객 등록</span></div></div>
+                  <div class="timeline-row"><i class="timeline-dot"></i><time class="timeline-time">7월 31일<br />10:30</time><div class="timeline-content"><strong>재연락 예정</strong><p>견적서 확인 여부와 추가 문의 확인.</p><span>예정 업무</span></div></div>
                 </div>
               </div>
             </div>
           </div>
+          <div class="feature-copy">
+            <h3>고객마다<br />기억할 필요 없습니다.</h3>
+            <p>누구와 언제 통화했고, 상담이 어디까지 진행됐고, 다음에 무엇을 해야 하는지 고객별로 이어서 봅니다.</p>
+            <div class="feature-points"><div><i></i>고객과 상담건을 따로 관리</div><div><i></i>통화·상담 상태·메모를 시간순 확인</div><div><i></i>다음 업무와 재연락 일정 연결</div></div>
+          </div>
+        </article>
 
-          <div class="phone">
-            <div class="phone-screen">
-              <div class="phone-status"><span>12:48</span><span>●●●</span></div>
-              <div class="phone-head"><small>통화가 종료되었습니다</small><h3>상담 결과 남기기</h3></div>
-              <div class="call-card">
-                <div class="call-person"><div class="call-avatar">신규</div><div><strong>010-4821-****</strong><span>방금 전 · 수신 통화</span></div></div>
-                <div class="phone-label">고객 구분</div>
-                <div class="choice-grid"><div class="choice active">신규 고객</div><div class="choice">기존 고객</div></div>
-                <div class="phone-label">상담 상태</div>
-                <div class="choice-grid"><div class="choice active">견적 요청</div><div class="choice">보류</div><div class="choice">진행 중</div><div class="choice">완료</div></div>
-                <div class="phone-label">다음 할 일</div>
-                <div class="choice-grid"><div class="choice active">재연락</div><div class="choice">자료 발송</div></div>
-                <div class="phone-action">저장</div>
-              </div>
-              <div class="phone-list">
-                <div class="phone-task"><b>1</b><div><strong>오늘 재연락 4건</strong><span>놓치지 않게 모아서 확인</span></div></div>
-                <div class="phone-task"><b>2</b><div><strong>자료 발송 2건</strong><span>고객별 다음 행동 기록</span></div></div>
+        <article class="feature-block reveal" id="calendar">
+          <div class="feature-copy">
+            <h3>일정은<br />달력에 모입니다.</h3>
+            <p>재연락, 자료 발송, 방문 약속을 날짜별로 확인하고 고객 상담 이력까지 바로 연결합니다.</p>
+            <div class="feature-points"><div><i></i>재연락·자료 발송·방문 일정 구분</div><div><i></i>날짜를 누르면 해당 고객 업무 확인</div><div><i></i>앱에서 저장한 일정이 웹에 표시</div></div>
+          </div>
+          <div class="product-panel">
+            <div class="calendar-content">
+              <div class="calendar-head"><h4>2026년 7월</h4><span>‹　오늘　›</span></div>
+              <div class="calendar-board">
+                <span class="calendar-label">일</span><span class="calendar-label">월</span><span class="calendar-label">화</span><span class="calendar-label">수</span><span class="calendar-label">목</span><span class="calendar-label">금</span><span class="calendar-label">토</span>
+                <div class="calendar-day muted">28</div><div class="calendar-day muted">29</div><div class="calendar-day muted">30</div><div class="calendar-day">1</div><div class="calendar-day">2</div><div class="calendar-day">3</div><div class="calendar-day">4</div>
+                <div class="calendar-day">5</div><div class="calendar-day">6<span class="calendar-event">이서연 재연락</span></div><div class="calendar-day">7</div><div class="calendar-day">8</div><div class="calendar-day">9<span class="calendar-event yellow">자료 발송 2건</span></div><div class="calendar-day">10</div><div class="calendar-day">11</div>
+                <div class="calendar-day">12</div><div class="calendar-day">13</div><div class="calendar-day">14<span class="calendar-event">박지훈 방문</span></div><div class="calendar-day">15</div><div class="calendar-day">16</div><div class="calendar-day">17</div><div class="calendar-day">18</div>
+                <div class="calendar-day">19</div><div class="calendar-day">20</div><div class="calendar-day">21</div><div class="calendar-day">22<span class="calendar-event yellow">견적 발송</span></div><div class="calendar-day">23</div><div class="calendar-day">24</div><div class="calendar-day">25</div>
+                <div class="calendar-day">26</div><div class="calendar-day">27</div><div class="calendar-day">28</div><div class="calendar-day">29</div><div class="calendar-day today">30<span class="calendar-event red">기한 초과 1건</span></div><div class="calendar-day">31<span class="calendar-event">김민수 재연락</span></div><div class="calendar-day muted">1</div>
               </div>
             </div>
           </div>
-        </div>
+        </article>
       </div>
     </section>
 
-    <section class="section" id="why">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <p class="kicker">통화 뒤에 남는 일</p>
-          <h2 class="title">기억으로 버티기엔<br />고객이 너무 많습니다.</h2>
-        </div>
-        <div class="problem-grid">
-          <article class="problem-card reveal"><span>01</span><h3>누구였는지</h3><p>처음 전화한 문의자인지 기존 고객인지 바로 확인합니다.</p></article>
-          <article class="problem-card reveal"><span>02</span><h3>뭘 하기로 했는지</h3><p>견적, 자료 발송, 방문 약속을 고객별로 남깁니다.</p></article>
-          <article class="problem-card reveal"><span>03</span><h3>언제 다시 연락할지</h3><p>재연락 날짜를 정하고 오늘 할 일에서 바로 확인합니다.</p></article>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="how">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <p class="kicker">사용 방법</p>
-          <h2 class="title">전화가 끝난 직후,<br />3가지만 남기세요.</h2>
-        </div>
-        <div class="flow-list">
-          <article class="flow-item reveal"><b>01</b><h3>고객 확인</h3><p>새로운 문의인지 기존 고객인지 고릅니다.</p><div class="tag-row"><span>신규</span><span>기존</span><span>제외</span></div></article>
-          <article class="flow-item reveal"><b>02</b><h3>상담 상태</h3><p>현재 어디까지 진행됐는지 표시합니다.</p><div class="tag-row"><span>문의</span><span>견적</span><span>진행</span><span>완료</span></div></article>
-          <article class="flow-item reveal"><b>03</b><h3>다음 할 일</h3><p>다시 연락할 날짜와 해야 할 일을 정합니다.</p><div class="tag-row"><span>재연락</span><span>자료 발송</span><span>방문</span></div></article>
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="features">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <p class="kicker">주요 기능</p>
-          <h2 class="title">필요한 것만<br />바로 보이게.</h2>
-        </div>
-        <div class="feature-grid">
-          <article class="feature-card reveal">
-            <h3>오늘 할 일</h3><p>재연락, 자료 발송, 기한이 지난 업무를 먼저 보여줍니다.</p>
-            <div class="feature-visual"><div class="task-line"><b>10:30</b><strong>김민수 고객 재연락</strong><span>오늘</span></div><div class="task-line"><b>14:00</b><strong>이서진 고객 견적 발송</strong><span>오늘</span></div><div class="task-line"><b>어제</b><strong>박지훈 고객 방문 확인</strong><span>지연</span></div></div>
-          </article>
-          <article class="feature-card reveal">
-            <h3>고객별 상담 이력</h3><p>지난 통화와 상담 상태, 다음 행동을 한곳에서 확인합니다.</p>
-            <div class="feature-visual"><div class="history-line"><i></i><div><strong>견적서 발송 완료</strong><span>7월 30일 14:10</span></div></div><div class="history-line"><i></i><div><strong>상품 문의 · 진행 중</strong><span>7월 29일 11:40</span></div></div><div class="history-line"><i></i><div><strong>첫 통화 · 신규 등록</strong><span>7월 28일 16:05</span></div></div></div>
-          </article>
-          <article class="feature-card reveal">
-            <h3>후속 일정 캘린더</h3><p>재연락, 방문, 자료 발송 일정을 날짜별로 확인합니다.</p>
-            <div class="feature-visual calendar"><span class="day">1</span><span class="day">2</span><span class="day">3</span><span class="day mark">4</span><span class="day">5</span><span class="day">6</span><span class="day">7</span><span class="day">8</span><span class="day mark">9</span><span class="day">10</span><span class="day">11</span><span class="day">12</span><span class="day">13</span><span class="day mark">14</span><span class="day">15</span><span class="day">16</span><span class="day">17</span><span class="day">18</span><span class="day mark">19</span><span class="day">20</span><span class="day">21</span></div>
-          </article>
-          <article class="feature-card reveal">
-            <h3>앱에서 기록, 웹에서 확인</h3><p>통화 직후에는 휴대폰에서 빠르게 남기고, 고객과 일정은 큰 화면에서 관리합니다.</p>
-            <div class="feature-visual sync-visual"><div class="sync-box">Android<br />앱</div><div class="sync-arrow">↔</div><div class="sync-box">웹<br />관리</div></div>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="wrap">
-        <div class="section-head reveal"><p class="kicker">추천 업종</p><h2 class="title">전화 상담이 많다면<br />바로 쓸 수 있습니다.</h2></div>
-        <div class="audience-row reveal"><span>보험</span><span>부동산</span><span>자동차 영업</span><span>학원</span><span>광고·홈페이지 제작</span><span>인테리어</span><span>이사·방문서비스</span><span>예약 상담</span></div>
-      </div>
-    </section>
-
-    <section class="final" id="contact">
-      <div class="wrap">
-        <div class="final-box reveal">
-          <h2>놓친 고객이<br />없도록.</h2>
-          <p>콜태그 출시 소식과 테스트 참여 안내를 받아보세요.</p>
-          <a class="btn" href="https://pagero.kr" target="_blank" rel="noopener">도입 문의</a>
-        </div>
+    <section class="audience">
+      <div class="wrap reveal">
+        <h2>전화 상담이<br />업무의 시작이라면.</h2>
+        <div class="audience-list"><span>보험</span><span>부동산</span><span>자동차 영업</span><span>학원 상담</span><span>광고·홈페이지 제작</span><span>인테리어</span><span>이사·방문서비스</span><span>예약 상담</span></div>
       </div>
     </section>
   </main>
 
-  <footer class="footer">
-    <div class="wrap footer-inner"><div><strong>콜태그</strong> · 페이지로</div><div>© 2026 Pagero</div></div>
-  </footer>
-
-  <a class="mobile-fixed" href="https://pagero.kr" target="_blank" rel="noopener">콜태그 도입 문의</a>
+  <footer class="footer"><div class="wrap footer-inner"><div><strong>콜태그</strong> · 페이지로</div><div>© 2026 Pagero</div></div></footer>
 
   <script>
     const header = document.getElementById('header');
     const syncHeader = () => header.classList.toggle('scrolled', window.scrollY > 8);
     syncHeader();
     window.addEventListener('scroll', syncHeader, { passive: true });
+
+    const screens = [...document.querySelectorAll('.app-screen')];
+    const caption = document.getElementById('demoCaption');
+    const progress = document.getElementById('demoProgress');
+    const newTask = document.getElementById('newTask');
+    const captions = ['1 / 4 · 통화 종료 감지', '2 / 4 · 신규·기존 고객 구분', '3 / 4 · 상담 상태 선택', '4 / 4 · 다음 할 일과 날짜 저장'];
+    let activeScreen = 0;
+
+    const showScreen = index => {
+      activeScreen = index;
+      screens.forEach((screen, i) => screen.classList.toggle('active', i === index));
+      caption.textContent = captions[index];
+      progress.style.width = `${(index + 1) * 25}%`;
+      newTask.classList.toggle('highlight', index === 3);
+    };
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reducedMotion) setInterval(() => showScreen((activeScreen + 1) % screens.length), 3000);
 
     if ('IntersectionObserver' in window) {
       const observer = new IntersectionObserver(entries => {
@@ -506,7 +645,7 @@
             observer.unobserve(entry.target);
           }
         });
-      }, { threshold: .12, rootMargin: '0px 0px -35px' });
+      }, { threshold: .1, rootMargin: '0px 0px -35px' });
       document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
     } else {
       document.querySelectorAll('.reveal').forEach(el => el.classList.add('visible'));
