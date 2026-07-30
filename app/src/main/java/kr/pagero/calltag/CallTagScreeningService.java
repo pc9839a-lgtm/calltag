@@ -24,7 +24,7 @@ public final class CallTagScreeningService extends CallScreeningService {
         }
 
         if (!incoming) {
-            SettingsStore.setCallerScreeningStatus(this, "발신 통화라 수신 알림을 표시하지 않았습니다.");
+            SettingsStore.setCallerScreeningStatus(this, "발신 통화라 수신 알림 팝업을 표시하지 않았습니다.");
             return;
         }
 
@@ -42,7 +42,7 @@ public final class CallTagScreeningService extends CallScreeningService {
         CallTagDbHelper db = new CallTagDbHelper(this);
         try {
             if (db.isExcluded(phone)) {
-                SettingsStore.setCallerScreeningStatus(this, "제외번호라 수신 알림을 표시하지 않았습니다.");
+                SettingsStore.setCallerScreeningStatus(this, "제외번호라 수신 알림 팝업을 표시하지 않았습니다.");
                 return;
             }
             Customer customer = db.findByPhone(phone);
@@ -52,12 +52,20 @@ public final class CallTagScreeningService extends CallScreeningService {
             }
 
             String memo = CustomerInsightResolver.latestMemo(db, customer);
-            boolean shown = CallerPopupNotification.post(
-                    this, customer, memo, db.stageColor(customer.relationStatus), false);
-            SettingsStore.setCallerScreeningStatus(this,
-                    shown
-                            ? "등록 고객을 확인해 수신 알림 팝업을 표시했습니다."
-                            : "수신 알림 채널의 팝업 표시가 꺼져 있거나 알림이 차단되었습니다.");
+            boolean posted = CallPopupNotificationManager.showIncoming(
+                    this, customer, memo, db.stageColor(customer.relationStatus));
+            boolean popupReady = CallPopupNotificationManager.isPopupReady(
+                    this, CallPopupNotificationManager.INCOMING_CHANNEL_ID);
+
+            if (!posted) {
+                SettingsStore.setCallerScreeningStatus(this, "수신 고객정보 알림을 게시하지 못했습니다.");
+            } else if (!popupReady) {
+                SettingsStore.setCallerScreeningStatus(this,
+                        "수신 알림은 게시했지만 팝업 채널이 꺼져 있습니다. 알림 설정에서 팝업을 켜주세요.");
+            } else {
+                SettingsStore.setCallerScreeningStatus(this,
+                        "앱 실행 여부와 관계없이 수신 고객정보 알림 팝업을 게시했습니다.");
+            }
         } finally {
             db.close();
         }
