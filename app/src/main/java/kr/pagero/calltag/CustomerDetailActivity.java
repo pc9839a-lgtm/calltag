@@ -5,10 +5,11 @@ import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.Intent;
+import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
-import android.text.InputType;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.EditText;
@@ -18,6 +19,7 @@ import android.widget.Toast;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -27,6 +29,7 @@ public final class CustomerDetailActivity extends Activity {
     public static final String EXTRA_CUSTOMER_ID = "customer_id";
 
     private CallTagDbHelper db;
+    private TaskTypeStore taskTypes;
     private long customerId;
     private Customer customer;
     private TextView nameView;
@@ -43,6 +46,7 @@ public final class CustomerDetailActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_customer_detail);
         db = new CallTagDbHelper(this);
+        taskTypes = new TaskTypeStore(this);
         customerId = getIntent().getLongExtra(EXTRA_CUSTOMER_ID, -1L);
         bindViews();
         bindActions();
@@ -85,7 +89,9 @@ public final class CustomerDetailActivity extends Activity {
         nameView.setText(customer.displayName);
         phoneView.setText(customer.primaryPhone);
         statusView.setText(customer.relationStatus + "  ▾");
-        statusView.setTextColor(getColor(R.color.primary));
+        String color = db.stageColor(customer.relationStatus);
+        statusView.setBackground(stageBackground(color));
+        statusView.setTextColor(contrastTextColor(parseColor(color)));
         if (!memoInput.hasFocus()) memoInput.setText(customer.memo);
         renderTasks();
         renderInteractions();
@@ -98,6 +104,7 @@ public final class CustomerDetailActivity extends Activity {
         SimpleDateFormat formatter = new SimpleDateFormat("M월 d일 E a h:mm", Locale.KOREA);
 
         for (FollowUpTask task : tasks) {
+            TaskTypeOption type = taskTypes.find(task.taskType);
             LinearLayout card = new LinearLayout(this);
             card.setOrientation(LinearLayout.VERTICAL);
             card.setPadding(dp(18), dp(15), dp(18), dp(15));
@@ -109,18 +116,14 @@ public final class CustomerDetailActivity extends Activity {
                     ? R.color.text_muted : R.color.text_primary, true);
             header.addView(title, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            TextView state = text(task.isCompleted() ? "완료" : "예정", 12f,
-                    task.isCompleted() ? R.color.text_muted : R.color.primary, true);
-            state.setPadding(dp(10), dp(5), dp(10), dp(5));
-            state.setBackgroundResource(R.drawable.bg_badge);
-            header.addView(state);
+            header.addView(typeBadge(type, task.isCompleted()));
             card.addView(header, matchWrap());
             card.addView(text(formatter.format(new Date(task.dueAt)), 13f,
                     task.isOverdue() ? R.color.danger : R.color.text_secondary, false), topMargin(7));
 
             LinearLayout actions = new LinearLayout(this);
             actions.setOrientation(LinearLayout.HORIZONTAL);
-            Button first = actionButton(task.isCompleted() ? "다시 열기" : "변경", false);
+            Button first = actionButton(task.isCompleted() ? "다시 열기" : "일정 변경", false);
             first.setOnClickListener(v -> {
                 if (task.isCompleted()) {
                     db.reopenTask(task.id);
@@ -129,14 +132,21 @@ public final class CustomerDetailActivity extends Activity {
                     showTaskOptions(task);
                 }
             });
-            actions.addView(first, new LinearLayout.LayoutParams(0, dp(42), 1f));
+            actions.addView(first, new LinearLayout.LayoutParams(0, dp(44), 1f));
 
-            Button second = actionButton(task.isCompleted() ? "삭제" : "완료", !task.isCompleted());
-            second.setOnClickListener(v -> {
-                if (task.isCompleted()) confirmDeleteTask(task);
-                else completeTask(task);
-            });
-            LinearLayout.LayoutParams secondParams = new LinearLayout.LayoutParams(0, dp(42), 1f);
+            Button second;
+            if (task.isCompleted()) {
+                second = actionButton("삭제", false);
+                second.setTextColor(getColor(R.color.danger));
+                second.setOnClickListener(v -> confirmDeleteTask(task));
+            } else if (TaskTypeStore.TYPE_CALL.equals(type.code)) {
+                second = actionButton("전화하기", true);
+                second.setOnClickListener(v -> dial());
+            } else {
+                second = actionButton(completionLabel(type), true);
+                second.setOnClickListener(v -> completeTask(task, type.name + " 완료"));
+            }
+            LinearLayout.LayoutParams secondParams = new LinearLayout.LayoutParams(0, dp(44), 1f);
             secondParams.leftMargin = dp(8);
             actions.addView(second, secondParams);
             card.addView(actions, topMargin(12));
@@ -145,6 +155,24 @@ public final class CustomerDetailActivity extends Activity {
             params.bottomMargin = dp(10);
             taskList.addView(card, params);
         }
+    }
+
+    private String completionLabel(TaskTypeOption type) {
+        if (TaskTypeStore.TYPE_SEND.equals(type.code)) return "자료 보냄";
+        if (TaskTypeStore.TYPE_MEETING.equals(type.code)) return "미팅 완료";
+        return type.name.length() > 8 ? "처리 완료" : type.name + " 완료";
+    }
+
+    private TextView typeBadge(TaskTypeOption type, boolean completed) {
+        TextView badge = text(type.name, 12f, R.color.text_primary, true);
+        int color = completed ? getColor(R.color.text_muted) : parseColor(type.color);
+        badge.setTextColor(contrastTextColor(color));
+        badge.setPadding(dp(10), dp(5), dp(10), dp(5));
+        GradientDrawable shape = new GradientDrawable();
+        shape.setColor(color);
+        shape.setCornerRadius(dp(11));
+        badge.setBackground(shape);
+        return badge;
     }
 
     private void renderInteractions() {
@@ -187,7 +215,8 @@ public final class CustomerDetailActivity extends Activity {
     private String durationSuffix(InteractionRecord record) {
         if ("STATUS_CHANGE".equals(record.type)
                 || record.type.startsWith("SCHEDULE_")
-                || "TASK_COMPLETE".equals(record.type)) return "";
+                || "TASK_COMPLETE".equals(record.type)
+                || "TASK_AUTO_COMPLETE".equals(record.type)) return "";
         return " · " + durationLabel(record.durationSec);
     }
 
@@ -195,87 +224,49 @@ public final class CustomerDetailActivity extends Activity {
         if (customer == null) return;
         db.updateCustomerProfile(customer.id, customer.displayName,
                 customer.relationStatus, memoInput.getText().toString());
-        Toast.makeText(this, "저장했습니다.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "메모를 저장했습니다.", Toast.LENGTH_SHORT).show();
         memoInput.clearFocus();
         loadCustomer();
     }
 
     private void showStatusDialog() {
         if (customer == null) return;
-        List<StageOption> stages = db.listStages();
-        String[] labels = new String[stages.size()];
-        int selected = 0;
-        for (int i = 0; i < stages.size(); i++) {
-            labels[i] = stages.get(i).name;
-            if (labels[i].equals(customer.relationStatus)) selected = i;
+        List<ActionChoiceDialog.Option> options = new ArrayList<>();
+        for (StageOption stage : db.listStages()) {
+            options.add(new ActionChoiceDialog.Option(stage.name, stage.name,
+                    stage.name.equals(customer.relationStatus) ? "현재 상태" : "이 상태로 변경",
+                    stage.color));
         }
-        new AlertDialog.Builder(this)
-                .setTitle("영업 상태 변경")
-                .setSingleChoiceItems(labels, selected, (dialog, which) -> {
+        ActionChoiceDialog.show(this, "고객 상태 변경", customer.displayName,
+                options, option -> {
                     String oldStatus = customer.relationStatus;
-                    String newStatus = stages.get(which).name;
+                    String newStatus = option.key;
                     if (!oldStatus.equals(newStatus)) {
                         db.updateCustomerProfile(customer.id, customer.displayName,
                                 newStatus, memoInput.getText().toString());
                         long now = System.currentTimeMillis();
                         db.insertInteraction(customer.id, "STATUS_CHANGE", now, now, 0L,
                                 "STATUS_" + newStatus, oldStatus + " → " + newStatus);
-                        Toast.makeText(this, newStatus + "으로 변경했습니다.",
-                                Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, newStatus + "으로 변경했습니다.", Toast.LENGTH_SHORT).show();
                     }
-                    dialog.dismiss();
                     loadCustomer();
-                })
-                .setNeutralButton("단계 편집", (dialog, which) ->
-                        startActivity(new Intent(this, StageSettingsActivity.class)))
-                .setNegativeButton("닫기", null)
-                .show();
+                }, "고객 상태·색상 편집", v ->
+                        startActivity(new Intent(this, StageSettingsActivity.class)));
     }
 
     private void showScheduleTypeDialog() {
         if (customer == null) return;
-        String[] labels = {"전화하기", "방문·미팅", "자료 보내기", "직접 입력"};
-        String[] types = {"CALL", "MEETING", "SEND", "CUSTOM"};
-        new AlertDialog.Builder(this)
-                .setTitle("일정 종류")
-                .setItems(labels, (dialog, which) -> {
-                    if (which == 3) showCustomScheduleTitle();
-                    else showNewScheduleDatePicker(labels[which], types[which]);
-                })
-                .setNegativeButton("취소", null)
-                .show();
-    }
-
-    private void showCustomScheduleTitle() {
-        EditText input = new EditText(this);
-        input.setHint("일정 내용");
-        input.setHintTextColor(getColor(R.color.text_muted));
-        input.setTextColor(getColor(R.color.text_primary));
-        input.setInputType(InputType.TYPE_CLASS_TEXT);
-        input.setSingleLine(true);
-        input.setBackgroundResource(R.drawable.bg_input);
-        input.setPadding(dp(14), dp(12), dp(14), dp(12));
-        LinearLayout wrap = new LinearLayout(this);
-        wrap.setPadding(dp(20), dp(8), dp(20), 0);
-        wrap.addView(input, matchWrap());
-
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle("일정 내용")
-                .setView(wrap)
-                .setNegativeButton("취소", null)
-                .setPositiveButton("다음", null)
-                .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
-                    String title = input.getText().toString().trim();
-                    if (title.isEmpty()) {
-                        Toast.makeText(this, "일정 내용을 입력해주세요.", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    dialog.dismiss();
-                    showNewScheduleDatePicker(title, "CUSTOM");
-                }));
-        dialog.show();
+        List<ActionChoiceDialog.Option> options = new ArrayList<>();
+        for (TaskTypeOption type : taskTypes.list()) {
+            options.add(new ActionChoiceDialog.Option(type.code, type.name,
+                    "이 종류로 할 일 등록", type.color));
+        }
+        ActionChoiceDialog.show(this, "할 일 종류 선택", customer.displayName,
+                options, option -> {
+                    TaskTypeOption type = taskTypes.find(option.key);
+                    showNewScheduleDatePicker(type.name, type.code);
+                }, "일정 종류 편집", v ->
+                        startActivity(new Intent(this, TaskTypeSettingsActivity.class)));
     }
 
     private void showNewScheduleDatePicker(String title, String taskType) {
@@ -300,21 +291,20 @@ public final class CustomerDetailActivity extends Activity {
         long now = System.currentTimeMillis();
         db.insertInteraction(customer.id, "SCHEDULE_CREATE", now, now, 0L,
                 "SCHEDULED", title);
-        Toast.makeText(this, "일정을 추가했습니다.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "할 일을 추가했습니다.", Toast.LENGTH_SHORT).show();
         loadCustomer();
     }
 
     private void showTaskOptions(FollowUpTask task) {
-        String[] actions = {"날짜·시간 변경", "완료", "삭제"};
-        new AlertDialog.Builder(this)
-                .setTitle(task.title)
-                .setItems(actions, (dialog, which) -> {
-                    if (which == 0) showRescheduleDatePicker(task);
-                    if (which == 1) completeTask(task);
-                    if (which == 2) confirmDeleteTask(task);
-                })
-                .setNegativeButton("닫기", null)
-                .show();
+        List<ActionChoiceDialog.Option> options = new ArrayList<>();
+        options.add(new ActionChoiceDialog.Option("RESCHEDULE", "날짜·시간 변경",
+                "일정 시간을 다시 선택", "#4389FF"));
+        options.add(new ActionChoiceDialog.Option("DELETE", "일정 삭제",
+                "이 할 일을 삭제", "#F97066"));
+        ActionChoiceDialog.show(this, task.title, null, options, option -> {
+            if ("RESCHEDULE".equals(option.key)) showRescheduleDatePicker(task);
+            else if ("DELETE".equals(option.key)) confirmDeleteTask(task);
+        });
     }
 
     private void showRescheduleDatePicker(FollowUpTask task) {
@@ -338,19 +328,19 @@ public final class CustomerDetailActivity extends Activity {
         }, current.get(Calendar.YEAR), current.get(Calendar.MONTH), current.get(Calendar.DAY_OF_MONTH)).show();
     }
 
-    private void completeTask(FollowUpTask task) {
+    private void completeTask(FollowUpTask task, String message) {
         db.completeTask(task.id);
         long now = System.currentTimeMillis();
         db.insertInteraction(customerId, "TASK_COMPLETE", now, now, 0L,
-                "TASK_COMPLETED", task.title + " 완료");
-        Toast.makeText(this, "일정을 완료했습니다.", Toast.LENGTH_SHORT).show();
+                "TASK_COMPLETED", message);
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
         loadCustomer();
     }
 
     private void confirmDeleteTask(FollowUpTask task) {
         new AlertDialog.Builder(this)
-                .setTitle("일정 삭제")
-                .setMessage(task.title)
+                .setTitle("할 일 삭제")
+                .setMessage("‘" + task.title + "’ 일정을 삭제합니다.")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("삭제", (dialog, which) -> {
                     db.deleteTask(task.id);
@@ -380,14 +370,37 @@ public final class CustomerDetailActivity extends Activity {
         }
     }
 
+    private GradientDrawable stageBackground(String colorHex) {
+        GradientDrawable shape = new GradientDrawable();
+        shape.setCornerRadius(dp(12));
+        shape.setColor(parseColor(colorHex));
+        return shape;
+    }
+
+    private int parseColor(String value) {
+        try {
+            return Color.parseColor(value);
+        } catch (IllegalArgumentException ignored) {
+            return getColor(R.color.primary);
+        }
+    }
+
+    private int contrastTextColor(int backgroundColor) {
+        double luminance = (0.299 * Color.red(backgroundColor)
+                + 0.587 * Color.green(backgroundColor)
+                + 0.114 * Color.blue(backgroundColor)) / 255d;
+        return luminance > 0.66d ? Color.rgb(20, 22, 25) : Color.WHITE;
+    }
+
     private String resultLabel(String result) {
         if ("QUOTE".equals(result)) return "견적·자료 발송";
         if ("CALLBACK".equals(result)) return "다시 연락";
         if ("CONTRACT".equals(result)) return "계약·거래 완료";
         if ("HOLD".equals(result)) return "보류";
         if ("CLOSED".equals(result)) return "상담 종료";
-        if ("SCHEDULED".equals(result)) return "일정 등록·변경";
-        if ("TASK_COMPLETED".equals(result)) return "일정 완료";
+        if ("SCHEDULED".equals(result)) return "할 일 등록·변경";
+        if ("TASK_COMPLETED".equals(result)) return "할 일 완료";
+        if ("CALL_COMPLETED".equals(result)) return "전화 할 일 자동 완료";
         if (result != null && result.startsWith("STATUS_")) {
             return "상태 변경 · " + result.substring("STATUS_".length());
         }
@@ -398,10 +411,11 @@ public final class CustomerDetailActivity extends Activity {
         if ("OUTGOING_CALL".equals(type)) return "발신 통화";
         if ("MISSED_CALL".equals(type)) return "부재중";
         if ("REJECTED_CALL".equals(type)) return "거절";
-        if ("STATUS_CHANGE".equals(type)) return "영업 상태";
-        if ("SCHEDULE_CREATE".equals(type)) return "일정 등록";
-        if ("SCHEDULE_CHANGE".equals(type)) return "일정 변경";
-        if ("TASK_COMPLETE".equals(type)) return "일정 처리";
+        if ("STATUS_CHANGE".equals(type)) return "고객 상태";
+        if ("SCHEDULE_CREATE".equals(type)) return "할 일 등록";
+        if ("SCHEDULE_CHANGE".equals(type)) return "할 일 변경";
+        if ("TASK_COMPLETE".equals(type)) return "할 일 처리";
+        if ("TASK_AUTO_COMPLETE".equals(type)) return "통화 자동 처리";
         return "수신 통화";
     }
 
@@ -439,6 +453,7 @@ public final class CustomerDetailActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (taskTypes != null) taskTypes.close();
         if (db != null) db.close();
         super.onDestroy();
     }
