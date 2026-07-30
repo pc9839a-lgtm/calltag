@@ -20,15 +20,15 @@
         android:textSize="28sp"
         android:textStyle="bold" />
 
-    <Button
+    <kr.pagero.calltag.CustomerAddLauncherView
         android:id="@+id/addCustomerButton"
         android:layout_width="match_parent"
         android:layout_height="52dp"
         android:layout_marginTop="18dp"
         android:background="@drawable/bg_primary_button"
-        android:text="고객 추가"
-        android:textAllCaps="false"
-        android:textColor="@color/text_primary"
+        android:gravity="center"
+        android:text="+ 고객 추가"
+        android:textColor="@android:color/white"
         android:textSize="16sp"
         android:textStyle="bold" />
 
