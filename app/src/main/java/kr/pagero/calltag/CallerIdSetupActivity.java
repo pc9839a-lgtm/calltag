@@ -2,14 +2,11 @@ package kr.pagero.calltag;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.NotificationManager;
 import android.app.role.RoleManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.widget.Button;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -34,13 +31,15 @@ public final class CallerIdSetupActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_caller_id_setup);
+        CallerPopupNotification.ensureChannel(this);
         status = findViewById(R.id.callerIdSetupStatus);
         action = findViewById(R.id.callerIdSetupAction);
         privacyGroup = findViewById(R.id.callerIdPrivacyGroup);
         findViewById(R.id.callerIdSetupBack).setOnClickListener(v -> finish());
         action.setOnClickListener(v -> beginSetup());
         findViewById(R.id.callerIdTestPopup).setOnClickListener(v -> showTestPopup());
-        findViewById(R.id.callerIdNotificationSettings).setOnClickListener(v -> openNotificationSettings());
+        findViewById(R.id.callerIdNotificationSettings).setOnClickListener(
+                v -> CallerPopupNotification.openChannelSettings(this));
         bindPrivacyOptions();
         render();
     }
@@ -48,6 +47,7 @@ public final class CallerIdSetupActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        CallerPopupNotification.ensureChannel(this);
         render();
     }
 
@@ -87,14 +87,17 @@ public final class CallerIdSetupActivity extends Activity {
             requestScreeningRole();
             return;
         }
-        if (!CallerOverlayManager.canShow(this)) {
-            CallerOverlayManager.openPermissionSettings(this);
+
+        CallerPopupNotification.ensureChannel(this);
+        if (!CallerPopupNotification.isPopupEnabled(this)) {
             Toast.makeText(this,
-                    "콜태그의 ‘다른 앱 위에 표시’를 허용해주세요.", Toast.LENGTH_LONG).show();
+                    "‘전화 수신 고객정보 팝업’에서 알림 허용과 팝업 표시를 켜주세요.",
+                    Toast.LENGTH_LONG).show();
+            CallerPopupNotification.openChannelSettings(this);
             return;
         }
         Toast.makeText(this,
-                "앱이 닫혀 있어도 전화 화면 위에 고객정보가 표시됩니다.", Toast.LENGTH_LONG).show();
+                "앱이 닫혀 있어도 전화 수신 알림 팝업이 표시됩니다.", Toast.LENGTH_LONG).show();
         render();
     }
 
@@ -123,7 +126,7 @@ public final class CallerIdSetupActivity extends Activity {
             Toast.makeText(this,
                     requestCode == REQUEST_CONTACTS
                             ? "고객 번호를 확인하려면 연락처 권한이 필요합니다."
-                            : "고객정보 알림을 표시하려면 알림 권한이 필요합니다.",
+                            : "고객정보 알림 팝업을 표시하려면 알림 권한이 필요합니다.",
                     Toast.LENGTH_LONG).show();
             render();
         }
@@ -154,7 +157,7 @@ public final class CallerIdSetupActivity extends Activity {
         boolean contacts = hasContactsPermission();
         boolean notifications = hasNotificationPermission();
         boolean roleHeld = hasScreeningRole();
-        boolean overlay = CallerOverlayManager.canShow(this);
+        boolean popup = CallerPopupNotification.isPopupEnabled(this);
         long checkedAt = SettingsStore.lastCallerScreeningAt(this);
         String diagnostic = SettingsStore.lastCallerScreeningStatus(this);
         String diagnosticAt = checkedAt <= 0L ? ""
@@ -164,21 +167,21 @@ public final class CallerIdSetupActivity extends Activity {
         status.setText("연락처 권한  " + state(contacts)
                 + "\n알림 권한  " + state(notifications)
                 + "\n수신정보 앱  " + state(roleHeld)
-                + "\n전화 화면 위 표시  " + state(overlay)
+                + "\n전화 알림 팝업  " + state(popup)
                 + "\n\n최근 수신 확인" + diagnosticAt
                 + "\n" + diagnostic);
 
-        boolean complete = contacts && notifications && roleHeld && overlay;
+        boolean complete = contacts && notifications && roleHeld && popup;
         action.setEnabled(true);
         action.setAlpha(1f);
         if (complete) {
-            action.setText("설정 완료 · 다시 확인");
+            action.setText("설정 완료 · 알림 팝업 확인");
         } else if (!contacts || !notifications) {
             action.setText("필수 권한 허용");
         } else if (!roleHeld) {
             action.setText("콜태그를 수신정보 앱으로 선택");
         } else {
-            action.setText("전화 화면 위 표시 허용");
+            action.setText("전화 알림 팝업 켜기");
         }
     }
 
@@ -190,19 +193,23 @@ public final class CallerIdSetupActivity extends Activity {
                 Toast.makeText(this, "테스트할 고객을 먼저 추가해주세요.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            if (!CallerOverlayManager.canShow(this)) {
+            CallerPopupNotification.ensureChannel(this);
+            if (!CallerPopupNotification.isPopupEnabled(this)) {
                 Toast.makeText(this,
-                        "먼저 ‘전화 화면 위 표시’를 허용해주세요.", Toast.LENGTH_LONG).show();
-                CallerOverlayManager.openPermissionSettings(this);
+                        "먼저 전화 수신 고객정보 알림의 팝업 표시를 켜주세요.", Toast.LENGTH_LONG).show();
+                CallerPopupNotification.openChannelSettings(this);
                 return;
             }
             Customer customer = customers.get(0);
-            boolean shown = CallerOverlayManager.show(this, customer,
+            boolean shown = CallerPopupNotification.post(
+                    this,
+                    customer,
                     CustomerInsightResolver.latestMemo(db, customer),
-                    db.stageColor(customer.relationStatus));
+                    db.stageColor(customer.relationStatus),
+                    true);
             Toast.makeText(this,
-                    shown ? "앱 밖에서도 보이는 팝업을 표시했습니다."
-                            : "팝업을 표시하지 못했습니다.",
+                    shown ? "전화 수신 알림 팝업 테스트를 보냈습니다."
+                            : "알림 팝업을 표시하지 못했습니다.",
                     Toast.LENGTH_SHORT).show();
         } finally {
             db.close();
@@ -228,15 +235,5 @@ public final class CallerIdSetupActivity extends Activity {
 
     private String state(boolean complete) {
         return complete ? "완료" : "필요";
-    }
-
-    private void openNotificationSettings() {
-        try {
-            Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                    .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
-            startActivity(intent);
-        } catch (RuntimeException error) {
-            Toast.makeText(this, "알림 설정을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
-        }
     }
 }
