@@ -12,6 +12,7 @@ import android.provider.CallLog;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -32,6 +33,7 @@ public final class CustomerAddActivity extends Activity {
     private CallTagDbHelper db;
     private LinearLayout recentCallList;
     private TextView emptyState;
+    private boolean saving;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,7 +54,10 @@ public final class CustomerAddActivity extends Activity {
         topBar.setPadding(dp(12), 0, dp(20), 0);
         TextView back = text("‹", 34f, R.color.text_primary, false);
         back.setGravity(Gravity.CENTER);
-        back.setOnClickListener(v -> finish());
+        back.setBackgroundResource(R.drawable.bg_clickable_row);
+        back.setOnClickListener(v -> {
+            if (!saving) finish();
+        });
         topBar.addView(back, new LinearLayout.LayoutParams(dp(48), dp(66)));
         TextView topTitle = text("고객 추가", 19f, R.color.text_primary, true);
         topTitle.setGravity(Gravity.CENTER);
@@ -79,7 +84,9 @@ public final class CustomerAddActivity extends Activity {
         TextView direct = text("직접 입력", 15f, R.color.text_primary, true);
         direct.setGravity(Gravity.CENTER);
         direct.setBackgroundResource(R.drawable.bg_secondary_button);
-        direct.setOnClickListener(v -> showRegistrationDialog("", ""));
+        direct.setOnClickListener(v -> {
+            if (!saving) showRegistrationDialog("", "");
+        });
         LinearLayout.LayoutParams directParams = matchWrap();
         directParams.height = dp(52);
         directParams.topMargin = dp(16);
@@ -140,7 +147,9 @@ public final class CustomerAddActivity extends Activity {
             row.setBackgroundResource(R.drawable.bg_dialog_choice);
             row.setClickable(true);
             row.setFocusable(true);
-            row.setOnClickListener(v -> showRegistrationDialog(item.cachedName, item.number));
+            row.setOnClickListener(v -> {
+                if (!saving) showRegistrationDialog(item.cachedName, item.number);
+            });
 
             LinearLayout header = new LinearLayout(this);
             header.setGravity(Gravity.CENTER_VERTICAL);
@@ -193,7 +202,9 @@ public final class CustomerAddActivity extends Activity {
             int dateIndex = cursor.getColumnIndex(CallLog.Calls.DATE);
             int durationIndex = cursor.getColumnIndex(CallLog.Calls.DURATION);
 
-            while (cursor.moveToNext() && rows.size() < 40) {
+            int scanned = 0;
+            while (cursor.moveToNext() && rows.size() < 40 && scanned < 160) {
+                scanned++;
                 String number = numberIndex >= 0 ? cursor.getString(numberIndex) : "";
                 String normalized = PhoneNumberNormalizer.normalize(number);
                 if (normalized.length() < 8 || seen.contains(normalized)) continue;
@@ -203,16 +214,25 @@ public final class CustomerAddActivity extends Activity {
                 String name = nameIndex >= 0 ? cursor.getString(nameIndex) : "";
                 int type = typeIndex >= 0 ? cursor.getInt(typeIndex) : CallLog.Calls.INCOMING_TYPE;
                 long date = dateIndex >= 0 ? cursor.getLong(dateIndex) : System.currentTimeMillis();
-                long duration = durationIndex >= 0 ? cursor.getLong(durationIndex) : 0L;
+                long duration = durationIndex >= 0 ? Math.max(0L, cursor.getLong(durationIndex)) : 0L;
                 rows.add(new RecentCallItem(number, name == null ? "" : name.trim(), type, date, duration));
             }
         } catch (SecurityException ignored) {
             Toast.makeText(this, "통화 목록 권한이 필요합니다.", Toast.LENGTH_SHORT).show();
+        } catch (RuntimeException ignored) {
+            Toast.makeText(this, "통화 목록을 불러오지 못했습니다.", Toast.LENGTH_SHORT).show();
         }
         return rows;
     }
 
     private void showRegistrationDialog(String defaultName, String defaultPhone) {
+        Customer duplicate = db.findByPhone(defaultPhone);
+        if (duplicate != null) {
+            Toast.makeText(this, "이미 등록된 고객입니다.", Toast.LENGTH_SHORT).show();
+            openCustomer(duplicate.id);
+            return;
+        }
+
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(20), dp(8), dp(20), 0);
@@ -232,25 +252,62 @@ public final class CustomerAddActivity extends Activity {
                 .setNegativeButton("취소", null)
                 .setPositiveButton("등록", null)
                 .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
-                    try {
-                        long id = db.insertNewLead(name.getText().toString(), phone.getText().toString());
-                        dialog.dismiss();
-                        startActivity(new Intent(this, CustomerDetailActivity.class)
-                                .putExtra(CustomerDetailActivity.EXTRA_CUSTOMER_ID, id));
-                        finish();
-                    } catch (IllegalArgumentException e) {
-                        Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
-                    }
-                }));
+        dialog.setOnShowListener(ignored -> {
+            Button register = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            register.setOnClickListener(v -> {
+                if (saving) return;
+                String enteredPhone = phone.getText().toString().trim();
+                if (PhoneNumberNormalizer.normalize(enteredPhone).length() < 8) {
+                    Toast.makeText(this, "전화번호를 정확히 입력해주세요.", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+
+                Customer existing = db.findByPhone(enteredPhone);
+                if (existing != null) {
+                    dialog.dismiss();
+                    Toast.makeText(this, "이미 등록된 고객입니다.", Toast.LENGTH_SHORT).show();
+                    openCustomer(existing.id);
+                    return;
+                }
+
+                saving = true;
+                register.setEnabled(false);
+                register.setText("등록 중");
+                try {
+                    long id = db.insertNewLead(name.getText().toString(), enteredPhone);
+                    dialog.dismiss();
+                    openCustomer(id);
+                } catch (IllegalArgumentException e) {
+                    saving = false;
+                    register.setEnabled(true);
+                    register.setText("등록");
+                    Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+                } catch (RuntimeException e) {
+                    saving = false;
+                    register.setEnabled(true);
+                    register.setText("등록");
+                    Toast.makeText(this, "고객을 등록하지 못했습니다.", Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
+        dialog.setOnDismissListener(ignored -> saving = false);
         dialog.show();
+    }
+
+    private void openCustomer(long customerId) {
+        startActivity(new Intent(this, CustomerDetailActivity.class)
+                .putExtra(CustomerDetailActivity.EXTRA_CUSTOMER_ID, customerId));
+        finish();
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_CALL_LOG) renderRecentCalls();
+        if (requestCode != REQUEST_CALL_LOG) return;
+        if (checkSelfPermission(Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
+            Toast.makeText(this, "직접 입력으로 고객을 추가할 수 있습니다.", Toast.LENGTH_SHORT).show();
+        }
+        renderRecentCalls();
     }
 
     private String callTypeLabel(int type) {
@@ -261,8 +318,9 @@ public final class CustomerAddActivity extends Activity {
     }
 
     private String durationLabel(long seconds) {
-        long minutes = seconds / 60L;
-        long remain = seconds % 60L;
+        long safeSeconds = Math.max(0L, seconds);
+        long minutes = safeSeconds / 60L;
+        long remain = safeSeconds % 60L;
         return minutes > 0 ? minutes + "분 " + remain + "초" : remain + "초";
     }
 
