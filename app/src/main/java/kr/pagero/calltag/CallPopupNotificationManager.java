@@ -19,6 +19,14 @@ public final class CallPopupNotificationManager {
     public static final String INCOMING_CHANNEL_ID = "calltag_incoming_popup_v5";
     public static final String POST_CALL_CHANNEL_ID = "calltag_post_call_popup_v2";
 
+    private static final String[] LEGACY_CHANNEL_IDS = {
+            "calltag_caller_info_v2",
+            "calltag_caller_info_v3",
+            "calltag_caller_info_v4",
+            "calltag_incoming_customer_popup_v5",
+            "calltag_post_call"
+    };
+
     private CallPopupNotificationManager() {}
 
     public static void ensureChannels(Context context) {
@@ -53,6 +61,14 @@ public final class CallPopupNotificationManager {
         postCall.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
         postCall.setShowBadge(true);
         manager.createNotificationChannel(postCall);
+
+        for (String legacyId : LEGACY_CHANNEL_IDS) {
+            try {
+                manager.deleteNotificationChannel(legacyId);
+            } catch (RuntimeException ignored) {
+                // Fresh installations do not have legacy channels.
+            }
+        }
     }
 
     public static boolean isPopupReady(Context context, String channelId) {
@@ -76,10 +92,14 @@ public final class CallPopupNotificationManager {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(intent);
         } catch (RuntimeException ignored) {
-            Intent fallback = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.getPackageName())
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            context.startActivity(fallback);
+            try {
+                Intent fallback = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.getPackageName())
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                context.startActivity(fallback);
+            } catch (RuntimeException ignoredAgain) {
+                // Notification settings are not exposed by this device.
+            }
         }
     }
 
@@ -105,7 +125,7 @@ public final class CallPopupNotificationManager {
                 open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        String content = compactMemo.isEmpty() ? customer.primaryPhone : "최근 메모 · " + compactMemo;
+        String content = compactMemo.isEmpty() ? stage : "최근 메모 · " + compactMemo;
         String expanded = stage + "\n" + (compactMemo.isEmpty()
                 ? customer.primaryPhone
                 : "최근 메모 · " + safe(memo, compactMemo));
@@ -125,7 +145,9 @@ public final class CallPopupNotificationManager {
                 .setOnlyAlertOnce(false)
                 .setDefaults(Notification.DEFAULT_ALL)
                 .setWhen(System.currentTimeMillis())
+                .setShowWhen(true)
                 .setColor(parseColor(stageColor))
+                .setColorized(true)
                 .build();
         try {
             manager.notify(notificationId, notification);
@@ -175,13 +197,15 @@ public final class CallPopupNotificationManager {
                 .setStyle(new Notification.BigTextStyle().bigText(expanded))
                 .setContentIntent(pending)
                 .setAutoCancel(true)
-                .setTimeoutAfter(40_000L)
                 .setCategory(Notification.CATEGORY_REMINDER)
                 .setPriority(Notification.PRIORITY_MAX)
                 .setVisibility(Notification.VISIBILITY_PRIVATE)
                 .setOnlyAlertOnce(false)
                 .setDefaults(Notification.DEFAULT_ALL)
                 .setWhen(System.currentTimeMillis())
+                .setShowWhen(true)
+                .setColor(context.getColor(R.color.primary))
+                .setColorized(true)
                 .build();
         try {
             manager.notify(notificationId, notification);
