@@ -4,6 +4,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
+    android:clipToPadding="false"
     android:fillViewport="true"
     android:visibility="gone">
 
@@ -14,13 +15,13 @@
         android:paddingLeft="20dp"
         android:paddingTop="18dp"
         android:paddingRight="20dp"
-        android:paddingBottom="100dp">
+        android:paddingBottom="110dp">
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:includeFontPadding="false"
-            android:text="상담"
+            android:text="캘린더"
             android:textColor="@color/text_primary"
             android:textSize="28sp"
             android:textStyle="bold" />
