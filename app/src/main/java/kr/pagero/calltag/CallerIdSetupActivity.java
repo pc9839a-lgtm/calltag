@@ -7,6 +7,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.CallLog;
 import android.widget.Button;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -37,10 +38,14 @@ public final class CallerIdSetupActivity extends Activity {
         privacyGroup = findViewById(R.id.callerIdPrivacyGroup);
         findViewById(R.id.callerIdSetupBack).setOnClickListener(v -> finish());
         action.setOnClickListener(v -> beginSetup());
-        findViewById(R.id.callerIdTestPopup).setOnClickListener(v -> showTestPopup());
+        findViewById(R.id.callerIdTestPopup).setOnClickListener(v -> showIncomingTestPopup());
+        findViewById(R.id.postCallTestPopup).setOnClickListener(v -> showPostCallTestPopup());
         findViewById(R.id.callerIdNotificationSettings).setOnClickListener(v ->
                 CallPopupNotificationManager.openChannelSettings(
                         this, CallPopupNotificationManager.INCOMING_CHANNEL_ID));
+        findViewById(R.id.postCallNotificationSettings).setOnClickListener(v ->
+                CallPopupNotificationManager.openChannelSettings(
+                        this, CallPopupNotificationManager.POST_CALL_CHANNEL_ID));
         bindPrivacyOptions();
         render();
     }
@@ -90,8 +95,7 @@ public final class CallerIdSetupActivity extends Activity {
         }
 
         CallPopupNotificationManager.ensureChannels(this);
-        if (!CallPopupNotificationManager.isPopupReady(
-                this, CallPopupNotificationManager.INCOMING_CHANNEL_ID)) {
+        if (!incomingPopupReady()) {
             Toast.makeText(this,
                     "‘전화 수신 고객정보 팝업’에서 알림 허용과 팝업 표시를 켜주세요.",
                     Toast.LENGTH_LONG).show();
@@ -99,8 +103,17 @@ public final class CallerIdSetupActivity extends Activity {
                     this, CallPopupNotificationManager.INCOMING_CHANNEL_ID);
             return;
         }
+        if (!postCallPopupReady()) {
+            Toast.makeText(this,
+                    "‘통화 종료 정리 팝업’에서 알림 허용과 팝업 표시를 켜주세요.",
+                    Toast.LENGTH_LONG).show();
+            CallPopupNotificationManager.openChannelSettings(
+                    this, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
+            return;
+        }
         Toast.makeText(this,
-                "앱이 닫혀 있어도 전화 수신 알림 팝업이 표시됩니다.", Toast.LENGTH_LONG).show();
+                "앱을 열지 않아도 전화 수신과 통화 종료 알림 팝업이 표시됩니다.",
+                Toast.LENGTH_LONG).show();
         render();
     }
 
@@ -129,7 +142,7 @@ public final class CallerIdSetupActivity extends Activity {
             Toast.makeText(this,
                     requestCode == REQUEST_CONTACTS
                             ? "고객 번호를 확인하려면 연락처 권한이 필요합니다."
-                            : "고객정보 알림 팝업을 표시하려면 알림 권한이 필요합니다.",
+                            : "전화 알림 팝업을 표시하려면 알림 권한이 필요합니다.",
                     Toast.LENGTH_LONG).show();
             render();
         }
@@ -160,8 +173,8 @@ public final class CallerIdSetupActivity extends Activity {
         boolean contacts = hasContactsPermission();
         boolean notifications = hasNotificationPermission();
         boolean roleHeld = hasScreeningRole();
-        boolean popup = CallPopupNotificationManager.isPopupReady(
-                this, CallPopupNotificationManager.INCOMING_CHANNEL_ID);
+        boolean incomingPopup = incomingPopupReady();
+        boolean postCallPopup = postCallPopupReady();
         long checkedAt = SettingsStore.lastCallerScreeningAt(this);
         String diagnostic = SettingsStore.lastCallerScreeningStatus(this);
         String diagnosticAt = checkedAt <= 0L ? ""
@@ -171,25 +184,26 @@ public final class CallerIdSetupActivity extends Activity {
         status.setText("연락처 권한  " + state(contacts)
                 + "\n알림 권한  " + state(notifications)
                 + "\n수신정보 앱  " + state(roleHeld)
-                + "\n전화 알림 팝업  " + state(popup)
+                + "\n전화 수신 팝업  " + state(incomingPopup)
+                + "\n통화 종료 팝업  " + state(postCallPopup)
                 + "\n\n최근 수신 확인" + diagnosticAt
                 + "\n" + diagnostic);
 
-        boolean complete = contacts && notifications && roleHeld && popup;
+        boolean complete = contacts && notifications && roleHeld && incomingPopup && postCallPopup;
         action.setEnabled(true);
         action.setAlpha(1f);
         if (complete) {
-            action.setText("설정 완료 · 알림 팝업 확인");
+            action.setText("설정 완료 · 팝업 상태 확인");
         } else if (!contacts || !notifications) {
             action.setText("필수 권한 허용");
         } else if (!roleHeld) {
             action.setText("콜태그를 수신정보 앱으로 선택");
         } else {
-            action.setText("전화 알림 팝업 켜기");
+            action.setText("알림 팝업 설정 확인");
         }
     }
 
-    private void showTestPopup() {
+    private void showIncomingTestPopup() {
         CallTagDbHelper db = new CallTagDbHelper(this);
         try {
             List<Customer> customers = db.listCustomers(null);
@@ -197,28 +211,65 @@ public final class CallerIdSetupActivity extends Activity {
                 Toast.makeText(this, "테스트할 고객을 먼저 추가해주세요.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            CallPopupNotificationManager.ensureChannels(this);
-            if (!CallPopupNotificationManager.isPopupReady(
-                    this, CallPopupNotificationManager.INCOMING_CHANNEL_ID)) {
-                Toast.makeText(this,
-                        "먼저 전화 수신 고객정보 알림의 팝업 표시를 켜주세요.", Toast.LENGTH_LONG).show();
+            if (!incomingPopupReady()) {
                 CallPopupNotificationManager.openChannelSettings(
                         this, CallPopupNotificationManager.INCOMING_CHANNEL_ID);
                 return;
             }
             Customer customer = customers.get(0);
             boolean shown = CallPopupNotificationManager.showIncoming(
-                    this,
-                    customer,
-                    CustomerInsightResolver.latestMemo(db, customer),
+                    this, customer, CustomerInsightResolver.latestMemo(db, customer),
                     db.stageColor(customer.relationStatus));
             Toast.makeText(this,
-                    shown ? "전화 수신 알림 팝업 테스트를 보냈습니다."
-                            : "알림 팝업을 표시하지 못했습니다.",
+                    shown ? "전화 수신 상단 팝업 테스트를 보냈습니다."
+                            : "수신 팝업을 표시하지 못했습니다.",
                     Toast.LENGTH_SHORT).show();
         } finally {
             db.close();
         }
+    }
+
+    private void showPostCallTestPopup() {
+        CallTagDbHelper db = new CallTagDbHelper(this);
+        try {
+            List<Customer> customers = db.listCustomers(null);
+            if (customers.isEmpty()) {
+                Toast.makeText(this, "테스트할 고객을 먼저 추가해주세요.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (!postCallPopupReady()) {
+                CallPopupNotificationManager.openChannelSettings(
+                        this, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
+                return;
+            }
+            Customer customer = customers.get(0);
+            long now = System.currentTimeMillis();
+            CallRecord record = new CallRecord(
+                    now, customer.primaryPhone, customer.displayName,
+                    CallLog.Calls.INCOMING_TYPE, now - 60_000L, 60L);
+            Intent detail = new Intent(this, CustomerDetailActivity.class)
+                    .putExtra(CustomerDetailActivity.EXTRA_CUSTOMER_ID, customer.id)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            boolean shown = CallPopupNotificationManager.showPostCall(
+                    this, record, customer, detail,
+                    CustomerInsightResolver.latestMemo(db, customer));
+            Toast.makeText(this,
+                    shown ? "통화 종료 상단 팝업 테스트를 보냈습니다."
+                            : "통화 종료 팝업을 표시하지 못했습니다.",
+                    Toast.LENGTH_SHORT).show();
+        } finally {
+            db.close();
+        }
+    }
+
+    private boolean incomingPopupReady() {
+        return CallPopupNotificationManager.isPopupReady(
+                this, CallPopupNotificationManager.INCOMING_CHANNEL_ID);
+    }
+
+    private boolean postCallPopupReady() {
+        return CallPopupNotificationManager.isPopupReady(
+                this, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
     }
 
     private boolean hasContactsPermission() {
