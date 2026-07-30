@@ -19,6 +19,11 @@ public final class SetupRequirements {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
+    public static boolean hasContactWrite(Context context) {
+        return context.checkSelfPermission(Manifest.permission.WRITE_CONTACTS)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
     public static boolean hasPhoneState(Context context) {
         return context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE)
                 == PackageManager.PERMISSION_GRANTED;
@@ -55,11 +60,11 @@ public final class SetupRequirements {
     public static boolean baseReady(Context context) {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                 && hasContacts(context)
+                && hasContactWrite(context)
                 && hasPhoneState(context)
                 && hasCallLog(context)
                 && hasNotifications(context)
-                && hasScreeningRole(context)
-                && hasOverlay(context)
+                && SettingsStore.isContactNameSyncEnabled(context)
                 && hasPostCallPopup(context);
     }
 
@@ -76,11 +81,11 @@ public final class SetupRequirements {
     }
 
     public static void invalidateTestWhenPrerequisitesMissing(Context context) {
-        if (!baseReady(context)) clearOverlayTest(context);
+        if (!hasOverlay(context) || !hasScreeningRole(context)) clearOverlayTest(context);
     }
 
     public static boolean isReady(Context context) {
-        return baseReady(context) && overlayTestPassed(context);
+        return baseReady(context);
     }
 
     public static Intent requiredSetupIntent(Context context) {
