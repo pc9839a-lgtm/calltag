@@ -11,7 +11,7 @@ import android.telecom.Call;
 import android.telecom.CallScreeningService;
 
 public final class CallTagScreeningService extends CallScreeningService {
-    private static final String CHANNEL_ID = "calltag_caller_info_v3";
+    private static final String CHANNEL_ID = "calltag_caller_info_v4";
 
     @Override
     public void onScreenCall(Call.Details callDetails) {
@@ -31,7 +31,7 @@ public final class CallTagScreeningService extends CallScreeningService {
         }
 
         if (!incoming) {
-            SettingsStore.setCallerScreeningStatus(this, "발신 통화라 수신 팝업을 표시하지 않았습니다.");
+            SettingsStore.setCallerScreeningStatus(this, "발신 통화라 고객정보를 표시하지 않았습니다.");
             return;
         }
 
@@ -49,7 +49,7 @@ public final class CallTagScreeningService extends CallScreeningService {
         CallTagDbHelper db = new CallTagDbHelper(this);
         try {
             if (db.isExcluded(phone)) {
-                SettingsStore.setCallerScreeningStatus(this, "제외번호라 팝업을 표시하지 않았습니다.");
+                SettingsStore.setCallerScreeningStatus(this, "제외번호라 고객정보를 표시하지 않았습니다.");
                 return;
             }
             Customer customer = db.findByPhone(phone);
@@ -58,16 +58,22 @@ public final class CallTagScreeningService extends CallScreeningService {
                 return;
             }
             String memo = CustomerInsightResolver.latestMemo(db, customer);
-            showCustomerInfo(customer, memo, db.stageColor(customer.relationStatus));
+            String stageColor = db.stageColor(customer.relationStatus);
+            boolean overlayRequested = CallerOverlayManager.show(this, customer, memo, stageColor);
+            showFallbackNotification(customer, memo, stageColor, overlayRequested);
         } finally {
             db.close();
         }
     }
 
-    private void showCustomerInfo(Customer customer, String memo, String stageColor) {
+    private void showFallbackNotification(Customer customer, String memo,
+                                          String stageColor, boolean overlayRequested) {
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (manager == null) {
-            SettingsStore.setCallerScreeningStatus(this, "알림 서비스를 사용할 수 없습니다.");
+            SettingsStore.setCallerScreeningStatus(this,
+                    overlayRequested
+                            ? "전화 화면 위 고객정보 표시를 요청했습니다."
+                            : "알림 서비스를 사용할 수 없습니다.");
             return;
         }
 
@@ -96,15 +102,6 @@ public final class CallTagScreeningService extends CallScreeningService {
                         | Intent.FLAG_ACTIVITY_CLEAR_TOP
                         | Intent.FLAG_ACTIVITY_SINGLE_TOP
                         | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
-
-        boolean directLaunchRequested = false;
-        try {
-            startActivity(callerInfo);
-            directLaunchRequested = true;
-        } catch (RuntimeException ignored) {
-            // Full-screen notification below remains as the fallback path.
-        }
-
         PendingIntent fullScreen = PendingIntent.getActivity(
                 this,
                 notificationId,
@@ -117,28 +114,31 @@ public final class CallTagScreeningService extends CallScreeningService {
                 : stage + "\n최근 메모 · " + memo;
 
         Notification publicVersion = buildPublicVersion(customer.displayName, stage, compactMemo);
-        Notification notification = new Notification.Builder(this, CHANNEL_ID)
+        Notification.Builder builder = new Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.sym_action_call)
                 .setContentTitle(customer.displayName + " 고객 전화")
                 .setContentText(defaultText)
                 .setStyle(new Notification.BigTextStyle().bigText(expandedText))
                 .setContentIntent(fullScreen)
-                .setFullScreenIntent(fullScreen, true)
                 .setAutoCancel(true)
-                .setTimeoutAfter(45000L)
+                .setTimeoutAfter(60_000L)
                 .setCategory(Notification.CATEGORY_CALL)
                 .setPriority(Notification.PRIORITY_MAX)
                 .setVisibility(Notification.VISIBILITY_PRIVATE)
-                .setPublicVersion(publicVersion)
-                .build();
+                .setPublicVersion(publicVersion);
+        if (!overlayRequested) builder.setFullScreenIntent(fullScreen, true);
+
         try {
-            manager.notify(notificationId, notification);
+            manager.notify(notificationId, builder.build());
             SettingsStore.setCallerScreeningStatus(this,
-                    directLaunchRequested
-                            ? "등록 고객을 확인해 전용 화면과 알림을 요청했습니다."
-                            : "전용 화면 실행이 차단되어 알림으로 표시를 요청했습니다.");
+                    overlayRequested
+                            ? "앱이 닫혀 있어도 전화 화면 위 고객정보 표시를 요청했습니다."
+                            : "다른 앱 위에 표시 권한이 없어 알림으로 표시를 요청했습니다.");
         } catch (RuntimeException error) {
-            SettingsStore.setCallerScreeningStatus(this, "시스템이 고객정보 알림을 차단했습니다.");
+            SettingsStore.setCallerScreeningStatus(this,
+                    overlayRequested
+                            ? "전화 화면 위 고객정보는 요청했지만 알림은 차단되었습니다."
+                            : "시스템이 고객정보 표시와 알림을 차단했습니다.");
         }
     }
 
