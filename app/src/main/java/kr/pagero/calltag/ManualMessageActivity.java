@@ -1,0 +1,269 @@
+package kr.pagero.calltag;
+
+import android.Manifest;
+import android.app.Activity;
+import android.content.pm.PackageManager;
+import android.graphics.Typeface;
+import android.os.Bundle;
+import android.text.InputType;
+import android.view.Gravity;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+public final class ManualMessageActivity extends Activity {
+    public static final String EXTRA_USE_TEMPLATE = "use_template";
+    public static final String EXTRA_PHONE = "phone";
+    public static final String EXTRA_CUSTOMER_ID = "customer_id";
+
+    private static final int REQUEST_SMS = 8101;
+
+    private EditText phoneInput;
+    private EditText bodyInput;
+    private EditText delayDaysInput;
+    private long customerId;
+    private boolean pendingSend;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        MessageAutomationStore.ensureDefaults(this);
+        customerId = getIntent().getLongExtra(EXTRA_CUSTOMER_ID, 0L);
+        setContentView(buildContent());
+        String phone = getIntent().getStringExtra(EXTRA_PHONE);
+        if (phone != null) phoneInput.setText(phone);
+        boolean useTemplate = getIntent().getBooleanExtra(EXTRA_USE_TEMPLATE, false);
+        if (useTemplate) bodyInput.setText(MessageAutomationStore.connectedTemplate(this));
+    }
+
+    private ScrollView buildContent() {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(getColor(R.color.background));
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(20), dp(18), dp(20), dp(40));
+        scroll.addView(root, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        Button back = button("‹", false);
+        back.setTextSize(28f);
+        back.setOnClickListener(v -> finish());
+        header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
+        TextView title = title("문자 보내기", 22f);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        titleParams.leftMargin = dp(12);
+        header.addView(title, titleParams);
+        root.addView(header, matchWrap());
+
+        root.addView(label("받는 번호"), topMargin(24));
+        phoneInput = input("010-0000-0000", false);
+        phoneInput.setInputType(InputType.TYPE_CLASS_PHONE);
+        root.addView(phoneInput, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(54)) {{ topMargin = dp(8); }});
+
+        root.addView(label("문자 내용"), topMargin(20));
+        bodyInput = input("보낼 내용을 입력해주세요.", true);
+        bodyInput.setGravity(Gravity.TOP | Gravity.START);
+        bodyInput.setMinLines(6);
+        root.addView(bodyInput, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(180)) {{ topMargin = dp(8); }});
+
+        LinearLayout templateRow = new LinearLayout(this);
+        templateRow.setOrientation(LinearLayout.HORIZONTAL);
+        Button connectedTemplate = smallButton("통화 후");
+        connectedTemplate.setOnClickListener(v -> bodyInput.setText(
+                MessageAutomationStore.connectedTemplate(this)));
+        templateRow.addView(connectedTemplate, new LinearLayout.LayoutParams(0, dp(46), 1f));
+        Button missedTemplate = smallButton("부재중");
+        missedTemplate.setOnClickListener(v -> bodyInput.setText(
+                MessageAutomationStore.missedTemplate(this)));
+        LinearLayout.LayoutParams missedParams = new LinearLayout.LayoutParams(0, dp(46), 1f);
+        missedParams.leftMargin = dp(8);
+        templateRow.addView(missedTemplate, missedParams);
+        Button followTemplate = smallButton("후속 문자");
+        followTemplate.setOnClickListener(v -> bodyInput.setText(
+                MessageAutomationStore.delayedTemplate(this)));
+        LinearLayout.LayoutParams followParams = new LinearLayout.LayoutParams(0, dp(46), 1f);
+        followParams.leftMargin = dp(8);
+        templateRow.addView(followTemplate, followParams);
+        root.addView(templateRow, topMargin(10));
+
+        Button sendNow = button("지금 보내기", true);
+        sendNow.setOnClickListener(v -> sendNow());
+        root.addView(sendNow, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(56)) {{ topMargin = dp(20); }});
+
+        root.addView(label("예약 발송"), topMargin(26));
+        LinearLayout scheduleRow = new LinearLayout(this);
+        scheduleRow.setOrientation(LinearLayout.HORIZONTAL);
+        delayDaysInput = input("3", false);
+        delayDaysInput.setInputType(InputType.TYPE_CLASS_NUMBER);
+        delayDaysInput.setText(String.valueOf(MessageAutomationStore.delayDays(this)));
+        scheduleRow.addView(delayDaysInput, new LinearLayout.LayoutParams(0, dp(54), 1f));
+        TextView suffix = body("일 뒤");
+        suffix.setGravity(Gravity.CENTER);
+        scheduleRow.addView(suffix, new LinearLayout.LayoutParams(dp(64), dp(54)));
+        Button schedule = button("예약", false);
+        schedule.setOnClickListener(v -> schedule());
+        scheduleRow.addView(schedule, new LinearLayout.LayoutParams(dp(110), dp(54)));
+        root.addView(scheduleRow, topMargin(8));
+
+        TextView notice = body("실제 문자요금은 선택한 SIM·eSIM 회선의 통신사 요금제에 따라 부과됩니다.");
+        root.addView(notice, topMargin(14));
+        return scroll;
+    }
+
+    private void sendNow() {
+        if (!validate()) return;
+        if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+            pendingSend = true;
+            requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS);
+            return;
+        }
+        long id = SmsSender.queueAndSend(
+                this,
+                customerId,
+                0L,
+                phoneInput.getText().toString(),
+                bodyInput.getText().toString(),
+                MessageAutomationManager.TRIGGER_MANUAL,
+                MessageAutomationStore.selectedSubscriptionId(this));
+        Toast.makeText(this, "문자 발송을 요청했습니다. 내역에서 결과를 확인하세요.", Toast.LENGTH_LONG).show();
+        startActivity(new android.content.Intent(this, MessageHistoryActivity.class)
+                .putExtra("focus_message_id", id));
+        finish();
+    }
+
+    private void schedule() {
+        if (!validate()) return;
+        int days;
+        try {
+            days = Integer.parseInt(delayDaysInput.getText().toString().trim());
+        } catch (NumberFormatException error) {
+            days = 3;
+        }
+        days = Math.max(1, Math.min(30, days));
+        long when = System.currentTimeMillis() + days * 24L * 60L * 60L * 1000L;
+        MessageLogStore store = new MessageLogStore(this);
+        try {
+            long id = store.createJob(
+                    customerId,
+                    0L,
+                    phoneInput.getText().toString(),
+                    bodyInput.getText().toString(),
+                    MessageAutomationManager.TRIGGER_MANUAL,
+                    MessageLogStore.STATUS_SCHEDULED,
+                    when,
+                    MessageAutomationStore.selectedSubscriptionId(this));
+            MessageScheduler.schedule(this, id, when);
+        } finally {
+            store.close();
+        }
+        Toast.makeText(this, days + "일 뒤 발송으로 예약했습니다.", Toast.LENGTH_LONG).show();
+        finish();
+    }
+
+    private boolean validate() {
+        if (!FeatureEntitlementStore.hasMessageAccess(this)) {
+            Toast.makeText(this, "문자자동화 이용권이 필요합니다.", Toast.LENGTH_LONG).show();
+            return false;
+        }
+        if (PhoneNumberNormalizer.normalize(phoneInput.getText().toString()).length() < 8) {
+            Toast.makeText(this, "받는 번호를 확인해주세요.", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        if (bodyInput.getText().toString().trim().isEmpty()) {
+            Toast.makeText(this, "문자 내용을 입력해주세요.", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_SMS) return;
+        boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+        if (granted && pendingSend) {
+            pendingSend = false;
+            sendNow();
+        } else {
+            pendingSend = false;
+            Toast.makeText(this, "문자 발송 권한이 필요합니다.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private EditText input(String hint, boolean multiline) {
+        EditText input = new EditText(this);
+        input.setHint(hint);
+        input.setHintTextColor(getColor(R.color.text_muted));
+        input.setTextColor(getColor(R.color.text_primary));
+        input.setTextSize(15f);
+        input.setPadding(dp(16), dp(10), dp(16), dp(10));
+        input.setBackgroundResource(R.drawable.bg_secondary_button);
+        input.setSingleLine(!multiline);
+        return input;
+    }
+
+    private TextView label(String value) {
+        TextView label = title(value, 15f);
+        label.setTextColor(getColor(R.color.text_secondary));
+        return label;
+    }
+
+    private TextView title(String value, float size) {
+        TextView text = new TextView(this);
+        text.setText(value);
+        text.setTextColor(getColor(R.color.text_primary));
+        text.setTextSize(size);
+        text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        return text;
+    }
+
+    private TextView body(String value) {
+        TextView text = new TextView(this);
+        text.setText(value);
+        text.setTextColor(getColor(R.color.text_secondary));
+        text.setTextSize(13f);
+        return text;
+    }
+
+    private Button smallButton(String value) {
+        return button(value, false);
+    }
+
+    private Button button(String value, boolean primary) {
+        Button button = new Button(this);
+        button.setText(value);
+        button.setAllCaps(false);
+        button.setTextSize(15f);
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        button.setTextColor(getColor(R.color.text_primary));
+        button.setBackgroundResource(primary ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        return button;
+    }
+
+    private LinearLayout.LayoutParams matchWrap() {
+        return new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+    }
+
+    private LinearLayout.LayoutParams topMargin(int value) {
+        LinearLayout.LayoutParams params = matchWrap();
+        params.topMargin = dp(value);
+        return params;
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+}
