@@ -39,6 +39,7 @@ public final class CallMonitorService extends Service {
     public void onCreate() {
         super.onCreate();
         createChannels();
+        MessageAutomationStore.ensureDefaults(this);
         if (!canMonitor()) {
             SettingsStore.setMonitorEnabled(this, false);
             stopSelf();
@@ -165,40 +166,52 @@ public final class CallMonitorService extends Service {
     private void onCallResolved(CallRecord record) {
         if (record == null || PhoneNumberNormalizer.normalize(record.phone).length() < 8) return;
 
+        boolean phoneAccess = FeatureEntitlementStore.hasPhoneAccess(this);
+        boolean messageAccess = FeatureEntitlementStore.hasMessageAccess(this);
+        if (!phoneAccess && !messageAccess) return;
+
         CallTagDbHelper db = new CallTagDbHelper(this);
-        PendingCallStore pendingStore = new PendingCallStore(this);
+        PendingCallStore pendingStore = phoneAccess ? new PendingCallStore(this) : null;
         try {
             if (db.isExcluded(record.phone)) return;
 
             boolean deferred = needsDeferredHandling(record);
             boolean connected = !deferred && record.durationSec > 0L;
-            if (deferred) {
-                pendingStore.upsert(record);
-                sendPendingChanged();
-            } else if (connected) {
-                pendingStore.markUnansweredHandledByPhone(record.phone, record.startedAt + 1L);
-                TaskAutomation.completeNextCallTask(this, record.phone);
-                sendPendingChanged();
+            if (phoneAccess && pendingStore != null) {
+                if (deferred) {
+                    pendingStore.upsert(record);
+                    sendPendingChanged();
+                } else if (connected) {
+                    pendingStore.markUnansweredHandledByPhone(record.phone, record.startedAt + 1L);
+                    TaskAutomation.completeNextCallTask(this, record.phone);
+                    sendPendingChanged();
+                }
             }
 
             Customer customer = db.findByPhone(record.phone);
-            Intent review = new Intent(this, PostCallActivity.class)
-                    .putExtra(PostCallActivity.EXTRA_PENDING_CALL_ID, deferred ? record.id : -1L)
-                    .putExtra(PostCallActivity.EXTRA_PHONE, record.phone)
-                    .putExtra(PostCallActivity.EXTRA_CACHED_NAME, record.cachedName)
-                    .putExtra(PostCallActivity.EXTRA_CALL_TYPE, record.type)
-                    .putExtra(PostCallActivity.EXTRA_STARTED_AT, record.startedAt)
-                    .putExtra(PostCallActivity.EXTRA_ENDED_AT,
-                            Math.max(record.endedAt(), System.currentTimeMillis()))
-                    .putExtra(PostCallActivity.EXTRA_DURATION_SEC, Math.max(0L, record.durationSec))
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                            | Intent.FLAG_ACTIVITY_CLEAR_TOP
-                            | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            if (messageAccess) {
+                MessageAutomationManager.onCallResolved(this, record, customer);
+            }
 
-            String memo = customer == null ? "" : CustomerInsightResolver.latestMemo(db, customer);
-            CallPopupNotificationManager.showPostCall(this, record, customer, review, memo);
+            if (phoneAccess) {
+                Intent review = new Intent(this, PostCallActivity.class)
+                        .putExtra(PostCallActivity.EXTRA_PENDING_CALL_ID, deferred ? record.id : -1L)
+                        .putExtra(PostCallActivity.EXTRA_PHONE, record.phone)
+                        .putExtra(PostCallActivity.EXTRA_CACHED_NAME, record.cachedName)
+                        .putExtra(PostCallActivity.EXTRA_CALL_TYPE, record.type)
+                        .putExtra(PostCallActivity.EXTRA_STARTED_AT, record.startedAt)
+                        .putExtra(PostCallActivity.EXTRA_ENDED_AT,
+                                Math.max(record.endedAt(), System.currentTimeMillis()))
+                        .putExtra(PostCallActivity.EXTRA_DURATION_SEC, Math.max(0L, record.durationSec))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                                | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                                | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+
+                String memo = customer == null ? "" : CustomerInsightResolver.latestMemo(db, customer);
+                CallPopupNotificationManager.showPostCall(this, record, customer, review, memo);
+            }
         } finally {
-            pendingStore.close();
+            if (pendingStore != null) pendingStore.close();
             db.close();
         }
     }
@@ -217,8 +230,8 @@ public final class CallMonitorService extends Service {
         NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (manager == null) return;
         NotificationChannel monitor = new NotificationChannel(
-                MONITOR_CHANNEL, "통화 감지", NotificationManager.IMPORTANCE_LOW);
-        monitor.setDescription("콜태그가 통화 종료를 감지하는 동안 표시됩니다.");
+                MONITOR_CHANNEL, "통화·문자 자동화", NotificationManager.IMPORTANCE_LOW);
+        monitor.setDescription("콜태그가 통화 종료와 자동문자 규칙을 처리하는 동안 표시됩니다.");
         manager.createNotificationChannel(monitor);
         CallPopupNotificationManager.ensureChannels(this);
     }
@@ -231,7 +244,7 @@ public final class CallMonitorService extends Service {
         return new Notification.Builder(this, MONITOR_CHANNEL)
                 .setSmallIcon(android.R.drawable.sym_action_call)
                 .setContentTitle("콜태그 실행 중")
-                .setContentText("통화와 고객 할 일을 자동으로 연결합니다.")
+                .setContentText("통화와 고객관리·문자 자동화를 연결합니다.")
                 .setContentIntent(pending)
                 .setOngoing(true)
                 .setCategory(Notification.CATEGORY_SERVICE)
