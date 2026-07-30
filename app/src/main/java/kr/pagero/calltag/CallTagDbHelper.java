@@ -186,7 +186,7 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
         values.put("customer_id", customerId);
         if (interactionId > 0L) values.put("interaction_id", interactionId);
         values.put("task_type", taskType);
-        values.put("title", title);
+        values.put("title", title == null || title.trim().isEmpty() ? "다시 연락" : title.trim());
         values.put("due_at", dueAt);
         values.put("status", "PENDING");
         values.put("created_at", System.currentTimeMillis());
@@ -200,16 +200,49 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
         getWritableDatabase().update("follow_up_tasks", values, "id = ?", new String[]{String.valueOf(taskId)});
     }
 
+    public void reopenTask(long taskId) {
+        ContentValues values = new ContentValues();
+        values.put("status", "PENDING");
+        values.putNull("completed_at");
+        getWritableDatabase().update("follow_up_tasks", values, "id = ?", new String[]{String.valueOf(taskId)});
+    }
+
+    public void updateTaskDue(long taskId, long dueAt) {
+        ContentValues values = new ContentValues();
+        values.put("due_at", dueAt);
+        values.put("status", "PENDING");
+        values.putNull("completed_at");
+        getWritableDatabase().update("follow_up_tasks", values, "id = ?", new String[]{String.valueOf(taskId)});
+    }
+
+    public void deleteTask(long taskId) {
+        getWritableDatabase().delete("follow_up_tasks", "id = ?", new String[]{String.valueOf(taskId)});
+    }
+
     public List<FollowUpTask> listPendingTasks() {
+        return listTasks("WHERE t.status='PENDING'", null, "ORDER BY t.due_at ASC,t.id ASC");
+    }
+
+    public List<FollowUpTask> listTasksBetween(long startAt, long endAt) {
+        return listTasks("WHERE t.due_at>=? AND t.due_at<?",
+                new String[]{String.valueOf(startAt), String.valueOf(endAt)},
+                "ORDER BY t.due_at ASC,t.id ASC");
+    }
+
+    public List<FollowUpTask> listTasksForCustomer(long customerId) {
+        return listTasks("WHERE t.customer_id=?", new String[]{String.valueOf(customerId)},
+                "ORDER BY t.due_at DESC,t.id DESC");
+    }
+
+    private List<FollowUpTask> listTasks(String where, String[] args, String orderBy) {
         List<FollowUpTask> tasks = new ArrayList<>();
-        String sql = "SELECT t.id,t.customer_id,c.display_name,c.primary_phone,t.title,t.task_type,t.due_at " +
-                "FROM follow_up_tasks t JOIN customers c ON c.id=t.customer_id " +
-                "WHERE t.status='PENDING' ORDER BY t.due_at ASC,t.id ASC";
-        try (Cursor cursor = getReadableDatabase().rawQuery(sql, null)) {
+        String sql = "SELECT t.id,t.customer_id,c.display_name,c.primary_phone,t.title,t.task_type,t.due_at,t.status " +
+                "FROM follow_up_tasks t JOIN customers c ON c.id=t.customer_id " + where + " " + orderBy;
+        try (Cursor cursor = getReadableDatabase().rawQuery(sql, args)) {
             while (cursor.moveToNext()) {
                 tasks.add(new FollowUpTask(
                         cursor.getLong(0), cursor.getLong(1), cursor.getString(2), cursor.getString(3),
-                        cursor.getString(4), cursor.getString(5), cursor.getLong(6)));
+                        cursor.getString(4), cursor.getString(5), cursor.getLong(6), cursor.getString(7)));
             }
         }
         return tasks;
