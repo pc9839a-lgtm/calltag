@@ -16,7 +16,10 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public final class CallerIdSetupActivity extends Activity {
     private static final int REQUEST_CONTACTS = 7301;
@@ -149,11 +152,18 @@ public final class CallerIdSetupActivity extends Activity {
         boolean notifications = hasNotificationPermission();
         boolean roleHeld = hasScreeningRole();
         boolean fullScreen = canUseFullScreenIntent();
+        long checkedAt = SettingsStore.lastCallerScreeningAt(this);
+        String diagnostic = SettingsStore.lastCallerScreeningStatus(this);
+        String diagnosticAt = checkedAt <= 0L ? ""
+                : " · " + new SimpleDateFormat("M/d a h:mm", Locale.KOREA)
+                .format(new Date(checkedAt));
 
         status.setText("연락처 권한  " + state(contacts)
                 + "\n알림 권한  " + state(notifications)
                 + "\n수신정보 앱  " + state(roleHeld)
-                + "\n전체 화면 표시  " + state(fullScreen));
+                + "\n전체 화면 표시  " + state(fullScreen)
+                + "\n\n최근 수신 확인" + diagnosticAt
+                + "\n" + diagnostic);
 
         boolean complete = contacts && notifications && roleHeld && fullScreen;
         action.setEnabled(true);
