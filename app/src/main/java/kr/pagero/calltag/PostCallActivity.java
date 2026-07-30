@@ -71,9 +71,7 @@ public final class PostCallActivity extends Activity {
         String cachedName = getIntent().getStringExtra(EXTRA_CACHED_NAME);
         if (existingCustomer != null) {
             nameInput.setText(existingCustomer.displayName);
-            boolean isExisting = CallTagDbHelper.STATUS_EXISTING.equals(existingCustomer.relationStatus)
-                    || CallTagDbHelper.STATUS_VIP.equals(existingCustomer.relationStatus);
-            ((RadioButton) findViewById(isExisting ? R.id.relationExisting : R.id.relationNew)).setChecked(true);
+            ((RadioButton) findViewById(R.id.relationExisting)).setChecked(true);
         } else {
             nameInput.setText(cachedName == null ? "" : cachedName);
             ((RadioButton) findViewById(R.id.relationNew)).setChecked(true);
@@ -88,7 +86,7 @@ public final class PostCallActivity extends Activity {
         int type = getIntent().getIntExtra(EXTRA_CALL_TYPE, CallLog.Calls.INCOMING_TYPE);
         long durationSec = getIntent().getLongExtra(EXTRA_DURATION_SEC, 0L);
         metaView.setText(callTypeLabel(type) + " · " + formatDuration(durationSec));
-        existingInfo.setText(existingCustomer == null ? "신규 번호" : statusLabel(existingCustomer.relationStatus));
+        existingInfo.setText(existingCustomer == null ? "등록되지 않은 번호" : statusLabel(existingCustomer.relationStatus));
     }
 
     private void renderResultButtons() {
@@ -191,32 +189,22 @@ public final class PostCallActivity extends Activity {
 
         String name = nameInput.getText().toString().trim();
         boolean selectedExisting = relationGroup.getCheckedRadioButtonId() == R.id.relationExisting;
-        String initialStatus = selectedExisting
-                ? CallTagDbHelper.STATUS_EXISTING
-                : CallTagDbHelper.STATUS_NEW;
+        String initialStage = selectedExisting ? db.completedStage() : db.firstStage();
 
         try {
             Customer latestCustomer = db.findByPhone(phone);
             long customerId;
             if (latestCustomer == null) {
-                customerId = db.insertCustomer(name, phone, initialStatus, "CALL");
+                customerId = db.insertCustomer(name, phone, initialStage, "");
             } else {
                 customerId = latestCustomer.id;
-                String nextStatus = latestCustomer.relationStatus;
-                if (selectedExisting) {
-                    nextStatus = CallTagDbHelper.STATUS_EXISTING;
-                } else if (!CallTagDbHelper.STATUS_EXISTING.equals(nextStatus)
-                        && !CallTagDbHelper.STATUS_VIP.equals(nextStatus)
-                        && isActiveResult(selectedResult)) {
-                    nextStatus = CallTagDbHelper.STATUS_CONSULTING;
-                }
-                db.updateCustomer(customerId, name, nextStatus);
+                // 이미 등록된 고객의 사용자 지정 영업 단계는 통화 저장만으로 변경하지 않는다.
+                db.updateCustomer(customerId, name, latestCustomer.relationStatus);
             }
 
+            // 거래 완료를 명시적으로 선택한 경우에만 사용자가 설정한 마지막 단계로 이동한다.
             if ("CONTRACT".equals(selectedResult)) {
                 db.markTransactionCompleted(customerId);
-            } else if (latestCustomer == null && isActiveResult(selectedResult)) {
-                db.updateCustomer(customerId, name, CallTagDbHelper.STATUS_CONSULTING);
             }
 
             long startedAt = getIntent().getLongExtra(EXTRA_STARTED_AT, System.currentTimeMillis());
@@ -276,12 +264,6 @@ public final class PostCallActivity extends Activity {
         return normalized + ":" + startedAt + ":" + durationSec + ":" + type;
     }
 
-    private boolean isActiveResult(String result) {
-        return "INTERESTED".equals(result)
-                || "QUOTE".equals(result)
-                || "CALLBACK".equals(result);
-    }
-
     private long selectedFollowUpTime() {
         int checked = followUpGroup.getCheckedRadioButtonId();
         if (checked == R.id.followNone) return -1L;
@@ -311,11 +293,7 @@ public final class PostCallActivity extends Activity {
     }
 
     private String statusLabel(String status) {
-        if (CallTagDbHelper.STATUS_EXISTING.equals(status)) return "기존 고객";
-        if (CallTagDbHelper.STATUS_CONSULTING.equals(status)) return "상담 중";
-        if (CallTagDbHelper.STATUS_VIP.equals(status)) return "VIP";
-        if (CallTagDbHelper.STATUS_DORMANT.equals(status)) return "휴면";
-        return "신규 고객";
+        return status == null || status.trim().isEmpty() ? db.firstStage() : status.trim();
     }
 
     private String formatDuration(long seconds) {
