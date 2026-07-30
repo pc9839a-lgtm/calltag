@@ -33,17 +33,23 @@ public final class AuthGateActivity extends Activity {
             try {
                 JSONObject response = AuthApiClient.refresh(session);
                 AuthSessionStore.save(this, response);
-                runOnUiThread(this::openMain);
+                runOnUiThread(this::openDestination);
             } catch (Exception error) {
                 runOnUiThread(() -> {
-                    if (AuthSessionStore.hasSession(this)) openMain();
+                    if (AuthSessionStore.hasSession(this)) openDestination();
                     else openLogin();
                 });
             }
         });
     }
 
-    private void openMain() {
+    private void openDestination() {
+        if (!SetupRequirements.isReady(this)) {
+            startActivity(SetupRequirements.requiredSetupIntent(this)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            finish();
+            return;
+        }
         startActivity(new Intent(this, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
         finish();
