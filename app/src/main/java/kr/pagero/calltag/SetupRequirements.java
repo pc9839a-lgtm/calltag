@@ -47,6 +47,11 @@ public final class SetupRequirements {
         return CallerOverlayManager.canShow(context);
     }
 
+    public static boolean hasPostCallPopup(Context context) {
+        return CallPopupNotificationManager.isPopupReady(
+                context, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
+    }
+
     public static boolean baseReady(Context context) {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                 && hasContacts(context)
@@ -54,7 +59,8 @@ public final class SetupRequirements {
                 && hasCallLog(context)
                 && hasNotifications(context)
                 && hasScreeningRole(context)
-                && hasOverlay(context);
+                && hasOverlay(context)
+                && hasPostCallPopup(context);
     }
 
     public static boolean overlayTestPassed(Context context) {
