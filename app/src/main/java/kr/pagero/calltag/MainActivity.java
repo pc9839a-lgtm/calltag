@@ -7,11 +7,14 @@ import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -133,7 +136,7 @@ public final class MainActivity extends Activity {
     private void refreshAll() {
         todayDueCount.setText(db.countDueTodayTasks() + "\n오늘 연락");
         overdueCount.setText(db.countOverdueTasks() + "\n기한 지남");
-        todayNewCount.setText(db.countCustomersByStatus(db.firstStage()) + "\n첫 단계");
+        todayNewCount.setText(db.countCustomersByStatus(db.firstStage()) + "\n첫 상태");
         renderMonitorState();
         renderTasks();
         renderCustomers();
@@ -282,6 +285,15 @@ public final class MainActivity extends Activity {
     private void renderCustomers() {
         customerList.removeAllViews();
         customerFilterButton.setText((activeCustomerFilter == null ? "전체 상태" : activeCustomerFilter) + "  ▾");
+        if (activeCustomerFilter == null) {
+            customerFilterButton.setBackgroundResource(R.drawable.bg_secondary_button);
+            customerFilterButton.setTextColor(getColor(R.color.text_primary));
+        } else {
+            String filterColor = db.stageColor(activeCustomerFilter);
+            customerFilterButton.setBackground(stageTagBackground(filterColor));
+            customerFilterButton.setTextColor(contrastTextColor(parseColor(filterColor)));
+        }
+
         List<Customer> customers = db.listCustomers(activeCustomerFilter);
         if (customers.isEmpty()) {
             TextView empty = bodyText("해당 상태의 고객이 없습니다.");
@@ -294,8 +306,11 @@ public final class MainActivity extends Activity {
 
         DateFormat formatter = DateFormat.getDateInstance(DateFormat.MEDIUM);
         for (Customer customer : customers) {
+            String colorHex = db.stageColor(customer.relationStatus);
             LinearLayout card = verticalCard();
-            card.setOnClickListener(v -> openCustomer(customer.id));
+            card.setClickable(false);
+            card.setFocusable(false);
+            card.setBackground(customerCardBackground(colorHex));
 
             LinearLayout header = new LinearLayout(this);
             header.setGravity(Gravity.CENTER_VERTICAL);
@@ -306,6 +321,8 @@ public final class MainActivity extends Activity {
             stage.setTextSize(12f);
             stage.setMinWidth(0);
             stage.setPadding(dp(12), 0, dp(12), 0);
+            stage.setBackground(stageTagBackground(colorHex));
+            stage.setTextColor(contrastTextColor(parseColor(colorHex)));
             stage.setOnClickListener(v -> showStagePicker(customer));
             header.addView(stage, new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT, dp(40)));
@@ -313,9 +330,11 @@ public final class MainActivity extends Activity {
 
             card.addView(bodyText(customer.primaryPhone), topMargin(10));
             card.addView(mutedText("최근 연락  " + formatter.format(new Date(customer.lastContactAt))), topMargin(5));
-            TextView open = mutedText("고객 상세 보기  ›");
-            open.setTextColor(getColor(R.color.primary));
-            card.addView(open, topMargin(12));
+
+            Button open = smallButton("고객 상세 보기", false);
+            open.setOnClickListener(v -> openCustomer(customer.id));
+            card.addView(open, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(44)) {{ topMargin = dp(12); }});
 
             LinearLayout.LayoutParams params = matchWrap();
             params.bottomMargin = dp(10);
@@ -346,7 +365,7 @@ public final class MainActivity extends Activity {
                     dialog.dismiss();
                     refreshAll();
                 })
-                .setNeutralButton("단계 편집", (dialog, which) -> openStageSettings())
+                .setNeutralButton("상태·색상 편집", (dialog, which) -> openStageSettings())
                 .setNegativeButton("닫기", null)
                 .show();
     }
@@ -419,7 +438,7 @@ public final class MainActivity extends Activity {
     private View buildCalendarGrid(Calendar monthStart, List<FollowUpTask> monthTasks) {
         LinearLayout calendar = new LinearLayout(this);
         calendar.setOrientation(LinearLayout.VERTICAL);
-        calendar.setPadding(dp(5), dp(7), dp(5), dp(7));
+        calendar.setPadding(dp(4), dp(6), dp(4), dp(6));
         calendar.setBackgroundResource(R.drawable.bg_card);
 
         int offset = monthStart.get(Calendar.DAY_OF_WEEK) - Calendar.SUNDAY;
@@ -433,32 +452,47 @@ public final class MainActivity extends Activity {
             for (int column = 0; column < 7; column++) {
                 int index = week * 7 + column;
                 int dayNumber = index - offset + 1;
-                TextView cell = new TextView(this);
-                cell.setGravity(Gravity.CENTER);
-                cell.setIncludeFontPadding(false);
-                cell.setTextSize(13f);
-                cell.setLineSpacing(0f, 1.1f);
-                cell.setBackgroundResource(R.drawable.bg_calendar_day);
+
+                LinearLayout cell = new LinearLayout(this);
+                cell.setOrientation(LinearLayout.VERTICAL);
+                cell.setGravity(Gravity.TOP);
+                cell.setPadding(dp(5), dp(5), dp(5), dp(4));
+                cell.setBackground(calendarCellBackground(false, false));
 
                 if (dayNumber >= 1 && dayNumber <= maxDay) {
                     Calendar date = (Calendar) monthStart.clone();
                     date.set(Calendar.DAY_OF_MONTH, dayNumber);
                     clearTime(date);
-                    int total = countTasksForDate(monthTasks, date, false);
-                    int completed = countTasksForDate(monthTasks, date, true);
-                    String marker = total == 0 ? "" : (completed == total ? "\n○" : "\n●");
-                    cell.setText(dayNumber + marker);
-                    cell.setTextColor(getColor(column == 0 ? R.color.danger
-                            : column == 6 ? R.color.primary : R.color.text_primary));
 
-                    if (sameDay(date, selectedCalendarDate)) {
-                        cell.setBackgroundResource(R.drawable.bg_calendar_day_selected);
-                        cell.setTextColor(getColor(android.R.color.white));
-                        cell.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-                    } else if (sameDay(date, today)) {
-                        cell.setBackgroundResource(R.drawable.bg_calendar_day_today);
-                        cell.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                    boolean selected = sameDay(date, selectedCalendarDate);
+                    boolean isToday = sameDay(date, today);
+                    cell.setBackground(calendarCellBackground(selected, isToday));
+
+                    TextView day = new TextView(this);
+                    day.setText(String.valueOf(dayNumber));
+                    day.setTextSize(12f);
+                    day.setTypeface(Typeface.DEFAULT, selected || isToday ? Typeface.BOLD : Typeface.NORMAL);
+                    day.setIncludeFontPadding(false);
+                    day.setTextColor(getColor(column == 0 ? R.color.danger
+                            : column == 6 ? R.color.primary : R.color.text_primary));
+                    cell.addView(day, new LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT, dp(18)));
+
+                    List<FollowUpTask> dateTasks = tasksForDate(monthTasks, date);
+                    int maxVisible = Math.min(2, dateTasks.size());
+                    for (int taskIndex = 0; taskIndex < maxVisible; taskIndex++) {
+                        FollowUpTask task = dateTasks.get(taskIndex);
+                        TextView pill = calendarTaskPill(task,
+                                taskIndex == 1 && dateTasks.size() > 2
+                                        ? "+" + (dateTasks.size() - 1) + "개 일정"
+                                        : task.customerName + " " + task.title);
+                        LinearLayout.LayoutParams pillParams = new LinearLayout.LayoutParams(
+                                LinearLayout.LayoutParams.MATCH_PARENT, dp(18));
+                        pillParams.topMargin = dp(3);
+                        cell.addView(pill, pillParams);
+                        if (taskIndex == 1 && dateTasks.size() > 2) break;
                     }
+
                     cell.setOnClickListener(v -> {
                         selectedCalendarDate.setTimeInMillis(date.getTimeInMillis());
                         renderConsultations();
@@ -466,8 +500,9 @@ public final class MainActivity extends Activity {
                     cell.setClickable(true);
                     cell.setFocusable(true);
                 }
-                LinearLayout.LayoutParams cellParams = new LinearLayout.LayoutParams(0, dp(62), 1f);
-                cellParams.setMargins(dp(3), dp(3), dp(3), dp(3));
+
+                LinearLayout.LayoutParams cellParams = new LinearLayout.LayoutParams(0, dp(82), 1f);
+                cellParams.setMargins(dp(2), dp(2), dp(2), dp(2));
                 row.addView(cell, cellParams);
             }
             calendar.addView(row, new LinearLayout.LayoutParams(
@@ -476,12 +511,30 @@ public final class MainActivity extends Activity {
         return calendar;
     }
 
-    private int countTasksForDate(List<FollowUpTask> tasks, Calendar date, boolean completedOnly) {
-        int count = 0;
+    private List<FollowUpTask> tasksForDate(List<FollowUpTask> tasks, Calendar date) {
+        List<FollowUpTask> rows = new ArrayList<>();
         for (FollowUpTask task : tasks) {
-            if (sameDay(task.dueAt, date) && (!completedOnly || task.isCompleted())) count++;
+            if (sameDay(task.dueAt, date)) rows.add(task);
         }
-        return count;
+        return rows;
+    }
+
+    private TextView calendarTaskPill(FollowUpTask task, String label) {
+        Customer customer = db.findCustomerById(task.customerId);
+        String colorHex = customer == null ? "#4389FF" : db.stageColor(customer.relationStatus);
+        int color = task.isCompleted() ? getColor(R.color.text_muted) : parseColor(colorHex);
+
+        TextView pill = new TextView(this);
+        pill.setText(label);
+        pill.setSingleLine(true);
+        pill.setEllipsize(TextUtils.TruncateAt.END);
+        pill.setGravity(Gravity.CENTER_VERTICAL);
+        pill.setTextSize(8f);
+        pill.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        pill.setTextColor(color);
+        pill.setPadding(dp(4), 0, dp(4), 0);
+        pill.setBackground(calendarPillBackground(color));
+        return pill;
     }
 
     private View buildSelectedDateHeader() {
@@ -528,10 +581,12 @@ public final class MainActivity extends Activity {
             header.addView(customerName, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             Customer customer = db.findCustomerById(task.customerId);
-            TextView status = titleText(customer == null ? "" : customer.relationStatus, 12f);
-            status.setTextColor(getColor(R.color.primary));
+            String stageName = customer == null ? "" : customer.relationStatus;
+            String stageColor = customer == null ? "#4389FF" : db.stageColor(stageName);
+            TextView status = titleText(stageName, 12f);
+            status.setTextColor(contrastTextColor(parseColor(stageColor)));
             status.setPadding(dp(10), dp(5), dp(10), dp(5));
-            status.setBackgroundResource(R.drawable.bg_badge);
+            status.setBackground(stageTagBackground(stageColor));
             header.addView(status);
             card.addView(header, matchWrap());
 
@@ -713,7 +768,7 @@ public final class MainActivity extends Activity {
 
     private void renderMoreMenu() {
         moreMenuList.removeAllViews();
-        addMenuRow("영업 단계 편집", "상태 이름·순서·개수 변경", v -> openStageSettings());
+        addMenuRow("고객 상태 편집", "기본 3개와 사용자 상태의 이름·색상 변경", v -> openStageSettings());
     }
 
     private void addMenuRow(String title, String subtitle, View.OnClickListener listener) {
@@ -796,6 +851,54 @@ public final class MainActivity extends Activity {
         card.setClickable(true);
         card.setFocusable(true);
         return card;
+    }
+
+    private GradientDrawable customerCardBackground(String colorHex) {
+        GradientDrawable shape = new GradientDrawable();
+        shape.setCornerRadius(dp(16));
+        shape.setColor(getColor(R.color.surface));
+        shape.setStroke(dp(2), parseColor(colorHex));
+        return shape;
+    }
+
+    private GradientDrawable stageTagBackground(String colorHex) {
+        GradientDrawable shape = new GradientDrawable();
+        shape.setCornerRadius(dp(12));
+        shape.setColor(parseColor(colorHex));
+        return shape;
+    }
+
+    private GradientDrawable calendarCellBackground(boolean selected, boolean today) {
+        GradientDrawable shape = new GradientDrawable();
+        shape.setCornerRadius(dp(10));
+        shape.setColor(getColor(R.color.surface_soft));
+        if (selected) shape.setStroke(dp(2), getColor(R.color.primary));
+        else if (today) shape.setStroke(dp(1), getColor(R.color.primary));
+        else shape.setStroke(dp(1), getColor(R.color.border));
+        return shape;
+    }
+
+    private GradientDrawable calendarPillBackground(int color) {
+        GradientDrawable shape = new GradientDrawable();
+        shape.setCornerRadius(dp(6));
+        shape.setColor(Color.argb(48, Color.red(color), Color.green(color), Color.blue(color)));
+        shape.setStroke(dp(1), color);
+        return shape;
+    }
+
+    private int parseColor(String value) {
+        try {
+            return Color.parseColor(value);
+        } catch (IllegalArgumentException ignored) {
+            return getColor(R.color.primary);
+        }
+    }
+
+    private int contrastTextColor(int backgroundColor) {
+        double luminance = (0.299 * Color.red(backgroundColor)
+                + 0.587 * Color.green(backgroundColor)
+                + 0.114 * Color.blue(backgroundColor)) / 255d;
+        return luminance > 0.66d ? Color.rgb(20, 22, 25) : Color.WHITE;
     }
 
     private TextView titleText(String value, float size) {
