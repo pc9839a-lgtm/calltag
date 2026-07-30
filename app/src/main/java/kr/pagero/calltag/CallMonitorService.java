@@ -196,6 +196,7 @@ public final class CallMonitorService extends Service {
             if (phoneAccess) {
                 Intent review = new Intent(this, PostCallActivity.class)
                         .putExtra(PostCallActivity.EXTRA_PENDING_CALL_ID, deferred ? record.id : -1L)
+                        .putExtra(PostCallActivity.EXTRA_CALL_LOG_ID, record.id)
                         .putExtra(PostCallActivity.EXTRA_PHONE, record.phone)
                         .putExtra(PostCallActivity.EXTRA_CACHED_NAME, record.cachedName)
                         .putExtra(PostCallActivity.EXTRA_CALL_TYPE, record.type)
