@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/postCallRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
+    android:fitsSystemWindows="true"
     android:orientation="vertical">
 
     <LinearLayout
@@ -177,7 +179,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:includeFontPadding="false"
-                android:text="상담 결과"
+                android:text="통화 결과"
                 android:textColor="@color/text_primary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
@@ -208,16 +210,28 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
                 android:includeFontPadding="false"
-                android:text="다음 연락"
+                android:text="다음 할 일"
                 android:textColor="@color/text_primary"
                 android:textSize="18sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/postCallTaskType"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_secondary_button"
+                android:text="전화하기  ▾"
+                android:textAllCaps="false"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <RadioGroup
                 android:id="@+id/followUpGroup"
                 android:layout_width="match_parent"
                 android:layout_height="46dp"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="8dp"
                 android:orientation="horizontal">
 
                 <RadioButton
