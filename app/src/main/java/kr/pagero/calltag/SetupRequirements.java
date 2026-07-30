@@ -10,6 +10,7 @@ import android.os.Build;
 
 public final class SetupRequirements {
     private static final String PREFS = "calltag_required_setup";
+    private static final String KEY_INITIAL_FLOW_COMPLETED = "initial_permission_flow_completed";
     private static final String KEY_OVERLAY_TEST_PASSED = "overlay_test_passed";
 
     private SetupRequirements() {}
@@ -29,8 +30,19 @@ public final class SetupRequirements {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
+    public static boolean hasPhoneNumbers(Context context) {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O
+                || context.checkSelfPermission(Manifest.permission.READ_PHONE_NUMBERS)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
     public static boolean hasCallLog(Context context) {
         return context.checkSelfPermission(Manifest.permission.READ_CALL_LOG)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    public static boolean hasSms(Context context) {
+        return context.checkSelfPermission(Manifest.permission.SEND_SMS)
                 == PackageManager.PERMISSION_GRANTED;
     }
 
@@ -57,6 +69,7 @@ public final class SetupRequirements {
                 context, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
     }
 
+    /** 상세 오버레이 설정 화면에서만 사용하는 선택 기능 준비 상태다. */
     public static boolean baseReady(Context context) {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                 && hasContacts(context)
@@ -66,6 +79,18 @@ public final class SetupRequirements {
                 && hasNotifications(context)
                 && SettingsStore.isContactNameSyncEnabled(context)
                 && hasPostCallPopup(context);
+    }
+
+    public static boolean initialFlowCompleted(Context context) {
+        return preferences(context).getBoolean(KEY_INITIAL_FLOW_COMPLETED, false);
+    }
+
+    public static void markInitialFlowCompleted(Context context) {
+        preferences(context).edit().putBoolean(KEY_INITIAL_FLOW_COMPLETED, true).apply();
+    }
+
+    public static void clearInitialFlow(Context context) {
+        preferences(context).edit().putBoolean(KEY_INITIAL_FLOW_COMPLETED, false).apply();
     }
 
     public static boolean overlayTestPassed(Context context) {
@@ -84,13 +109,16 @@ public final class SetupRequirements {
         if (!hasOverlay(context) || !hasScreeningRole(context)) clearOverlayTest(context);
     }
 
+    /**
+     * 최초 시스템 권한창을 한 번 거쳤는지만 확인한다. 권한을 나중에 거절하거나
+     * 해제해도 긴 설정 화면으로 강제 이동하지 않고 각 기능 화면에서 다시 요청한다.
+     */
     public static boolean isReady(Context context) {
-        return baseReady(context);
+        return initialFlowCompleted(context);
     }
 
     public static Intent requiredSetupIntent(Context context) {
-        return new Intent(context, CallerIdSetupActivity.class)
-                .putExtra(CallerIdSetupActivity.EXTRA_REQUIRED_SETUP, true)
+        return new Intent(context, InitialPermissionActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     }
 
