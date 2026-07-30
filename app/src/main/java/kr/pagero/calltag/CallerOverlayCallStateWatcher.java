@@ -54,7 +54,7 @@ public final class CallerOverlayCallStateWatcher {
         boolean inCall = false;
         try {
             inCall = manager.isInCall();
-        } catch (SecurityException | RuntimeException ignored) {
+        } catch (RuntimeException ignored) {
             // 권한이나 제조사 Telecom 구현 문제로 상태 조회가 실패해도 오버레이는 유지한다.
         }
 
