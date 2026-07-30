@@ -14,7 +14,9 @@ public final class CallTagApplication extends Application implements Application
         @Override
         public void run() {
             if (startedActivities <= 0) return;
-            ContactNameSyncManager.requestSyncAll(CallTagApplication.this);
+            if (FeatureEntitlementStore.hasPhoneAccess(CallTagApplication.this)) {
+                ContactNameSyncManager.requestSyncAll(CallTagApplication.this);
+            }
             handler.postDelayed(this, CONTACT_SYNC_INTERVAL_MS);
         }
     };
@@ -26,12 +28,17 @@ public final class CallTagApplication extends Application implements Application
     public void onCreate() {
         super.onCreate();
         registerActivityLifecycleCallbacks(this);
-        ContactNameSyncManager.requestSyncAll(this);
+        MessageAutomationStore.ensureDefaults(this);
+        MessageScheduler.rescheduleAll(this);
+        if (FeatureEntitlementStore.hasPhoneAccess(this)) {
+            ContactNameSyncManager.requestSyncAll(this);
+        }
     }
 
     @Override
     public void onActivityResumed(Activity activity) {
         if (activity instanceof CallerIdSetupActivity
+                || activity instanceof InitialPermissionActivity
                 || activity instanceof AuthGateActivity
                 || activity instanceof LoginActivity) {
             routingToSetup = false;
@@ -40,9 +47,10 @@ public final class CallTagApplication extends Application implements Application
         if (!isProtectedActivity(activity) || routingToSetup) return;
         if (!AuthSessionStore.hasSession(activity)) return;
 
-        SetupRequirements.invalidateTestWhenPrerequisitesMissing(activity);
         if (SetupRequirements.isReady(activity)) {
-            ContactNameSyncManager.requestSyncAll(activity);
+            if (FeatureEntitlementStore.hasPhoneAccess(activity)) {
+                ContactNameSyncManager.requestSyncAll(activity);
+            }
             return;
         }
 
@@ -61,7 +69,9 @@ public final class CallTagApplication extends Application implements Application
 
     @Override
     public void onActivityPaused(Activity activity) {
-        ContactNameSyncManager.requestSyncAll(activity);
+        if (FeatureEntitlementStore.hasPhoneAccess(activity)) {
+            ContactNameSyncManager.requestSyncAll(activity);
+        }
     }
 
     @Override
@@ -69,7 +79,9 @@ public final class CallTagApplication extends Application implements Application
         startedActivities = Math.max(0, startedActivities - 1);
         if (startedActivities == 0) {
             handler.removeCallbacks(periodicContactSync);
-            ContactNameSyncManager.requestSyncAll(this);
+            if (FeatureEntitlementStore.hasPhoneAccess(this)) {
+                ContactNameSyncManager.requestSyncAll(this);
+            }
         }
     }
 
@@ -80,6 +92,9 @@ public final class CallTagApplication extends Application implements Application
                 || activity instanceof PostCallActivity
                 || activity instanceof StageSettingsActivity
                 || activity instanceof TaskTypeSettingsActivity
+                || activity instanceof MessageAutomationSettingsActivity
+                || activity instanceof ManualMessageActivity
+                || activity instanceof MessageHistoryActivity
                 || activity instanceof AccountActivity;
     }
 
