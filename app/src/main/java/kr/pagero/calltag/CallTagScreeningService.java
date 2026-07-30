@@ -60,6 +60,7 @@ public final class CallTagScreeningService extends CallScreeningService {
             String memo = CustomerInsightResolver.latestMemo(db, customer);
             String stageColor = db.stageColor(customer.relationStatus);
             boolean overlayRequested = CallerOverlayManager.show(this, customer, memo, stageColor);
+            if (overlayRequested) CallerOverlayCallStateWatcher.start(this);
             showFallbackNotification(customer, memo, stageColor, overlayRequested);
         } finally {
             db.close();
