@@ -28,7 +28,7 @@
             android:layout_height="wrap_content"
             android:layout_marginLeft="12dp"
             android:layout_weight="1"
-            android:text="전화 알림 팝업"
+            android:text="전화 고객정보 표시"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -57,7 +57,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="앱을 열지 않아도\n상단 알림 팝업으로 확인합니다."
+                android:text="전화가 오면\n전화 화면 위에서 바로 확인합니다."
                 android:textColor="@color/text_primary"
                 android:textSize="27sp"
                 android:textStyle="bold" />
@@ -73,7 +73,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="두 종류의 팝업"
+                    android:text="전화 수신 오버레이"
                     android:textColor="@color/text_primary"
                     android:textSize="17sp"
                     android:textStyle="bold" />
@@ -83,7 +83,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:lineSpacingExtra="5dp"
-                    android:text="전화 수신 · 고객 상태와 최근 메모\n통화 종료 · 메모와 다음 할 일 정리"
+                    android:text="고객명 · 현재 상태 · 전화번호\n최근 메모 최대 4줄\n닫기 또는 통화 종료 전까지 유지"
                     android:textColor="@color/text_secondary"
                     android:textSize="15sp" />
             </LinearLayout>
@@ -184,7 +184,7 @@
                     android:layout_height="52dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_secondary_button"
-                    android:text="수신 팝업 테스트"
+                    android:text="수신 화면 테스트"
                     android:textAllCaps="false"
                     android:textColor="@color/primary"
                     android:textSize="14sp"
@@ -210,7 +210,7 @@
                 android:layout_height="52dp"
                 android:layout_marginTop="10dp"
                 android:background="@drawable/bg_secondary_button"
-                android:text="전화 수신 팝업 설정"
+                android:text="수신 알림 대체 설정"
                 android:textAllCaps="false"
                 android:textColor="@color/text_primary"
                 android:textSize="15sp"
@@ -233,7 +233,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
                 android:lineSpacingExtra="4dp"
-                android:text="각 알림 설정에서 알림 허용과 팝업으로 표시를 켜야 합니다. 무음·방해금지 또는 휴대전화 알림 정책에 따라 팝업이 제한될 수 있습니다."
+                android:text="수신 오버레이가 차단될 때만 상단 알림으로 대신 표시합니다. 통화 종료 정리 팝업은 별도 알림 설정이 필요합니다."
                 android:textColor="@color/text_muted"
                 android:textSize="13sp" />
         </LinearLayout>
