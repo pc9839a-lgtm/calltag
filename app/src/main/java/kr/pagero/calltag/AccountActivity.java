@@ -50,6 +50,7 @@ public final class AccountActivity extends Activity {
         append(value, "이메일", AuthSessionStore.email(this));
         append(value, "브랜드", AuthSessionStore.brand(this));
         append(value, "업종", AuthSessionStore.industry(this));
+        append(value, "이용 상품", FeatureEntitlementStore.planLabel(this));
         profile.setText(value.length() == 0 ? "회원정보를 불러오지 못했습니다." : value.toString());
     }
 
@@ -89,7 +90,7 @@ public final class AccountActivity extends Activity {
         if (working) return;
         new AlertDialog.Builder(this)
                 .setTitle("로그아웃")
-                .setMessage("통화 감지가 중지됩니다. 이 휴대전화의 고객·일정 데이터는 유지됩니다.")
+                .setMessage("통화·문자 자동화가 중지됩니다. 이 휴대전화의 고객·일정·발송 기록은 유지됩니다.")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("로그아웃", (dialog, which) -> logout())
                 .show();
@@ -108,7 +109,7 @@ public final class AccountActivity extends Activity {
         if (working) return;
         new AlertDialog.Builder(this)
                 .setTitle("회원탈퇴")
-                .setMessage("콜태그와 페이지로 콜링크가 사용하는 페이지로 계정이 함께 삭제됩니다. 이 휴대전화의 고객정보·상담기록·일정도 모두 삭제되며 되돌릴 수 없습니다.")
+                .setMessage("콜태그 계정과 이 휴대전화의 고객정보·통화기록·상담메모·일정·문자 발송기록을 모두 삭제합니다. 되돌릴 수 없습니다.")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("탈퇴하기", (dialog, which) -> confirmDeleteAgain())
                 .show();
@@ -117,7 +118,7 @@ public final class AccountActivity extends Activity {
     private void confirmDeleteAgain() {
         new AlertDialog.Builder(this)
                 .setTitle("정말 탈퇴하시겠습니까?")
-                .setMessage("공유 계정과 콜태그 앱 데이터를 영구 삭제합니다.")
+                .setMessage("콜태그 계정과 앱 데이터를 영구 삭제합니다.")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("계정 삭제", (dialog, which) -> deleteAccount())
                 .show();
@@ -157,6 +158,8 @@ public final class AccountActivity extends Activity {
     private void finishAccountDeletion() {
         stopService(new Intent(this, CallMonitorService.class));
         getSharedPreferences("calltag_settings", MODE_PRIVATE).edit().clear().commit();
+        getSharedPreferences("calltag_message_automation", MODE_PRIVATE).edit().clear().commit();
+        getSharedPreferences("calltag_entitlements", MODE_PRIVATE).edit().clear().commit();
         AuthSessionStore.clear(this);
         for (String databaseName : databaseList()) {
             deleteDatabase(databaseName);
