@@ -161,7 +161,7 @@
                 android:drawableTop="@drawable/ic_nav_consultations"
                 android:drawablePadding="8dp"
                 android:gravity="center"
-                android:text="상담 현황"
+                android:text="캘린더"
                 android:textColor="@color/text_primary"
                 android:textSize="14sp"
                 android:textStyle="bold" />
