@@ -19,6 +19,12 @@
         android:theme="@style/Theme.CallTag">
 
         <activity
+            android:name=".CustomerAddActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
             android:name=".CustomerDetailActivity"
             android:exported="false"
             android:screenOrientation="portrait"
