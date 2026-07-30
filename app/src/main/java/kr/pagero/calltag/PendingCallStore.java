@@ -5,6 +5,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.provider.CallLog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -96,12 +97,35 @@ public final class PendingCallStore extends SQLiteOpenHelper {
 
     public void markHandled(long callLogId) {
         if (callLogId <= 0L) return;
-        ContentValues values = new ContentValues();
-        values.put("handled", 1);
-        values.put("handled_at", System.currentTimeMillis());
+        ContentValues values = handledValues();
         getWritableDatabase().update(
                 "pending_calls", values, "call_log_id=?", new String[]{String.valueOf(callLogId)});
         prune();
+    }
+
+    public int markUnansweredHandledByPhone(String phone, long beforeStartedAt) {
+        String normalized = PhoneNumberNormalizer.normalize(phone);
+        if (normalized.length() < 8) return 0;
+        ContentValues values = handledValues();
+        String selection = "handled=0 AND normalized_phone=? AND started_at<? AND (" +
+                "call_type=? OR call_type=? OR (call_type=? AND duration_sec=0))";
+        String[] args = {
+                normalized,
+                String.valueOf(beforeStartedAt),
+                String.valueOf(CallLog.Calls.MISSED_TYPE),
+                String.valueOf(CallLog.Calls.REJECTED_TYPE),
+                String.valueOf(CallLog.Calls.OUTGOING_TYPE)
+        };
+        int changed = getWritableDatabase().update("pending_calls", values, selection, args);
+        prune();
+        return changed;
+    }
+
+    private ContentValues handledValues() {
+        ContentValues values = new ContentValues();
+        values.put("handled", 1);
+        values.put("handled_at", System.currentTimeMillis());
+        return values;
     }
 
     private void prune() {
