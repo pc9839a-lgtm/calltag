@@ -9,6 +9,8 @@ public final class SettingsStore {
     private static final String KEY_LAST_CALL_ID = "last_call_id";
     private static final String KEY_LAST_PROCESSED_CALL = "last_processed_call";
     private static final String KEY_CALLER_PRIVACY_MODE = "caller_privacy_mode";
+    private static final String KEY_LAST_SCREENING_STATUS = "last_screening_status";
+    private static final String KEY_LAST_SCREENING_AT = "last_screening_at";
 
     public static final int CALLER_PRIVACY_NAME = 0;
     public static final int CALLER_PRIVACY_STAGE = 1;
@@ -57,5 +59,20 @@ public final class SettingsStore {
     public static void setCallerPrivacyMode(Context context, int mode) {
         int safe = Math.max(CALLER_PRIVACY_NAME, Math.min(CALLER_PRIVACY_MEMO, mode));
         prefs(context).edit().putInt(KEY_CALLER_PRIVACY_MODE, safe).apply();
+    }
+
+    public static void setCallerScreeningStatus(Context context, String status) {
+        prefs(context).edit()
+                .putString(KEY_LAST_SCREENING_STATUS, status == null ? "" : status.trim())
+                .putLong(KEY_LAST_SCREENING_AT, System.currentTimeMillis())
+                .apply();
+    }
+
+    public static String lastCallerScreeningStatus(Context context) {
+        return prefs(context).getString(KEY_LAST_SCREENING_STATUS, "아직 수신 감지 기록이 없습니다.");
+    }
+
+    public static long lastCallerScreeningAt(Context context) {
+        return prefs(context).getLong(KEY_LAST_SCREENING_AT, 0L);
     }
 }
