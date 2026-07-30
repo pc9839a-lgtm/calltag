@@ -217,8 +217,10 @@ public final class LoginActivity extends Activity {
     private void acceptAuth(JSONObject response) {
         try {
             AuthSessionStore.save(this, response);
-            startActivity(new Intent(this, MainActivity.class)
-                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            Intent destination = SetupRequirements.isReady(this)
+                    ? new Intent(this, MainActivity.class)
+                    : SetupRequirements.requiredSetupIntent(this);
+            startActivity(destination.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
             finish();
         } catch (Exception e) {
             showNotice("로그인 정보 저장 오류입니다. 다시 시도해주세요.", true);
