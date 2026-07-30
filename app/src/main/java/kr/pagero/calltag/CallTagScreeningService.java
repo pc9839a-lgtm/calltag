@@ -24,7 +24,7 @@ public final class CallTagScreeningService extends CallScreeningService {
         }
 
         if (!incoming) {
-            SettingsStore.setCallerScreeningStatus(this, "발신 통화라 수신 알림 팝업을 표시하지 않았습니다.");
+            SettingsStore.setCallerScreeningStatus(this, "발신 통화라 수신 고객정보를 표시하지 않았습니다.");
             return;
         }
 
@@ -42,7 +42,7 @@ public final class CallTagScreeningService extends CallScreeningService {
         CallTagDbHelper db = new CallTagDbHelper(this);
         try {
             if (db.isExcluded(phone)) {
-                SettingsStore.setCallerScreeningStatus(this, "제외번호라 수신 알림 팝업을 표시하지 않았습니다.");
+                SettingsStore.setCallerScreeningStatus(this, "제외번호라 고객정보를 표시하지 않았습니다.");
                 return;
             }
             Customer customer = db.findByPhone(phone);
@@ -52,20 +52,21 @@ public final class CallTagScreeningService extends CallScreeningService {
             }
 
             String memo = CustomerInsightResolver.latestMemo(db, customer);
-            boolean posted = CallPopupNotificationManager.showIncoming(
-                    this, customer, memo, db.stageColor(customer.relationStatus));
-            boolean popupReady = CallPopupNotificationManager.isPopupReady(
-                    this, CallPopupNotificationManager.INCOMING_CHANNEL_ID);
-
-            if (!posted) {
-                SettingsStore.setCallerScreeningStatus(this, "수신 고객정보 알림을 게시하지 못했습니다.");
-            } else if (!popupReady) {
+            String stageColor = db.stageColor(customer.relationStatus);
+            boolean overlayShown = CallerOverlayManager.show(this, customer, memo, stageColor);
+            if (overlayShown) {
+                CallerOverlayCallStateWatcher.start(this);
                 SettingsStore.setCallerScreeningStatus(this,
-                        "수신 알림은 게시했지만 팝업 채널이 꺼져 있습니다. 알림 설정에서 팝업을 켜주세요.");
-            } else {
-                SettingsStore.setCallerScreeningStatus(this,
-                        "앱 실행 여부와 관계없이 수신 고객정보 알림 팝업을 게시했습니다.");
+                        "전화 화면 위에 고객정보 오버레이를 표시했습니다.");
+                return;
             }
+
+            boolean posted = CallPopupNotificationManager.showIncoming(
+                    this, customer, memo, stageColor);
+            SettingsStore.setCallerScreeningStatus(this,
+                    posted
+                            ? "오버레이 권한이 없어 수신 알림 팝업으로 대신 표시했습니다."
+                            : "오버레이와 수신 알림을 모두 표시하지 못했습니다.");
         } finally {
             db.close();
         }
