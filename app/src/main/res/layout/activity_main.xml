@@ -103,11 +103,11 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:drawableTop="@drawable/ic_nav_more"
+            android:drawableTop="@drawable/ic_nav_messages"
             android:drawablePadding="4dp"
             android:gravity="center"
             android:includeFontPadding="false"
-            android:text="전체"
+            android:text="문자"
             android:textColor="@color/nav_inactive"
             android:textSize="12sp" />
     </LinearLayout>
