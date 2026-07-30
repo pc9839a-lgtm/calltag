@@ -16,6 +16,8 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.List;
+
 public final class CallerIdSetupActivity extends Activity {
     private static final int REQUEST_CONTACTS = 7301;
     private static final int REQUEST_SCREENING_ROLE = 7302;
@@ -34,6 +36,7 @@ public final class CallerIdSetupActivity extends Activity {
         privacyGroup = findViewById(R.id.callerIdPrivacyGroup);
         findViewById(R.id.callerIdSetupBack).setOnClickListener(v -> finish());
         action.setOnClickListener(v -> beginSetup());
+        findViewById(R.id.callerIdTestPopup).setOnClickListener(v -> showTestPopup());
         findViewById(R.id.callerIdNotificationSettings).setOnClickListener(v -> openNotificationSettings());
         bindPrivacyOptions();
         render();
@@ -163,6 +166,29 @@ public final class CallerIdSetupActivity extends Activity {
             action.setText("콜태그를 수신정보 앱으로 선택");
         } else {
             action.setText("전체 화면 표시 허용");
+        }
+    }
+
+    private void showTestPopup() {
+        CallTagDbHelper db = new CallTagDbHelper(this);
+        try {
+            List<Customer> customers = db.listCustomers(null);
+            if (customers.isEmpty()) {
+                Toast.makeText(this, "테스트할 고객을 먼저 추가해주세요.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Customer customer = customers.get(0);
+            startActivity(new Intent(this, CallerInfoActivity.class)
+                    .putExtra(CallerInfoActivity.EXTRA_CUSTOMER_ID, customer.id)
+                    .putExtra(CallerInfoActivity.EXTRA_NAME, customer.displayName)
+                    .putExtra(CallerInfoActivity.EXTRA_PHONE, customer.primaryPhone)
+                    .putExtra(CallerInfoActivity.EXTRA_STAGE, customer.relationStatus)
+                    .putExtra(CallerInfoActivity.EXTRA_STAGE_COLOR, db.stageColor(customer.relationStatus))
+                    .putExtra(CallerInfoActivity.EXTRA_MEMO,
+                            CustomerInsightResolver.latestMemo(db, customer))
+                    .putExtra(CallerInfoActivity.EXTRA_LAST_CONTACT_AT, customer.lastContactAt));
+        } finally {
+            db.close();
         }
     }
 
