@@ -47,28 +47,55 @@ public final class CallTagScreeningService extends CallScreeningService {
             }
             Customer customer = db.findByPhone(phone);
             if (customer == null) {
-                SettingsStore.setCallerScreeningStatus(this, "콜태그에 등록되지 않은 번호입니다.");
+                SettingsStore.setCallerScreeningStatus(this,
+                        "수신 서비스는 정상 호출됐지만 콜태그에 등록되지 않은 번호입니다: " + phone);
                 return;
             }
 
             String memo = CustomerInsightResolver.latestMemo(db, customer);
             String stageColor = db.stageColor(customer.relationStatus);
-            boolean overlayShown = CallerOverlayManager.show(this, customer, memo, stageColor);
-            if (overlayShown) {
-                CallerOverlayCallStateWatcher.start(this);
-                SettingsStore.setCallerScreeningStatus(this,
-                        "전화 화면 위에 고객정보 오버레이를 표시했습니다.");
-                return;
-            }
-
-            boolean posted = CallPopupNotificationManager.showIncoming(
-                    this, customer, memo, stageColor);
             SettingsStore.setCallerScreeningStatus(this,
-                    posted
-                            ? "오버레이 권한이 없어 수신 알림 팝업으로 대신 표시했습니다."
-                            : "오버레이와 수신 알림을 모두 표시하지 못했습니다.");
+                    "등록 고객을 찾았습니다. 전화 화면 위 표시를 시도합니다: " + customer.displayName);
+
+            ContextSnapshot snapshot = new ContextSnapshot(customer, memo, stageColor);
+            boolean requested = CallerOverlayManager.show(
+                    getApplicationContext(), customer, memo, stageColor, shown -> {
+                        if (shown) {
+                            CallerOverlayCallStateWatcher.start(getApplicationContext());
+                            SettingsStore.setCallerScreeningStatus(getApplicationContext(),
+                                    "오버레이 창 추가 성공 · 통화 종료 감시 시작: "
+                                            + snapshot.customer.displayName);
+                            return;
+                        }
+                        postFallback(snapshot, "오버레이 창 추가 실패");
+                    });
+
+            if (!requested) {
+                postFallback(snapshot, "다른 앱 위 표시 권한 없음");
+            }
         } finally {
             db.close();
+        }
+    }
+
+    private void postFallback(ContextSnapshot snapshot, String reason) {
+        boolean posted = CallPopupNotificationManager.showIncoming(
+                getApplicationContext(), snapshot.customer, snapshot.memo, snapshot.stageColor);
+        SettingsStore.setCallerScreeningStatus(getApplicationContext(),
+                posted
+                        ? reason + " · 수신 알림으로 대신 표시했습니다."
+                        : reason + " · 수신 알림도 표시하지 못했습니다.");
+    }
+
+    private static final class ContextSnapshot {
+        final Customer customer;
+        final String memo;
+        final String stageColor;
+
+        ContextSnapshot(Customer customer, String memo, String stageColor) {
+            this.customer = customer;
+            this.memo = memo;
+            this.stageColor = stageColor;
         }
     }
 }
