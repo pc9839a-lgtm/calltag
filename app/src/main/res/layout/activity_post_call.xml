@@ -59,7 +59,7 @@
             android:paddingLeft="20dp"
             android:paddingTop="18dp"
             android:paddingRight="20dp"
-            android:paddingBottom="100dp">
+            android:paddingBottom="42dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -111,54 +111,15 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
-            <RadioGroup
-                android:id="@+id/relationGroup"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:layout_marginTop="12dp"
-                android:orientation="horizontal">
-
-                <RadioButton
-                    android:id="@+id/relationNew"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_choice"
-                    android:button="@null"
-                    android:gravity="center"
-                    android:text="신규"
-                    android:textColor="@color/choice_text"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <RadioButton
-                    android:id="@+id/relationExisting"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_marginLeft="8dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_choice"
-                    android:button="@null"
-                    android:gravity="center"
-                    android:text="기존"
-                    android:textColor="@color/choice_text"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-
-                <RadioButton
-                    android:id="@+id/relationExcluded"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_marginLeft="8dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_choice"
-                    android:button="@null"
-                    android:gravity="center"
-                    android:text="제외"
-                    android:textColor="@color/choice_text"
-                    android:textSize="14sp"
-                    android:textStyle="bold" />
-            </RadioGroup>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:includeFontPadding="false"
+                android:text="고객 정보"
+                android:textColor="@color/text_primary"
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
             <EditText
                 android:id="@+id/postCallName"
@@ -173,6 +134,29 @@
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_muted"
                 android:textSize="15sp" />
+
+            <Button
+                android:id="@+id/postCallStage"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_secondary_button"
+                android:text="신규  ▾"
+                android:textAllCaps="false"
+                android:textColor="@color/text_primary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/postCallExclude"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_secondary_button"
+                android:text="이 번호 고객관리에서 제외"
+                android:textAllCaps="false"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -194,13 +178,14 @@
             <EditText
                 android:id="@+id/postCallNote"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
+                android:layout_height="96dp"
                 android:layout_marginTop="2dp"
                 android:background="@drawable/bg_input"
-                android:hint="이번 통화 메모(선택)"
-                android:inputType="text"
+                android:gravity="top|start"
+                android:hint="이번 통화 메모"
+                android:inputType="textMultiLine|textCapSentences"
+                android:maxLines="5"
                 android:padding="15dp"
-                android:singleLine="true"
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_muted"
                 android:textSize="15sp" />
@@ -285,23 +270,113 @@
                     android:background="@drawable/bg_choice"
                     android:button="@null"
                     android:gravity="center"
-                    android:text="다음 주"
+                    android:text="7일 후"
                     android:textColor="@color/choice_text"
                     android:textSize="13sp"
                     android:textStyle="bold" />
             </RadioGroup>
 
-            <Button
-                android:id="@+id/postCallSave"
+            <LinearLayout
+                android:id="@+id/postCallMessageSection"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="18dp"
-                android:background="@drawable/bg_primary_button"
-                android:text="저장"
-                android:textAllCaps="false"
-                android:textColor="@color/text_primary"
-                android:textSize="16sp"
-                android:textStyle="bold" />
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:includeFontPadding="false"
+                    android:text="고객에게 보낼 문자"
+                    android:textColor="@color/text_primary"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <EditText
+                    android:id="@+id/postCallMessageBody"
+                    android:layout_width="match_parent"
+                    android:layout_height="132dp"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_input"
+                    android:gravity="top|start"
+                    android:hint="문자 내용을 입력해주세요."
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:maxLines="8"
+                    android:padding="15dp"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_muted"
+                    android:textSize="15sp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:text="저장하고 문자 보내기를 누를 때만 즉시 발송합니다."
+                    android:textColor="@color/text_muted"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:includeFontPadding="false"
+                    android:text="후속 문자"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/postCallDelayedMessage"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:layout_marginTop="9dp"
+                    android:background="@drawable/bg_secondary_button"
+                    android:text="예약 안 함  ▾"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:text="새 통화·완료 상태·제외번호 전환 시 예약 문자를 자동 취소합니다."
+                    android:textColor="@color/text_muted"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/postCallSaveOnly"
+                    android:layout_width="0dp"
+                    android:layout_height="54dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_secondary_button"
+                    android:text="저장만 하기"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/postCallSaveAndSend"
+                    android:layout_width="0dp"
+                    android:layout_height="54dp"
+                    android:layout_marginLeft="8dp"
+                    android:layout_weight="1.35"
+                    android:background="@drawable/bg_primary_button"
+                    android:text="저장하고 문자 보내기"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 </LinearLayout>
