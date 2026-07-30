@@ -57,8 +57,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="전화가 올 때와 끝난 뒤
-상단 알림 팝업으로 알려줍니다."
+                android:text="앱을 열지 않아도\n상단 알림 팝업으로 확인합니다."
                 android:textColor="@color/text_primary"
                 android:textSize="27sp"
                 android:textStyle="bold" />
@@ -74,7 +73,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="알림 팝업에 표시"
+                    android:text="두 종류의 팝업"
                     android:textColor="@color/text_primary"
                     android:textSize="17sp"
                     android:textStyle="bold" />
@@ -84,9 +83,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     android:lineSpacingExtra="5dp"
-                    android:text="전화 수신: 고객명 · 상태 · 최근 메모
-통화 종료: 통화 유형 · 고객명 · 최근 메모
-알림을 누르면 고객 상세 또는 통화 정리로 이동"
+                    android:text="전화 수신 · 고객 상태와 최근 메모\n통화 종료 · 메모와 다음 할 일 정리"
                     android:textColor="@color/text_secondary"
                     android:textSize="15sp" />
             </LinearLayout>
@@ -175,29 +172,37 @@
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
-            <Button
-                android:id="@+id/callerIdTestPopup"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:background="@drawable/bg_secondary_button"
-                android:text="수신 알림 팝업 테스트"
-                android:textAllCaps="false"
-                android:textColor="@color/primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:orientation="horizontal">
 
-            <Button
-                android:id="@+id/callerIdTestPostCallPopup"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_secondary_button"
-                android:text="통화 종료 팝업 테스트"
-                android:textAllCaps="false"
-                android:textColor="@color/primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                <Button
+                    android:id="@+id/callerIdTestPopup"
+                    android:layout_width="0dp"
+                    android:layout_height="52dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_secondary_button"
+                    android:text="수신 팝업 테스트"
+                    android:textAllCaps="false"
+                    android:textColor="@color/primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/postCallTestPopup"
+                    android:layout_width="0dp"
+                    android:layout_height="52dp"
+                    android:layout_marginLeft="8dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_secondary_button"
+                    android:text="종료 팝업 테스트"
+                    android:textAllCaps="false"
+                    android:textColor="@color/primary"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <Button
                 android:id="@+id/callerIdNotificationSettings"
@@ -205,7 +210,19 @@
                 android:layout_height="52dp"
                 android:layout_marginTop="10dp"
                 android:background="@drawable/bg_secondary_button"
-                android:text="알림·팝업 표시 설정"
+                android:text="전화 수신 팝업 설정"
+                android:textAllCaps="false"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/postCallNotificationSettings"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_secondary_button"
+                android:text="통화 종료 팝업 설정"
                 android:textAllCaps="false"
                 android:textColor="@color/text_primary"
                 android:textSize="15sp"
@@ -216,7 +233,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
                 android:lineSpacingExtra="4dp"
-                android:text="두 알림 채널 모두 ‘팝업으로 표시’가 켜져 있어야 합니다. 앱을 강제 종료하면 Android가 통화 감지 서비스를 중지할 수 있습니다."
+                android:text="각 알림 설정에서 알림 허용과 팝업으로 표시를 켜야 합니다. 무음·방해금지 또는 휴대전화 알림 정책에 따라 팝업이 제한될 수 있습니다."
                 android:textColor="@color/text_muted"
                 android:textSize="13sp" />
         </LinearLayout>
