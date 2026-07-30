@@ -15,7 +15,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.provider.CallLog;
 import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyCallback;
 import android.telephony.TelephonyManager;
@@ -44,7 +43,7 @@ public final class CallMonitorService extends Service {
     public void onCreate() {
         super.onCreate();
         createChannels();
-        if (!hasRequiredPermissions()) {
+        if (!canMonitor()) {
             SettingsStore.setMonitorEnabled(this, false);
             stopSelf();
             return;
@@ -60,7 +59,7 @@ public final class CallMonitorService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
-        if (!hasRequiredPermissions()) {
+        if (!canMonitor()) {
             SettingsStore.setMonitorEnabled(this, false);
             stopSelf();
             return START_NOT_STICKY;
@@ -84,13 +83,17 @@ public final class CallMonitorService extends Service {
         }
     }
 
+    private boolean canMonitor() {
+        return AuthSessionStore.hasSession(this) && hasRequiredPermissions();
+    }
+
     private boolean hasRequiredPermissions() {
         return checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
                 && checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void registerCallListener() {
-        if (listenerRegistered || !hasRequiredPermissions()) return;
+        if (listenerRegistered || !canMonitor()) return;
         telephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
         if (telephonyManager == null) {
             SettingsStore.setMonitorEnabled(this, false);
@@ -112,7 +115,7 @@ public final class CallMonitorService extends Service {
                 telephonyManager.listen(legacyListener, PhoneStateListener.LISTEN_CALL_STATE);
             }
             listenerRegistered = true;
-        } catch (SecurityException | RuntimeException e) {
+        } catch (RuntimeException e) {
             SettingsStore.setMonitorEnabled(this, false);
             stopSelf();
         }
@@ -137,7 +140,7 @@ public final class CallMonitorService extends Service {
             return;
         }
         handler.postDelayed(() -> {
-            if (!hasRequiredPermissions()) {
+            if (!canMonitor()) {
                 SettingsStore.setMonitorEnabled(this, false);
                 resetLookupState();
                 stopSelf();
@@ -217,8 +220,10 @@ public final class CallMonitorService extends Service {
                 .setPriority(Notification.PRIORITY_HIGH)
                 .build();
         try {
-            ((NotificationManager) getSystemService(NOTIFICATION_SERVICE))
-                    .notify(5000 + (int) (record.id % 100000), notification);
+            NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (manager != null) {
+                manager.notify(5000 + (int) (record.id % 100000), notification);
+            }
         } catch (RuntimeException ignored) {
             // Notification permission or OEM restrictions can block delivery.
         }
@@ -255,7 +260,7 @@ public final class CallMonitorService extends Service {
     }
 
     private Notification monitorNotification() {
-        Intent open = new Intent(this, MainActivity.class)
+        Intent open = new Intent(this, AuthGateActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pending = PendingIntent.getActivity(
                 this, 1, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
