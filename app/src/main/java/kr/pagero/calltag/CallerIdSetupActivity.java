@@ -87,11 +87,14 @@ public final class CallerIdSetupActivity extends Activity {
             requestScreeningRole();
             return;
         }
-        if (!canUseFullScreenIntent()) {
-            openFullScreenIntentSettings();
+        if (!CallerOverlayManager.canShow(this)) {
+            CallerOverlayManager.openPermissionSettings(this);
+            Toast.makeText(this,
+                    "콜태그의 ‘다른 앱 위에 표시’를 허용해주세요.", Toast.LENGTH_LONG).show();
             return;
         }
-        Toast.makeText(this, "수신 고객정보 표시 설정이 완료되었습니다.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this,
+                "앱이 닫혀 있어도 전화 화면 위에 고객정보가 표시됩니다.", Toast.LENGTH_LONG).show();
         render();
     }
 
@@ -120,7 +123,7 @@ public final class CallerIdSetupActivity extends Activity {
             Toast.makeText(this,
                     requestCode == REQUEST_CONTACTS
                             ? "고객 번호를 확인하려면 연락처 권한이 필요합니다."
-                            : "고객정보 팝업을 표시하려면 알림 권한이 필요합니다.",
+                            : "고객정보 알림을 표시하려면 알림 권한이 필요합니다.",
                     Toast.LENGTH_LONG).show();
             render();
         }
@@ -151,7 +154,7 @@ public final class CallerIdSetupActivity extends Activity {
         boolean contacts = hasContactsPermission();
         boolean notifications = hasNotificationPermission();
         boolean roleHeld = hasScreeningRole();
-        boolean fullScreen = canUseFullScreenIntent();
+        boolean overlay = CallerOverlayManager.canShow(this);
         long checkedAt = SettingsStore.lastCallerScreeningAt(this);
         String diagnostic = SettingsStore.lastCallerScreeningStatus(this);
         String diagnosticAt = checkedAt <= 0L ? ""
@@ -161,11 +164,11 @@ public final class CallerIdSetupActivity extends Activity {
         status.setText("연락처 권한  " + state(contacts)
                 + "\n알림 권한  " + state(notifications)
                 + "\n수신정보 앱  " + state(roleHeld)
-                + "\n전체 화면 표시  " + state(fullScreen)
+                + "\n전화 화면 위 표시  " + state(overlay)
                 + "\n\n최근 수신 확인" + diagnosticAt
                 + "\n" + diagnostic);
 
-        boolean complete = contacts && notifications && roleHeld && fullScreen;
+        boolean complete = contacts && notifications && roleHeld && overlay;
         action.setEnabled(true);
         action.setAlpha(1f);
         if (complete) {
@@ -175,7 +178,7 @@ public final class CallerIdSetupActivity extends Activity {
         } else if (!roleHeld) {
             action.setText("콜태그를 수신정보 앱으로 선택");
         } else {
-            action.setText("전체 화면 표시 허용");
+            action.setText("전화 화면 위 표시 허용");
         }
     }
 
@@ -187,16 +190,20 @@ public final class CallerIdSetupActivity extends Activity {
                 Toast.makeText(this, "테스트할 고객을 먼저 추가해주세요.", Toast.LENGTH_SHORT).show();
                 return;
             }
+            if (!CallerOverlayManager.canShow(this)) {
+                Toast.makeText(this,
+                        "먼저 ‘전화 화면 위 표시’를 허용해주세요.", Toast.LENGTH_LONG).show();
+                CallerOverlayManager.openPermissionSettings(this);
+                return;
+            }
             Customer customer = customers.get(0);
-            startActivity(new Intent(this, CallerInfoActivity.class)
-                    .putExtra(CallerInfoActivity.EXTRA_CUSTOMER_ID, customer.id)
-                    .putExtra(CallerInfoActivity.EXTRA_NAME, customer.displayName)
-                    .putExtra(CallerInfoActivity.EXTRA_PHONE, customer.primaryPhone)
-                    .putExtra(CallerInfoActivity.EXTRA_STAGE, customer.relationStatus)
-                    .putExtra(CallerInfoActivity.EXTRA_STAGE_COLOR, db.stageColor(customer.relationStatus))
-                    .putExtra(CallerInfoActivity.EXTRA_MEMO,
-                            CustomerInsightResolver.latestMemo(db, customer))
-                    .putExtra(CallerInfoActivity.EXTRA_LAST_CONTACT_AT, customer.lastContactAt));
+            boolean shown = CallerOverlayManager.show(this, customer,
+                    CustomerInsightResolver.latestMemo(db, customer),
+                    db.stageColor(customer.relationStatus));
+            Toast.makeText(this,
+                    shown ? "앱 밖에서도 보이는 팝업을 표시했습니다."
+                            : "팝업을 표시하지 못했습니다.",
+                    Toast.LENGTH_SHORT).show();
         } finally {
             db.close();
         }
@@ -217,22 +224,6 @@ public final class CallerIdSetupActivity extends Activity {
         return roleManager != null
                 && roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)
                 && roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING);
-    }
-
-    private boolean canUseFullScreenIntent() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true;
-        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        return manager != null && manager.canUseFullScreenIntent();
-    }
-
-    private void openFullScreenIntentSettings() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return;
-        try {
-            startActivity(new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
-                    Uri.parse("package:" + getPackageName())));
-        } catch (RuntimeException error) {
-            openNotificationSettings();
-        }
     }
 
     private String state(boolean complete) {
