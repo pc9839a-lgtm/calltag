@@ -11,7 +11,7 @@ public final class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if (!SettingsStore.isMonitorEnabled(context)) return;
-        if (!hasRequiredPermissions(context)) {
+        if (!AuthSessionStore.hasSession(context) || !hasRequiredPermissions(context)) {
             SettingsStore.setMonitorEnabled(context, false);
             return;
         }
