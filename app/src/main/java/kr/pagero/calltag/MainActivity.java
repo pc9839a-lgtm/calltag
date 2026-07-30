@@ -11,7 +11,6 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.provider.CallLog;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
@@ -52,6 +51,7 @@ public final class MainActivity extends Activity {
     private LinearLayout customerList;
     private LinearLayout consultationSummary;
     private LinearLayout moreMenuList;
+    private TextView customerFilterButton;
     private String activeCustomerFilter;
     private final Calendar visibleCalendarMonth = Calendar.getInstance();
     private final Calendar selectedCalendarDate = Calendar.getInstance();
@@ -99,6 +99,7 @@ public final class MainActivity extends Activity {
         customerList = findViewById(R.id.customerList);
         consultationSummary = findViewById(R.id.consultationSummary);
         moreMenuList = findViewById(R.id.moreMenuList);
+        customerFilterButton = findViewById(R.id.customerFilterButton);
     }
 
     private void bindActions() {
@@ -111,10 +112,8 @@ public final class MainActivity extends Activity {
         findViewById(R.id.quickCustomers).setOnClickListener(v -> selectSection(sectionCustomers, navCustomers));
         findViewById(R.id.quickConsultations).setOnClickListener(v -> selectSection(sectionConsultations, navConsultations));
         findViewById(R.id.addCustomerButton).setOnClickListener(v -> showAddCustomerDialog());
-        findViewById(R.id.filterAll).setOnClickListener(v -> setCustomerFilter(null));
-        findViewById(R.id.filterNew).setOnClickListener(v -> setCustomerFilter(CallTagDbHelper.STATUS_NEW));
-        findViewById(R.id.filterConsulting).setOnClickListener(v -> setCustomerFilter(CallTagDbHelper.STATUS_CONSULTING));
-        findViewById(R.id.filterExisting).setOnClickListener(v -> setCustomerFilter(CallTagDbHelper.STATUS_EXISTING));
+        customerFilterButton.setOnClickListener(v -> showCustomerFilterDialog());
+        findViewById(R.id.stageSettingsButton).setOnClickListener(v -> openStageSettings());
     }
 
     private void selectSection(View section, NavItemTextView nav) {
@@ -134,7 +133,7 @@ public final class MainActivity extends Activity {
     private void refreshAll() {
         todayDueCount.setText(db.countDueTodayTasks() + "\n오늘 연락");
         overdueCount.setText(db.countOverdueTasks() + "\n기한 지남");
-        todayNewCount.setText(db.countCustomersByStatus(CallTagDbHelper.STATUS_NEW) + "\n신규 고객");
+        todayNewCount.setText(db.countCustomersByStatus(db.firstStage()) + "\n첫 단계");
         renderMonitorState();
         renderTasks();
         renderCustomers();
@@ -260,25 +259,32 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private void setCustomerFilter(String status) {
-        activeCustomerFilter = status;
-        renderCustomers();
-        setFilterColor(R.id.filterAll, status == null);
-        setFilterColor(R.id.filterNew, CallTagDbHelper.STATUS_NEW.equals(status));
-        setFilterColor(R.id.filterConsulting, CallTagDbHelper.STATUS_CONSULTING.equals(status));
-        setFilterColor(R.id.filterExisting, CallTagDbHelper.STATUS_EXISTING.equals(status));
-    }
-
-    private void setFilterColor(int id, boolean selected) {
-        Button button = findViewById(id);
-        button.setTextColor(getColor(selected ? R.color.primary : R.color.text_secondary));
+    private void showCustomerFilterDialog() {
+        List<StageOption> stages = db.listStages();
+        String[] labels = new String[stages.size() + 1];
+        labels[0] = "전체 상태";
+        int selected = 0;
+        for (int i = 0; i < stages.size(); i++) {
+            labels[i + 1] = stages.get(i).name;
+            if (stages.get(i).name.equals(activeCustomerFilter)) selected = i + 1;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("고객 상태 필터")
+                .setSingleChoiceItems(labels, selected, (dialog, which) -> {
+                    activeCustomerFilter = which == 0 ? null : stages.get(which - 1).name;
+                    dialog.dismiss();
+                    renderCustomers();
+                })
+                .setNegativeButton("닫기", null)
+                .show();
     }
 
     private void renderCustomers() {
         customerList.removeAllViews();
+        customerFilterButton.setText((activeCustomerFilter == null ? "전체 상태" : activeCustomerFilter) + "  ▾");
         List<Customer> customers = db.listCustomers(activeCustomerFilter);
         if (customers.isEmpty()) {
-            TextView empty = bodyText("고객이 없습니다.");
+            TextView empty = bodyText("해당 상태의 고객이 없습니다.");
             empty.setGravity(Gravity.CENTER);
             empty.setPadding(dp(24), dp(22), dp(24), dp(22));
             empty.setBackgroundResource(R.drawable.bg_card);
@@ -290,26 +296,63 @@ public final class MainActivity extends Activity {
         for (Customer customer : customers) {
             LinearLayout card = verticalCard();
             card.setOnClickListener(v -> openCustomer(customer.id));
+
             LinearLayout header = new LinearLayout(this);
             header.setGravity(Gravity.CENTER_VERTICAL);
             header.addView(titleText(customer.displayName, 17f), new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            TextView badge = titleText(statusLabel(customer.relationStatus), 12f);
-            badge.setTextColor(statusColor(customer.relationStatus));
-            badge.setGravity(Gravity.CENTER);
-            badge.setPadding(dp(10), dp(6), dp(10), dp(6));
-            badge.setBackgroundResource(R.drawable.bg_badge);
-            header.addView(badge);
-            TextView arrow = titleText("  ›", 22f);
-            arrow.setTextColor(getColor(R.color.text_muted));
-            header.addView(arrow);
+
+            Button stage = smallButton(customer.relationStatus + "  ▾", false);
+            stage.setTextSize(12f);
+            stage.setMinWidth(0);
+            stage.setPadding(dp(12), 0, dp(12), 0);
+            stage.setOnClickListener(v -> showStagePicker(customer));
+            header.addView(stage, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, dp(40)));
             card.addView(header, matchWrap());
+
             card.addView(bodyText(customer.primaryPhone), topMargin(10));
-            card.addView(mutedText(formatter.format(new Date(customer.lastContactAt))), topMargin(5));
+            card.addView(mutedText("최근 연락  " + formatter.format(new Date(customer.lastContactAt))), topMargin(5));
+            TextView open = mutedText("고객 상세 보기  ›");
+            open.setTextColor(getColor(R.color.primary));
+            card.addView(open, topMargin(12));
+
             LinearLayout.LayoutParams params = matchWrap();
             params.bottomMargin = dp(10);
             customerList.addView(card, params);
         }
+    }
+
+    private void showStagePicker(Customer customer) {
+        List<StageOption> stages = db.listStages();
+        String[] labels = new String[stages.size()];
+        int selected = 0;
+        for (int i = 0; i < stages.size(); i++) {
+            labels[i] = stages.get(i).name;
+            if (labels[i].equals(customer.relationStatus)) selected = i;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle(customer.displayName + " 상태 변경")
+                .setSingleChoiceItems(labels, selected, (dialog, which) -> {
+                    String oldStage = customer.relationStatus;
+                    String newStage = stages.get(which).name;
+                    if (!oldStage.equals(newStage)) {
+                        db.updateCustomerStage(customer.id, newStage);
+                        long now = System.currentTimeMillis();
+                        db.insertInteraction(customer.id, "STATUS_CHANGE", now, now, 0L,
+                                "STATUS_" + newStage, oldStage + " → " + newStage);
+                        Toast.makeText(this, newStage + "으로 변경했습니다.", Toast.LENGTH_SHORT).show();
+                    }
+                    dialog.dismiss();
+                    refreshAll();
+                })
+                .setNeutralButton("단계 편집", (dialog, which) -> openStageSettings())
+                .setNegativeButton("닫기", null)
+                .show();
+    }
+
+    private void openStageSettings() {
+        startActivity(new Intent(this, StageSettingsActivity.class));
     }
 
     private void renderConsultations() {
@@ -376,7 +419,7 @@ public final class MainActivity extends Activity {
     private View buildCalendarGrid(Calendar monthStart, List<FollowUpTask> monthTasks) {
         LinearLayout calendar = new LinearLayout(this);
         calendar.setOrientation(LinearLayout.VERTICAL);
-        calendar.setPadding(dp(6), dp(8), dp(6), dp(8));
+        calendar.setPadding(dp(5), dp(7), dp(5), dp(7));
         calendar.setBackgroundResource(R.drawable.bg_card);
 
         int offset = monthStart.get(Calendar.DAY_OF_WEEK) - Calendar.SUNDAY;
@@ -394,7 +437,7 @@ public final class MainActivity extends Activity {
                 cell.setGravity(Gravity.CENTER);
                 cell.setIncludeFontPadding(false);
                 cell.setTextSize(13f);
-                cell.setLineSpacing(0f, 1.2f);
+                cell.setLineSpacing(0f, 1.1f);
                 cell.setBackgroundResource(R.drawable.bg_calendar_day);
 
                 if (dayNumber >= 1 && dayNumber <= maxDay) {
@@ -403,14 +446,14 @@ public final class MainActivity extends Activity {
                     clearTime(date);
                     int total = countTasksForDate(monthTasks, date, false);
                     int completed = countTasksForDate(monthTasks, date, true);
-                    String secondLine = total == 0 ? "" : (completed == total ? "\n✓ " + total : "\n" + total + "건");
-                    cell.setText(dayNumber + secondLine);
+                    String marker = total == 0 ? "" : (completed == total ? "\n○" : "\n●");
+                    cell.setText(dayNumber + marker);
                     cell.setTextColor(getColor(column == 0 ? R.color.danger
                             : column == 6 ? R.color.primary : R.color.text_primary));
 
                     if (sameDay(date, selectedCalendarDate)) {
                         cell.setBackgroundResource(R.drawable.bg_calendar_day_selected);
-                        cell.setTextColor(getColor(R.color.text_primary));
+                        cell.setTextColor(getColor(android.R.color.white));
                         cell.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
                     } else if (sameDay(date, today)) {
                         cell.setBackgroundResource(R.drawable.bg_calendar_day_today);
@@ -423,8 +466,8 @@ public final class MainActivity extends Activity {
                     cell.setClickable(true);
                     cell.setFocusable(true);
                 }
-                LinearLayout.LayoutParams cellParams = new LinearLayout.LayoutParams(0, dp(58), 1f);
-                cellParams.setMargins(dp(2), dp(2), dp(2), dp(2));
+                LinearLayout.LayoutParams cellParams = new LinearLayout.LayoutParams(0, dp(62), 1f);
+                cellParams.setMargins(dp(3), dp(3), dp(3), dp(3));
                 row.addView(cell, cellParams);
             }
             calendar.addView(row, new LinearLayout.LayoutParams(
@@ -451,11 +494,8 @@ public final class MainActivity extends Activity {
         row.addView(title, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView add = titleText("+ 일정 추가", 14f);
+        Button add = smallButton("+ 일정 추가", false);
         add.setTextColor(getColor(R.color.primary));
-        add.setGravity(Gravity.CENTER);
-        add.setPadding(dp(14), 0, dp(14), 0);
-        add.setBackgroundResource(R.drawable.bg_secondary_button);
         add.setOnClickListener(v -> showAddScheduleFlow());
         row.addView(add, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)));
@@ -488,8 +528,8 @@ public final class MainActivity extends Activity {
             header.addView(customerName, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             Customer customer = db.findCustomerById(task.customerId);
-            TextView status = titleText(customer == null ? "" : statusLabel(customer.relationStatus), 12f);
-            status.setTextColor(customer == null ? getColor(R.color.text_muted) : statusColor(customer.relationStatus));
+            TextView status = titleText(customer == null ? "" : customer.relationStatus, 12f);
+            status.setTextColor(getColor(R.color.primary));
             status.setPadding(dp(10), dp(5), dp(10), dp(5));
             status.setBackgroundResource(R.drawable.bg_badge);
             header.addView(status);
@@ -549,7 +589,7 @@ public final class MainActivity extends Activity {
         String[] labels = new String[customers.size()];
         for (int i = 0; i < customers.size(); i++) {
             Customer customer = customers.get(i);
-            labels[i] = customer.displayName + "  ·  " + statusLabel(customer.relationStatus);
+            labels[i] = customer.displayName + "  ·  " + customer.relationStatus;
         }
         new AlertDialog.Builder(this)
                 .setTitle("고객 선택")
@@ -573,7 +613,6 @@ public final class MainActivity extends Activity {
 
     private void showCustomScheduleTitle(Customer customer) {
         EditText input = input("일정 내용", InputType.TYPE_CLASS_TEXT);
-        input.setPadding(dp(14), dp(12), dp(14), dp(12));
         LinearLayout wrap = new LinearLayout(this);
         wrap.setPadding(dp(20), dp(8), dp(20), 0);
         wrap.addView(input, matchWrap());
@@ -597,8 +636,6 @@ public final class MainActivity extends Activity {
     }
 
     private void showNewTaskTimePicker(Customer customer, String title, String taskType) {
-        int defaultHour = 10;
-        int defaultMinute = 0;
         new TimePickerDialog(this, (view, hourOfDay, minute) -> {
             Calendar due = (Calendar) selectedCalendarDate.clone();
             due.set(Calendar.HOUR_OF_DAY, hourOfDay);
@@ -606,18 +643,12 @@ public final class MainActivity extends Activity {
             due.set(Calendar.SECOND, 0);
             due.set(Calendar.MILLISECOND, 0);
             db.insertFollowUpTask(customer.id, 0L, taskType, title, due.getTimeInMillis());
-
-            String statusNote = "";
-            if (CallTagDbHelper.STATUS_NEW.equals(customer.relationStatus)) {
-                db.updateCustomer(customer.id, customer.displayName, CallTagDbHelper.STATUS_CONSULTING);
-                statusNote = " · 신규 → 상담 중";
-            }
             long now = System.currentTimeMillis();
             db.insertInteraction(customer.id, "SCHEDULE_CREATE", now, now, 0L,
-                    "SCHEDULED", title + statusNote);
+                    "SCHEDULED", title);
             Toast.makeText(this, "일정을 추가했습니다.", Toast.LENGTH_SHORT).show();
             refreshAll();
-        }, defaultHour, defaultMinute, false).show();
+        }, 10, 0, false).show();
     }
 
     private void showTaskOptions(FollowUpTask task) {
@@ -682,41 +713,39 @@ public final class MainActivity extends Activity {
 
     private void renderMoreMenu() {
         moreMenuList.removeAllViews();
-        addMenuRow("통화 후 처리 테스트", v -> openPostCallTest());
-        addMenuRow(SettingsStore.isMonitorEnabled(this) ? "통화 감지 끄기" : "통화 감지 켜기",
-                v -> toggleMonitor());
-        addMenuRow("제외번호", v -> Toast.makeText(this,
-                "통화 후 정리에서 제외를 선택할 수 있습니다.", Toast.LENGTH_SHORT).show());
+        addMenuRow("영업 단계 편집", "상태 이름·순서·개수 변경", v -> openStageSettings());
     }
 
-    private void addMenuRow(String label, View.OnClickListener listener) {
-        TextView row = new TextView(this);
-        row.setText(label + "                                      ›");
-        row.setTextColor(getColor(R.color.text_primary));
-        row.setTextSize(16f);
+    private void addMenuRow(String title, String subtitle, View.OnClickListener listener) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(18), 0, dp(14), 0);
-        row.setBackgroundResource(R.drawable.bg_card);
+        row.setPadding(dp(18), dp(12), dp(14), dp(12));
+        row.setBackgroundResource(R.drawable.bg_clickable_row);
+        row.setClickable(true);
+        row.setFocusable(true);
         row.setOnClickListener(listener);
+
+        LinearLayout textWrap = new LinearLayout(this);
+        textWrap.setOrientation(LinearLayout.VERTICAL);
+        textWrap.addView(titleText(title, 16f), matchWrap());
+        textWrap.addView(mutedText(subtitle), topMargin(4));
+        row.addView(textWrap, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView arrow = titleText("›", 24f);
+        arrow.setTextColor(getColor(R.color.text_muted));
+        row.addView(arrow);
+
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(58));
-        params.bottomMargin = dp(1);
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(72));
+        params.bottomMargin = dp(8);
         moreMenuList.addView(row, params);
     }
 
     private void openCustomer(long customerId) {
         startActivity(new Intent(this, CustomerDetailActivity.class)
                 .putExtra(CustomerDetailActivity.EXTRA_CUSTOMER_ID, customerId));
-    }
-
-    private void openPostCallTest() {
-        startActivity(new Intent(this, PostCallActivity.class)
-                .putExtra(PostCallActivity.EXTRA_PHONE, "010-0000-1234")
-                .putExtra(PostCallActivity.EXTRA_CACHED_NAME, "")
-                .putExtra(PostCallActivity.EXTRA_CALL_TYPE, CallLog.Calls.INCOMING_TYPE)
-                .putExtra(PostCallActivity.EXTRA_STARTED_AT, System.currentTimeMillis() - 185_000L)
-                .putExtra(PostCallActivity.EXTRA_ENDED_AT, System.currentTimeMillis())
-                .putExtra(PostCallActivity.EXTRA_DURATION_SEC, 185L));
     }
 
     private void showAddCustomerDialog() {
@@ -763,7 +792,7 @@ public final class MainActivity extends Activity {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(18), dp(16), dp(18), dp(16));
-        card.setBackgroundResource(R.drawable.bg_card);
+        card.setBackgroundResource(R.drawable.bg_clickable_card);
         card.setClickable(true);
         card.setFocusable(true);
         return card;
@@ -808,42 +837,6 @@ public final class MainActivity extends Activity {
         return input;
     }
 
-    private String statusLabel(String status) {
-        if (CallTagDbHelper.STATUS_CONSULTING.equals(status)) return "상담 중";
-        if (CallTagDbHelper.STATUS_EXISTING.equals(status)) return "기존";
-        if (CallTagDbHelper.STATUS_VIP.equals(status)) return "VIP";
-        if (CallTagDbHelper.STATUS_DORMANT.equals(status)) return "휴면";
-        return "신규";
-    }
-
-    private int statusColor(String status) {
-        if (CallTagDbHelper.STATUS_NEW.equals(status)) return getColor(R.color.primary);
-        if (CallTagDbHelper.STATUS_EXISTING.equals(status)) return getColor(R.color.text_primary);
-        return getColor(R.color.text_secondary);
-    }
-
-    private String resultLabel(String result) {
-        if ("QUOTE".equals(result)) return "견적·자료 발송";
-        if ("CALLBACK".equals(result)) return "다시 연락";
-        if ("CONTRACT".equals(result)) return "계약·거래 완료";
-        if ("HOLD".equals(result)) return "보류";
-        if ("CLOSED".equals(result)) return "상담 종료";
-        if ("SCHEDULED".equals(result)) return "일정 등록·변경";
-        if ("TASK_COMPLETED".equals(result)) return "일정 완료";
-        if (result != null && result.startsWith("STATUS_")) {
-            return "상태 변경 · " + statusLabel(result.substring("STATUS_".length()));
-        }
-        return "관심 있음";
-    }
-
-    private void dial(String phone) {
-        try {
-            startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + phone)));
-        } catch (RuntimeException e) {
-            Toast.makeText(this, "전화 앱을 열 수 없습니다.", Toast.LENGTH_SHORT).show();
-        }
-    }
-
     private boolean sameDay(long millis, Calendar date) {
         Calendar other = Calendar.getInstance();
         other.setTimeInMillis(millis);
@@ -860,6 +853,14 @@ public final class MainActivity extends Activity {
         calendar.set(Calendar.MINUTE, 0);
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
+    }
+
+    private void dial(String phone) {
+        try {
+            startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + phone)));
+        } catch (RuntimeException e) {
+            Toast.makeText(this, "전화 앱을 열 수 없습니다.", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private LinearLayout.LayoutParams matchWrap() {
