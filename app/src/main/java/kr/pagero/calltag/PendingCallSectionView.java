@@ -100,9 +100,11 @@ public final class PendingCallSectionView extends LinearLayout {
                 return;
             }
             setVisibility(VISIBLE);
-            addView(sectionTitle("처리할 통화", calls.size()), matchWrap());
+            addView(sectionTitle("확인할 통화", calls.size()), matchWrap());
+            addView(text("부재중·거절·연결되지 않은 발신만 표시됩니다.",
+                    13f, R.color.text_secondary, false), topMargin(6));
             for (PendingCallRecord call : calls) {
-                addView(callCard(call, store, db), cardParams());
+                addView(callCard(call, db), cardParams());
             }
         } finally {
             db.close();
@@ -124,7 +126,7 @@ public final class PendingCallSectionView extends LinearLayout {
         return row;
     }
 
-    private View callCard(PendingCallRecord call, PendingCallStore store, CallTagDbHelper db) {
+    private View callCard(PendingCallRecord call, CallTagDbHelper db) {
         LinearLayout card = new LinearLayout(getContext());
         card.setOrientation(VERTICAL);
         card.setPadding(dp(18), dp(16), dp(18), dp(16));
@@ -147,8 +149,7 @@ public final class PendingCallSectionView extends LinearLayout {
         card.addView(header, matchWrap());
 
         if (customer != null) {
-            TextView stage = text(customer.relationStatus, 14f, R.color.primary, true);
-            card.addView(stage, topMargin(9));
+            card.addView(text(customer.relationStatus, 14f, R.color.primary, true), topMargin(9));
             String memo = CustomerInsightResolver.latestMemo(db, customer);
             if (!memo.isEmpty()) {
                 TextView memoView = text("최근 메모 · " + memo, 14f, R.color.text_primary, false);
@@ -162,35 +163,20 @@ public final class PendingCallSectionView extends LinearLayout {
 
         SimpleDateFormat formatter = new SimpleDateFormat("M월 d일 a h:mm", Locale.KOREA);
         String meta = call.phone + " · " + formatter.format(new Date(call.startedAt));
-        if (call.durationSec > 0L) meta += " · " + duration(call.durationSec);
         card.addView(text(meta, 13f, R.color.text_muted, false), topMargin(7));
 
         LinearLayout actions = new LinearLayout(getContext());
         actions.setOrientation(HORIZONTAL);
 
-        Button callButton = actionButton("전화", false);
+        Button callButton = actionButton("다시 전화", true);
         callButton.setOnClickListener(v -> dial(call.phone));
-        actions.addView(callButton, new LayoutParams(0, dp(44), 1f));
+        actions.addView(callButton, new LayoutParams(0, dp(46), 1f));
 
-        Button reviewButton = actionButton("정리", true);
+        Button reviewButton = actionButton("할 일 등록", false);
         reviewButton.setOnClickListener(v -> openReview(call));
-        LayoutParams reviewParams = new LayoutParams(0, dp(44), 1f);
+        LayoutParams reviewParams = new LayoutParams(0, dp(46), 1f);
         reviewParams.leftMargin = dp(8);
         actions.addView(reviewButton, reviewParams);
-
-        Button doneButton = actionButton("완료", false);
-        doneButton.setOnClickListener(v -> {
-            PendingCallStore latestStore = new PendingCallStore(getContext());
-            try {
-                latestStore.markHandled(call.callLogId);
-            } finally {
-                latestStore.close();
-            }
-            refresh();
-        });
-        LayoutParams doneParams = new LayoutParams(0, dp(44), 1f);
-        doneParams.leftMargin = dp(8);
-        actions.addView(doneButton, doneParams);
         card.addView(actions, topMargin(14));
         return card;
     }
@@ -219,9 +205,7 @@ public final class PendingCallSectionView extends LinearLayout {
     private String typeLabel(PendingCallRecord call) {
         if (call.type == CallLog.Calls.MISSED_TYPE) return "부재중";
         if (call.type == CallLog.Calls.REJECTED_TYPE) return "거절";
-        if (call.isOutgoingNoAnswer()) return "발신 · 연결 안 됨";
-        if (call.type == CallLog.Calls.OUTGOING_TYPE) return "발신";
-        return "수신";
+        return "연결 안 됨";
     }
 
     private int typeColor(PendingCallRecord call) {
@@ -229,12 +213,6 @@ public final class PendingCallSectionView extends LinearLayout {
             return R.color.danger;
         }
         return R.color.primary;
-    }
-
-    private String duration(long seconds) {
-        long minutes = seconds / 60L;
-        long remain = seconds % 60L;
-        return minutes > 0L ? minutes + "분 " + remain + "초" : remain + "초";
     }
 
     private Button actionButton(String label, boolean primary) {
