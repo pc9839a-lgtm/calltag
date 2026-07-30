@@ -16,7 +16,9 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 
 public final class PostCallActivity extends Activity {
     public static final String EXTRA_PENDING_CALL_ID = "pending_call_id";
@@ -35,15 +37,18 @@ public final class PostCallActivity extends Activity {
     };
 
     private CallTagDbHelper db;
+    private TaskTypeStore taskTypes;
     private Customer existingCustomer;
     private String phone;
     private String callFingerprint;
     private String selectedResult = "INTERESTED";
+    private String selectedTaskType = TaskTypeStore.TYPE_CALL;
     private EditText nameInput;
     private EditText noteInput;
     private RadioGroup relationGroup;
     private RadioGroup followUpGroup;
     private LinearLayout resultButtons;
+    private Button taskTypeButton;
     private Button saveButton;
     private boolean saving;
 
@@ -52,6 +57,7 @@ public final class PostCallActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_post_call);
         db = new CallTagDbHelper(this);
+        taskTypes = new TaskTypeStore(this);
         phone = getIntent().getStringExtra(EXTRA_PHONE);
         if (phone == null) phone = "";
         existingCustomer = db.findByPhone(phone);
@@ -60,6 +66,7 @@ public final class PostCallActivity extends Activity {
         renderHeader();
         renderResultButtons();
         bindActions();
+        renderTaskType();
     }
 
     private void bindViews() {
@@ -68,6 +75,7 @@ public final class PostCallActivity extends Activity {
         relationGroup = findViewById(R.id.relationGroup);
         followUpGroup = findViewById(R.id.followUpGroup);
         resultButtons = findViewById(R.id.postCallResultButtons);
+        taskTypeButton = findViewById(R.id.postCallTaskType);
         saveButton = findViewById(R.id.postCallSave);
 
         String cachedName = getIntent().getStringExtra(EXTRA_CACHED_NAME);
@@ -125,6 +133,8 @@ public final class PostCallActivity extends Activity {
                     selectedResult = code;
                     refreshResultButtonStyles();
                     if ("CALLBACK".equals(code)) {
+                        selectedTaskType = TaskTypeStore.TYPE_CALL;
+                        renderTaskType();
                         ((RadioButton) findViewById(R.id.followTomorrow)).setChecked(true);
                     }
                 });
@@ -163,16 +173,37 @@ public final class PostCallActivity extends Activity {
         findViewById(R.id.postCallClose).setOnClickListener(v -> {
             if (!saving) finish();
         });
+        taskTypeButton.setOnClickListener(v -> showTaskTypeDialog());
         saveButton.setOnClickListener(v -> saveResult());
         relationGroup.setOnCheckedChangeListener((group, checkedId) -> {
             boolean excluded = checkedId == R.id.relationExcluded;
             nameInput.setEnabled(!excluded);
             noteInput.setEnabled(!excluded);
+            taskTypeButton.setEnabled(!excluded);
             setEnabledRecursively(resultButtons, !excluded);
             setEnabledRecursively(followUpGroup, !excluded);
             resultButtons.setAlpha(excluded ? 0.35f : 1f);
             followUpGroup.setAlpha(excluded ? 0.35f : 1f);
+            taskTypeButton.setAlpha(excluded ? 0.35f : 1f);
         });
+    }
+
+    private void showTaskTypeDialog() {
+        List<ActionChoiceDialog.Option> options = new ArrayList<>();
+        for (TaskTypeOption type : taskTypes.list()) {
+            String subtitle = type.code.equals(selectedTaskType) ? "현재 선택" : "다음 할 일로 선택";
+            options.add(new ActionChoiceDialog.Option(type.code, type.name, subtitle, type.color));
+        }
+        ActionChoiceDialog.show(this, "다음 할 일 종류", "통화 후 해야 할 일을 선택합니다.",
+                options, option -> {
+                    selectedTaskType = option.key;
+                    renderTaskType();
+                }, "일정 종류 편집", v -> startActivity(new Intent(this, TaskTypeSettingsActivity.class)));
+    }
+
+    private void renderTaskType() {
+        TaskTypeOption type = taskTypes.find(selectedTaskType);
+        taskTypeButton.setText(type.name + "  ▾");
     }
 
     private void saveResult() {
@@ -236,7 +267,9 @@ public final class PostCallActivity extends Activity {
 
             long dueAt = selectedFollowUpTime();
             if (dueAt > 0L) {
-                db.insertFollowUpTask(customerId, interactionId, "CALL", "다시 연락", dueAt);
+                TaskTypeOption taskType = taskTypes.find(selectedTaskType);
+                db.insertFollowUpTask(customerId, interactionId,
+                        taskType.code, taskType.name, dueAt);
             }
             SettingsStore.markCallProcessed(this, callFingerprint);
             markPendingHandled();
@@ -269,6 +302,7 @@ public final class PostCallActivity extends Activity {
         saveButton.setAlpha(value ? 0.55f : 1f);
         saveButton.setText(value ? "저장 중" : "저장");
         relationGroup.setEnabled(!value);
+        taskTypeButton.setEnabled(!value);
         nameInput.setEnabled(!value && relationGroup.getCheckedRadioButtonId() != R.id.relationExcluded);
         noteInput.setEnabled(!value && relationGroup.getCheckedRadioButtonId() != R.id.relationExcluded);
     }
@@ -314,10 +348,10 @@ public final class PostCallActivity extends Activity {
 
     private String callTypeLabel(int type, long durationSec) {
         if (type == CallLog.Calls.OUTGOING_TYPE && durationSec == 0L) return "발신 · 연결 안 됨";
-        if (type == CallLog.Calls.OUTGOING_TYPE) return "발신";
+        if (type == CallLog.Calls.OUTGOING_TYPE) return "발신 통화 완료";
         if (type == CallLog.Calls.MISSED_TYPE) return "부재중";
         if (type == CallLog.Calls.REJECTED_TYPE) return "거절";
-        return "수신";
+        return "수신 통화 완료";
     }
 
     private String statusLabel(String status) {
@@ -337,6 +371,7 @@ public final class PostCallActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (taskTypes != null) taskTypes.close();
         if (db != null) db.close();
         super.onDestroy();
     }
