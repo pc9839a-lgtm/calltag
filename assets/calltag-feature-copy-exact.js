@@ -3,11 +3,6 @@
   document.documentElement.dataset.ctFeatureCopyExact='1';
 
   const sections={
-    tasks:{
-      title:'놓친 일부터<br><span>먼저 보입니다.</span>',
-      copy:'기한이 지난 재연락, 오늘 연락할 고객, 보내지 않은 자료를 우선순위대로 보여줍니다.',
-      callout:'오늘 할일을 바로 확인하세요'
-    },
     history:{
       title:'고객마다<br><span>기억할 필요 없습니다.</span>',
       copy:'누구와 언제 통화했고, 상담이 어디까지 진행됐고, 다음에 무엇을 해야 하는지 고객별로 확인합니다.',
@@ -21,6 +16,11 @@
   };
 
   const apply=()=>{
+    const taskCopy=document.querySelector('#tasks .feature-copy');
+    if(taskCopy){
+      taskCopy.innerHTML='<h3 class="ct-feature-only-title">오늘 할 일을<br><span>바로 확인하세요.</span></h3>';
+    }
+
     Object.entries(sections).forEach(([id,data])=>{
       const section=document.getElementById(id);
       if(!section)return;
@@ -33,9 +33,10 @@
       const style=document.createElement('style');
       style.dataset.ctFeatureCopyExact='1';
       style.textContent=`
+        .ct-feature-only-title span{color:var(--blue-2)}
         .ct-feature-exact-callout{display:inline-flex;align-items:center;gap:10px;margin-top:28px;padding:14px 18px;border:1px solid rgba(59,111,255,.38);border-radius:12px;background:rgba(59,111,255,.12);color:#eef1ff;font-size:15px;font-weight:900}
         .ct-feature-exact-callout:before{content:'→';color:var(--blue-2);font-size:19px}
-        @media(max-width:900px){.ct-feature-exact-callout{justify-content:center;margin-top:20px;padding:12px 14px;font-size:13px}}
+        @media(max-width:900px){.ct-feature-only-title{text-align:center}.ct-feature-exact-callout{justify-content:center;margin-top:20px;padding:12px 14px;font-size:13px}}
       `;
       document.head.append(style);
     }
