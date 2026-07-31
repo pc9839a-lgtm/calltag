@@ -40,9 +40,9 @@ export default {
     if (!html.includes('.message-mode-grid')) {
       const extraCss = String.raw`
     .message-copy{max-width:470px}.message-copy .section-copy{max-width:430px}
-    .message-mode-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.message-mode{min-height:82px;display:flex;flex-direction:column;justify-content:center;padding:14px;border:1px solid var(--line);border-radius:13px;background:#191c22;transition:.3s ease}.message-mode.active{border-color:rgba(59,111,255,.52);background:var(--blue-soft);transform:translateY(-4px)}.message-mode span{color:var(--muted-2);font-size:9px;font-weight:800}.message-mode strong{margin-top:8px;font-size:15px;letter-spacing:-.03em}.message-mode.active span,.message-mode.active strong{color:#fff}
+    .message-mode-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.message-mode{min-height:82px;display:flex;flex-direction:column;justify-content:center;padding:14px;border:1px solid var(--line);border-radius:13px;background:#191c22;transition:.38s ease}.message-mode.active{border-color:rgba(59,111,255,.52);background:var(--blue-soft);transform:translateY(-4px);box-shadow:0 13px 30px rgba(0,0,0,.18)}.message-mode span{color:var(--muted-2);font-size:9px;font-weight:800}.message-mode strong{margin-top:8px;font-size:15px;letter-spacing:-.03em}.message-mode.active span,.message-mode.active strong{color:#fff}
     .message-flow{display:grid;grid-template-columns:1fr 28px 1fr 28px 1fr;align-items:center;margin-top:17px;padding:18px;border:1px solid var(--line);border-radius:15px;background:#13161c}.message-flow-step{min-height:68px;display:flex;flex-direction:column;justify-content:center;padding:0 13px;border-radius:11px;background:#1b1e25}.message-flow-step b{color:var(--blue-2);font-size:10px}.message-flow-step strong{margin-top:7px;font-size:14px}.message-flow-arrow{text-align:center;color:#535965;font-size:18px}
-    .message-preview{margin-top:12px;padding:18px;border:1px solid rgba(59,111,255,.28);border-radius:15px;background:linear-gradient(145deg,rgba(59,111,255,.1),#15181e)}.message-preview-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.message-preview-top strong{font-size:14px}.message-preview-top span{padding:5px 8px;border-radius:999px;background:rgba(59,111,255,.16);color:#afbdff;font-size:9px;font-weight:850}.message-bubble{max-width:84%;margin:15px 0 0 auto;padding:14px 16px;border-radius:14px 14px 4px 14px;background:var(--blue);font-size:12px;line-height:1.6}.message-preview-meta{display:flex;justify-content:flex-end;gap:9px;margin-top:10px;color:var(--muted-2);font-size:9px}
+    .message-preview{margin-top:12px;padding:18px;border:1px solid rgba(59,111,255,.28);border-radius:15px;background:linear-gradient(145deg,rgba(59,111,255,.1),#15181e);transition:.38s ease}.message-preview.demo-changing{transform:translateY(-3px);border-color:rgba(59,111,255,.5)}.message-preview-top{display:flex;align-items:center;justify-content:space-between;gap:12px}.message-preview-top strong{font-size:14px}.message-preview-top span{padding:5px 8px;border-radius:999px;background:rgba(59,111,255,.16);color:#afbdff;font-size:9px;font-weight:850}.message-bubble{max-width:84%;margin:15px 0 0 auto;padding:14px 16px;border-radius:14px 14px 4px 14px;background:var(--blue);font-size:12px;line-height:1.6;transition:.3s ease}.message-preview-meta{display:flex;justify-content:flex-end;gap:9px;margin-top:10px;color:var(--muted-2);font-size:9px}
     .message-safety{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.message-safety-item{min-height:64px;display:flex;align-items:center;gap:10px;padding:0 13px;border:1px solid var(--line);border-radius:12px;background:#191c22}.message-safety-item i{width:8px;height:8px;flex:0 0 auto;border-radius:50%;background:var(--green);box-shadow:0 0 0 5px rgba(50,200,121,.09)}.message-safety-item strong{font-size:12px}.message-safety-item span{display:block;margin-top:3px;color:var(--muted-2);font-size:9px}
     @media(max-width:900px){.message-mode-grid{grid-template-columns:repeat(2,1fr)}.message-safety{grid-template-columns:1fr}.message-flow{grid-template-columns:1fr;gap:7px}.message-flow-arrow{transform:rotate(90deg)}}
     @media(max-width:560px){.message-mode-grid{grid-template-columns:repeat(2,1fr)}.message-mode{min-height:72px}.message-bubble{max-width:100%}}
@@ -69,10 +69,10 @@ export default {
           <div class="product-panel">
             <div class="today-header"><h4>문자</h4><span>통화 상황에 맞춰 자동 선택</span></div>
             <div class="message-mode-grid">
-              <div class="message-mode active"><span>받은 전화</span><strong>수신</strong></div>
-              <div class="message-mode"><span>내가 건 전화</span><strong>발신</strong></div>
-              <div class="message-mode"><span>못 받은 전화</span><strong>부재중</strong></div>
-              <div class="message-mode"><span>나중에 발송</span><strong>후속</strong></div>
+              <div class="message-mode active" data-title="상담 완료 안내" data-type="수신 기본" data-message="김민수 고객님, 요청하신 견적 자료를 보내드립니다."><span>받은 전화</span><strong>수신</strong></div>
+              <div class="message-mode" data-title="통화 후 자료 안내" data-type="발신 기본" data-message="김민수 고객님, 방금 안내드린 자료를 보내드립니다."><span>내가 건 전화</span><strong>발신</strong></div>
+              <div class="message-mode" data-title="부재중 안내" data-type="부재중 기본" data-message="전화를 받지 못했습니다. 확인 후 다시 연락드리겠습니다."><span>못 받은 전화</span><strong>부재중</strong></div>
+              <div class="message-mode" data-title="재연락 안내" data-type="후속 예약" data-message="김민수 고객님, 예정된 상담 일정 안내드립니다."><span>나중에 발송</span><strong>후속</strong></div>
             </div>
 
             <div class="message-flow">
@@ -83,9 +83,9 @@ export default {
               <div class="message-flow-step"><b>03</b><strong>즉시 · 예약</strong></div>
             </div>
 
-            <div class="message-preview">
-              <div class="message-preview-top"><strong>상담 완료 안내</strong><span>수신 기본</span></div>
-              <div class="message-bubble">김민수 고객님, 요청하신 견적 자료를 보내드립니다.</div>
+            <div class="message-preview" id="messagePreview">
+              <div class="message-preview-top"><strong id="messagePreviewTitle">상담 완료 안내</strong><span id="messagePreviewType">수신 기본</span></div>
+              <div class="message-bubble" id="messagePreviewBubble">김민수 고객님, 요청하신 견적 자료를 보내드립니다.</div>
               <div class="message-preview-meta"><span>{고객명} 적용</span><span>보내기 전 확인</span></div>
             </div>
 
@@ -100,6 +100,32 @@ export default {
     </section>
 `;
       html = html.replace('<section class="section" id="reviews">', messageSection + '\n    <section class="section" id="reviews">');
+    }
+
+    if (!html.includes('data-message-demo')) {
+      const messageDemo = String.raw`
+  <script data-message-demo>
+    (() => {
+      const modes = [...document.querySelectorAll('.message-mode')];
+      const preview = document.getElementById('messagePreview');
+      const title = document.getElementById('messagePreviewTitle');
+      const type = document.getElementById('messagePreviewType');
+      const bubble = document.getElementById('messagePreviewBubble');
+      if (!modes.length || !preview || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      let index = 0;
+      setInterval(() => {
+        index = (index + 1) % modes.length;
+        const mode = modes[index];
+        modes.forEach((item, i) => item.classList.toggle('active', i === index));
+        preview.classList.add('demo-changing');
+        title.textContent = mode.dataset.title;
+        type.textContent = mode.dataset.type;
+        bubble.textContent = mode.dataset.message;
+        setTimeout(() => preview.classList.remove('demo-changing'), 520);
+      }, 2600);
+    })();
+  </script>`;
+      html = html.replace('</body>', messageDemo + '\n</body>');
     }
 
     return new Response(html, {
