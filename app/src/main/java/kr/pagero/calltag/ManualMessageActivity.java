@@ -2,6 +2,7 @@ package kr.pagero.calltag;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -20,10 +21,12 @@ public final class ManualMessageActivity extends Activity {
     public static final String EXTRA_CUSTOMER_ID = "customer_id";
 
     private static final int REQUEST_SMS = 8101;
+    private static final int REQUEST_TEMPLATE = 8102;
 
     private EditText phoneInput;
     private EditText bodyInput;
     private EditText delayDaysInput;
+    private TextView selectedTemplateText;
     private long customerId;
     private boolean pendingSend;
 
@@ -31,19 +34,20 @@ public final class ManualMessageActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         MessageAutomationStore.ensureDefaults(this);
+        MessageTemplateStore.ensureDefaults(this);
         customerId = getIntent().getLongExtra(EXTRA_CUSTOMER_ID, 0L);
         setContentView(buildContent());
         String phone = getIntent().getStringExtra(EXTRA_PHONE);
         if (phone != null) phoneInput.setText(phone);
-        boolean useTemplate = getIntent().getBooleanExtra(EXTRA_USE_TEMPLATE, false);
-        if (useTemplate) applyTemplate(MessageAutomationStore.connectedTemplate(this));
+        if (getIntent().getBooleanExtra(EXTRA_USE_TEMPLATE, false)) {
+            bodyInput.post(this::openTemplateLibrary);
+        }
     }
 
     private ScrollView buildContent() {
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(getColor(R.color.background));
-
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(20), dp(18), dp(20), dp(40));
@@ -66,43 +70,44 @@ public final class ManualMessageActivity extends Activity {
         root.addView(label("받는 번호"), topMargin(24));
         phoneInput = input("010-0000-0000", false);
         phoneInput.setInputType(InputType.TYPE_CLASS_PHONE);
-        root.addView(phoneInput, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(54)) {{ topMargin = dp(8); }});
+        LinearLayout.LayoutParams phoneParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(54));
+        phoneParams.topMargin = dp(8);
+        root.addView(phoneInput, phoneParams);
+
+        root.addView(label("템플릿"), topMargin(20));
+        LinearLayout templateCard = new LinearLayout(this);
+        templateCard.setOrientation(LinearLayout.VERTICAL);
+        templateCard.setPadding(dp(14), dp(12), dp(14), dp(12));
+        templateCard.setBackgroundResource(R.drawable.bg_card);
+        selectedTemplateText = body("선택한 템플릿 없음");
+        templateCard.addView(selectedTemplateText, matchWrap());
+        Button selectTemplate = button("템플릿 선택", false);
+        selectTemplate.setOnClickListener(v -> openTemplateLibrary());
+        LinearLayout.LayoutParams selectParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(50));
+        selectParams.topMargin = dp(8);
+        templateCard.addView(selectTemplate, selectParams);
+        root.addView(templateCard, topMargin(8));
 
         root.addView(label("문자 내용"), topMargin(20));
-        bodyInput = input("보낼 내용을 입력해주세요.", true);
+        bodyInput = input("템플릿을 선택하거나 보낼 내용을 입력해주세요.", true);
         bodyInput.setGravity(Gravity.TOP | Gravity.START);
         bodyInput.setMinLines(6);
-        root.addView(bodyInput, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(180)) {{ topMargin = dp(8); }});
+        LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(190));
+        bodyParams.topMargin = dp(8);
+        root.addView(bodyInput, bodyParams);
 
-        LinearLayout templateRow = new LinearLayout(this);
-        templateRow.setOrientation(LinearLayout.HORIZONTAL);
-        Button connectedTemplate = smallButton("통화 후");
-        connectedTemplate.setOnClickListener(v -> applyTemplate(
-                MessageAutomationStore.connectedTemplate(this)));
-        templateRow.addView(connectedTemplate, new LinearLayout.LayoutParams(0, dp(46), 1f));
-        Button missedTemplate = smallButton("부재중");
-        missedTemplate.setOnClickListener(v -> applyTemplate(
-                MessageAutomationStore.missedTemplate(this)));
-        LinearLayout.LayoutParams missedParams = new LinearLayout.LayoutParams(0, dp(46), 1f);
-        missedParams.leftMargin = dp(8);
-        templateRow.addView(missedTemplate, missedParams);
-        Button followTemplate = smallButton("후속문자");
-        followTemplate.setOnClickListener(v -> applyTemplate(
-                MessageAutomationStore.delayedTemplate(this)));
-        LinearLayout.LayoutParams followParams = new LinearLayout.LayoutParams(0, dp(46), 1f);
-        followParams.leftMargin = dp(8);
-        templateRow.addView(followTemplate, followParams);
-        root.addView(templateRow, topMargin(10));
-
-        TextView previewNotice = body("템플릿을 누르면 현재 고객·계정·일정 정보로 치환된 내용을 보여줍니다. 남은 변수는 발송 전에 차단됩니다.");
+        TextView previewNotice = body("템플릿 선택 시 현재 고객·계정·일정 정보로 치환합니다. 지원하지 않거나 치환되지 않은 변수는 발송 전에 차단됩니다.");
         root.addView(previewNotice, topMargin(10));
 
         Button sendNow = button("지금 보내기", true);
         sendNow.setOnClickListener(v -> sendNow());
-        root.addView(sendNow, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(56)) {{ topMargin = dp(20); }});
+        LinearLayout.LayoutParams sendParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(56));
+        sendParams.topMargin = dp(20);
+        root.addView(sendNow, sendParams);
 
         root.addView(label("후속문자 예약"), topMargin(26));
         LinearLayout scheduleRow = new LinearLayout(this);
@@ -122,6 +127,26 @@ public final class ManualMessageActivity extends Activity {
         TextView notice = body("실제 문자요금은 선택한 SIM·eSIM 회선의 통신사 요금제에 따라 부과됩니다.");
         root.addView(notice, topMargin(14));
         return scroll;
+    }
+
+    private void openTemplateLibrary() {
+        if (!FeatureEntitlementStore.hasMessageAccess(this)) {
+            Toast.makeText(this, "문자자동화 이용권이 필요합니다.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        startActivityForResult(new Intent(this, MessageTemplateLibraryActivity.class)
+                .putExtra(MessageTemplateLibraryActivity.EXTRA_SELECT_MODE, true), REQUEST_TEMPLATE);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_TEMPLATE || resultCode != RESULT_OK || data == null) return;
+        String body = data.getStringExtra(MessageTemplateLibraryActivity.EXTRA_TEMPLATE_BODY);
+        String name = data.getStringExtra(MessageTemplateLibraryActivity.EXTRA_TEMPLATE_NAME);
+        selectedTemplateText.setText((name == null || name.trim().isEmpty())
+                ? "선택한 템플릿" : name);
+        applyTemplate(body == null ? "" : body);
     }
 
     private void applyTemplate(String template) {
@@ -145,15 +170,11 @@ public final class ManualMessageActivity extends Activity {
             return;
         }
         long id = SmsSender.queueAndSend(
-                this,
-                customerId,
-                0L,
-                phoneInput.getText().toString(),
-                body,
+                this, customerId, 0L, phoneInput.getText().toString(), body,
                 MessageAutomationManager.TRIGGER_MANUAL,
                 MessageAutomationStore.selectedSubscriptionId(this));
         Toast.makeText(this, "문자 발송을 요청했습니다. 내역에서 결과를 확인하세요.", Toast.LENGTH_LONG).show();
-        startActivity(new android.content.Intent(this, MessageHistoryActivity.class)
+        startActivity(new Intent(this, MessageHistoryActivity.class)
                 .putExtra("focus_message_id", id));
         finish();
     }
@@ -172,13 +193,9 @@ public final class ManualMessageActivity extends Activity {
         MessageLogStore store = new MessageLogStore(this);
         try {
             long id = store.createJob(
-                    customerId,
-                    0L,
-                    phoneInput.getText().toString(),
-                    body,
+                    customerId, 0L, phoneInput.getText().toString(), body,
                     MessageAutomationManager.TRIGGER_DELAYED,
-                    MessageLogStore.STATUS_SCHEDULED,
-                    when,
+                    MessageLogStore.STATUS_SCHEDULED, when,
                     MessageAutomationStore.selectedSubscriptionId(this));
             MessageScheduler.schedule(this, id, when);
         } finally {
@@ -244,7 +261,8 @@ public final class ManualMessageActivity extends Activity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode != REQUEST_SMS) return;
-        boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+        boolean granted = grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED;
         if (granted && pendingSend) {
             pendingSend = false;
             sendNow();
@@ -287,10 +305,6 @@ public final class ManualMessageActivity extends Activity {
         text.setTextColor(getColor(R.color.text_secondary));
         text.setTextSize(13f);
         return text;
-    }
-
-    private Button smallButton(String value) {
-        return button(value, false);
     }
 
     private Button button(String value, boolean primary) {
