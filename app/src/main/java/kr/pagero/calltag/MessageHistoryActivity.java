@@ -1,6 +1,7 @@
 package kr.pagero.calltag;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -55,9 +56,14 @@ public final class MessageHistoryActivity extends Activity {
         header.addView(title, titleParams);
         root.addView(header, matchWrap());
 
+        TextView guide = body("중복 차단 건에는 기존 발송 시각과 사유가 표시됩니다. 꼭 필요한 경우에만 강제 재발송하세요.");
+        guide.setBackgroundResource(R.drawable.bg_soft_panel);
+        guide.setPadding(dp(14), dp(12), dp(14), dp(12));
+        root.addView(guide, topMargin(14));
+
         list = new LinearLayout(this);
         list.setOrientation(LinearLayout.VERTICAL);
-        root.addView(list, topMargin(20));
+        root.addView(list, topMargin(16));
         return scroll;
     }
 
@@ -99,9 +105,14 @@ public final class MessageHistoryActivity extends Activity {
             message.setTextSize(14f);
             card.addView(message, topMargin(10));
 
+            boolean duplicateBlocked = MessageDedupeEngine.isDuplicateReason(record.error);
             if (record.error != null && !record.error.trim().isEmpty()) {
                 TextView error = body(record.error);
-                error.setTextColor(getColor(R.color.danger));
+                error.setTextColor(getColor(duplicateBlocked
+                        ? R.color.text_secondary : R.color.danger));
+                error.setBackgroundResource(duplicateBlocked
+                        ? R.drawable.bg_soft_panel : 0);
+                if (duplicateBlocked) error.setPadding(dp(12), dp(10), dp(12), dp(10));
                 card.addView(error, topMargin(8));
             }
 
@@ -117,6 +128,14 @@ public final class MessageHistoryActivity extends Activity {
                 cancelParams.leftMargin = dp(8);
                 actions.addView(cancel, cancelParams);
                 card.addView(actions, topMargin(12));
+            } else if (MessageLogStore.STATUS_SKIPPED.equals(record.status)
+                    && duplicateBlocked) {
+                Button force = button("중복 확인 후 강제 재발송", false);
+                force.setOnClickListener(v -> confirmForceResend(record));
+                LinearLayout.LayoutParams forceParams = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
+                forceParams.topMargin = dp(12);
+                card.addView(force, forceParams);
             }
 
             LinearLayout.LayoutParams params = matchWrap();
@@ -140,22 +159,36 @@ public final class MessageHistoryActivity extends Activity {
         render();
     }
 
+    private void confirmForceResend(MessageRecord record) {
+        new AlertDialog.Builder(this)
+                .setTitle("강제 재발송")
+                .setMessage(record.error + "\n\n중복방지를 무시하고 다시 발송합니다. 통신사 문자요금이 다시 발생할 수 있습니다.")
+                .setNegativeButton("취소", null)
+                .setPositiveButton("그래도 발송", (dialog, which) -> {
+                    long id = SmsSender.forceResend(this, record);
+                    MessageRecord created = store.find(id);
+                    if (created != null && MessageLogStore.STATUS_SKIPPED.equals(created.status)) {
+                        Toast.makeText(this, created.error, Toast.LENGTH_LONG).show();
+                    } else {
+                        Toast.makeText(this, "강제 재발송을 요청했습니다.", Toast.LENGTH_LONG).show();
+                    }
+                    render();
+                })
+                .show();
+    }
+
     private String triggerLabel(String trigger) {
+        if (MessageAutomationManager.TRIGGER_INCOMING.equals(trigger)) return "수신 통화 자동문자";
+        if (MessageAutomationManager.TRIGGER_OUTGOING.equals(trigger)) return "발신 통화 자동문자";
         if (MessageAutomationManager.TRIGGER_CONNECTED.equals(trigger)) return "통화 종료 자동문자";
         if (MessageAutomationManager.TRIGGER_MISSED.equals(trigger)) return "부재중·거절 자동문자";
         if (MessageAutomationManager.TRIGGER_DELAYED.equals(trigger)) return "후속 예약문자";
+        if (MessageAutomationManager.TRIGGER_CAMPAIGN.equals(trigger)) return "단체문자";
         return "수동 문자";
     }
 
     private String statusLabel(String status) {
-        if (MessageLogStore.STATUS_SCHEDULED.equals(status)) return "발송 예정";
-        if (MessageLogStore.STATUS_READY.equals(status)) return "발송 준비";
-        if (MessageLogStore.STATUS_SENDING.equals(status)) return "발송 중";
-        if (MessageLogStore.STATUS_SENT.equals(status)) return "발송 완료";
-        if (MessageLogStore.STATUS_FAILED.equals(status)) return "발송 실패";
-        if (MessageLogStore.STATUS_SKIPPED.equals(status)) return "건너뜀";
-        if (MessageLogStore.STATUS_CANCELLED.equals(status)) return "취소됨";
-        return status;
+        return MessageDedupeEngine.statusLabel(status);
     }
 
     private int statusColor(String status) {
