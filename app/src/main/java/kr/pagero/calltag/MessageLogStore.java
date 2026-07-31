@@ -123,6 +123,22 @@ public final class MessageLogStore extends SQLiteOpenHelper {
         }
     }
 
+    public boolean hasActiveImmediateForCall(long callLogId) {
+        if (callLogId <= 0L) return false;
+        String sql = "SELECT 1 FROM message_jobs WHERE call_log_id=? " +
+                "AND trigger_type<>? AND status IN (?,?,?) LIMIT 1";
+        String[] args = {
+                String.valueOf(callLogId),
+                MessageAutomationManager.TRIGGER_DELAYED,
+                STATUS_READY,
+                STATUS_SENDING,
+                STATUS_SENT
+        };
+        try (Cursor cursor = getReadableDatabase().rawQuery(sql, args)) {
+            return cursor.moveToFirst();
+        }
+    }
+
     public int countByStatus(String status) {
         try (Cursor cursor = getReadableDatabase().rawQuery(
                 "SELECT COUNT(*) FROM message_jobs WHERE status=?",
