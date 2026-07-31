@@ -22,11 +22,18 @@ public final class ScheduledMessageReceiver extends BroadcastReceiver {
                     context, messageId);
             if (!lifecycleBlock.isEmpty()) {
                 store.markSkipped(messageId, lifecycleBlock);
+                MmsComposer.forget(context, messageId);
                 return;
             }
 
             if (!MessageAutomationStore.isWithinBusinessHours(context, System.currentTimeMillis())) {
                 store.markSkipped(messageId, "설정한 업무시간 밖이라 발송하지 않았습니다.");
+                MmsComposer.forget(context, messageId);
+                return;
+            }
+
+            if (MmsComposer.hasAttachment(context, messageId)) {
+                MmsComposer.postComposeNotification(context, messageId);
                 return;
             }
             store.markReady(messageId);
