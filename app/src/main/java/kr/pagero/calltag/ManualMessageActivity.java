@@ -163,7 +163,7 @@ public final class ManualMessageActivity extends Activity {
 
     private void sendNow() {
         String body = validatedBody();
-        if (body == null) return;
+        if (body == null || blockedByPolicy(MessageAutomationManager.TRIGGER_MANUAL)) return;
         if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
             pendingSend = true;
             requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS);
@@ -181,7 +181,7 @@ public final class ManualMessageActivity extends Activity {
 
     private void schedule() {
         String body = validatedBody();
-        if (body == null) return;
+        if (body == null || blockedByPolicy(MessageAutomationManager.TRIGGER_DELAYED)) return;
         int days;
         try {
             days = Integer.parseInt(delayDaysInput.getText().toString().trim());
@@ -203,6 +203,15 @@ public final class ManualMessageActivity extends Activity {
         }
         Toast.makeText(this, days + "일 후 후속문자로 예약했습니다.", Toast.LENGTH_LONG).show();
         finish();
+    }
+
+    private boolean blockedByPolicy(String triggerType) {
+        MessageExclusionStore.Decision decision = MessageExclusionStore.evaluate(
+                this, customerId, phoneInput.getText().toString(), triggerType);
+        if (!decision.blocked) return false;
+        Toast.makeText(this, decision.reason + " 고객 상세의 발송 제외 설정을 확인해주세요.",
+                Toast.LENGTH_LONG).show();
+        return true;
     }
 
     private String validatedBody() {
