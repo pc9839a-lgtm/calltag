@@ -2,6 +2,7 @@ package kr.pagero.calltag;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -18,19 +19,23 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class MessageAutomationSettingsActivity extends Activity {
     private static final int REQUEST_SMS = 8201;
+    private static final int REQUEST_INCOMING = 8301;
+    private static final int REQUEST_OUTGOING = 8302;
+    private static final int REQUEST_MISSED = 8303;
+    private static final int REQUEST_FOLLOW_UP = 8304;
 
+    private final Map<String, TextView> defaultLabels = new LinkedHashMap<>();
     private Switch enabled;
     private Switch connected;
     private Switch missed;
     private Switch delayed;
     private Switch businessHours;
-    private EditText connectedTemplate;
-    private EditText missedTemplate;
-    private EditText delayedTemplate;
     private EditText delayDays;
     private EditText cooldownHours;
     private EditText startHour;
@@ -42,6 +47,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         MessageAutomationStore.ensureDefaults(this);
+        MessageTemplateStore.ensureDefaults(this);
         setContentView(buildContent());
         load();
     }
@@ -63,8 +69,8 @@ public final class MessageAutomationSettingsActivity extends Activity {
         back.setOnClickListener(v -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
         TextView title = title("자동 발송 설정", 22f);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         titleParams.leftMargin = dp(12);
         header.addView(title, titleParams);
         root.addView(header, matchWrap());
@@ -77,20 +83,27 @@ public final class MessageAutomationSettingsActivity extends Activity {
         enabled = switchView("문자자동화 사용", "자동·수동·예약 문자 기능 전체 켜기");
         root.addView(enabled, topMargin(16));
 
-        connected = switchView("통화 종료 후 자동 발송", "연결된 수신·발신 통화 종료 후 발송");
-        root.addView(connected, topMargin(12));
-        connectedTemplate = multilineInput("통화 종료 후 보낼 템플릿");
-        root.addView(connectedTemplate, topMargin(8));
+        Button library = button("템플릿 보관함 관리", false);
+        library.setOnClickListener(v -> startActivity(
+                new Intent(this, MessageTemplateLibraryActivity.class)));
+        LinearLayout.LayoutParams libraryParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(54));
+        libraryParams.topMargin = dp(14);
+        root.addView(library, libraryParams);
 
-        missed = switchView("부재중·거절 자동 발송", "받지 못한 수신 전화에 자동 안내");
-        root.addView(missed, topMargin(18));
-        missedTemplate = multilineInput("부재중일 때 보낼 템플릿");
-        root.addView(missedTemplate, topMargin(8));
+        root.addView(label("기본 템플릿"), topMargin(24));
+        root.addView(body("수신·발신·부재중·후속 상황별로 보관함의 템플릿을 연결합니다."), topMargin(6));
+        addDefaultSelector(root, "수신 통화", MessageTemplateStore.PURPOSE_INCOMING, REQUEST_INCOMING);
+        addDefaultSelector(root, "발신 통화", MessageTemplateStore.PURPOSE_OUTGOING, REQUEST_OUTGOING);
+        addDefaultSelector(root, "부재중", MessageTemplateStore.PURPOSE_MISSED, REQUEST_MISSED);
+        addDefaultSelector(root, "후속문자", MessageTemplateStore.PURPOSE_FOLLOW_UP, REQUEST_FOLLOW_UP);
 
-        delayed = switchView("후속 문자 자동 예약", "통화 종료 후 지정한 날짜가 지나면 발송");
-        root.addView(delayed, topMargin(18));
-        delayedTemplate = multilineInput("후속문자 템플릿");
-        root.addView(delayedTemplate, topMargin(8));
+        connected = switchView("통화 종료 후 자동 발송", "수신·발신 통화별 기본 템플릿으로 발송");
+        root.addView(connected, topMargin(22));
+        missed = switchView("부재중·거절 자동 발송", "받지 못한 수신 전화에 기본 템플릿 발송");
+        root.addView(missed, topMargin(12));
+        delayed = switchView("후속문자 자동 예약", "통화 종료 후 지정한 시점에 후속 템플릿 발송");
+        root.addView(delayed, topMargin(12));
 
         LinearLayout delayRow = new LinearLayout(this);
         delayRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -126,19 +139,58 @@ public final class MessageAutomationSettingsActivity extends Activity {
         lineSpinner = new Spinner(this);
         lineSpinner.setBackgroundResource(R.drawable.bg_secondary_button);
         lineSpinner.setPadding(dp(12), 0, dp(12), 0);
-        root.addView(lineSpinner, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(54)) {{ topMargin = dp(8); }});
+        LinearLayout.LayoutParams lineParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(54));
+        lineParams.topMargin = dp(8);
+        root.addView(lineSpinner, lineParams);
         setupLines();
 
         TextView variableHelp = body("사용 가능: " + MessageTemplateEngine.supportedVariablesLabel()
-                + "\n치환할 정보가 없거나 지원하지 않는 변수가 남으면 발송하지 않습니다.");
+                + "\n템플릿 저장과 실제 발송 직전에 다시 검사합니다.");
         root.addView(variableHelp, topMargin(14));
 
         Button save = button("설정 저장", true);
         save.setOnClickListener(v -> save());
-        root.addView(save, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(58)) {{ topMargin = dp(24); }});
+        LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(58));
+        saveParams.topMargin = dp(24);
+        root.addView(save, saveParams);
         return scroll;
+    }
+
+    private void addDefaultSelector(LinearLayout root, String titleText,
+                                    String purpose, int requestCode) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(dp(16), dp(12), dp(16), dp(12));
+        row.setBackgroundResource(R.drawable.bg_card);
+        TextView title = title(titleText, 15f);
+        row.addView(title, matchWrap());
+        TextView selected = body("");
+        selected.setTextColor(getColor(R.color.text_primary));
+        row.addView(selected, topMargin(5));
+        defaultLabels.put(purpose, selected);
+        Button choose = button("템플릿 선택", false);
+        choose.setOnClickListener(v -> openDefaultSelector(purpose, requestCode));
+        LinearLayout.LayoutParams chooseParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
+        chooseParams.topMargin = dp(8);
+        row.addView(choose, chooseParams);
+        root.addView(row, topMargin(10));
+    }
+
+    private void openDefaultSelector(String purpose, int requestCode) {
+        startActivityForResult(new Intent(this, MessageTemplateLibraryActivity.class)
+                .putExtra(MessageTemplateLibraryActivity.EXTRA_SELECT_MODE, true)
+                .putExtra(MessageTemplateLibraryActivity.EXTRA_PURPOSE_FILTER, purpose)
+                .putExtra(MessageTemplateLibraryActivity.EXTRA_DEFAULT_PURPOSE, purpose), requestCode);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode == RESULT_OK && requestCode >= REQUEST_INCOMING
+                && requestCode <= REQUEST_FOLLOW_UP) loadDefaultLabels();
     }
 
     private void setupLines() {
@@ -157,13 +209,11 @@ public final class MessageAutomationSettingsActivity extends Activity {
         missed.setChecked(MessageAutomationStore.missedEnabled(this));
         delayed.setChecked(MessageAutomationStore.delayedEnabled(this));
         businessHours.setChecked(MessageAutomationStore.businessHoursEnabled(this));
-        connectedTemplate.setText(MessageAutomationStore.connectedTemplate(this));
-        missedTemplate.setText(MessageAutomationStore.missedTemplate(this));
-        delayedTemplate.setText(MessageAutomationStore.delayedTemplate(this));
         delayDays.setText(String.valueOf(MessageAutomationStore.delayDays(this)));
         cooldownHours.setText(String.valueOf(MessageAutomationStore.cooldownHours(this)));
         startHour.setText(String.valueOf(MessageAutomationStore.startHour(this)));
         endHour.setText(String.valueOf(MessageAutomationStore.endHour(this)));
+        loadDefaultLabels();
         int selected = MessageAutomationStore.selectedSubscriptionId(this);
         for (int i = 0; i < profiles.size(); i++) {
             if (profiles.get(i).subscriptionId == selected) {
@@ -173,23 +223,22 @@ public final class MessageAutomationSettingsActivity extends Activity {
         }
     }
 
+    private void loadDefaultLabels() {
+        for (Map.Entry<String, TextView> entry : defaultLabels.entrySet()) {
+            entry.getValue().setText(MessageTemplateStore.defaultName(this, entry.getKey()));
+        }
+    }
+
     private void save() {
         if (!FeatureEntitlementStore.hasMessageAccess(this)) {
             Toast.makeText(this, "문자자동화 이용권이 필요합니다.", Toast.LENGTH_LONG).show();
             return;
         }
-        if (!validateTemplateField(connectedTemplate, "통화 종료 템플릿")) return;
-        if (!validateTemplateField(missedTemplate, "부재중 템플릿")) return;
-        if (!validateTemplateField(delayedTemplate, "후속문자 템플릿")) return;
-
         MessageAutomationStore.setEnabled(this, enabled.isChecked());
         MessageAutomationStore.setConnectedEnabled(this, connected.isChecked());
         MessageAutomationStore.setMissedEnabled(this, missed.isChecked());
         MessageAutomationStore.setDelayedEnabled(this, delayed.isChecked());
         MessageAutomationStore.setBusinessHoursEnabled(this, businessHours.isChecked());
-        MessageAutomationStore.setConnectedTemplate(this, connectedTemplate.getText().toString());
-        MessageAutomationStore.setMissedTemplate(this, missedTemplate.getText().toString());
-        MessageAutomationStore.setDelayedTemplate(this, delayedTemplate.getText().toString());
         MessageAutomationStore.setDelayDays(this, parse(delayDays, 3));
         MessageAutomationStore.setCooldownHours(this, parse(cooldownHours, 24));
         MessageAutomationStore.setBusinessHours(this, parse(startHour, 9), parse(endHour, 20));
@@ -203,22 +252,6 @@ public final class MessageAutomationSettingsActivity extends Activity {
         }
         Toast.makeText(this, "자동 발송 설정을 저장했습니다.", Toast.LENGTH_SHORT).show();
         finish();
-    }
-
-    private boolean validateTemplateField(EditText input, String label) {
-        MessageTemplateEngine.ValidationResult result = MessageTemplateEngine.validateTemplate(
-                input.getText().toString());
-        if (!result.isValid()) {
-            input.requestFocus();
-            Toast.makeText(this,
-                    label + "에 지원하지 않는 변수가 있습니다: "
-                            + MessageTemplateEngine.describeVariables(result.unsupportedVariables),
-                    Toast.LENGTH_LONG).show();
-            return false;
-        }
-        input.setText(result.normalizedTemplate);
-        input.setSelection(input.getText().length());
-        return true;
     }
 
     private int parse(EditText input, int fallback) {
@@ -240,20 +273,6 @@ public final class MessageAutomationSettingsActivity extends Activity {
         view.setMinHeight(dp(72));
         view.setBackgroundResource(R.drawable.bg_card);
         return view;
-    }
-
-    private EditText multilineInput(String hint) {
-        EditText input = new EditText(this);
-        input.setHint(hint);
-        input.setHintTextColor(getColor(R.color.text_muted));
-        input.setTextColor(getColor(R.color.text_primary));
-        input.setTextSize(14f);
-        input.setGravity(Gravity.TOP | Gravity.START);
-        input.setPadding(dp(16), dp(12), dp(16), dp(12));
-        input.setBackgroundResource(R.drawable.bg_secondary_button);
-        input.setMinLines(4);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        return input;
     }
 
     private EditText numberInput(String hint) {
