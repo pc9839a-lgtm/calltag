@@ -100,7 +100,8 @@ public final class CallTagApplication extends Application implements Application
                 || activity instanceof MessageAutomationSettingsActivity
                 || activity instanceof ManualMessageActivity
                 || activity instanceof MessageHistoryActivity
-                || activity instanceof AccountActivity;
+                || activity instanceof AccountActivity
+                || activity instanceof BackupRestoreActivity;
     }
 
     @Override public void onActivityCreated(Activity activity, Bundle savedInstanceState) {}
