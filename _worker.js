@@ -18,10 +18,10 @@ export default {
       .replace('<meta property="og:description" content="통화 종료 후 태그만 하세요. 고객 상태와 다음 할 일이 바로 정리됩니다." />', '<meta property="og:description" content="고객 상태와 재연락 날짜를 남기고 안내문자를 바로 보내세요." />');
 
     if (!body.includes('/assets/calltag-enhance.css')) {
-      body = body.replace('</head>', '<link rel="stylesheet" href="/assets/calltag-enhance.css?v=20260731-4" /></head>');
+      body = body.replace('</head>', '<link rel="stylesheet" href="/assets/calltag-enhance.css?v=20260731-5" /></head>');
     }
     if (!body.includes('/assets/calltag-enhance.js')) {
-      body = body.replace('</body>', '<script src="/assets/calltag-enhance.js?v=20260731-4"></script></body>');
+      body = body.replace('</body>', '<script src="/assets/calltag-enhance.js?v=20260731-5"></script><script src="/assets/calltag-copy-fix.js?v=20260731-5"></script></body>');
     }
 
     return new Response(body, { status: response.status, statusText: response.statusText, headers });
