@@ -28,6 +28,18 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
         MessageLogStore store = new MessageLogStore(context);
         try {
             MessageRecord before = store.find(messageId);
+            if (before == null) {
+                clearPartState(context, messageId);
+                DiagnosticEventStore.record(context, "SMS 콜백 무시", messageId,
+                        "문자 작업 없음");
+                return;
+            }
+            if (!MessageLogStore.STATUS_SENDING.equals(before.status)) {
+                clearPartState(context, messageId);
+                DataIntegrityManager.recordLateCallback(context, messageId, before.status);
+                return;
+            }
+
             if (resultCode == Activity.RESULT_OK) {
                 synchronized (SmsStatusReceiver.class) {
                     SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -47,16 +59,10 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
                 }
             } else {
                 String error = errorLabel(resultCode);
-                boolean firstFailure = before != null
-                        && !MessageLogStore.STATUS_FAILED.equals(before.status)
-                        && !MessageLogStore.STATUS_SENT.equals(before.status);
                 store.markFailed(messageId, error);
-                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                        .edit().remove("ok_" + messageId).apply();
-                if (firstFailure) {
-                    recordTimeline(context, before, false, error);
-                    finalResult = true;
-                }
+                clearPartState(context, messageId);
+                recordTimeline(context, before, false, error);
+                finalResult = true;
                 DiagnosticEventStore.record(context, "SMS 발송 실패", messageId,
                         errorCategory(resultCode));
             }
@@ -72,11 +78,17 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
                 .setPackage(context.getPackageName()));
     }
 
+    private void clearPartState(Context context, long messageId) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().remove("ok_" + messageId).apply();
+    }
+
     private void recordTimeline(Context context, MessageRecord record,
                                 boolean sent, String error) {
         if (record == null || record.customerId <= 0L) return;
         CallTagDbHelper db = new CallTagDbHelper(context);
         try {
+            if (db.findCustomerById(record.customerId) == null) return;
             long now = System.currentTimeMillis();
             db.insertInteraction(
                     record.customerId,
