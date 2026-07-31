@@ -17,6 +17,14 @@ public final class ScheduledMessageReceiver extends BroadcastReceiver {
         try {
             MessageRecord record = store.find(messageId);
             if (record == null || !MessageLogStore.STATUS_SCHEDULED.equals(record.status)) return;
+
+            String lifecycleBlock = TaskMessageLifecycleManager.validateScheduledSend(
+                    context, messageId);
+            if (!lifecycleBlock.isEmpty()) {
+                store.markSkipped(messageId, lifecycleBlock);
+                return;
+            }
+
             if (!MessageAutomationStore.isWithinBusinessHours(context, System.currentTimeMillis())) {
                 store.markSkipped(messageId, "설정한 업무시간 밖이라 발송하지 않았습니다.");
                 return;
