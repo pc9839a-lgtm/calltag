@@ -65,12 +65,19 @@ public final class MessageSectionView extends LinearLayout {
         composeRow.addView(free, freeParams);
         addView(composeRow, topMargin(10));
 
+        LinearLayout managementRow = new LinearLayout(getContext());
+        managementRow.setOrientation(HORIZONTAL);
         Button library = button("템플릿 보관함", false);
         library.setOnClickListener(v -> getContext().startActivity(
                 new Intent(getContext(), MessageTemplateLibraryActivity.class)));
-        LayoutParams libraryParams = new LayoutParams(LayoutParams.MATCH_PARENT, dp(52));
-        libraryParams.topMargin = dp(10);
-        addView(library, libraryParams);
+        managementRow.addView(library, new LayoutParams(0, dp(52), 1f));
+        Button exclusion = button("발송 제외", false);
+        exclusion.setOnClickListener(v -> getContext().startActivity(
+                new Intent(getContext(), MessageExclusionActivity.class)));
+        LayoutParams exclusionParams = new LayoutParams(0, dp(52), 1f);
+        exclusionParams.leftMargin = dp(8);
+        managementRow.addView(exclusion, exclusionParams);
+        addView(managementRow, topMargin(10));
 
         TextView autoLabel = title("자동 발송", 15f);
         autoLabel.setTextColor(getContext().getColor(R.color.text_secondary));
@@ -147,7 +154,9 @@ public final class MessageSectionView extends LinearLayout {
             int scheduled = store.countByStatus(MessageLogStore.STATUS_SCHEDULED);
             int sent = store.countByStatus(MessageLogStore.STATUS_SENT);
             int failed = store.countByStatus(MessageLogStore.STATUS_FAILED);
-            summary.setText("발송 완료  " + sent + "건\n발송 예정  " + scheduled + "건\n발송 실패  " + failed + "건");
+            int exclusions = MessageExclusionStore.list(getContext()).size();
+            summary.setText("발송 완료  " + sent + "건\n발송 예정  " + scheduled
+                    + "건\n발송 실패  " + failed + "건\n발송 제외 고객  " + exclusions + "명");
         } finally {
             store.close();
         }
