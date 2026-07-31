@@ -22,19 +22,10 @@ public final class MessageSectionView extends LinearLayout {
     private Switch delayed;
     private boolean rendering;
 
-    public MessageSectionView(Context context) {
-        super(context);
-        init();
-    }
-
-    public MessageSectionView(Context context, AttributeSet attrs) {
-        super(context, attrs);
-        init();
-    }
-
+    public MessageSectionView(Context context) { super(context); init(); }
+    public MessageSectionView(Context context, AttributeSet attrs) { super(context, attrs); init(); }
     public MessageSectionView(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        init();
+        super(context, attrs, defStyleAttr); init();
     }
 
     private void init() {
@@ -45,8 +36,7 @@ public final class MessageSectionView extends LinearLayout {
         LinearLayout planCard = card();
         plan = title("", 18f);
         planCard.addView(plan, matchWrap());
-        TextView price = body("전화관리 1,900원 · 문자자동화 990원 · 둘 다 2,500원");
-        planCard.addView(price, topMargin(7));
+        planCard.addView(body("전화관리 1,900원 · 문자자동화 990원 · 둘 다 2,500원"), topMargin(7));
         addView(planCard, matchWrap());
 
         TextView startLabel = title("문자 보내기", 15f);
@@ -67,10 +57,16 @@ public final class MessageSectionView extends LinearLayout {
 
         LinearLayout managementRow = new LinearLayout(getContext());
         managementRow.setOrientation(HORIZONTAL);
-        Button library = button("템플릿 보관함", false);
+        Button library = button("템플릿", false);
         library.setOnClickListener(v -> getContext().startActivity(
                 new Intent(getContext(), MessageTemplateLibraryActivity.class)));
         managementRow.addView(library, new LayoutParams(0, dp(52), 1f));
+        Button images = button("템플릿 이미지", false);
+        images.setOnClickListener(v -> getContext().startActivity(
+                new Intent(getContext(), TemplateImageLibraryActivity.class)));
+        LayoutParams imageParams = new LayoutParams(0, dp(52), 1f);
+        imageParams.leftMargin = dp(8);
+        managementRow.addView(images, imageParams);
         Button exclusion = button("발송 제외", false);
         exclusion.setOnClickListener(v -> getContext().startActivity(
                 new Intent(getContext(), MessageExclusionActivity.class)));
@@ -78,6 +74,9 @@ public final class MessageSectionView extends LinearLayout {
         exclusionParams.leftMargin = dp(8);
         managementRow.addView(exclusion, exclusionParams);
         addView(managementRow, topMargin(10));
+
+        TextView imageGuide = body("이미지 템플릿은 수동 문자와 예약 알림에서 사용합니다. 자동발송 기본 템플릿은 텍스트 전용입니다.");
+        addView(imageGuide, topMargin(8));
 
         TextView autoLabel = title("자동 발송", 15f);
         autoLabel.setTextColor(getContext().getColor(R.color.text_secondary));
@@ -129,7 +128,6 @@ public final class MessageSectionView extends LinearLayout {
         LayoutParams historyParams = new LayoutParams(LayoutParams.MATCH_PARENT, dp(52));
         historyParams.topMargin = dp(10);
         addView(history, historyParams);
-
         render();
     }
 
@@ -201,10 +199,11 @@ public final class MessageSectionView extends LinearLayout {
         Button button = new Button(getContext());
         button.setText(label);
         button.setAllCaps(false);
-        button.setTextSize(15f);
+        button.setTextSize(14f);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setTextColor(getContext().getColor(R.color.text_primary));
-        button.setBackgroundResource(primary ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        button.setBackgroundResource(primary
+                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
         return button;
     }
 
