@@ -49,16 +49,12 @@ public final class CampaignManager {
                     continue;
                 }
 
-                MessageTemplateEngine.RenderResult rendered = MessageTemplateEngine.render(
-                        context, bodyTemplate, customer, previewCall(customer));
+                MessageTemplateEngine.RenderResult rendered = renderBody(
+                        context, bodyTemplate, customer);
                 if (!rendered.isReady()) {
                     campaigns.addRecipient(campaign.id, customer, customer.primaryPhone,
                             rendered.body, 0L, MessageLogStore.STATUS_SKIPPED,
-                            "고객별 치환이 완료되지 않았습니다: "
-                                    + MessageTemplateEngine.describeVariables(
-                                    rendered.unresolvedVariables.isEmpty()
-                                            ? rendered.unsupportedVariables : rendered.unresolvedVariables),
-                            baseAt);
+                            renderFailureReason(rendered), baseAt);
                     continue;
                 }
 
@@ -129,9 +125,18 @@ public final class CampaignManager {
                             MessageLogStore.STATUS_SKIPPED, exclusion.reason, baseAt);
                     continue;
                 }
+
+                MessageTemplateEngine.RenderResult rendered = renderBody(
+                        context, campaign.bodyTemplate, customer);
+                if (!rendered.isReady()) {
+                    campaigns.replaceRecipientJob(recipient.id, 0L,
+                            MessageLogStore.STATUS_SKIPPED, renderFailureReason(rendered), baseAt);
+                    continue;
+                }
+
                 long when = baseAt + retryIndex * RECIPIENT_INTERVAL_MS;
                 long messageId = createScheduledJob(context, campaign, customer,
-                        recipient.body, when, false);
+                        rendered.body, when, true);
                 MessageLogStore messageStore = new MessageLogStore(context);
                 try {
                     MessageRecord record = messageStore.find(messageId);
@@ -152,6 +157,18 @@ public final class CampaignManager {
             crm.close();
             campaigns.close();
         }
+    }
+
+    private static MessageTemplateEngine.RenderResult renderBody(
+            Context context, String template, Customer customer) {
+        return MessageTemplateEngine.render(context, template, customer, previewCall(customer));
+    }
+
+    private static String renderFailureReason(MessageTemplateEngine.RenderResult rendered) {
+        return "고객별 치환이 완료되지 않았습니다: "
+                + MessageTemplateEngine.describeVariables(
+                rendered.unresolvedVariables.isEmpty()
+                        ? rendered.unsupportedVariables : rendered.unresolvedVariables);
     }
 
     private static void addScheduledRecipient(Context context, CampaignStore campaigns,
