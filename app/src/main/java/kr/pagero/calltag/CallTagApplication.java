@@ -29,8 +29,12 @@ public final class CallTagApplication extends Application implements Application
         super.onCreate();
         registerActivityLifecycleCallbacks(this);
         MessageAutomationStore.ensureDefaults(this);
-        MessageRecoveryManager.recoverAsync(this,
-                MessageRecoveryManager.TRIGGER_APP_START);
+        new Thread(() -> {
+            MessageRecoveryManager.recoverNow(this,
+                    MessageRecoveryManager.TRIGGER_APP_START);
+            DataIntegrityManager.recoverNow(this,
+                    DataIntegrityManager.TRIGGER_APP_START);
+        }, "calltag-startup-recovery").start();
         if (FeatureEntitlementStore.hasPhoneAccess(this)) {
             ContactNameSyncManager.requestSyncAll(this);
         }
