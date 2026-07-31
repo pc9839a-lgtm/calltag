@@ -36,7 +36,7 @@ public final class ManualMessageActivity extends Activity {
         String phone = getIntent().getStringExtra(EXTRA_PHONE);
         if (phone != null) phoneInput.setText(phone);
         boolean useTemplate = getIntent().getBooleanExtra(EXTRA_USE_TEMPLATE, false);
-        if (useTemplate) bodyInput.setText(MessageAutomationStore.connectedTemplate(this));
+        if (useTemplate) applyTemplate(MessageAutomationStore.connectedTemplate(this));
     }
 
     private ScrollView buildContent() {
@@ -79,36 +79,39 @@ public final class ManualMessageActivity extends Activity {
         LinearLayout templateRow = new LinearLayout(this);
         templateRow.setOrientation(LinearLayout.HORIZONTAL);
         Button connectedTemplate = smallButton("통화 후");
-        connectedTemplate.setOnClickListener(v -> bodyInput.setText(
+        connectedTemplate.setOnClickListener(v -> applyTemplate(
                 MessageAutomationStore.connectedTemplate(this)));
         templateRow.addView(connectedTemplate, new LinearLayout.LayoutParams(0, dp(46), 1f));
         Button missedTemplate = smallButton("부재중");
-        missedTemplate.setOnClickListener(v -> bodyInput.setText(
+        missedTemplate.setOnClickListener(v -> applyTemplate(
                 MessageAutomationStore.missedTemplate(this)));
         LinearLayout.LayoutParams missedParams = new LinearLayout.LayoutParams(0, dp(46), 1f);
         missedParams.leftMargin = dp(8);
         templateRow.addView(missedTemplate, missedParams);
-        Button followTemplate = smallButton("후속 문자");
-        followTemplate.setOnClickListener(v -> bodyInput.setText(
+        Button followTemplate = smallButton("후속문자");
+        followTemplate.setOnClickListener(v -> applyTemplate(
                 MessageAutomationStore.delayedTemplate(this)));
         LinearLayout.LayoutParams followParams = new LinearLayout.LayoutParams(0, dp(46), 1f);
         followParams.leftMargin = dp(8);
         templateRow.addView(followTemplate, followParams);
         root.addView(templateRow, topMargin(10));
 
+        TextView previewNotice = body("템플릿을 누르면 현재 고객·계정·일정 정보로 치환된 내용을 보여줍니다. 남은 변수는 발송 전에 차단됩니다.");
+        root.addView(previewNotice, topMargin(10));
+
         Button sendNow = button("지금 보내기", true);
         sendNow.setOnClickListener(v -> sendNow());
         root.addView(sendNow, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(56)) {{ topMargin = dp(20); }});
 
-        root.addView(label("예약 발송"), topMargin(26));
+        root.addView(label("후속문자 예약"), topMargin(26));
         LinearLayout scheduleRow = new LinearLayout(this);
         scheduleRow.setOrientation(LinearLayout.HORIZONTAL);
         delayDaysInput = input("3", false);
         delayDaysInput.setInputType(InputType.TYPE_CLASS_NUMBER);
         delayDaysInput.setText(String.valueOf(MessageAutomationStore.delayDays(this)));
         scheduleRow.addView(delayDaysInput, new LinearLayout.LayoutParams(0, dp(54), 1f));
-        TextView suffix = body("일 뒤");
+        TextView suffix = body("일 후");
         suffix.setGravity(Gravity.CENTER);
         scheduleRow.addView(suffix, new LinearLayout.LayoutParams(dp(64), dp(54)));
         Button schedule = button("예약", false);
@@ -121,8 +124,21 @@ public final class ManualMessageActivity extends Activity {
         return scroll;
     }
 
+    private void applyTemplate(String template) {
+        MessageTemplateEngine.RenderResult rendered = render(template);
+        bodyInput.setText(rendered.body);
+        bodyInput.setSelection(bodyInput.getText().length());
+        if (!rendered.unsupportedVariables.isEmpty()) {
+            Toast.makeText(this,
+                    "지원하지 않는 변수가 있습니다: "
+                            + MessageTemplateEngine.describeVariables(rendered.unsupportedVariables),
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void sendNow() {
-        if (!validate()) return;
+        String body = validatedBody();
+        if (body == null) return;
         if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
             pendingSend = true;
             requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS);
@@ -133,7 +149,7 @@ public final class ManualMessageActivity extends Activity {
                 customerId,
                 0L,
                 phoneInput.getText().toString(),
-                bodyInput.getText().toString(),
+                body,
                 MessageAutomationManager.TRIGGER_MANUAL,
                 MessageAutomationStore.selectedSubscriptionId(this));
         Toast.makeText(this, "문자 발송을 요청했습니다. 내역에서 결과를 확인하세요.", Toast.LENGTH_LONG).show();
@@ -143,7 +159,8 @@ public final class ManualMessageActivity extends Activity {
     }
 
     private void schedule() {
-        if (!validate()) return;
+        String body = validatedBody();
+        if (body == null) return;
         int days;
         try {
             days = Integer.parseInt(delayDaysInput.getText().toString().trim());
@@ -158,8 +175,8 @@ public final class ManualMessageActivity extends Activity {
                     customerId,
                     0L,
                     phoneInput.getText().toString(),
-                    bodyInput.getText().toString(),
-                    MessageAutomationManager.TRIGGER_MANUAL,
+                    body,
+                    MessageAutomationManager.TRIGGER_DELAYED,
                     MessageLogStore.STATUS_SCHEDULED,
                     when,
                     MessageAutomationStore.selectedSubscriptionId(this));
@@ -167,24 +184,60 @@ public final class ManualMessageActivity extends Activity {
         } finally {
             store.close();
         }
-        Toast.makeText(this, days + "일 뒤 발송으로 예약했습니다.", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, days + "일 후 후속문자로 예약했습니다.", Toast.LENGTH_LONG).show();
         finish();
     }
 
-    private boolean validate() {
+    private String validatedBody() {
         if (!FeatureEntitlementStore.hasMessageAccess(this)) {
             Toast.makeText(this, "문자자동화 이용권이 필요합니다.", Toast.LENGTH_LONG).show();
-            return false;
+            return null;
         }
         if (PhoneNumberNormalizer.normalize(phoneInput.getText().toString()).length() < 8) {
             Toast.makeText(this, "받는 번호를 확인해주세요.", Toast.LENGTH_SHORT).show();
-            return false;
+            return null;
         }
         if (bodyInput.getText().toString().trim().isEmpty()) {
             Toast.makeText(this, "문자 내용을 입력해주세요.", Toast.LENGTH_SHORT).show();
-            return false;
+            return null;
         }
-        return true;
+
+        MessageTemplateEngine.RenderResult rendered = render(bodyInput.getText().toString());
+        bodyInput.setText(rendered.body);
+        bodyInput.setSelection(bodyInput.getText().length());
+        if (!rendered.unsupportedVariables.isEmpty()) {
+            Toast.makeText(this,
+                    "지원하지 않는 변수가 있습니다: "
+                            + MessageTemplateEngine.describeVariables(rendered.unsupportedVariables),
+                    Toast.LENGTH_LONG).show();
+            return null;
+        }
+        if (!rendered.unresolvedVariables.isEmpty()) {
+            Toast.makeText(this,
+                    "치환되지 않은 변수가 있습니다: "
+                            + MessageTemplateEngine.describeVariables(rendered.unresolvedVariables)
+                            + ". 고객·계정·일정 정보를 확인해주세요.",
+                    Toast.LENGTH_LONG).show();
+            return null;
+        }
+        return rendered.body;
+    }
+
+    private MessageTemplateEngine.RenderResult render(String template) {
+        Customer customer = null;
+        if (customerId > 0L) {
+            CallTagDbHelper db = new CallTagDbHelper(this);
+            try {
+                customer = db.findCustomerById(customerId);
+            } finally {
+                db.close();
+            }
+        }
+        String phone = phoneInput == null ? "" : phoneInput.getText().toString();
+        String cachedName = customer == null ? "" : customer.displayName;
+        CallRecord currentContext = new CallRecord(
+                0L, phone, cachedName, 0, System.currentTimeMillis(), 0L);
+        return MessageTemplateEngine.render(this, template, customer, currentContext);
     }
 
     @Override
