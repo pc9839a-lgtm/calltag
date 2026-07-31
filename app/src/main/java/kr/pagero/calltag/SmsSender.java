@@ -37,6 +37,14 @@ public final class SmsSender {
         try {
             MessageRecord record = store.find(messageId);
             if (record == null) return;
+
+            MessageExclusionStore.Decision exclusion = MessageExclusionStore.evaluate(
+                    context, record.customerId, record.phone, record.triggerType);
+            if (exclusion.blocked) {
+                store.markSkipped(messageId, exclusion.reason);
+                return;
+            }
+
             if (!FeatureEntitlementStore.hasMessageAccess(context)) {
                 store.markFailed(messageId, "문자자동화 구독 권한이 없습니다.");
                 return;
