@@ -3,7 +3,6 @@ package kr.pagero.calltag;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.view.Gravity;
@@ -12,7 +11,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-/** 고객 상세에서 문자 작성과 문자 제외 정책을 관리하는 독립 카드. */
+/** 고객 상세에서 문자 발송 제외 정책만 관리하는 독립 카드. */
 public final class CustomerMessagePolicyView extends LinearLayout {
     private Customer customer;
     private TextView summary;
@@ -37,7 +36,7 @@ public final class CustomerMessagePolicyView extends LinearLayout {
         setPadding(dp(18), dp(16), dp(18), dp(16));
         setBackgroundResource(R.drawable.bg_card);
 
-        TextView title = text("문자", 16f, true);
+        TextView title = text("문자 발송 설정", 16f, true);
         addView(title, matchWrap());
 
         summary = text("문자 발송 제외 설정을 확인하는 중입니다.", 13f, false);
@@ -46,27 +45,23 @@ public final class CustomerMessagePolicyView extends LinearLayout {
         summaryParams.topMargin = dp(6);
         addView(summary, summaryParams);
 
-        LinearLayout actions = new LinearLayout(getContext());
-        actions.setOrientation(HORIZONTAL);
-        Button send = button("문자 보내기", true);
-        send.setOnClickListener(v -> openMessage());
-        actions.addView(send, new LayoutParams(0, dp(48), 1f));
-
         Button policy = button("발송 제외 설정", false);
         policy.setOnClickListener(v -> showPolicyDialog());
-        LayoutParams policyParams = new LayoutParams(0, dp(48), 1f);
-        policyParams.leftMargin = dp(8);
-        actions.addView(policy, policyParams);
-
-        LayoutParams actionsParams = matchWrap();
-        actionsParams.topMargin = dp(12);
-        addView(actions, actionsParams);
+        LayoutParams policyParams = new LayoutParams(LayoutParams.MATCH_PARENT, dp(48));
+        policyParams.topMargin = dp(12);
+        addView(policy, policyParams);
     }
 
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         loadCustomer();
+    }
+
+    @Override
+    protected void onVisibilityChanged(android.view.View changedView, int visibility) {
+        super.onVisibilityChanged(changedView, visibility);
+        if (visibility == VISIBLE && summary != null) loadCustomer();
     }
 
     private void loadCustomer() {
@@ -97,14 +92,6 @@ public final class CustomerMessagePolicyView extends LinearLayout {
             summary.setText(MessageExclusionStore.summary(flags)
                     + " · 실제 발송 직전에 다시 검사합니다.");
         }
-    }
-
-    private void openMessage() {
-        if (customer == null) return;
-        getContext().startActivity(new Intent(getContext(), ManualMessageActivity.class)
-                .putExtra(ManualMessageActivity.EXTRA_CUSTOMER_ID, customer.id)
-                .putExtra(ManualMessageActivity.EXTRA_PHONE, customer.primaryPhone)
-                .putExtra(ManualMessageActivity.EXTRA_USE_TEMPLATE, true));
     }
 
     private void showPolicyDialog() {
