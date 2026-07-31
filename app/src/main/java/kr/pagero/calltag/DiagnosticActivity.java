@@ -66,8 +66,8 @@ public final class DiagnosticActivity extends Activity {
         root.addView(header, matchWrap());
 
         LinearLayout notice = card();
-        notice.addView(title("실제 단말 테스트용", 17f), matchWrap());
-        notice.addView(body("권한·SIM·예약·캠페인 상태를 자동 확인합니다. 실제 문자 발송 성공 여부는 테스트 번호로 직접 확인해야 합니다."), topMargin(8));
+        notice.addView(title("실제 단말 테스트·데이터 복구", 17f), matchWrap());
+        notice.addView(body("권한·SIM·예약·캠페인·DB 연결 상태를 확인합니다. 정합성 복구는 누락 문자를 새로 발송하지 않고 고아 예약과 잘못된 참조만 안전하게 차단·정리합니다."), topMargin(8));
         root.addView(notice, topMargin(18));
 
         statusTitle = title("상태를 확인하는 중입니다.", 18f);
@@ -78,7 +78,7 @@ public final class DiagnosticActivity extends Activity {
         refreshButton = button("새로고침", false);
         refreshButton.setOnClickListener(v -> refreshReport());
         actionRow.addView(refreshButton, new LinearLayout.LayoutParams(0, dp(52), 1f));
-        repairButton = button("상태 재계산", true);
+        repairButton = button("정합성 복구", true);
         repairButton.setOnClickListener(v -> confirmRepair());
         LinearLayout.LayoutParams repairParams = new LinearLayout.LayoutParams(0, dp(52), 1f);
         repairParams.leftMargin = dp(8);
@@ -113,6 +113,10 @@ public final class DiagnosticActivity extends Activity {
         addCheck(checklist, "reboot", "재부팅 후 예약 작업 상태 확인");
         addCheck(checklist, "campaign_100", "100명 이상 캠페인 생성·스크롤·상태 갱신 확인");
         addCheck(checklist, "concurrent", "통화 종료 정리와 캠페인 발송 동시 발생 확인");
+        addCheck(checklist, "orphan_job", "고아 캠페인 문자 작업이 자동 발송되지 않고 취소됨");
+        addCheck(checklist, "late_callback", "취소 후 늦은 SMS 성공 콜백이 상태를 덮어쓰지 않음");
+        addCheck(checklist, "campaign_delete", "캠페인 삭제 전 남은 알람이 정리됨");
+        addCheck(checklist, "stale_group_member", "삭제 고객의 수동 그룹 참조가 정리됨");
         root.addView(checklist, topMargin(10));
 
         Button resetChecklist = button("체크리스트 초기화", false);
@@ -140,16 +144,16 @@ public final class DiagnosticActivity extends Activity {
     private void confirmRepair() {
         if (working) return;
         new AlertDialog.Builder(this)
-                .setTitle("캠페인 상태를 재계산할까요?")
-                .setMessage("문자 작업의 실제 상태를 기준으로 캠페인 수신자와 캠페인 집계를 다시 맞춥니다. 고객·문자·캠페인 데이터는 삭제하지 않습니다.")
+                .setTitle("데이터 정합성을 복구할까요?")
+                .setMessage("고아 예약을 취소하고, 연결 문자 작업이 없는 진행 수신자를 실패 처리하며, 최종 상태 알람과 삭제 고객의 그룹 참조를 정리합니다. 누락 문자를 새로 만들거나 자동 재발송하지 않습니다.")
                 .setNegativeButton("취소", null)
-                .setPositiveButton("재계산", (dialog, which) -> repair())
+                .setPositiveButton("정합성 복구", (dialog, which) -> repair())
                 .show();
     }
 
     private void repair() {
         if (working) return;
-        setWorking(true, "재계산 중…");
+        setWorking(true, "복구 중…");
         new Thread(() -> {
             DiagnosticReport.RepairResult repair = DiagnosticReport.reconcileCampaigns(this);
             DiagnosticReport.Snapshot refreshed = DiagnosticReport.collect(this);
