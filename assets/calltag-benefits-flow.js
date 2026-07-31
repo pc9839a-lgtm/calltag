@@ -1,0 +1,25 @@
+(()=>{
+  if(document.documentElement.dataset.ctBenefitsFlow)return;
+  document.documentElement.dataset.ctBenefitsFlow='1';
+  const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>[...r.querySelectorAll(s)];
+  const run=()=>{
+    const benefits=q('.ad-benefits');if(!benefits||benefits.classList.contains('ct-benefit-flow'))return;
+    const section=benefits.closest('.ad-section'),kicker=q('.ad-kicker',section||document),title=q('.ad-title',section||document);
+    if(kicker)kicker.textContent='쓰면 무엇이 좋아지나요?';if(title)title.textContent='반복 업무 그만하세요';
+    const data=[['01','고객 누락 감소','연락할 고객과 날짜를 바로 확인'],['02','반복 업무 단축','태그와 저장 문구로 입력 시간 절약'],['03','자동 문자 발송','안내문자와 후속문자를 즉시·예약 발송'],['04','편한 고객 관리','앱과 PC에서 고객과 일정 확인']];
+    const cards=qa('.ad-benefit',benefits).slice(0,4);
+    cards.forEach((card,index)=>{const [number,label,copy]=data[index];card.innerHTML=`<b>${number}</b><strong>${label}</strong><p>${copy}</p>`;card.dataset.index=String(index);card.tabIndex=0;});
+    const flow=document.createDocumentFragment();cards.forEach((card,index)=>{flow.appendChild(card);if(index<cards.length-1){const arrow=document.createElement('div');arrow.className='ct-benefit-arrow';arrow.setAttribute('aria-hidden','true');arrow.innerHTML='<span>›</span>';flow.appendChild(arrow);}});benefits.replaceChildren(flow);benefits.classList.add('ct-benefit-flow');
+    const arrows=qa('.ct-benefit-arrow',benefits);let index=0,timer=null,running=false;
+    const activate=next=>{index=(next+cards.length)%cards.length;cards.forEach((card,i)=>card.classList.toggle('is-active',i===index));arrows.forEach((arrow,i)=>arrow.classList.toggle('is-lit',i<index));};
+    const start=()=>{if(running||matchMedia('(prefers-reduced-motion: reduce)').matches)return;running=true;activate(0);timer=setInterval(()=>activate(index+1),1750);};
+    const stop=()=>{running=false;clearInterval(timer);};
+    cards.forEach((card,i)=>{card.addEventListener('mouseenter',()=>{stop();activate(i);});card.addEventListener('focus',()=>{stop();activate(i);});});benefits.addEventListener('mouseleave',start);benefits.addEventListener('focusout',event=>{if(!benefits.contains(event.relatedTarget))start();});
+    new IntersectionObserver(entries=>entries.forEach(entry=>entry.isIntersecting?start():stop()),{threshold:.35}).observe(benefits);activate(0);
+    if(!q('style[data-ct-benefits-flow]')){const style=document.createElement('style');style.dataset.ctBenefitsFlow='1';style.textContent=`
+      .ct-benefit-flow{display:grid!important;grid-template-columns:minmax(0,1fr) 54px minmax(0,1fr) 54px minmax(0,1fr) 54px minmax(0,1fr)!important;align-items:center;gap:0!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;padding:28px 0}.ct-benefit-flow .ad-benefit{position:relative;min-height:255px!important;padding:34px 30px!important;border:1px solid var(--line)!important;border-radius:22px!important;background:#11141a!important;opacity:.42;transform:scale(.92);transition:opacity .5s ease,transform .55s cubic-bezier(.2,.78,.2,1),border-color .45s ease,background .45s ease,box-shadow .45s ease;z-index:1}.ct-benefit-flow .ad-benefit b{font-size:38px!important;line-height:1;color:#596170!important;transition:color .4s ease}.ct-benefit-flow .ad-benefit strong{margin-top:27px!important;font-size:clamp(21px,2vw,30px)!important;line-height:1.15;letter-spacing:-.045em}.ct-benefit-flow .ad-benefit p{margin-top:15px!important;font-size:12px!important;line-height:1.6;color:var(--muted-2)!important}.ct-benefit-flow .ad-benefit.is-active{opacity:1;transform:scale(1.1) translateY(-10px);z-index:3;border-color:rgba(59,111,255,.62)!important;background:linear-gradient(150deg,rgba(59,111,255,.18),#12151b 48%)!important;box-shadow:0 30px 75px rgba(59,111,255,.18)}.ct-benefit-flow .ad-benefit.is-active b{color:var(--blue-2)!important}.ct-benefit-arrow{position:relative;z-index:2;display:grid;place-items:center;color:#414752;font-size:54px;font-weight:300;transition:color .42s ease,transform .42s ease,text-shadow .42s ease}.ct-benefit-arrow.is-lit{color:var(--blue-2);transform:translateX(5px);text-shadow:0 0 24px rgba(59,111,255,.65)}
+      @media(max-width:1050px){.ct-benefit-flow{grid-template-columns:1fr!important;max-width:720px;margin:0 auto}.ct-benefit-flow .ad-benefit{min-height:190px!important;transform:scale(.96)}.ct-benefit-flow .ad-benefit.is-active{transform:scale(1.035)}.ct-benefit-arrow{height:58px;transform:rotate(90deg)}.ct-benefit-arrow.is-lit{transform:rotate(90deg) translateX(5px)}}@media(max-width:700px){.ct-benefit-flow .ad-benefit{padding:28px 24px!important}.ct-benefit-flow .ad-benefit strong{font-size:27px!important}}@media(prefers-reduced-motion:reduce){.ct-benefit-flow .ad-benefit{opacity:1;transform:none!important}.ct-benefit-arrow{color:var(--blue-2)}}
+    `;document.head.append(style);}
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});else requestAnimationFrame(run);
+})();
