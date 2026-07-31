@@ -92,6 +92,17 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/accountBackupRestore"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_secondary_button"
+                android:gravity="center"
+                android:text="백업 및 복원"
+                android:textColor="@color/primary"
+                android:textStyle="bold" />
+
+            <TextView
                 android:id="@+id/accountPrivacy"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
