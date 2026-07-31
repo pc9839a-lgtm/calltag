@@ -2,13 +2,16 @@
   if(document.documentElement.dataset.ctMobileFinal)return;
   document.documentElement.dataset.ctMobileFinal='1';
   const apply=()=>{
+    const benefits=document.querySelector('.ct-benefit-flow');
+    const benefitSection=benefits&&benefits.closest('.ad-section');
+    if(benefitSection)benefitSection.classList.add('ct-benefit-section-mobile');
     const style=document.createElement('style');
     style.dataset.ctMobileFinal='1';
     style.textContent=`
       @media(max-width:900px){
         body{padding-bottom:0!important}
         .ad-sticky{display:none!important}
-        #targets+.ad-section,.ct-benefit-flow.closest(.ad-section){padding-top:56px!important;padding-bottom:64px!important}
+        .ct-benefit-section-mobile{padding-top:56px!important;padding-bottom:64px!important}
         .ct-benefit-flow{display:grid!important;grid-template-columns:1fr!important;gap:0!important;width:100%!important;max-width:100%!important;padding:0!important;overflow:visible!important}
         .ct-benefit-flow .ad-benefit{width:100%!important;min-height:132px!important;padding:22px 20px!important;border-radius:18px!important;opacity:.68!important;transform:none!important}
         .ct-benefit-flow .ad-benefit.is-active{opacity:1!important;transform:none!important;box-shadow:0 16px 38px rgba(59,111,255,.12)!important}
