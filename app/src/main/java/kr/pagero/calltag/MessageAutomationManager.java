@@ -13,6 +13,7 @@ public final class MessageAutomationManager {
     public static final String TRIGGER_MISSED = "MISSED_OR_REJECTED_CALL";
     public static final String TRIGGER_DELAYED = "DELAY_AFTER_CALL";
     public static final String TRIGGER_MANUAL = "MANUAL_SEND";
+    public static final String TRIGGER_CAMPAIGN = "CAMPAIGN_SEND";
 
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
 
@@ -50,16 +51,21 @@ public final class MessageAutomationManager {
                         ? MessageTemplateStore.PURPOSE_INCOMING
                         : MessageTemplateStore.PURPOSE_OUTGOING;
                 String trigger = incomingConnected ? TRIGGER_INCOMING : TRIGGER_OUTGOING;
-                sendImmediate(context, store, record, customer,
-                        trigger,
-                        MessageTemplateStore.defaultBody(context, purpose,
-                                MessageAutomationStore.DEFAULT_CONNECTED_TEMPLATE));
+                MessageTemplateStore.Template template =
+                        MessageTemplateStore.defaultTemplate(context, purpose);
+                sendImmediate(context, store, record, customer, trigger,
+                        template == null ? "" : template.id,
+                        template == null
+                                ? MessageAutomationStore.DEFAULT_CONNECTED_TEMPLATE
+                                : template.body);
             } else if (missed && MessageAutomationStore.missedEnabled(context)) {
-                sendImmediate(context, store, record, customer,
-                        TRIGGER_MISSED,
-                        MessageTemplateStore.defaultBody(context,
-                                MessageTemplateStore.PURPOSE_MISSED,
-                                MessageAutomationStore.DEFAULT_MISSED_TEMPLATE));
+                MessageTemplateStore.Template template = MessageTemplateStore.defaultTemplate(
+                        context, MessageTemplateStore.PURPOSE_MISSED);
+                sendImmediate(context, store, record, customer, TRIGGER_MISSED,
+                        template == null ? "" : template.id,
+                        template == null
+                                ? MessageAutomationStore.DEFAULT_MISSED_TEMPLATE
+                                : template.body);
             }
 
             if (connected && MessageAutomationStore.delayedEnabled(context)) {
@@ -72,18 +78,17 @@ public final class MessageAutomationManager {
 
     private static void sendImmediate(Context context, MessageLogStore store,
                                       CallRecord record, Customer customer,
-                                      String trigger, String template) {
+                                      String trigger, String templateId,
+                                      String templateBody) {
         long now = System.currentTimeMillis();
-        long cooldownSince = now - MessageAutomationStore.cooldownHours(context) * 60L * 60L * 1000L;
-        if (store.hasRecentActive(record.phone, trigger, cooldownSince)) return;
-
         MessageTemplateEngine.RenderResult rendered = MessageAutomationStore.renderMessage(
-                context, template, customer, record);
+                context, templateBody, customer, record);
         long customerId = customer == null ? 0L : customer.id;
         int subscriptionId = MessageAutomationStore.selectedSubscriptionId(context);
         if (!rendered.isReady()) {
-            long id = store.createJob(customerId, record.id, record.phone, rendered.body, trigger,
-                    MessageLogStore.STATUS_FAILED, now, subscriptionId);
+            long id = store.createJobAdvanced(customerId, record.id, 0L, "", templateId,
+                    record.phone, rendered.body, trigger, MessageLogStore.STATUS_FAILED,
+                    now, subscriptionId, false);
             store.markFailed(id, renderFailureMessage(rendered));
             return;
         }
@@ -91,48 +96,51 @@ public final class MessageAutomationManager {
         MessageExclusionStore.Decision exclusion = MessageExclusionStore.evaluate(
                 context, customerId, record.phone, trigger);
         if (exclusion.blocked) {
-            long id = store.createJob(customerId, record.id, record.phone, rendered.body, trigger,
-                    MessageLogStore.STATUS_SKIPPED, now, subscriptionId);
+            long id = store.createJobAdvanced(customerId, record.id, 0L, "", templateId,
+                    record.phone, rendered.body, trigger, MessageLogStore.STATUS_SKIPPED,
+                    now, subscriptionId, false);
             store.markSkipped(id, exclusion.reason);
             return;
         }
 
         if (!MessageAutomationStore.isWithinBusinessHours(context, now)) {
-            long id = store.createJob(customerId, record.id, record.phone, rendered.body, trigger,
-                    MessageLogStore.STATUS_SKIPPED, now, subscriptionId);
+            long id = store.createJobAdvanced(customerId, record.id, 0L, "", templateId,
+                    record.phone, rendered.body, trigger, MessageLogStore.STATUS_SKIPPED,
+                    now, subscriptionId, false);
             store.markSkipped(id, "설정한 업무시간 밖이라 발송하지 않았습니다.");
             return;
         }
 
         if (context.checkSelfPermission(Manifest.permission.SEND_SMS)
                 != PackageManager.PERMISSION_GRANTED) {
-            long id = store.createJob(customerId, record.id, record.phone, rendered.body, trigger,
-                    MessageLogStore.STATUS_FAILED, now, subscriptionId);
+            long id = store.createJobAdvanced(customerId, record.id, 0L, "", templateId,
+                    record.phone, rendered.body, trigger, MessageLogStore.STATUS_FAILED,
+                    now, subscriptionId, false);
             store.markFailed(id, "문자 발송 권한이 필요합니다.");
             return;
         }
 
-        SmsSender.queueAndSend(context, customerId, record.id, record.phone,
-                rendered.body, trigger, subscriptionId);
+        SmsSender.queueAndSend(context, customerId, record.id, 0L, "", templateId,
+                record.phone, rendered.body, trigger, subscriptionId, false);
     }
 
     private static void scheduleDelayed(Context context, MessageLogStore store,
                                         CallRecord record, Customer customer) {
         long now = System.currentTimeMillis();
-        long cooldownSince = now - MessageAutomationStore.cooldownHours(context) * 60L * 60L * 1000L;
-        if (store.hasRecentActive(record.phone, TRIGGER_DELAYED, cooldownSince)) return;
-
-        String template = MessageTemplateStore.defaultBody(context,
-                MessageTemplateStore.PURPOSE_FOLLOW_UP,
-                MessageAutomationStore.DEFAULT_DELAYED_TEMPLATE);
+        MessageTemplateStore.Template template = MessageTemplateStore.defaultTemplate(
+                context, MessageTemplateStore.PURPOSE_FOLLOW_UP);
+        String templateId = template == null ? "" : template.id;
+        String templateBody = template == null
+                ? MessageAutomationStore.DEFAULT_DELAYED_TEMPLATE : template.body;
         MessageTemplateEngine.RenderResult rendered = MessageAutomationStore.renderMessage(
-                context, template, customer, record);
+                context, templateBody, customer, record);
         long when = now + MessageAutomationStore.delayDays(context) * DAY_MS;
         long customerId = customer == null ? 0L : customer.id;
         int subscriptionId = MessageAutomationStore.selectedSubscriptionId(context);
         if (!rendered.isReady()) {
-            long id = store.createJob(customerId, record.id, record.phone, rendered.body,
-                    TRIGGER_DELAYED, MessageLogStore.STATUS_FAILED, now, subscriptionId);
+            long id = store.createJobAdvanced(customerId, record.id, 0L, "", templateId,
+                    record.phone, rendered.body, TRIGGER_DELAYED,
+                    MessageLogStore.STATUS_FAILED, now, subscriptionId, false);
             store.markFailed(id, renderFailureMessage(rendered));
             return;
         }
@@ -140,16 +148,20 @@ public final class MessageAutomationManager {
         MessageExclusionStore.Decision exclusion = MessageExclusionStore.evaluate(
                 context, customerId, record.phone, TRIGGER_DELAYED);
         if (exclusion.blocked) {
-            long id = store.createJob(customerId, record.id, record.phone, rendered.body,
-                    TRIGGER_DELAYED, MessageLogStore.STATUS_SKIPPED, now, subscriptionId);
+            long id = store.createJobAdvanced(customerId, record.id, 0L, "", templateId,
+                    record.phone, rendered.body, TRIGGER_DELAYED,
+                    MessageLogStore.STATUS_SKIPPED, now, subscriptionId, false);
             store.markSkipped(id, exclusion.reason);
             return;
         }
 
-        long id = store.createJob(customerId, record.id, record.phone, rendered.body,
-                TRIGGER_DELAYED, MessageLogStore.STATUS_SCHEDULED,
-                when, subscriptionId);
-        MessageScheduler.schedule(context, id, when);
+        long id = store.createJobAdvanced(customerId, record.id, 0L, "", templateId,
+                record.phone, rendered.body, TRIGGER_DELAYED,
+                MessageLogStore.STATUS_SCHEDULED, when, subscriptionId, false);
+        MessageRecord created = store.find(id);
+        if (created != null && MessageLogStore.STATUS_SCHEDULED.equals(created.status)) {
+            MessageScheduler.schedule(context, id, when);
+        }
     }
 
     private static String renderFailureMessage(MessageTemplateEngine.RenderResult rendered) {
