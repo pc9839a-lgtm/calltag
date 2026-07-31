@@ -6,7 +6,10 @@ import android.content.pm.PackageManager;
 import android.provider.CallLog;
 
 public final class MessageAutomationManager {
+    /** 구버전 발송내역 호환용. 신규 자동발송은 수신·발신 트리거를 분리한다. */
     public static final String TRIGGER_CONNECTED = "CALL_CONNECTED_END";
+    public static final String TRIGGER_INCOMING = "CALL_INCOMING_END";
+    public static final String TRIGGER_OUTGOING = "CALL_OUTGOING_END";
     public static final String TRIGGER_MISSED = "MISSED_OR_REJECTED_CALL";
     public static final String TRIGGER_DELAYED = "DELAY_AFTER_CALL";
     public static final String TRIGGER_MANUAL = "MANUAL_SEND";
@@ -46,8 +49,9 @@ public final class MessageAutomationManager {
                 String purpose = incomingConnected
                         ? MessageTemplateStore.PURPOSE_INCOMING
                         : MessageTemplateStore.PURPOSE_OUTGOING;
+                String trigger = incomingConnected ? TRIGGER_INCOMING : TRIGGER_OUTGOING;
                 sendImmediate(context, store, record, customer,
-                        TRIGGER_CONNECTED,
+                        trigger,
                         MessageTemplateStore.defaultBody(context, purpose,
                                 MessageAutomationStore.DEFAULT_CONNECTED_TEMPLATE));
             } else if (missed && MessageAutomationStore.missedEnabled(context)) {
@@ -81,6 +85,15 @@ public final class MessageAutomationManager {
             long id = store.createJob(customerId, record.id, record.phone, rendered.body, trigger,
                     MessageLogStore.STATUS_FAILED, now, subscriptionId);
             store.markFailed(id, renderFailureMessage(rendered));
+            return;
+        }
+
+        MessageExclusionStore.Decision exclusion = MessageExclusionStore.evaluate(
+                context, customerId, record.phone, trigger);
+        if (exclusion.blocked) {
+            long id = store.createJob(customerId, record.id, record.phone, rendered.body, trigger,
+                    MessageLogStore.STATUS_SKIPPED, now, subscriptionId);
+            store.markSkipped(id, exclusion.reason);
             return;
         }
 
@@ -121,6 +134,15 @@ public final class MessageAutomationManager {
             long id = store.createJob(customerId, record.id, record.phone, rendered.body,
                     TRIGGER_DELAYED, MessageLogStore.STATUS_FAILED, now, subscriptionId);
             store.markFailed(id, renderFailureMessage(rendered));
+            return;
+        }
+
+        MessageExclusionStore.Decision exclusion = MessageExclusionStore.evaluate(
+                context, customerId, record.phone, TRIGGER_DELAYED);
+        if (exclusion.blocked) {
+            long id = store.createJob(customerId, record.id, record.phone, rendered.body,
+                    TRIGGER_DELAYED, MessageLogStore.STATUS_SKIPPED, now, subscriptionId);
+            store.markSkipped(id, exclusion.reason);
             return;
         }
 
