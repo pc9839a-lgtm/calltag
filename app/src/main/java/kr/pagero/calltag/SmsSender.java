@@ -10,6 +10,7 @@ import android.telephony.SmsManager;
 import android.telephony.SubscriptionManager;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public final class SmsSender {
     private SmsSender() {}
@@ -48,6 +49,14 @@ public final class SmsSender {
             String normalized = PhoneNumberNormalizer.normalize(record.phone);
             if (normalized.length() < 8 || record.body.trim().isEmpty()) {
                 store.markFailed(messageId, "전화번호 또는 문자 내용을 확인해주세요.");
+                return;
+            }
+
+            List<String> unresolved = MessageTemplateEngine.findPlaceholders(record.body);
+            if (!unresolved.isEmpty()) {
+                store.markFailed(messageId,
+                        "치환되지 않은 변수가 남아 발송하지 않았습니다: "
+                                + MessageTemplateEngine.describeVariables(unresolved));
                 return;
             }
 
