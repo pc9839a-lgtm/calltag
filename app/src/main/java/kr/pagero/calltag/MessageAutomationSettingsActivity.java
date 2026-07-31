@@ -89,14 +89,14 @@ public final class MessageAutomationSettingsActivity extends Activity {
 
         delayed = switchView("후속 문자 자동 예약", "통화 종료 후 지정한 날짜가 지나면 발송");
         root.addView(delayed, topMargin(18));
-        delayedTemplate = multilineInput("며칠 뒤 보낼 후속 템플릿");
+        delayedTemplate = multilineInput("후속문자 템플릿");
         root.addView(delayedTemplate, topMargin(8));
 
         LinearLayout delayRow = new LinearLayout(this);
         delayRow.setGravity(Gravity.CENTER_VERTICAL);
         delayDays = numberInput("3");
         delayRow.addView(delayDays, new LinearLayout.LayoutParams(0, dp(52), 1f));
-        TextView daySuffix = body("일 뒤 발송");
+        TextView daySuffix = body("일 후 발송");
         daySuffix.setGravity(Gravity.CENTER);
         delayRow.addView(daySuffix, new LinearLayout.LayoutParams(dp(100), dp(52)));
         cooldownHours = numberInput("24");
@@ -130,7 +130,8 @@ public final class MessageAutomationSettingsActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(54)) {{ topMargin = dp(8); }});
         setupLines();
 
-        TextView variableHelp = body("사용 가능: {고객명}  {전화번호}  {날짜}  {시간}");
+        TextView variableHelp = body("사용 가능: " + MessageTemplateEngine.supportedVariablesLabel()
+                + "\n치환할 정보가 없거나 지원하지 않는 변수가 남으면 발송하지 않습니다.");
         root.addView(variableHelp, topMargin(14));
 
         Button save = button("설정 저장", true);
@@ -177,6 +178,10 @@ public final class MessageAutomationSettingsActivity extends Activity {
             Toast.makeText(this, "문자자동화 이용권이 필요합니다.", Toast.LENGTH_LONG).show();
             return;
         }
+        if (!validateTemplateField(connectedTemplate, "통화 종료 템플릿")) return;
+        if (!validateTemplateField(missedTemplate, "부재중 템플릿")) return;
+        if (!validateTemplateField(delayedTemplate, "후속문자 템플릿")) return;
+
         MessageAutomationStore.setEnabled(this, enabled.isChecked());
         MessageAutomationStore.setConnectedEnabled(this, connected.isChecked());
         MessageAutomationStore.setMissedEnabled(this, missed.isChecked());
@@ -198,6 +203,22 @@ public final class MessageAutomationSettingsActivity extends Activity {
         }
         Toast.makeText(this, "자동 발송 설정을 저장했습니다.", Toast.LENGTH_SHORT).show();
         finish();
+    }
+
+    private boolean validateTemplateField(EditText input, String label) {
+        MessageTemplateEngine.ValidationResult result = MessageTemplateEngine.validateTemplate(
+                input.getText().toString());
+        if (!result.isValid()) {
+            input.requestFocus();
+            Toast.makeText(this,
+                    label + "에 지원하지 않는 변수가 있습니다: "
+                            + MessageTemplateEngine.describeVariables(result.unsupportedVariables),
+                    Toast.LENGTH_LONG).show();
+            return false;
+        }
+        input.setText(result.normalizedTemplate);
+        input.setSelection(input.getText().length());
+        return true;
     }
 
     private int parse(EditText input, int fallback) {
