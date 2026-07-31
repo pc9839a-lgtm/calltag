@@ -74,11 +74,25 @@ public final class MessageRecoveryManager {
         }
 
         MessageLogStore store = new MessageLogStore(app);
+        CampaignStore campaignStore = new CampaignStore(app);
         Set<String> changedCampaignIds = new LinkedHashSet<>();
         try {
             List<Candidate> candidates = loadCandidates(store);
             int backlogIndex = 0;
             for (Candidate candidate : candidates) {
+                if (isPausedCampaign(campaignStore, candidate.campaignId)
+                        && !MessageLogStore.STATUS_SENDING.equals(candidate.status)) {
+                    MessageScheduler.cancel(app, candidate.id);
+                    if (MessageLogStore.STATUS_READY.equals(candidate.status)) {
+                        resetReadyToScheduled(store, candidate.id, now);
+                        addCampaign(changedCampaignIds, candidate.campaignId);
+                    }
+                    result.pausedPreserved++;
+                    DiagnosticEventStore.record(app, "예약 복구 보류", candidate.id,
+                            "일시정지 캠페인");
+                    continue;
+                }
+
                 if (MessageLogStore.STATUS_SENDING.equals(candidate.status)) {
                     boolean definitiveRestart = TRIGGER_BOOT.equals(safeTrigger)
                             || TRIGGER_PACKAGE_REPLACED.equals(safeTrigger);
@@ -133,6 +147,7 @@ public final class MessageRecoveryManager {
             result.error = safeError(error);
             DiagnosticEventStore.record(app, "예약 복구 실패", 0L, result.error);
         } finally {
+            campaignStore.close();
             store.close();
         }
 
@@ -167,6 +182,13 @@ public final class MessageRecoveryManager {
 
     public static long overdueGraceMs() {
         return OVERDUE_GRACE_MS;
+    }
+
+    private static boolean isPausedCampaign(CampaignStore store, String campaignId) {
+        String value = campaignId == null ? "" : campaignId.trim();
+        if (value.isEmpty()) return false;
+        CampaignStore.Campaign campaign = store.find(value);
+        return campaign != null && CampaignStore.STATUS_PAUSED.equals(campaign.status);
     }
 
     private static List<Candidate> loadCandidates(MessageLogStore store) {
@@ -279,6 +301,7 @@ public final class MessageRecoveryManager {
         public int overdueRecovered;
         public int overdueSkipped;
         public int readyRecovered;
+        public int pausedPreserved;
         public int sendingMarkedFailed;
         public int sendingLeftPending;
         public int campaignsSynced;
@@ -296,7 +319,7 @@ public final class MessageRecoveryManager {
             return "미래 " + futureRescheduled
                     + " · 지연복구 " + overdueRecovered
                     + " · 지연차단 " + overdueSkipped
-                    + " · 준비복구 " + readyRecovered
+                    + " · 일시정지보존 " + pausedPreserved
                     + " · 발송불명 " + sendingMarkedFailed;
         }
 
@@ -306,6 +329,7 @@ public final class MessageRecoveryManager {
                     .append(" · 30분 이내 지연 복구 ").append(overdueRecovered).append("건")
                     .append(" · 30분 초과 차단 ").append(overdueSkipped).append("건")
                     .append(" · 준비 상태 복구 ").append(readyRecovered).append("건")
+                    .append(" · 일시정지 보존 ").append(pausedPreserved).append("건")
                     .append(" · 발송 결과 불명확 실패 전환 ").append(sendingMarkedFailed).append("건")
                     .append(" · 확인 대기 발송 중 ").append(sendingLeftPending).append("건")
                     .append(" · 캠페인 동기화 ").append(campaignsSynced).append("개");
