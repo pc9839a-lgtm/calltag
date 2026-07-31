@@ -12,15 +12,20 @@ public final class BootReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         Context app = context.getApplicationContext();
         String action = intent == null ? "" : intent.getAction();
-        String trigger = Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)
+        boolean packageReplaced = Intent.ACTION_MY_PACKAGE_REPLACED.equals(action);
+        String recoveryTrigger = packageReplaced
                 ? MessageRecoveryManager.TRIGGER_PACKAGE_REPLACED
                 : MessageRecoveryManager.TRIGGER_BOOT;
+        String integrityTrigger = packageReplaced
+                ? DataIntegrityManager.TRIGGER_PACKAGE_REPLACED
+                : DataIntegrityManager.TRIGGER_BOOT;
 
         PendingResult pendingResult = goAsync();
         new Thread(() -> {
             try {
                 MessageAutomationStore.ensureDefaults(app);
-                MessageRecoveryManager.recoverNow(app, trigger);
+                MessageRecoveryManager.recoverNow(app, recoveryTrigger);
+                DataIntegrityManager.recoverNow(app, integrityTrigger);
                 startMonitorIfAllowed(app);
             } finally {
                 pendingResult.finish();
