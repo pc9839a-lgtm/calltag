@@ -184,7 +184,8 @@ public final class CampaignComposerActivity extends Activity {
         if (requestCode != REQUEST_TEMPLATE || resultCode != RESULT_OK || data == null) return;
         String templateId = safe(data.getStringExtra(MessageTemplateLibraryActivity.EXTRA_TEMPLATE_ID));
         MessageTemplateStore.Template template = MessageTemplateStore.get(this, templateId);
-        if (template != null && template.hasImage()) {
+        if (template != null
+                && MessageAttachmentStore.exists(this, template.imageRef)) {
             Toast.makeText(this, "이미지 템플릿은 단체문자에 사용할 수 없습니다.", Toast.LENGTH_LONG).show();
             return;
         }
