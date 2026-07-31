@@ -33,6 +33,8 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
                         prefs.edit().remove(key).apply();
                         store.markSent(messageId);
                         recordTimeline(context, before, true, "");
+                        DiagnosticEventStore.record(context, "SMS 발송 완료", messageId,
+                                "분할 " + partCount + "개 완료");
                     } else {
                         prefs.edit().putInt(key, success).apply();
                     }
@@ -46,6 +48,8 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
                 context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                         .edit().remove("ok_" + messageId).apply();
                 if (firstFailure) recordTimeline(context, before, false, error);
+                DiagnosticEventStore.record(context, "SMS 발송 실패", messageId,
+                        errorCategory(getResultCode()));
             }
         } finally {
             store.close();
@@ -71,6 +75,14 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
         } finally {
             db.close();
         }
+    }
+
+    private String errorCategory(int resultCode) {
+        if (resultCode == SmsManager.RESULT_ERROR_NO_SERVICE) return "NO_SERVICE";
+        if (resultCode == SmsManager.RESULT_ERROR_RADIO_OFF) return "RADIO_OFF";
+        if (resultCode == SmsManager.RESULT_ERROR_NULL_PDU) return "NULL_PDU";
+        if (resultCode == SmsManager.RESULT_ERROR_GENERIC_FAILURE) return "GENERIC_FAILURE";
+        return "RESULT_" + resultCode;
     }
 
     private String errorLabel(int resultCode) {
