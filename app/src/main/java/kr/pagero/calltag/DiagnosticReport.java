@@ -155,6 +155,22 @@ public final class DiagnosticReport {
             crm.close();
         }
 
+        DataIntegrityManager.Inspection integrity = DataIntegrityManager.inspect(app);
+        append(report, "");
+        append(report, "[데이터 정합성]");
+        append(report, "고아 캠페인 문자 작업: " + integrity.orphanCampaignJobs + "건");
+        append(report, "연결 작업 누락 수신자: " + integrity.missingRecipientJobs + "건");
+        append(report, "작업 없는 진행 수신자: " + integrity.activeRecipientsWithoutJob + "건");
+        append(report, "캠페인 연결 불일치: " + integrity.mismatchedCampaignLinks + "건");
+        append(report, "삭제 고객 그룹 참조: " + integrity.staleManualGroupMembers + "건");
+        append(report, "늦은 SMS 콜백 누적 무시: " + integrity.lateCallbacksIgnored + "건");
+        append(report, "마지막 복구:\n" + DataIntegrityManager.lastSummary(app));
+        if (integrity.orphanCampaignJobs > 0) warnings.add("캠페인 또는 수신자 연결이 없는 문자 작업이 있습니다.");
+        if (integrity.missingRecipientJobs > 0) warnings.add("문자 작업을 찾을 수 없는 캠페인 수신자가 있습니다.");
+        if (integrity.activeRecipientsWithoutJob > 0) warnings.add("문자 작업 없이 진행 상태인 캠페인 수신자가 있습니다.");
+        if (integrity.mismatchedCampaignLinks > 0) warnings.add("캠페인과 문자 작업의 연결 ID가 일치하지 않는 항목이 있습니다.");
+        if (integrity.staleManualGroupMembers > 0) warnings.add("삭제된 고객 ID가 수동 그룹에 남아 있습니다.");
+
         append(report, "");
         append(report, "[판정]");
         if (warnings.isEmpty()) {
@@ -172,42 +188,10 @@ public final class DiagnosticReport {
     }
 
     public static RepairResult reconcileCampaigns(Context context) {
-        Context app = context.getApplicationContext();
-        CampaignStore campaigns = new CampaignStore(app);
-        MessageLogStore messages = new MessageLogStore(app);
-        int campaignsChecked = 0;
-        int mismatchBefore = 0;
-        int mismatchAfter = 0;
-        int missingJobs = 0;
-        try {
-            for (CampaignStore.Campaign campaign : campaigns.list()) {
-                campaignsChecked++;
-                for (CampaignStore.Recipient recipient : campaigns.recipients(campaign.id)) {
-                    if (recipient.messageId <= 0L) continue;
-                    MessageRecord record = messages.find(recipient.messageId);
-                    if (record == null) {
-                        missingJobs++;
-                    } else if (!same(record.status, recipient.status)
-                            || !same(clean(record.error), clean(recipient.reason))) {
-                        mismatchBefore++;
-                    }
-                }
-                campaigns.sync(app, campaign.id);
-                for (CampaignStore.Recipient recipient : campaigns.recipients(campaign.id)) {
-                    if (recipient.messageId <= 0L) continue;
-                    MessageRecord record = messages.find(recipient.messageId);
-                    if (record != null && (!same(record.status, recipient.status)
-                            || !same(clean(record.error), clean(recipient.reason)))) {
-                        mismatchAfter++;
-                    }
-                }
-            }
-        } finally {
-            messages.close();
-            campaigns.close();
-        }
-        return new RepairResult(campaignsChecked,
-                Math.max(0, mismatchBefore - mismatchAfter), mismatchAfter, missingJobs);
+        DataIntegrityManager.Result result = DataIntegrityManager.recoverNow(
+                context, DataIntegrityManager.TRIGGER_MANUAL);
+        DataIntegrityManager.Inspection remaining = DataIntegrityManager.inspect(context);
+        return new RepairResult(result, remaining);
     }
 
     private static void permission(StringBuilder report, List<String> warnings,
@@ -267,23 +251,22 @@ public final class DiagnosticReport {
     }
 
     public static final class RepairResult {
-        public final int campaignsChecked;
-        public final int fixedCount;
-        public final int remainingMismatchCount;
-        public final int missingJobCount;
+        private final DataIntegrityManager.Result result;
+        private final DataIntegrityManager.Inspection remaining;
 
-        RepairResult(int campaignsChecked, int fixedCount,
-                     int remainingMismatchCount, int missingJobCount) {
-            this.campaignsChecked = campaignsChecked;
-            this.fixedCount = fixedCount;
-            this.remainingMismatchCount = remainingMismatchCount;
-            this.missingJobCount = missingJobCount;
+        RepairResult(DataIntegrityManager.Result result,
+                     DataIntegrityManager.Inspection remaining) {
+            this.result = result;
+            this.remaining = remaining;
         }
 
         public String summary() {
-            return "캠페인 " + campaignsChecked + "개 점검 · 상태 " + fixedCount
-                    + "건 재계산 · 남은 불일치 " + remainingMismatchCount
-                    + "건 · 연결 작업 누락 " + missingJobCount + "건";
+            int remainingCount = remaining.orphanCampaignJobs
+                    + remaining.missingRecipientJobs
+                    + remaining.activeRecipientsWithoutJob
+                    + remaining.mismatchedCampaignLinks
+                    + remaining.staleManualGroupMembers;
+            return result.summary() + " · 남은 정합성 항목 " + remainingCount + "건";
         }
     }
 }
