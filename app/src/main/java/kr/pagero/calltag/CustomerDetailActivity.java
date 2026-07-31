@@ -73,8 +73,8 @@ public final class CustomerDetailActivity extends Activity {
         findViewById(R.id.detailBack).setOnClickListener(v -> finish());
         findViewById(R.id.detailCall).setOnClickListener(v -> dial());
         findViewById(R.id.detailSchedule).setOnClickListener(v -> showScheduleTypeDialog());
-        findViewById(R.id.detailMessage).setOnClickListener(v -> openMessage());
         findViewById(R.id.detailScheduleShortcut).setOnClickListener(v -> showScheduleTypeDialog());
+        findViewById(R.id.detailMessage).setOnClickListener(v -> openMessage());
         statusView.setOnClickListener(v -> showStatusDialog());
         findViewById(R.id.detailSaveMemo).setOnClickListener(v -> saveMemo());
     }
@@ -89,7 +89,7 @@ public final class CustomerDetailActivity extends Activity {
         nameView.setText(customer.displayName);
         phoneView.setText(customer.primaryPhone);
         statusView.setText(customer.relationStatus + "  ▾");
-        statusView.setContentDescription("현재 상태 " + customer.relationStatus + ". 눌러서 상태 변경");
+        statusView.setContentDescription("현재 상태 " + customer.relationStatus + ", 눌러서 상태 변경");
         String color = db.stageColor(customer.relationStatus);
         statusView.setBackground(stageBackground(color));
         statusView.setTextColor(contrastTextColor(parseColor(color)));
@@ -122,12 +122,22 @@ public final class CustomerDetailActivity extends Activity {
             card.addView(text(formatter.format(new Date(task.dueAt)), 13f,
                     task.isOverdue() ? R.color.danger : R.color.text_secondary, false), topMargin(7));
 
+            String messageSummary = TaskMessageLifecycleManager.summary(this, task);
+            if (!messageSummary.isEmpty()) {
+                TextView linked = text(messageSummary, 13f, R.color.primary, false);
+                linked.setLineSpacing(dp(2), 1f);
+                card.addView(linked, topMargin(7));
+            }
+
             LinearLayout actions = new LinearLayout(this);
             actions.setOrientation(LinearLayout.HORIZONTAL);
             Button first = actionButton(task.isCompleted() ? "다시 열기" : "일정 변경", false);
             first.setOnClickListener(v -> {
                 if (task.isCompleted()) {
                     db.reopenTask(task.id);
+                    FollowUpTask reopened = copyTask(task, task.dueAt, "PENDING");
+                    TaskMessageLifecycleManager.onTaskReopened(this, reopened);
+                    Toast.makeText(this, "일정을 다시 열었습니다.", Toast.LENGTH_SHORT).show();
                     loadCustomer();
                 } else {
                     showTaskOptions(task);
@@ -280,32 +290,98 @@ public final class CustomerDetailActivity extends Activity {
             new TimePickerDialog(this, (timeView, hourOfDay, minute) -> {
                 due.set(Calendar.HOUR_OF_DAY, hourOfDay);
                 due.set(Calendar.MINUTE, minute);
-                createSchedule(title, taskType, due.getTimeInMillis());
+                showNewTaskMessageDialog(title, taskType, due.getTimeInMillis());
             }, 10, 0, false).show();
         }, defaultDate.get(Calendar.YEAR), defaultDate.get(Calendar.MONTH),
                 defaultDate.get(Calendar.DAY_OF_MONTH)).show();
     }
 
-    private void createSchedule(String title, String taskType, long dueAt) {
+    private void showNewTaskMessageDialog(String title, String taskType, long dueAt) {
+        if (!FeatureEntitlementStore.hasMessageAccess(this)) {
+            createSchedule(title, taskType, dueAt, TaskMessageLifecycleManager.MODE_NONE);
+            Toast.makeText(this, "문자 이용권이 없어 일정만 추가했습니다.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        List<ActionChoiceDialog.Option> options = messageModeOptions(TaskMessageLifecycleManager.MODE_NONE);
+        String templateName = MessageTemplateStore.defaultName(
+                this, MessageTemplateStore.PURPOSE_FOLLOW_UP);
+        ActionChoiceDialog.show(this, "연결 문자",
+                "기본 후속 템플릿 · " + templateName,
+                options, option -> createSchedule(title, taskType, dueAt, option.key));
+    }
+
+    private void createSchedule(String title, String taskType, long dueAt, String messageMode) {
         if (customer == null) return;
-        db.insertFollowUpTask(customer.id, 0L, taskType, title, dueAt);
+        long taskId = db.insertFollowUpTask(customer.id, 0L, taskType, title, dueAt);
+        FollowUpTask task = new FollowUpTask(taskId, customer.id,
+                customer.displayName, customer.primaryPhone, title, taskType, dueAt, "PENDING");
+        TaskMessageLifecycleManager.Result linkResult = TaskMessageLifecycleManager.attach(
+                this, task, messageMode);
         long now = System.currentTimeMillis();
+        String note = title;
+        if (!TaskMessageLifecycleManager.MODE_NONE.equals(messageMode)) {
+            note += " · " + TaskMessageLifecycleManager.modeLabel(messageMode);
+        }
         db.insertInteraction(customer.id, "SCHEDULE_CREATE", now, now, 0L,
-                "SCHEDULED", title);
-        Toast.makeText(this, "할 일을 추가했습니다.", Toast.LENGTH_SHORT).show();
+                "SCHEDULED", note);
+        String toast = TaskMessageLifecycleManager.MODE_NONE.equals(messageMode)
+                ? "할 일을 추가했습니다." : "할 일을 추가했습니다. " + linkResult.message;
+        Toast.makeText(this, toast, Toast.LENGTH_LONG).show();
         loadCustomer();
+    }
+
+    private List<ActionChoiceDialog.Option> messageModeOptions(String currentMode) {
+        List<ActionChoiceDialog.Option> options = new ArrayList<>();
+        options.add(messageModeOption(TaskMessageLifecycleManager.MODE_NONE,
+                "없음", "문자를 연결하지 않음", currentMode, ""));
+        options.add(messageModeOption(TaskMessageLifecycleManager.MODE_NOW,
+                "지금 안내문자", "일정 등록 직후 안내", currentMode, "#4389FF"));
+        options.add(messageModeOption(TaskMessageLifecycleManager.MODE_DAY_BEFORE,
+                "일정 하루 전", "일정 24시간 전에 자동 발송", currentMode, "#7A5AF8"));
+        options.add(messageModeOption(TaskMessageLifecycleManager.MODE_AT_TIME,
+                "일정 시간", "일정 시작 시간에 자동 발송", currentMode, "#F5A524"));
+        options.add(messageModeOption(TaskMessageLifecycleManager.MODE_AFTER_COMPLETE,
+                "일정 완료 후", "완료 처리 직후 후속문자 발송", currentMode, "#32D583"));
+        return options;
+    }
+
+    private ActionChoiceDialog.Option messageModeOption(String key, String title,
+                                                         String description, String current,
+                                                         String color) {
+        String detail = key.equals(current) ? "현재 설정 · " + description : description;
+        return new ActionChoiceDialog.Option(key, title, detail, color);
     }
 
     private void showTaskOptions(FollowUpTask task) {
         List<ActionChoiceDialog.Option> options = new ArrayList<>();
         options.add(new ActionChoiceDialog.Option("RESCHEDULE", "날짜·시간 변경",
                 "일정 시간을 다시 선택", "#4389FF"));
+        options.add(new ActionChoiceDialog.Option("MESSAGE", "연결 문자 설정",
+                "안내·하루 전·일정 시간·완료 후", "#7A5AF8"));
         options.add(new ActionChoiceDialog.Option("DELETE", "일정 삭제",
-                "이 할 일을 삭제", "#F97066"));
+                "연결된 미발송 후속문자도 취소", "#F97066"));
         ActionChoiceDialog.show(this, task.title, null, options, option -> {
             if ("RESCHEDULE".equals(option.key)) showRescheduleDatePicker(task);
+            else if ("MESSAGE".equals(option.key)) showExistingTaskMessageDialog(task);
             else if ("DELETE".equals(option.key)) confirmDeleteTask(task);
         });
+    }
+
+    private void showExistingTaskMessageDialog(FollowUpTask task) {
+        if (!FeatureEntitlementStore.hasMessageAccess(this)) {
+            Toast.makeText(this, "문자자동화 이용권이 필요합니다.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        String current = TaskMessageLifecycleManager.currentMode(this, task.id);
+        List<ActionChoiceDialog.Option> options = messageModeOptions(current);
+        ActionChoiceDialog.show(this, "연결 문자 설정",
+                task.title + " · 기본 후속 템플릿 사용",
+                options, option -> {
+                    TaskMessageLifecycleManager.Result result =
+                            TaskMessageLifecycleManager.attach(this, task, option.key);
+                    Toast.makeText(this, result.message, Toast.LENGTH_LONG).show();
+                    loadCustomer();
+                });
     }
 
     private void showRescheduleDatePicker(FollowUpTask task) {
@@ -319,18 +395,44 @@ public final class CustomerDetailActivity extends Activity {
             new TimePickerDialog(this, (timeView, hourOfDay, minute) -> {
                 changed.set(Calendar.HOUR_OF_DAY, hourOfDay);
                 changed.set(Calendar.MINUTE, minute);
-                db.updateTaskDue(task.id, changed.getTimeInMillis());
-                long now = System.currentTimeMillis();
-                db.insertInteraction(customerId, "SCHEDULE_CHANGE", now, now, 0L,
-                        "SCHEDULED", task.title + " 일정 변경");
-                Toast.makeText(this, "일정을 변경했습니다.", Toast.LENGTH_SHORT).show();
-                loadCustomer();
+                long changedAt = changed.getTimeInMillis();
+                if (TaskMessageLifecycleManager.hasAdjustableLink(this, task.id)) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("연결된 후속문자")
+                            .setMessage("일정 시간이 변경됐습니다. 연결된 후속문자도 새 일정에 맞춰 변경할까요?")
+                            .setNegativeButton("문자 유지", (dialog, which) ->
+                                    applyReschedule(task, changedAt, false))
+                            .setPositiveButton("함께 변경", (dialog, which) ->
+                                    applyReschedule(task, changedAt, true))
+                            .show();
+                } else {
+                    applyReschedule(task, changedAt, false);
+                }
             }, current.get(Calendar.HOUR_OF_DAY), current.get(Calendar.MINUTE), false).show();
         }, current.get(Calendar.YEAR), current.get(Calendar.MONTH), current.get(Calendar.DAY_OF_MONTH)).show();
     }
 
+    private void applyReschedule(FollowUpTask task, long changedAt, boolean moveMessage) {
+        db.updateTaskDue(task.id, changedAt);
+        FollowUpTask updated = copyTask(task, changedAt, "PENDING");
+        String messageResult = "";
+        if (moveMessage) {
+            TaskMessageLifecycleManager.Result result =
+                    TaskMessageLifecycleManager.reschedule(this, updated);
+            messageResult = " " + result.message;
+        }
+        long now = System.currentTimeMillis();
+        db.insertInteraction(customerId, "SCHEDULE_CHANGE", now, now, 0L,
+                "SCHEDULED", task.title + " 일정 변경"
+                        + (moveMessage ? " · 연결 문자 함께 변경" : " · 연결 문자 유지"));
+        Toast.makeText(this, "일정을 변경했습니다." + messageResult,
+                Toast.LENGTH_LONG).show();
+        loadCustomer();
+    }
+
     private void completeTask(FollowUpTask task, String message) {
         db.completeTask(task.id);
+        TaskMessageLifecycleManager.onTaskCompleted(this, task);
         long now = System.currentTimeMillis();
         db.insertInteraction(customerId, "TASK_COMPLETE", now, now, 0L,
                 "TASK_COMPLETED", message);
@@ -341,14 +443,20 @@ public final class CustomerDetailActivity extends Activity {
     private void confirmDeleteTask(FollowUpTask task) {
         new AlertDialog.Builder(this)
                 .setTitle("할 일 삭제")
-                .setMessage("‘" + task.title + "’ 일정을 삭제합니다.")
+                .setMessage("‘" + task.title + "’ 일정을 삭제합니다. 연결된 미발송 후속문자도 취소됩니다.")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("삭제", (dialog, which) -> {
+                    TaskMessageLifecycleManager.onTaskDeleted(this, task);
                     db.deleteTask(task.id);
-                    Toast.makeText(this, "삭제했습니다.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "일정과 연결된 예약문자를 삭제했습니다.", Toast.LENGTH_SHORT).show();
                     loadCustomer();
                 })
                 .show();
+    }
+
+    private FollowUpTask copyTask(FollowUpTask source, long dueAt, String status) {
+        return new FollowUpTask(source.id, source.customerId, source.customerName,
+                source.phone, source.title, source.taskType, dueAt, status);
     }
 
     private Button actionButton(String label, boolean primary) {
