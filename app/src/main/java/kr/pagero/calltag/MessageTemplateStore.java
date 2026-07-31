@@ -58,12 +58,12 @@ public final class MessageTemplateStore {
             templates.add(missedTemplate);
             templates.add(followUpTemplate);
             writeAll(context, templates);
-            SharedPreferences.Editor editor = prefs(context).edit();
-            editor.putString(defaultKey(PURPOSE_INCOMING), incoming.id);
-            editor.putString(defaultKey(PURPOSE_OUTGOING), outgoing.id);
-            editor.putString(defaultKey(PURPOSE_MISSED), missedTemplate.id);
-            editor.putString(defaultKey(PURPOSE_FOLLOW_UP), followUpTemplate.id);
-            editor.apply();
+            prefs(context).edit()
+                    .putString(defaultKey(PURPOSE_INCOMING), incoming.id)
+                    .putString(defaultKey(PURPOSE_OUTGOING), outgoing.id)
+                    .putString(defaultKey(PURPOSE_MISSED), missedTemplate.id)
+                    .putString(defaultKey(PURPOSE_FOLLOW_UP), followUpTemplate.id)
+                    .apply();
             return;
         }
 
@@ -73,8 +73,9 @@ public final class MessageTemplateStore {
         for (String purpose : defaultPurposes()) {
             String key = defaultKey(purpose);
             String current = p.getString(key, "");
-            if (findById(templates, current) == null) {
-                Template replacement = firstForPurpose(templates, purpose);
+            Template currentTemplate = findById(templates, current);
+            if (currentTemplate == null || !safe(currentTemplate.imageRef).trim().isEmpty()) {
+                Template replacement = firstTextOnlyForPurpose(templates, purpose);
                 if (replacement != null) {
                     editor.putString(key, replacement.id);
                     changed = true;
@@ -96,7 +97,9 @@ public final class MessageTemplateStore {
             if (!purposeMatches) continue;
             if (!normalizedQuery.isEmpty()) {
                 String haystack = (template.name + " " + template.body + " " + template.category
-                        + " " + purposeLabel(template.purpose)).toLowerCase(Locale.KOREA);
+                        + " " + purposeLabel(template.purpose)
+                        + (safe(template.imageRef).isEmpty() ? "" : " 이미지 MMS"))
+                        .toLowerCase(Locale.KOREA);
                 if (!haystack.contains(normalizedQuery)) continue;
             }
             result.add(template.copy());
@@ -140,14 +143,11 @@ public final class MessageTemplateStore {
                 createdAt,
                 now,
                 lastUsedAt,
-                useCount
+                useCount,
+                safe(value.imageRef).trim()
         );
-        if (existing == null) {
-            templates.add(saved);
-        } else {
-            int index = indexOf(templates, existing.id);
-            templates.set(index, saved);
-        }
+        if (existing == null) templates.add(saved);
+        else templates.set(indexOf(templates, existing.id), saved);
         writeAll(context, templates);
         return saved.copy();
     }
@@ -155,6 +155,7 @@ public final class MessageTemplateStore {
     public static synchronized Template duplicate(Context context, String id) {
         Template source = get(context, id);
         if (source == null) return null;
+        String sourceImageRef = source.imageRef;
         source.id = "";
         source.name = source.name + " 복사본";
         source.favorite = false;
@@ -162,7 +163,17 @@ public final class MessageTemplateStore {
         source.updatedAt = 0L;
         source.lastUsedAt = 0L;
         source.useCount = 0;
-        return save(context, source);
+        source.imageRef = "";
+        Template saved = save(context, source);
+        if (MessageAttachmentStore.exists(context, sourceImageRef)) {
+            String copiedRef = MessageAttachmentStore.duplicate(
+                    context, sourceImageRef, "template-" + saved.id);
+            if (!copiedRef.isEmpty()) {
+                saved.imageRef = copiedRef;
+                saved = save(context, saved);
+            }
+        }
+        return saved;
     }
 
     public static synchronized boolean delete(Context context, String id) {
@@ -171,8 +182,12 @@ public final class MessageTemplateStore {
         List<Template> templates = readAll(context);
         int index = indexOf(templates, id);
         if (index < 0) return false;
+        String imageRef = templates.get(index).imageRef;
         templates.remove(index);
         writeAll(context, templates);
+        if (!safe(imageRef).isEmpty() && !isImageReferenced(templates, imageRef)) {
+            MessageAttachmentStore.delete(context, imageRef);
+        }
         return true;
     }
 
@@ -200,15 +215,15 @@ public final class MessageTemplateStore {
         ensureDefaults(context);
         String normalizedPurpose = normalizePurpose(purpose);
         if (normalizedPurpose.isEmpty() || PURPOSE_GENERAL.equals(normalizedPurpose)) return false;
-        if (findById(readAll(context), id) == null) return false;
+        Template template = findById(readAll(context), id);
+        if (template == null || !safe(template.imageRef).trim().isEmpty()) return false;
         prefs(context).edit().putString(defaultKey(normalizedPurpose), id).apply();
         return true;
     }
 
     public static synchronized String defaultId(Context context, String purpose) {
         ensureDefaults(context);
-        String normalizedPurpose = normalizePurpose(purpose);
-        return prefs(context).getString(defaultKey(normalizedPurpose), "");
+        return prefs(context).getString(defaultKey(normalizePurpose(purpose)), "");
     }
 
     public static synchronized Template defaultTemplate(Context context, String purpose) {
@@ -217,8 +232,8 @@ public final class MessageTemplateStore {
         String normalizedPurpose = normalizePurpose(purpose);
         Template byId = findById(templates, prefs(context).getString(
                 defaultKey(normalizedPurpose), ""));
-        if (byId != null) return byId.copy();
-        Template fallback = firstForPurpose(templates, normalizedPurpose);
+        if (byId != null && safe(byId.imageRef).isEmpty()) return byId.copy();
+        Template fallback = firstTextOnlyForPurpose(templates, normalizedPurpose);
         return fallback == null ? null : fallback.copy();
     }
 
@@ -255,25 +270,18 @@ public final class MessageTemplateStore {
         List<String> labels = new ArrayList<>();
         SharedPreferences p = prefs(context);
         for (String purpose : defaultPurposes()) {
-            if (id.equals(p.getString(defaultKey(purpose), ""))) {
-                labels.add(purposeLabel(purpose));
-            }
+            if (id.equals(p.getString(defaultKey(purpose), ""))) labels.add(purposeLabel(purpose));
         }
         return labels.isEmpty() ? "" : String.join(" · ", labels) + " 기본";
     }
 
     public static String purposeLabel(String purpose) {
         switch (normalizePurposeOrGeneral(purpose)) {
-            case PURPOSE_INCOMING:
-                return "수신";
-            case PURPOSE_OUTGOING:
-                return "발신";
-            case PURPOSE_MISSED:
-                return "부재중";
-            case PURPOSE_FOLLOW_UP:
-                return "후속";
-            default:
-                return "일반";
+            case PURPOSE_INCOMING: return "수신";
+            case PURPOSE_OUTGOING: return "발신";
+            case PURPOSE_MISSED: return "부재중";
+            case PURPOSE_FOLLOW_UP: return "후속";
+            default: return "일반";
         }
     }
 
@@ -336,14 +344,18 @@ public final class MessageTemplateStore {
         prefs(context).edit().putString(KEY_TEMPLATES, array.toString()).apply();
     }
 
-    private static Template firstForPurpose(List<Template> templates, String purpose) {
+    private static Template firstTextOnlyForPurpose(List<Template> templates, String purpose) {
+        String normalized = normalizePurposeOrGeneral(purpose);
         for (Template template : templates) {
-            if (normalizePurposeOrGeneral(purpose).equals(template.purpose)) return template;
+            if (normalized.equals(template.purpose) && safe(template.imageRef).isEmpty()) return template;
         }
         for (Template template : templates) {
-            if (PURPOSE_GENERAL.equals(template.purpose)) return template;
+            if (PURPOSE_GENERAL.equals(template.purpose) && safe(template.imageRef).isEmpty()) return template;
         }
-        return templates.isEmpty() ? null : templates.get(0);
+        for (Template template : templates) {
+            if (safe(template.imageRef).isEmpty()) return template;
+        }
+        return null;
     }
 
     private static Template findById(List<Template> templates, String id) {
@@ -357,6 +369,13 @@ public final class MessageTemplateStore {
             if (id.equals(templates.get(i).id)) return i;
         }
         return -1;
+    }
+
+    private static boolean isImageReferenced(List<Template> templates, String imageRef) {
+        for (Template template : templates) {
+            if (safe(imageRef).equals(safe(template.imageRef))) return true;
+        }
+        return false;
     }
 
     private static String newId() {
@@ -392,10 +411,18 @@ public final class MessageTemplateStore {
         public long updatedAt;
         public long lastUsedAt;
         public int useCount;
+        public String imageRef;
 
         public Template(String id, String name, String body, String category, String purpose,
                         boolean favorite, long createdAt, long updatedAt,
                         long lastUsedAt, int useCount) {
+            this(id, name, body, category, purpose, favorite,
+                    createdAt, updatedAt, lastUsedAt, useCount, "");
+        }
+
+        public Template(String id, String name, String body, String category, String purpose,
+                        boolean favorite, long createdAt, long updatedAt,
+                        long lastUsedAt, int useCount, String imageRef) {
             this.id = safe(id);
             this.name = safe(name);
             this.body = safe(body);
@@ -406,16 +433,17 @@ public final class MessageTemplateStore {
             this.updatedAt = updatedAt;
             this.lastUsedAt = lastUsedAt;
             this.useCount = useCount;
+            this.imageRef = safe(imageRef);
         }
 
         public static Template create(String name, String body, String category, String purpose) {
             return new Template("", name, body, category, purpose,
-                    false, 0L, 0L, 0L, 0);
+                    false, 0L, 0L, 0L, 0, "");
         }
 
         Template copy() {
             return new Template(id, name, body, category, purpose, favorite,
-                    createdAt, updatedAt, lastUsedAt, useCount);
+                    createdAt, updatedAt, lastUsedAt, useCount, imageRef);
         }
 
         JSONObject toJson() {
@@ -431,6 +459,7 @@ public final class MessageTemplateStore {
                 object.put("updatedAt", updatedAt);
                 object.put("lastUsedAt", lastUsedAt);
                 object.put("useCount", useCount);
+                object.put("imageRef", imageRef);
             } catch (JSONException ignored) {
             }
             return object;
@@ -447,7 +476,8 @@ public final class MessageTemplateStore {
                     object.optLong("createdAt", 0L),
                     object.optLong("updatedAt", 0L),
                     object.optLong("lastUsedAt", 0L),
-                    object.optInt("useCount", 0)
+                    object.optInt("useCount", 0),
+                    object.optString("imageRef", "")
             );
         }
     }
