@@ -10,9 +10,25 @@ import android.os.Build;
 public final class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
-        MessageAutomationStore.ensureDefaults(context);
-        MessageScheduler.rescheduleAll(context);
+        Context app = context.getApplicationContext();
+        String action = intent == null ? "" : intent.getAction();
+        String trigger = Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)
+                ? MessageRecoveryManager.TRIGGER_PACKAGE_REPLACED
+                : MessageRecoveryManager.TRIGGER_BOOT;
 
+        PendingResult pendingResult = goAsync();
+        new Thread(() -> {
+            try {
+                MessageAutomationStore.ensureDefaults(app);
+                MessageRecoveryManager.recoverNow(app, trigger);
+                startMonitorIfAllowed(app);
+            } finally {
+                pendingResult.finish();
+            }
+        }, "calltag-boot-recovery").start();
+    }
+
+    private void startMonitorIfAllowed(Context context) {
         if (!SettingsStore.isMonitorEnabled(context)) return;
         if (!AuthSessionStore.hasSession(context) || !hasRequiredPermissions(context)) {
             SettingsStore.setMonitorEnabled(context, false);
