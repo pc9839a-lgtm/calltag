@@ -28,6 +28,7 @@ public final class ManualMessageActivity extends Activity {
     private EditText delayDaysInput;
     private TextView selectedTemplateText;
     private long customerId;
+    private String selectedTemplateId = "";
     private boolean pendingSend;
 
     @Override
@@ -99,7 +100,7 @@ public final class ManualMessageActivity extends Activity {
         bodyParams.topMargin = dp(8);
         root.addView(bodyInput, bodyParams);
 
-        TextView previewNotice = body("템플릿 선택 시 현재 고객·계정·일정 정보로 치환합니다. 지원하지 않거나 치환되지 않은 변수는 발송 전에 차단됩니다.");
+        TextView previewNotice = body("템플릿 선택 시 현재 고객·계정·일정 정보로 치환합니다. 동일 고객·템플릿·본문을 제한 시간 안에 다시 보내면 중복 사유를 먼저 보여줍니다.");
         root.addView(previewNotice, topMargin(10));
 
         Button sendNow = button("지금 보내기", true);
@@ -142,6 +143,8 @@ public final class ManualMessageActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != REQUEST_TEMPLATE || resultCode != RESULT_OK || data == null) return;
+        selectedTemplateId = safe(data.getStringExtra(
+                MessageTemplateLibraryActivity.EXTRA_TEMPLATE_ID));
         String body = data.getStringExtra(MessageTemplateLibraryActivity.EXTRA_TEMPLATE_BODY);
         String name = data.getStringExtra(MessageTemplateLibraryActivity.EXTRA_TEMPLATE_NAME);
         selectedTemplateText.setText((name == null || name.trim().isEmpty())
@@ -170,13 +173,11 @@ public final class ManualMessageActivity extends Activity {
             return;
         }
         long id = SmsSender.queueAndSend(
-                this, customerId, 0L, phoneInput.getText().toString(), body,
+                this, customerId, 0L, 0L, "", selectedTemplateId,
+                phoneInput.getText().toString(), body,
                 MessageAutomationManager.TRIGGER_MANUAL,
-                MessageAutomationStore.selectedSubscriptionId(this));
-        Toast.makeText(this, "문자 발송을 요청했습니다. 내역에서 결과를 확인하세요.", Toast.LENGTH_LONG).show();
-        startActivity(new Intent(this, MessageHistoryActivity.class)
-                .putExtra("focus_message_id", id));
-        finish();
+                MessageAutomationStore.selectedSubscriptionId(this), false);
+        showQueueResult(id, "문자 발송을 요청했습니다.");
     }
 
     private void schedule() {
@@ -191,17 +192,41 @@ public final class ManualMessageActivity extends Activity {
         days = Math.max(1, Math.min(30, days));
         long when = System.currentTimeMillis() + days * 24L * 60L * 60L * 1000L;
         MessageLogStore store = new MessageLogStore(this);
+        long id;
         try {
-            long id = store.createJob(
-                    customerId, 0L, phoneInput.getText().toString(), body,
+            id = store.createJobAdvanced(
+                    customerId, 0L, 0L, "", selectedTemplateId,
+                    phoneInput.getText().toString(), body,
                     MessageAutomationManager.TRIGGER_DELAYED,
                     MessageLogStore.STATUS_SCHEDULED, when,
-                    MessageAutomationStore.selectedSubscriptionId(this));
-            MessageScheduler.schedule(this, id, when);
+                    MessageAutomationStore.selectedSubscriptionId(this), false);
+            MessageRecord created = store.find(id);
+            if (created != null && MessageLogStore.STATUS_SCHEDULED.equals(created.status)) {
+                MessageScheduler.schedule(this, id, when);
+            }
         } finally {
             store.close();
         }
-        Toast.makeText(this, days + "일 후 후속문자로 예약했습니다.", Toast.LENGTH_LONG).show();
+        showQueueResult(id, days + "일 후 후속문자로 예약했습니다.");
+    }
+
+    private void showQueueResult(long id, String successMessage) {
+        MessageLogStore store = new MessageLogStore(this);
+        MessageRecord record;
+        try {
+            record = store.find(id);
+        } finally {
+            store.close();
+        }
+        if (record != null && MessageLogStore.STATUS_SKIPPED.equals(record.status)
+                && MessageDedupeEngine.isDuplicateReason(record.error)) {
+            Toast.makeText(this, record.error, Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(this, successMessage + " 내역에서 결과를 확인하세요.",
+                    Toast.LENGTH_LONG).show();
+        }
+        startActivity(new Intent(this, MessageHistoryActivity.class)
+                .putExtra("focus_message_id", id));
         finish();
     }
 
@@ -337,6 +362,10 @@ public final class ManualMessageActivity extends Activity {
         LinearLayout.LayoutParams params = matchWrap();
         params.topMargin = dp(value);
         return params;
+    }
+
+    private String safe(String value) {
+        return value == null ? "" : value;
     }
 
     private int dp(int value) {
