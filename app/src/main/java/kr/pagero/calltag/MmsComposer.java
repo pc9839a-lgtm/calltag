@@ -24,10 +24,17 @@ public final class MmsComposer {
 
     private MmsComposer() {}
 
-    public static void remember(Context context, long messageId, String imageRef) {
-        if (context == null || messageId <= 0L) return;
-        prefs(context).edit().putString(KEY_PREFIX + messageId,
-                imageRef == null ? "" : imageRef.trim()).apply();
+    public static boolean remember(Context context, long messageId, String imageRef) {
+        if (context == null || messageId <= 0L
+                || !MessageAttachmentStore.exists(context, imageRef)) return false;
+        String snapshot = MessageAttachmentStore.duplicate(
+                context, imageRef, "message-" + messageId);
+        String stored = snapshot.isEmpty() ? imageRef.trim() : snapshot;
+        prefs(context).edit().putString(KEY_PREFIX + messageId, stored).apply();
+        if (!snapshot.isEmpty() && imageRef.startsWith("message_images/draft-")) {
+            MessageAttachmentStore.delete(context, imageRef);
+        }
+        return MessageAttachmentStore.exists(context, stored);
     }
 
     public static boolean hasAttachment(Context context, long messageId) {
@@ -40,7 +47,11 @@ public final class MmsComposer {
 
     public static void forget(Context context, long messageId) {
         if (context == null || messageId <= 0L) return;
+        String imageRef = attachmentRef(context, messageId);
         prefs(context).edit().remove(KEY_PREFIX + messageId).apply();
+        if (imageRef.startsWith("message_images/message-")) {
+            MessageAttachmentStore.delete(context, imageRef);
+        }
     }
 
     public static boolean isComposeRequired(String reason) {
