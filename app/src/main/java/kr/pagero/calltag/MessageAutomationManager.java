@@ -18,13 +18,16 @@ public final class MessageAutomationManager {
     public static void onCallResolved(Context context, CallRecord record, Customer customer) {
         if (record == null || !FeatureEntitlementStore.hasMessageAccess(context)) return;
         MessageAutomationStore.ensureDefaults(context);
+        MessageTemplateStore.ensureDefaults(context);
         if (!MessageAutomationStore.isEnabled(context)) return;
         String phone = record.phone;
         if (PhoneNumberNormalizer.normalize(phone).length() < 8) return;
 
-        boolean connected = record.durationSec > 0L
-                && (record.type == CallLog.Calls.INCOMING_TYPE
-                || record.type == CallLog.Calls.OUTGOING_TYPE);
+        boolean incomingConnected = record.durationSec > 0L
+                && record.type == CallLog.Calls.INCOMING_TYPE;
+        boolean outgoingConnected = record.durationSec > 0L
+                && record.type == CallLog.Calls.OUTGOING_TYPE;
+        boolean connected = incomingConnected || outgoingConnected;
         boolean missed = record.type == CallLog.Calls.MISSED_TYPE
                 || record.type == CallLog.Calls.REJECTED_TYPE;
 
@@ -40,13 +43,19 @@ public final class MessageAutomationManager {
             }
 
             if (connected && MessageAutomationStore.connectedEnabled(context)) {
+                String purpose = incomingConnected
+                        ? MessageTemplateStore.PURPOSE_INCOMING
+                        : MessageTemplateStore.PURPOSE_OUTGOING;
                 sendImmediate(context, store, record, customer,
                         TRIGGER_CONNECTED,
-                        MessageAutomationStore.connectedTemplate(context));
+                        MessageTemplateStore.defaultBody(context, purpose,
+                                MessageAutomationStore.DEFAULT_CONNECTED_TEMPLATE));
             } else if (missed && MessageAutomationStore.missedEnabled(context)) {
                 sendImmediate(context, store, record, customer,
                         TRIGGER_MISSED,
-                        MessageAutomationStore.missedTemplate(context));
+                        MessageTemplateStore.defaultBody(context,
+                                MessageTemplateStore.PURPOSE_MISSED,
+                                MessageAutomationStore.DEFAULT_MISSED_TEMPLATE));
             }
 
             if (connected && MessageAutomationStore.delayedEnabled(context)) {
@@ -100,8 +109,11 @@ public final class MessageAutomationManager {
         long cooldownSince = now - MessageAutomationStore.cooldownHours(context) * 60L * 60L * 1000L;
         if (store.hasRecentActive(record.phone, TRIGGER_DELAYED, cooldownSince)) return;
 
+        String template = MessageTemplateStore.defaultBody(context,
+                MessageTemplateStore.PURPOSE_FOLLOW_UP,
+                MessageAutomationStore.DEFAULT_DELAYED_TEMPLATE);
         MessageTemplateEngine.RenderResult rendered = MessageAutomationStore.renderMessage(
-                context, MessageAutomationStore.delayedTemplate(context), customer, record);
+                context, template, customer, record);
         long when = now + MessageAutomationStore.delayDays(context) * DAY_MS;
         long customerId = customer == null ? 0L : customer.id;
         int subscriptionId = MessageAutomationStore.selectedSubscriptionId(context);
