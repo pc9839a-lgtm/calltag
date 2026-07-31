@@ -269,11 +269,16 @@ public final class CampaignDetailActivity extends Activity {
     private void confirmDelete() {
         new AlertDialog.Builder(this)
                 .setTitle("캠페인 내역 삭제")
-                .setMessage("캠페인과 수신자별 진행 내역을 삭제할까요? 개별 문자 발송내역은 유지됩니다.")
+                .setMessage("캠페인과 수신자별 진행 내역을 삭제할까요? 남아 있을 수 있는 예약 알람은 먼저 정리하며 개별 문자 발송내역은 유지됩니다.")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("삭제", (dialog, which) -> {
-                    store.delete(campaignId);
-                    finish();
+                    try {
+                        CampaignManager.delete(this, campaignId);
+                        finish();
+                    } catch (IllegalArgumentException error) {
+                        Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+                        render();
+                    }
                 })
                 .show();
     }
