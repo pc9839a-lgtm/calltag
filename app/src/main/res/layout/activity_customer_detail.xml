@@ -148,12 +148,12 @@
                     android:background="@color/border" />
 
                 <TextView
-                    android:id="@+id/detailChangeStatus"
+                    android:id="@+id/detailMessage"
                     android:layout_width="0dp"
                     android:layout_height="58dp"
                     android:layout_weight="1"
                     android:gravity="center"
-                    android:text="상태 변경"
+                    android:text="문자"
                     android:textColor="@color/text_primary"
                     android:textSize="15sp"
                     android:textStyle="bold" />
