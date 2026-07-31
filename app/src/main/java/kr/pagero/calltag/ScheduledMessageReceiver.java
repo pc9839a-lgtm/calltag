@@ -26,12 +26,18 @@ public final class ScheduledMessageReceiver extends BroadcastReceiver {
                         "현재 상태 " + record.status);
                 return;
             }
+            if (!CampaignRuntimeManager.allowSend(context, record)) {
+                DiagnosticEventStore.record(context, "예약 보류", messageId,
+                        "캠페인 또는 SIM 안전 조건 불충족");
+                return;
+            }
 
             String lifecycleBlock = TaskMessageLifecycleManager.validateScheduledSend(
                     context, messageId);
             if (!lifecycleBlock.isEmpty()) {
                 store.markSkipped(messageId, lifecycleBlock);
                 MmsComposer.forget(context, messageId);
+                CampaignRuntimeManager.onSendResult(context, messageId, false, Integer.MIN_VALUE);
                 DiagnosticEventStore.record(context, "예약 건너뜀", messageId,
                         "일정 생명주기 조건 불충족");
                 return;
@@ -40,6 +46,7 @@ public final class ScheduledMessageReceiver extends BroadcastReceiver {
             if (!MessageAutomationStore.isWithinBusinessHours(context, System.currentTimeMillis())) {
                 store.markSkipped(messageId, "설정한 업무시간 밖이라 발송하지 않았습니다.");
                 MmsComposer.forget(context, messageId);
+                CampaignRuntimeManager.onSendResult(context, messageId, false, Integer.MIN_VALUE);
                 DiagnosticEventStore.record(context, "예약 건너뜀", messageId, "업무시간 밖");
                 return;
             }
