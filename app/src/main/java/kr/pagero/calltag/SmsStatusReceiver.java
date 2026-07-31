@@ -21,10 +21,14 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
         int partCount = intent == null ? 1 : Math.max(1, intent.getIntExtra(EXTRA_PART_COUNT, 1));
         if (messageId <= 0L) return;
 
+        boolean finalResult = false;
+        boolean successResult = false;
+        int resultCode = getResultCode();
+
         MessageLogStore store = new MessageLogStore(context);
         try {
             MessageRecord before = store.find(messageId);
-            if (getResultCode() == Activity.RESULT_OK) {
+            if (resultCode == Activity.RESULT_OK) {
                 synchronized (SmsStatusReceiver.class) {
                     SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
                     String key = "ok_" + messageId;
@@ -35,24 +39,34 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
                         recordTimeline(context, before, true, "");
                         DiagnosticEventStore.record(context, "SMS 발송 완료", messageId,
                                 "분할 " + partCount + "개 완료");
+                        finalResult = true;
+                        successResult = true;
                     } else {
                         prefs.edit().putInt(key, success).apply();
                     }
                 }
             } else {
-                String error = errorLabel(getResultCode());
+                String error = errorLabel(resultCode);
                 boolean firstFailure = before != null
                         && !MessageLogStore.STATUS_FAILED.equals(before.status)
                         && !MessageLogStore.STATUS_SENT.equals(before.status);
                 store.markFailed(messageId, error);
                 context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                         .edit().remove("ok_" + messageId).apply();
-                if (firstFailure) recordTimeline(context, before, false, error);
+                if (firstFailure) {
+                    recordTimeline(context, before, false, error);
+                    finalResult = true;
+                }
                 DiagnosticEventStore.record(context, "SMS 발송 실패", messageId,
-                        errorCategory(getResultCode()));
+                        errorCategory(resultCode));
             }
         } finally {
             store.close();
+        }
+
+        if (finalResult) {
+            CampaignRuntimeManager.onSendResult(
+                    context, messageId, successResult, resultCode);
         }
         context.sendBroadcast(new Intent(MessageSectionView.ACTION_CHANGED)
                 .setPackage(context.getPackageName()));
