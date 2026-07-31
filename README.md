@@ -2,17 +2,39 @@
 
 전화가 오기 전 고객의 핵심 메모를 확인하고, 통화가 끝난 뒤 고객 상태·메모·일정·문자를 한 번에 처리하며 후속문자까지 연결하는 Android 고객관리 앱입니다.
 
+## 정식 서비스명과 브랜드 기준
+
+- 정식 한글 서비스명: **콜태그**
+- 정식 영문 서비스명: **CallTag**
+- 앱명, 스토어명, 웹사이트명, 고객 안내명은 모두 `콜태그`로 통일
+- 공개 대표 도메인: `https://calltag.pagero.kr`
+- 공개 웹페이지 소스: `web/index.html`
+
+`페이지로 콜링크`와 `콜링크`는 이전 문자 앱과 소스 이력을 설명할 때만 사용하는 레거시 명칭입니다. 공개 웹, 앱 UI, 스토어 소개, 요금제, 고객 안내에서는 별도 서비스명처럼 노출하지 않습니다.
+
+전화관리와 문자자동화는 서로 다른 앱이 아니라 **콜태그 하나의 기능군**입니다.
+
+## 웹사이트 통합 기준
+
+공개 웹사이트는 콜태그 하나만 운영합니다.
+
+- 전화관리·고객관리·일정·문자자동화를 한 제품 흐름으로 설명
+- 문자 기능을 별도 콜링크 제품처럼 소개하지 않음
+- 대표 URL과 canonical은 `https://calltag.pagero.kr/`로 고정
+- 루트 배포와 `web` 출력 디렉터리 배포 모두 같은 콜태그 페이지로 연결
+- 이전 `call.pagero.kr` 계열 주소를 계속 운영한다면 Cloudflare에서 `calltag.pagero.kr`로 영구 리디렉션
+
+상세 기준은 [`docs/BRAND_WEB_CONSOLIDATION_KO.md`](docs/BRAND_WEB_CONSOLIDATION_KO.md)를 따릅니다.
+
 ## 제품과 구독
 
-콜링크는 별도 앱으로 출시하지 않습니다. 콜링크의 검증된 문자 기능을 콜태그 문자자동화 모듈로 이전합니다.
+앱과 계정은 콜태그 하나이며 구매 권한에 따라 기능만 나눕니다.
 
 | 상품 | 월 구독료 | 제공 범위 |
 |---|---:|---|
 | 전화관리 | 1,900원 | 고객·통화·상태·메모·일정·통계 |
 | 문자자동화 | 990원 | 템플릿·자동·수동·예약·단체문자 |
 | 통합 이용 | 2,500원 | 전화관리와 문자자동화 전체 및 연결 자동화 |
-
-APK와 계정은 하나이며 구매 권한에 따라 기능만 나눕니다.
 
 ## 현재 개발 상태
 
@@ -25,12 +47,15 @@ APK와 계정은 하나이며 구매 권한에 따라 기능만 나눕니다.
 
 현재 v0.20.0은 통화 종료 정리와 문자 모듈의 1차 연결 상태입니다. 아래 최신 기획의 저장형 템플릿, 전체 제외 정책, 통합 중복방지, 그룹·단체문자는 아직 모두 구현된 상태가 아닙니다.
 
+공개 웹페이지는 최종 통합 제품 방향을 설명하되, FAQ에서 통합 기능이 순차 적용 중임을 명시합니다.
+
 ## 최신 기준 문서
 
 - [`docs/CALLTAG_UNIFIED_PRODUCT_PLAN_KO.md`](docs/CALLTAG_UNIFIED_PRODUCT_PLAN_KO.md) — 전화·고객·일정·문자 전체 제품 흐름
 - [`docs/MESSAGE_AUTOMATION_SPEC_KO.md`](docs/MESSAGE_AUTOMATION_SPEC_KO.md) — 템플릿·변수·제외·중복방지·그룹·단체문자 상세 명세
 - [`docs/PRODUCT_SPEC_KO.md`](docs/PRODUCT_SPEC_KO.md) — 제품 기준 요약
-- [`docs/CALLLINK_INTEGRATION_ARCHITECTURE_KO.md`](docs/CALLLINK_INTEGRATION_ARCHITECTURE_KO.md) — 문자 모듈 통합 데이터·처리 구조
+- [`docs/CALLLINK_INTEGRATION_ARCHITECTURE_KO.md`](docs/CALLLINK_INTEGRATION_ARCHITECTURE_KO.md) — 레거시 문자 모듈 통합 데이터·처리 구조
+- [`docs/BRAND_WEB_CONSOLIDATION_KO.md`](docs/BRAND_WEB_CONSOLIDATION_KO.md) — 정식 명칭과 단일 웹사이트 운영 기준
 - [`docs/INTEGRATION_STATUS_V020_KO.md`](docs/INTEGRATION_STATUS_V020_KO.md) — 현재 v0.20.0 구현 상태
 
 ## 최종 핵심 흐름
@@ -66,7 +91,7 @@ APK와 계정은 하나이며 구매 권한에 따라 기능만 나눕니다.
 
 ## 저장형 템플릿
 
-콜링크처럼 여러 템플릿을 저장하고 반복 사용합니다.
+여러 템플릿을 저장하고 반복 사용합니다.
 
 - 저장·수정·복제·삭제
 - 즐겨찾기·최근 사용·검색
