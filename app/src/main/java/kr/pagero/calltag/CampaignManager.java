@@ -30,7 +30,7 @@ public final class CampaignManager {
                 throw new IllegalArgumentException("한 캠페인은 최대 " + MAX_RECIPIENTS + "명까지 발송할 수 있습니다.");
             }
             MessageTemplateStore.Template template = MessageTemplateStore.get(context, templateId);
-            if (template != null && template.hasImage()) {
+            if (template != null && MessageAttachmentStore.exists(context, template.imageRef)) {
                 throw new IllegalArgumentException("단체문자는 텍스트 템플릿만 사용할 수 있습니다.");
             }
 
