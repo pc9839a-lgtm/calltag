@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.telephony.SmsManager;
-import android.telephony.SubscriptionManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,41 +50,55 @@ public final class SmsSender {
         try {
             MessageRecord record = store.find(messageId);
             if (record == null || !MessageLogStore.STATUS_READY.equals(record.status)) return;
+            if (!CampaignRuntimeManager.allowSend(context, record)) return;
 
             MessageExclusionStore.Decision exclusion = MessageExclusionStore.evaluate(
                     context, record.customerId, record.phone, record.triggerType);
             if (exclusion.blocked) {
-                store.markSkipped(messageId, exclusion.reason);
+                failWithoutTransport(context, store, messageId,
+                        MessageLogStore.STATUS_SKIPPED, exclusion.reason);
                 return;
             }
 
             if (!FeatureEntitlementStore.hasMessageAccess(context)) {
-                store.markFailed(messageId, "문자자동화 구독 권한이 없습니다.");
+                failWithoutTransport(context, store, messageId,
+                        MessageLogStore.STATUS_FAILED, "문자자동화 구독 권한이 없습니다.");
                 return;
             }
             if (context.checkSelfPermission(Manifest.permission.SEND_SMS)
                     != PackageManager.PERMISSION_GRANTED) {
-                store.markFailed(messageId, "문자 발송 권한이 필요합니다.");
+                failWithoutTransport(context, store, messageId,
+                        MessageLogStore.STATUS_FAILED, "문자 발송 권한이 필요합니다.");
                 return;
             }
+            if (!SimProfileManager.isActive(context, record.subscriptionId)) {
+                failWithoutTransport(context, store, messageId,
+                        MessageLogStore.STATUS_FAILED,
+                        "선택한 문자 SIM을 사용할 수 없습니다. 발송 회선을 다시 선택해주세요.");
+                return;
+            }
+
             String normalized = PhoneNumberNormalizer.normalize(record.phone);
             if (normalized.length() < 8 || record.body.trim().isEmpty()) {
-                store.markFailed(messageId, "전화번호 또는 문자 내용을 확인해주세요.");
+                failWithoutTransport(context, store, messageId,
+                        MessageLogStore.STATUS_FAILED, "전화번호 또는 문자 내용을 확인해주세요.");
                 return;
             }
 
             List<String> unresolved = MessageTemplateEngine.findPlaceholders(record.body);
             if (!unresolved.isEmpty()) {
-                store.markFailed(messageId,
+                failWithoutTransport(context, store, messageId,
+                        MessageLogStore.STATUS_FAILED,
                         "치환되지 않은 변수가 남아 발송하지 않았습니다: "
                                 + MessageTemplateEngine.describeVariables(unresolved));
                 return;
             }
 
-            SmsManager manager = smsManager(record.subscriptionId);
+            SmsManager manager = SmsManager.getSmsManagerForSubscriptionId(record.subscriptionId);
             ArrayList<String> parts = manager.divideMessage(record.body);
             if (parts == null || parts.isEmpty()) {
-                store.markFailed(messageId, "문자 내용을 분할하지 못했습니다.");
+                failWithoutTransport(context, store, messageId,
+                        MessageLogStore.STATUS_FAILED, "문자 내용을 분할하지 못했습니다.");
                 return;
             }
 
@@ -112,20 +125,26 @@ public final class SmsSender {
             }
         } catch (SecurityException error) {
             store.markFailed(messageId, "문자 발송 권한을 확인해주세요.");
+            CampaignRuntimeManager.onSendResult(context, messageId, false, Integer.MIN_VALUE);
         } catch (RuntimeException error) {
             String message = error.getMessage();
             store.markFailed(messageId,
                     message == null || message.trim().isEmpty()
                             ? "문자 발송 요청에 실패했습니다." : message);
+            CampaignRuntimeManager.onSendResult(context, messageId, false,
+                    SmsManager.RESULT_ERROR_GENERIC_FAILURE);
         } finally {
             store.close();
         }
     }
 
-    private static SmsManager smsManager(int subscriptionId) {
-        if (SubscriptionManager.isValidSubscriptionId(subscriptionId)) {
-            return SmsManager.getSmsManagerForSubscriptionId(subscriptionId);
+    private static void failWithoutTransport(Context context, MessageLogStore store,
+                                             long messageId, String status, String reason) {
+        if (MessageLogStore.STATUS_SKIPPED.equals(status)) {
+            store.markSkipped(messageId, reason);
+        } else {
+            store.markFailed(messageId, reason);
         }
-        return SmsManager.getDefault();
+        CampaignRuntimeManager.onSendResult(context, messageId, false, Integer.MIN_VALUE);
     }
 }
