@@ -19,6 +19,9 @@ public final class CampaignManager {
                                 String templateId, String templateName,
                                 String bodyTemplate, long startAt) {
         requireAvailable(context);
+        int subscriptionId = CampaignRuntimeManager.requireActiveSubscription(context);
+        CampaignRuntimeManager.requireNoBlockingCampaign(context, "");
+
         MessageGroupStore groups = new MessageGroupStore(context);
         CampaignStore campaigns = new CampaignStore(context);
         try {
@@ -36,7 +39,7 @@ public final class CampaignManager {
 
             long baseAt = Math.max(System.currentTimeMillis() + FIRST_DELAY_MS, startAt);
             CampaignStore.Campaign campaign = campaigns.create(name, group, templateId,
-                    templateName, bodyTemplate, baseAt);
+                    templateName, bodyTemplate, baseAt, subscriptionId);
             Set<String> phones = new HashSet<>();
             int activeIndex = 0;
             for (Customer customer : members) {
@@ -99,13 +102,32 @@ public final class CampaignManager {
         }
     }
 
+    public static int pause(Context context, String campaignId) {
+        return CampaignRuntimeManager.pause(context, campaignId,
+                "사용자가 캠페인 발송을 일시정지했습니다.");
+    }
+
+    public static int resume(Context context, String campaignId) {
+        requireAvailable(context);
+        return CampaignRuntimeManager.resume(context, campaignId);
+    }
+
     public static int retryFailed(Context context, String campaignId) {
         requireAvailable(context);
+        CampaignRuntimeManager.requireNoBlockingCampaign(context, campaignId);
+        int subscriptionId = CampaignRuntimeManager.requireActiveSubscription(context);
+
         CampaignStore campaigns = new CampaignStore(context);
         CallTagDbHelper crm = new CallTagDbHelper(context);
         try {
             CampaignStore.Campaign campaign = campaigns.find(campaignId);
             if (campaign == null) return 0;
+            if (CampaignStore.STATUS_PAUSED.equals(campaign.status)) {
+                throw new IllegalArgumentException("일시정지된 캠페인은 먼저 발송을 재개해주세요.");
+            }
+            campaigns.updateSubscription(campaignId, subscriptionId);
+            campaign = campaigns.find(campaignId);
+
             int retryIndex = 0;
             long baseAt = System.currentTimeMillis() + FIRST_DELAY_MS;
             for (CampaignStore.Recipient recipient : campaigns.recipients(campaignId)) {
@@ -204,7 +226,7 @@ public final class CampaignManager {
                     campaign.templateId, customer.primaryPhone, body,
                     MessageAutomationManager.TRIGGER_CAMPAIGN,
                     MessageLogStore.STATUS_SCHEDULED, when,
-                    MessageAutomationStore.selectedSubscriptionId(context), force);
+                    campaign.subscriptionId, force);
         } finally {
             messages.close();
         }
