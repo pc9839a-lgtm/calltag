@@ -5,6 +5,8 @@
     android:layout_height="match_parent"
     android:background="@color/background"
     android:fitsSystemWindows="true"
+    android:focusable="true"
+    android:focusableInTouchMode="true"
     android:orientation="vertical">
 
     <LinearLayout
@@ -46,6 +48,7 @@
         android:background="@color/border" />
 
     <ScrollView
+        android:id="@+id/postCallScroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -292,26 +295,77 @@
                     android:textSize="18sp"
                     android:textStyle="bold" />
 
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_card"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="14dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/postCallTemplateName"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:includeFontPadding="false"
+                            android:text="기본 템플릿"
+                            android:textColor="@color/text_primary"
+                            android:textSize="15sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/postCallTemplateMeta"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp"
+                            android:text="현재 통화 정보로 미리보기"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+
+                    <Button
+                        android:id="@+id/postCallTemplateChange"
+                        android:layout_width="108dp"
+                        android:layout_height="46dp"
+                        android:layout_marginLeft="10dp"
+                        android:background="@drawable/bg_secondary_button"
+                        android:text="템플릿 변경"
+                        android:textAllCaps="false"
+                        android:textColor="@color/primary"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
                 <EditText
                     android:id="@+id/postCallMessageBody"
                     android:layout_width="match_parent"
-                    android:layout_height="132dp"
+                    android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:background="@drawable/bg_input"
                     android:gravity="top|start"
-                    android:hint="문자 내용을 입력해주세요."
+                    android:hint="템플릿을 선택하거나 내용을 직접 수정해주세요."
                     android:inputType="textMultiLine|textCapSentences"
-                    android:maxLines="8"
+                    android:minHeight="132dp"
+                    android:minLines="5"
                     android:padding="15dp"
+                    android:scrollbars="none"
                     android:textColor="@color/text_primary"
                     android:textColorHint="@color/text_muted"
                     android:textSize="15sp" />
 
                 <TextView
+                    android:id="@+id/postCallMessageGuide"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="7dp"
-                    android:text="저장하고 문자 보내기를 누를 때만 즉시 발송합니다."
+                    android:text="고객명·전화번호·통화정보가 치환된 미리보기입니다. 내용을 수정해도 원본 템플릿은 바뀌지 않습니다."
                     android:textColor="@color/text_muted"
                     android:textSize="12sp" />
 
@@ -320,7 +374,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="20dp"
                     android:includeFontPadding="false"
-                    android:text="후속 문자"
+                    android:text="후속문자"
                     android:textColor="@color/text_primary"
                     android:textSize="16sp"
                     android:textStyle="bold" />
@@ -341,7 +395,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="7dp"
-                    android:text="새 통화·완료 상태·제외번호 전환 시 예약 문자를 자동 취소합니다."
+                    android:text="후속 기본 템플릿을 사용하며 새 통화·완료 상태·제외번호 전환 시 자동 취소합니다."
                     android:textColor="@color/text_muted"
                     android:textSize="12sp" />
             </LinearLayout>
