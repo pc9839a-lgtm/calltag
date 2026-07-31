@@ -85,7 +85,7 @@ public final class CampaignDetailActivity extends Activity {
         pageTitle.setText(campaign.name);
         CampaignStore.Counts counts = store.counts(campaignId);
         content.addView(summaryCard(campaign, counts), matchWrap());
-        content.addView(actionRow(campaign, counts), topMargin(10));
+        content.addView(actionArea(campaign, counts), topMargin(10));
 
         TextView label = title("수신자별 상태", 16f);
         content.addView(label, topMargin(24));
@@ -102,20 +102,33 @@ public final class CampaignDetailActivity extends Activity {
         header.addView(title(campaign.groupName, 16f),
                 new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         TextView status = title(campaignStatus(campaign.status), 13f);
-        status.setTextColor(CampaignStore.STATUS_COMPLETED.equals(campaign.status)
-                ? getColor(R.color.primary) : getColor(R.color.text_secondary));
+        status.setTextColor(statusColor(campaign.status));
         header.addView(status);
         card.addView(header, matchWrap());
 
         SimpleDateFormat date = new SimpleDateFormat("M/d a h:mm", Locale.KOREA);
         card.addView(body("시작 " + date.format(new Date(campaign.scheduledAt))
                 + (campaign.templateName.isEmpty() ? "" : " · " + campaign.templateName)), topMargin(6));
+        card.addView(body("발송 회선 · "
+                + SimProfileManager.labelForId(this, campaign.subscriptionId)), topMargin(5));
 
         TextView numbers = title("전체 " + counts.total + "명", 20f);
         card.addView(numbers, topMargin(14));
         card.addView(body("발송 완료 " + counts.sent + " · 진행 중 " + counts.active
                 + " · 실패 " + counts.failed + " · 건너뜀 " + counts.skipped
                 + " · 취소 " + counts.cancelled), topMargin(6));
+
+        if (campaign.consecutiveFailures > 0) {
+            card.addView(body("연속 통신 실패 " + campaign.consecutiveFailures + "회"), topMargin(6));
+        }
+        if (CampaignStore.STATUS_PAUSED.equals(campaign.status)
+                && !campaign.pauseReason.trim().isEmpty()) {
+            TextView reason = body(campaign.pauseReason);
+            reason.setTextColor(getColor(R.color.danger));
+            reason.setBackgroundResource(R.drawable.bg_soft_panel);
+            reason.setPadding(dp(12), dp(10), dp(12), dp(10));
+            card.addView(reason, topMargin(10));
+        }
 
         TextView bodySnapshot = body(campaign.bodyTemplate);
         bodySnapshot.setTextColor(getColor(R.color.text_primary));
@@ -126,26 +139,42 @@ public final class CampaignDetailActivity extends Activity {
         return card;
     }
 
-    private View actionRow(CampaignStore.Campaign campaign, CampaignStore.Counts counts) {
+    private View actionArea(CampaignStore.Campaign campaign, CampaignStore.Counts counts) {
         LinearLayout wrapper = new LinearLayout(this);
         wrapper.setOrientation(LinearLayout.VERTICAL);
 
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
+        boolean paused = CampaignStore.STATUS_PAUSED.equals(campaign.status);
+        LinearLayout controlRow = new LinearLayout(this);
+        controlRow.setOrientation(LinearLayout.HORIZONTAL);
+
+        Button pauseResume = button(paused ? "발송 재개" : "일시정지", paused);
+        boolean canControl = counts.active > 0;
+        pauseResume.setEnabled(canControl);
+        pauseResume.setAlpha(canControl ? 1f : 0.45f);
+        pauseResume.setOnClickListener(v -> {
+            if (paused) resume(); else confirmPause();
+        });
+        controlRow.addView(pauseResume, new LinearLayout.LayoutParams(0, dp(50), 1f));
+
         Button cancel = button("남은 발송 취소", false);
         cancel.setEnabled(counts.active > 0);
         cancel.setAlpha(counts.active > 0 ? 1f : 0.45f);
         cancel.setOnClickListener(v -> confirmCancel());
-        row.addView(cancel, new LinearLayout.LayoutParams(0, dp(50), 1f));
-        Button retry = button("실패·건너뜀 재시도", true);
-        boolean retryable = counts.failed + counts.skipped + counts.cancelled > 0;
+        LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(0, dp(50), 1f);
+        cancelParams.leftMargin = dp(8);
+        controlRow.addView(cancel, cancelParams);
+        wrapper.addView(controlRow, matchWrap());
+
+        Button retry = button("실패·건너뜀·취소 재시도", true);
+        boolean retryable = !paused && counts.active == 0
+                && counts.failed + counts.skipped + counts.cancelled > 0;
         retry.setEnabled(retryable);
         retry.setAlpha(retryable ? 1f : 0.45f);
         retry.setOnClickListener(v -> retry());
-        LinearLayout.LayoutParams retryParams = new LinearLayout.LayoutParams(0, dp(50), 1f);
-        retryParams.leftMargin = dp(8);
-        row.addView(retry, retryParams);
-        wrapper.addView(row, matchWrap());
+        LinearLayout.LayoutParams retryParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(50));
+        retryParams.topMargin = dp(8);
+        wrapper.addView(retry, retryParams);
 
         Button delete = button("캠페인 내역 삭제", false);
         delete.setEnabled(counts.active == 0);
@@ -166,7 +195,7 @@ public final class CampaignDetailActivity extends Activity {
         header.addView(title(name, 15f),
                 new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         TextView status = title(MessageDedupeEngine.statusLabel(recipient.status), 13f);
-        status.setTextColor(statusColor(recipient.status));
+        status.setTextColor(recipientStatusColor(recipient.status));
         header.addView(status);
         card.addView(header, matchWrap());
 
@@ -185,6 +214,32 @@ public final class CampaignDetailActivity extends Activity {
             card.addView(reason, topMargin(8));
         }
         return card;
+    }
+
+    private void confirmPause() {
+        new AlertDialog.Builder(this)
+                .setTitle("캠페인 일시정지")
+                .setMessage("아직 발송되지 않은 예약 알람을 해제합니다. 이미 발송 중인 문자 한 건은 중단되지 않을 수 있습니다.")
+                .setNegativeButton("닫기", null)
+                .setPositiveButton("일시정지", (dialog, which) -> {
+                    int count = CampaignManager.pause(this, campaignId);
+                    Toast.makeText(this, count + "명의 남은 발송을 일시정지했습니다.",
+                            Toast.LENGTH_LONG).show();
+                    render();
+                })
+                .show();
+    }
+
+    private void resume() {
+        try {
+            int count = CampaignManager.resume(this, campaignId);
+            Toast.makeText(this, count > 0
+                    ? count + "명의 남은 발송을 현재 회선으로 다시 예약했습니다."
+                    : "재개할 예약 작업이 없습니다.", Toast.LENGTH_LONG).show();
+            render();
+        } catch (IllegalArgumentException error) {
+            Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 
     private void confirmCancel() {
@@ -226,12 +281,20 @@ public final class CampaignDetailActivity extends Activity {
     private String campaignStatus(String status) {
         if (CampaignStore.STATUS_SCHEDULED.equals(status)) return "발송 예정";
         if (CampaignStore.STATUS_RUNNING.equals(status)) return "진행 중";
+        if (CampaignStore.STATUS_PAUSED.equals(status)) return "일시정지";
         if (CampaignStore.STATUS_COMPLETED.equals(status)) return "완료";
         if (CampaignStore.STATUS_CANCELLED.equals(status)) return "취소";
         return "일부 완료";
     }
 
     private int statusColor(String status) {
+        if (CampaignStore.STATUS_COMPLETED.equals(status)) return getColor(R.color.primary);
+        if (CampaignStore.STATUS_PAUSED.equals(status)
+                || CampaignStore.STATUS_PARTIAL.equals(status)) return getColor(R.color.danger);
+        return getColor(R.color.text_secondary);
+    }
+
+    private int recipientStatusColor(String status) {
         if (MessageLogStore.STATUS_SENT.equals(status)) return getColor(R.color.primary);
         if (MessageLogStore.STATUS_FAILED.equals(status)) return getColor(R.color.danger);
         return getColor(R.color.text_secondary);
