@@ -64,12 +64,19 @@ public final class MessageAutomationManager {
         long cooldownSince = now - MessageAutomationStore.cooldownHours(context) * 60L * 60L * 1000L;
         if (store.hasRecentActive(record.phone, trigger, cooldownSince)) return;
 
-        String body = MessageAutomationStore.buildMessage(template, customer, record);
+        MessageTemplateEngine.RenderResult rendered = MessageAutomationStore.renderMessage(
+                context, template, customer, record);
         long customerId = customer == null ? 0L : customer.id;
         int subscriptionId = MessageAutomationStore.selectedSubscriptionId(context);
+        if (!rendered.isReady()) {
+            long id = store.createJob(customerId, record.id, record.phone, rendered.body, trigger,
+                    MessageLogStore.STATUS_FAILED, now, subscriptionId);
+            store.markFailed(id, renderFailureMessage(rendered));
+            return;
+        }
 
         if (!MessageAutomationStore.isWithinBusinessHours(context, now)) {
-            long id = store.createJob(customerId, record.id, record.phone, body, trigger,
+            long id = store.createJob(customerId, record.id, record.phone, rendered.body, trigger,
                     MessageLogStore.STATUS_SKIPPED, now, subscriptionId);
             store.markSkipped(id, "설정한 업무시간 밖이라 발송하지 않았습니다.");
             return;
@@ -77,14 +84,14 @@ public final class MessageAutomationManager {
 
         if (context.checkSelfPermission(Manifest.permission.SEND_SMS)
                 != PackageManager.PERMISSION_GRANTED) {
-            long id = store.createJob(customerId, record.id, record.phone, body, trigger,
+            long id = store.createJob(customerId, record.id, record.phone, rendered.body, trigger,
                     MessageLogStore.STATUS_FAILED, now, subscriptionId);
             store.markFailed(id, "문자 발송 권한이 필요합니다.");
             return;
         }
 
         SmsSender.queueAndSend(context, customerId, record.id, record.phone,
-                body, trigger, subscriptionId);
+                rendered.body, trigger, subscriptionId);
     }
 
     private static void scheduleDelayed(Context context, MessageLogStore store,
@@ -93,13 +100,34 @@ public final class MessageAutomationManager {
         long cooldownSince = now - MessageAutomationStore.cooldownHours(context) * 60L * 60L * 1000L;
         if (store.hasRecentActive(record.phone, TRIGGER_DELAYED, cooldownSince)) return;
 
-        String body = MessageAutomationStore.buildMessage(
-                MessageAutomationStore.delayedTemplate(context), customer, record);
+        MessageTemplateEngine.RenderResult rendered = MessageAutomationStore.renderMessage(
+                context, MessageAutomationStore.delayedTemplate(context), customer, record);
         long when = now + MessageAutomationStore.delayDays(context) * DAY_MS;
         long customerId = customer == null ? 0L : customer.id;
-        long id = store.createJob(customerId, record.id, record.phone, body,
+        int subscriptionId = MessageAutomationStore.selectedSubscriptionId(context);
+        if (!rendered.isReady()) {
+            long id = store.createJob(customerId, record.id, record.phone, rendered.body,
+                    TRIGGER_DELAYED, MessageLogStore.STATUS_FAILED, now, subscriptionId);
+            store.markFailed(id, renderFailureMessage(rendered));
+            return;
+        }
+
+        long id = store.createJob(customerId, record.id, record.phone, rendered.body,
                 TRIGGER_DELAYED, MessageLogStore.STATUS_SCHEDULED,
-                when, MessageAutomationStore.selectedSubscriptionId(context));
+                when, subscriptionId);
         MessageScheduler.schedule(context, id, when);
+    }
+
+    private static String renderFailureMessage(MessageTemplateEngine.RenderResult rendered) {
+        if (!rendered.unsupportedVariables.isEmpty()) {
+            return "지원하지 않는 변수가 있습니다: "
+                    + MessageTemplateEngine.describeVariables(rendered.unsupportedVariables);
+        }
+        if (!rendered.unresolvedVariables.isEmpty()) {
+            return "치환되지 않은 변수가 있습니다: "
+                    + MessageTemplateEngine.describeVariables(rendered.unresolvedVariables)
+                    + ". 고객·계정·일정 정보를 확인해주세요.";
+        }
+        return "문자 내용을 확인해주세요.";
     }
 }
