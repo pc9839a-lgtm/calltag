@@ -75,7 +75,27 @@ public final class MessageSectionView extends LinearLayout {
         managementRow.addView(exclusion, exclusionParams);
         addView(managementRow, topMargin(10));
 
-        TextView imageGuide = body("이미지 템플릿은 수동 문자와 예약 알림에서 사용합니다. 자동발송 기본 템플릿은 텍스트 전용입니다.");
+        TextView groupLabel = title("그룹·단체문자", 15f);
+        groupLabel.setTextColor(getContext().getColor(R.color.text_secondary));
+        addView(groupLabel, topMargin(22));
+        LinearLayout campaignRow = new LinearLayout(getContext());
+        campaignRow.setOrientation(HORIZONTAL);
+        Button groups = button("고객 그룹", false);
+        groups.setOnClickListener(v -> getContext().startActivity(
+                new Intent(getContext(), MessageGroupActivity.class)));
+        campaignRow.addView(groups, new LayoutParams(0, dp(54), 1f));
+        Button campaigns = button("단체문자 캠페인", true);
+        campaigns.setOnClickListener(v -> {
+            if (!requireMessageAccess()) return;
+            getContext().startActivity(new Intent(getContext(), CampaignListActivity.class));
+        });
+        LayoutParams campaignParams = new LayoutParams(0, dp(54), 1f);
+        campaignParams.leftMargin = dp(8);
+        campaignRow.addView(campaigns, campaignParams);
+        addView(campaignRow, topMargin(10));
+        addView(body("수동 그룹은 고객을 직접 고정하고, 스마트 그룹은 상태·미접촉 기간·일정·거래 조건으로 자동 갱신됩니다."), topMargin(8));
+
+        TextView imageGuide = body("이미지 템플릿은 수동 문자와 예약 알림에서 사용합니다. 자동발송과 단체문자는 텍스트 전용입니다.");
         addView(imageGuide, topMargin(8));
 
         TextView autoLabel = title("자동 발송", 15f);
@@ -148,14 +168,22 @@ public final class MessageSectionView extends LinearLayout {
         delayed.setChecked(access && MessageAutomationStore.delayedEnabled(getContext()));
 
         MessageLogStore store = new MessageLogStore(getContext());
+        CampaignStore campaigns = new CampaignStore(getContext());
         try {
             int scheduled = store.countByStatus(MessageLogStore.STATUS_SCHEDULED);
             int sent = store.countByStatus(MessageLogStore.STATUS_SENT);
             int failed = store.countByStatus(MessageLogStore.STATUS_FAILED);
             int exclusions = MessageExclusionStore.list(getContext()).size();
+            int activeCampaigns = 0;
+            for (CampaignStore.Campaign campaign : campaigns.list()) {
+                if (CampaignStore.STATUS_SCHEDULED.equals(campaign.status)
+                        || CampaignStore.STATUS_RUNNING.equals(campaign.status)) activeCampaigns++;
+            }
             summary.setText("발송 완료  " + sent + "건\n발송 예정  " + scheduled
-                    + "건\n발송 실패  " + failed + "건\n발송 제외 고객  " + exclusions + "명");
+                    + "건\n발송 실패  " + failed + "건\n진행 캠페인  " + activeCampaigns
+                    + "개\n발송 제외 고객  " + exclusions + "명");
         } finally {
+            campaigns.close();
             store.close();
         }
         rendering = false;
