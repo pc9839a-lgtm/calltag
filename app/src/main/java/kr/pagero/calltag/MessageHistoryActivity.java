@@ -56,7 +56,7 @@ public final class MessageHistoryActivity extends Activity {
         header.addView(title, titleParams);
         root.addView(header, matchWrap());
 
-        TextView guide = body("중복 차단 건에는 기존 발송 시각과 사유가 표시됩니다. 꼭 필요한 경우에만 강제 재발송하세요.");
+        TextView guide = body("이미지 문자는 메시지 앱에서 최종 전송합니다. ‘전송 필요’ 내역은 버튼을 눌러 다시 작성창을 열 수 있습니다. 중복 차단 건은 꼭 필요한 경우에만 강제 재발송하세요.");
         guide.setBackgroundResource(R.drawable.bg_soft_panel);
         guide.setPadding(dp(14), dp(12), dp(14), dp(12));
         root.addView(guide, topMargin(14));
@@ -91,14 +91,15 @@ public final class MessageHistoryActivity extends Activity {
             header.addView(title(triggerLabel(record.triggerType), 15f),
                     new LinearLayout.LayoutParams(0,
                             LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            TextView status = title(statusLabel(record.status), 13f);
-            status.setTextColor(statusColor(record.status));
+            TextView status = title(statusLabel(record), 13f);
+            status.setTextColor(statusColor(record));
             header.addView(status);
             card.addView(header, matchWrap());
 
-            card.addView(body(record.phone + " · " + date.format(new Date(
-                    MessageLogStore.STATUS_SCHEDULED.equals(record.status)
-                            ? record.scheduledAt : record.createdAt))), topMargin(7));
+            boolean scheduled = MessageLogStore.STATUS_SCHEDULED.equals(record.status);
+            String attachment = MmsComposer.hasAttachment(this, record.id) ? " · 이미지 1장" : "";
+            card.addView(body(record.phone + attachment + " · " + date.format(new Date(
+                    scheduled ? record.scheduledAt : record.createdAt))), topMargin(7));
 
             TextView message = body(record.body);
             message.setTextColor(getColor(R.color.text_primary));
@@ -108,18 +109,21 @@ public final class MessageHistoryActivity extends Activity {
             boolean duplicateBlocked = MessageDedupeEngine.isDuplicateReason(record.error);
             if (record.error != null && !record.error.trim().isEmpty()) {
                 TextView error = body(record.error);
-                error.setTextColor(getColor(duplicateBlocked
+                boolean neutral = duplicateBlocked
+                        || MmsComposer.isComposeRequired(record.error)
+                        || MmsComposer.isComposerOpened(record.error);
+                error.setTextColor(getColor(neutral
                         ? R.color.text_secondary : R.color.danger));
-                error.setBackgroundResource(duplicateBlocked
-                        ? R.drawable.bg_soft_panel : 0);
-                if (duplicateBlocked) error.setPadding(dp(12), dp(10), dp(12), dp(10));
+                error.setBackgroundResource(neutral ? R.drawable.bg_soft_panel : 0);
+                if (neutral) error.setPadding(dp(12), dp(10), dp(12), dp(10));
                 card.addView(error, topMargin(8));
             }
 
-            if (MessageLogStore.STATUS_SCHEDULED.equals(record.status)) {
+            if (scheduled) {
                 LinearLayout actions = new LinearLayout(this);
                 actions.setOrientation(LinearLayout.HORIZONTAL);
-                Button sendNow = button("지금 보내기", true);
+                Button sendNow = button(MmsComposer.hasAttachment(this, record.id)
+                        ? "지금 메시지 앱 열기" : "지금 보내기", true);
                 sendNow.setOnClickListener(v -> sendScheduledNow(record));
                 actions.addView(sendNow, new LinearLayout.LayoutParams(0, dp(46), 1f));
                 Button cancel = button("예약 취소", false);
@@ -128,6 +132,13 @@ public final class MessageHistoryActivity extends Activity {
                 cancelParams.leftMargin = dp(8);
                 actions.addView(cancel, cancelParams);
                 card.addView(actions, topMargin(12));
+            } else if (MmsComposer.isComposeRequired(record.error)) {
+                Button compose = button("메시지 앱에서 보내기", true);
+                compose.setOnClickListener(v -> openMms(record));
+                LinearLayout.LayoutParams composeParams = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
+                composeParams.topMargin = dp(12);
+                card.addView(compose, composeParams);
             } else if (MessageLogStore.STATUS_SKIPPED.equals(record.status)
                     && duplicateBlocked) {
                 Button force = button("중복 확인 후 강제 재발송", false);
@@ -146,14 +157,31 @@ public final class MessageHistoryActivity extends Activity {
 
     private void sendScheduledNow(MessageRecord record) {
         MessageScheduler.cancel(this, record.id);
+        if (MmsComposer.hasAttachment(this, record.id)) {
+            openMms(record);
+            return;
+        }
         store.markReady(record.id);
         SmsSender.sendExisting(this, record.id);
         Toast.makeText(this, "문자 발송을 요청했습니다.", Toast.LENGTH_SHORT).show();
         render();
     }
 
+    private void openMms(MessageRecord record) {
+        if (MmsComposer.openComposer(this, record.id)) {
+            Toast.makeText(this, "메시지 앱에서 전송 버튼을 눌러주세요.",
+                    Toast.LENGTH_LONG).show();
+        } else {
+            Toast.makeText(this, "이미지 문자 작성창을 열지 못했습니다.",
+                    Toast.LENGTH_LONG).show();
+        }
+        render();
+    }
+
     private void cancel(MessageRecord record) {
         MessageScheduler.cancel(this, record.id);
+        MmsComposer.cancelNotification(this, record.id);
+        MmsComposer.forget(this, record.id);
         store.cancel(record.id, "사용자가 예약을 취소했습니다.");
         Toast.makeText(this, "예약을 취소했습니다.", Toast.LENGTH_SHORT).show();
         render();
@@ -187,14 +215,18 @@ public final class MessageHistoryActivity extends Activity {
         return "수동 문자";
     }
 
-    private String statusLabel(String status) {
-        return MessageDedupeEngine.statusLabel(status);
+    private String statusLabel(MessageRecord record) {
+        if (MmsComposer.isComposeRequired(record.error)) return "전송 필요";
+        if (MmsComposer.isComposerOpened(record.error)) return "메시지 앱 열림";
+        return MessageDedupeEngine.statusLabel(record.status);
     }
 
-    private int statusColor(String status) {
-        if (MessageLogStore.STATUS_SENT.equals(status)) return getColor(R.color.primary);
-        if (MessageLogStore.STATUS_FAILED.equals(status)) return getColor(R.color.danger);
-        if (MessageLogStore.STATUS_SCHEDULED.equals(status)) return getColor(R.color.text_primary);
+    private int statusColor(MessageRecord record) {
+        if (MmsComposer.isComposeRequired(record.error)) return getColor(R.color.danger);
+        if (MmsComposer.isComposerOpened(record.error)) return getColor(R.color.primary);
+        if (MessageLogStore.STATUS_SENT.equals(record.status)) return getColor(R.color.primary);
+        if (MessageLogStore.STATUS_FAILED.equals(record.status)) return getColor(R.color.danger);
+        if (MessageLogStore.STATUS_SCHEDULED.equals(record.status)) return getColor(R.color.text_primary);
         return getColor(R.color.text_secondary);
     }
 
@@ -223,7 +255,8 @@ public final class MessageHistoryActivity extends Activity {
         button.setTextSize(14f);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setTextColor(getColor(R.color.text_primary));
-        button.setBackgroundResource(primary ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        button.setBackgroundResource(primary
+                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
         return button;
     }
 
