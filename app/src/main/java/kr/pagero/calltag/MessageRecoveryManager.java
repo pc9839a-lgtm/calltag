@@ -60,7 +60,7 @@ public final class MessageRecoveryManager {
         }, "calltag-message-recovery").start();
     }
 
-    public static Result recoverNow(Context context, String trigger) {
+    public static synchronized Result recoverNow(Context context, String trigger) {
         Context app = context.getApplicationContext();
         String safeTrigger = normalizeTrigger(trigger);
         long now = System.currentTimeMillis();
