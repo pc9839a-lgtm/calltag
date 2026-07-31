@@ -91,11 +91,47 @@ public final class CampaignManager {
                 if (recipient.messageId <= 0L || !isActive(recipient.status)) continue;
                 MessageScheduler.cancel(context, recipient.messageId);
                 messages.cancel(recipient.messageId, "캠페인 발송을 취소했습니다.");
+                MmsComposer.forget(context, recipient.messageId);
                 campaigns.replaceRecipientJob(recipient.id, recipient.messageId,
                         MessageLogStore.STATUS_CANCELLED, "캠페인 발송을 취소했습니다.",
                         recipient.scheduledAt);
             }
             campaigns.updateCampaignStatus(campaignId);
+        } finally {
+            messages.close();
+            campaigns.close();
+        }
+    }
+
+    public static boolean delete(Context context, String campaignId) {
+        CampaignStore campaigns = new CampaignStore(context);
+        MessageLogStore messages = new MessageLogStore(context);
+        try {
+            List<CampaignStore.Recipient> recipients = campaigns.recipients(campaignId);
+            for (CampaignStore.Recipient recipient : recipients) {
+                if (recipient.messageId <= 0L) continue;
+                MessageRecord record = messages.find(recipient.messageId);
+                if (record != null && MessageLogStore.STATUS_SENDING.equals(record.status)) {
+                    throw new IllegalArgumentException(
+                            "발송 중인 문자의 결과가 확인된 뒤 캠페인 내역을 삭제해주세요.");
+                }
+            }
+            for (CampaignStore.Recipient recipient : recipients) {
+                if (recipient.messageId <= 0L) continue;
+                MessageScheduler.cancel(context, recipient.messageId);
+                MmsComposer.forget(context, recipient.messageId);
+                MessageRecord record = messages.find(recipient.messageId);
+                if (record != null && (MessageLogStore.STATUS_SCHEDULED.equals(record.status)
+                        || MessageLogStore.STATUS_READY.equals(record.status))) {
+                    messages.cancel(record.id, "캠페인 내역 삭제 전 남은 예약을 취소했습니다.");
+                }
+            }
+            boolean deleted = campaigns.delete(campaignId);
+            if (deleted) {
+                DiagnosticEventStore.record(context, "캠페인 내역 삭제", 0L,
+                        "연결 알람과 남은 예약 정리 완료");
+            }
+            return deleted;
         } finally {
             messages.close();
             campaigns.close();
