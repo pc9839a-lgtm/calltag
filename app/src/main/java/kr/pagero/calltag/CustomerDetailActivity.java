@@ -73,8 +73,8 @@ public final class CustomerDetailActivity extends Activity {
         findViewById(R.id.detailBack).setOnClickListener(v -> finish());
         findViewById(R.id.detailCall).setOnClickListener(v -> dial());
         findViewById(R.id.detailSchedule).setOnClickListener(v -> showScheduleTypeDialog());
+        findViewById(R.id.detailMessage).setOnClickListener(v -> openMessage());
         findViewById(R.id.detailScheduleShortcut).setOnClickListener(v -> showScheduleTypeDialog());
-        findViewById(R.id.detailChangeStatus).setOnClickListener(v -> showStatusDialog());
         statusView.setOnClickListener(v -> showStatusDialog());
         findViewById(R.id.detailSaveMemo).setOnClickListener(v -> saveMemo());
     }
@@ -89,6 +89,7 @@ public final class CustomerDetailActivity extends Activity {
         nameView.setText(customer.displayName);
         phoneView.setText(customer.primaryPhone);
         statusView.setText(customer.relationStatus + "  ▾");
+        statusView.setContentDescription("현재 상태 " + customer.relationStatus + ". 눌러서 상태 변경");
         String color = db.stageColor(customer.relationStatus);
         statusView.setBackground(stageBackground(color));
         statusView.setTextColor(contrastTextColor(parseColor(color)));
@@ -359,6 +360,14 @@ public final class CustomerDetailActivity extends Activity {
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setBackgroundResource(primary ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
         return button;
+    }
+
+    private void openMessage() {
+        if (customer == null) return;
+        startActivity(new Intent(this, ManualMessageActivity.class)
+                .putExtra(ManualMessageActivity.EXTRA_CUSTOMER_ID, customer.id)
+                .putExtra(ManualMessageActivity.EXTRA_PHONE, customer.primaryPhone)
+                .putExtra(ManualMessageActivity.EXTRA_USE_TEMPLATE, true));
     }
 
     private void dial() {
