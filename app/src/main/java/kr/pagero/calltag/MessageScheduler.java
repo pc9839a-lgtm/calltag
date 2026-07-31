@@ -23,15 +23,8 @@ public final class MessageScheduler {
     }
 
     public static void rescheduleAll(Context context) {
-        if (!FeatureEntitlementStore.hasMessageAccess(context)) return;
-        MessageLogStore store = new MessageLogStore(context);
-        try {
-            for (MessageRecord record : store.listScheduled()) {
-                schedule(context, record.id, record.scheduledAt);
-            }
-        } finally {
-            store.close();
-        }
+        MessageRecoveryManager.recoverAsync(context,
+                MessageRecoveryManager.TRIGGER_LEGACY);
     }
 
     private static PendingIntent pendingIntent(Context context, long messageId) {
