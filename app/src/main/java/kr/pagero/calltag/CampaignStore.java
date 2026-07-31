@@ -13,12 +13,13 @@ import java.util.UUID;
 public final class CampaignStore extends SQLiteOpenHelper {
     public static final String STATUS_SCHEDULED = "SCHEDULED";
     public static final String STATUS_RUNNING = "RUNNING";
+    public static final String STATUS_PAUSED = "PAUSED";
     public static final String STATUS_COMPLETED = "COMPLETED";
     public static final String STATUS_PARTIAL = "PARTIAL";
     public static final String STATUS_CANCELLED = "CANCELLED";
 
     private static final String DB_NAME = "calltag_campaigns.db";
-    private static final int DB_VERSION = 1;
+    private static final int DB_VERSION = 2;
 
     public CampaignStore(Context context) {
         super(context.getApplicationContext(), DB_NAME, null, DB_VERSION);
@@ -35,6 +36,9 @@ public final class CampaignStore extends SQLiteOpenHelper {
                 "template_name TEXT NOT NULL DEFAULT ''," +
                 "body_template TEXT NOT NULL," +
                 "status TEXT NOT NULL," +
+                "subscription_id INTEGER NOT NULL DEFAULT -1," +
+                "pause_reason TEXT NOT NULL DEFAULT ''," +
+                "consecutive_failures INTEGER NOT NULL DEFAULT 0," +
                 "scheduled_at INTEGER NOT NULL," +
                 "created_at INTEGER NOT NULL," +
                 "updated_at INTEGER NOT NULL)");
@@ -53,9 +57,7 @@ public final class CampaignStore extends SQLiteOpenHelper {
                 "updated_at INTEGER NOT NULL," +
                 "UNIQUE(campaign_id,normalized_phone)," +
                 "FOREIGN KEY(campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE)");
-        db.execSQL("CREATE INDEX idx_campaign_created ON campaigns(created_at DESC)");
-        db.execSQL("CREATE INDEX idx_campaign_recipient_status ON campaign_recipients(campaign_id,status)");
-        db.execSQL("CREATE INDEX idx_campaign_recipient_message ON campaign_recipients(message_id)");
+        createIndexes(db);
     }
 
     @Override
@@ -66,11 +68,44 @@ public final class CampaignStore extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        if (oldVersion < 2) {
+            addColumnIfMissing(db, "campaigns", "subscription_id",
+                    "INTEGER NOT NULL DEFAULT -1");
+            addColumnIfMissing(db, "campaigns", "pause_reason",
+                    "TEXT NOT NULL DEFAULT ''");
+            addColumnIfMissing(db, "campaigns", "consecutive_failures",
+                    "INTEGER NOT NULL DEFAULT 0");
+            createIndexes(db);
+        }
+    }
+
+    private void createIndexes(SQLiteDatabase db) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_campaign_created ON campaigns(created_at DESC)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_campaign_status ON campaigns(status,updated_at DESC)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_campaign_recipient_status ON campaign_recipients(campaign_id,status)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_campaign_recipient_message ON campaign_recipients(message_id)");
+    }
+
+    private void addColumnIfMissing(SQLiteDatabase db, String table, String column,
+                                    String definition) {
+        if (hasColumn(db, table, column)) return;
+        db.execSQL("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
+    }
+
+    private boolean hasColumn(SQLiteDatabase db, String table, String column) {
+        try (Cursor cursor = db.rawQuery("PRAGMA table_info(" + table + ")", null)) {
+            int nameIndex = cursor.getColumnIndexOrThrow("name");
+            while (cursor.moveToNext()) {
+                if (column.equals(cursor.getString(nameIndex))) return true;
+            }
+        }
+        return false;
     }
 
     public Campaign create(String name, MessageGroupStore.Group group,
                            String templateId, String templateName,
-                           String bodyTemplate, long scheduledAt) {
+                           String bodyTemplate, long scheduledAt,
+                           int subscriptionId) {
         String safeName = clean(name, "단체문자 캠페인");
         if (group == null) throw new IllegalArgumentException("수신자 그룹을 선택해주세요.");
         if (safe(bodyTemplate).trim().isEmpty()) {
@@ -87,6 +122,9 @@ public final class CampaignStore extends SQLiteOpenHelper {
         values.put("template_name", safe(templateName));
         values.put("body_template", bodyTemplate.trim());
         values.put("status", STATUS_SCHEDULED);
+        values.put("subscription_id", subscriptionId);
+        values.put("pause_reason", "");
+        values.put("consecutive_failures", 0);
         values.put("scheduled_at", Math.max(now, scheduledAt));
         values.put("created_at", now);
         values.put("updated_at", now);
@@ -151,6 +189,29 @@ public final class CampaignStore extends SQLiteOpenHelper {
         return rows;
     }
 
+    public Campaign findBlockingCampaign(String exceptCampaignId) {
+        String except = safe(exceptCampaignId).trim();
+        for (Campaign campaign : list()) {
+            if (campaign.id.equals(except)) continue;
+            if (!STATUS_SCHEDULED.equals(campaign.status)
+                    && !STATUS_RUNNING.equals(campaign.status)
+                    && !STATUS_PAUSED.equals(campaign.status)) continue;
+            if (counts(campaign.id).active > 0) return campaign;
+        }
+        return null;
+    }
+
+    public Campaign findRunningCampaign(String exceptCampaignId) {
+        String except = safe(exceptCampaignId).trim();
+        for (Campaign campaign : list()) {
+            if (campaign.id.equals(except)) continue;
+            if (STATUS_RUNNING.equals(campaign.status) && counts(campaign.id).active > 0) {
+                return campaign;
+            }
+        }
+        return null;
+    }
+
     public Campaign sync(Context context, String campaignId) {
         MessageLogStore messages = new MessageLogStore(context);
         SQLiteDatabase db = getWritableDatabase();
@@ -165,6 +226,7 @@ public final class CampaignStore extends SQLiteOpenHelper {
                 ContentValues values = new ContentValues();
                 values.put("status", record.status);
                 values.put("reason", safe(record.error));
+                values.put("scheduled_at", record.scheduledAt);
                 values.put("updated_at", System.currentTimeMillis());
                 db.update("campaign_recipients", values, "id=?",
                         new String[]{String.valueOf(recipient.id)});
@@ -179,7 +241,11 @@ public final class CampaignStore extends SQLiteOpenHelper {
     }
 
     public void updateCampaignStatus(String campaignId) {
+        Campaign current = find(campaignId);
+        if (current == null) return;
         Counts counts = counts(campaignId);
+        if (STATUS_PAUSED.equals(current.status) && counts.active > 0) return;
+
         String status;
         if (counts.total == 0) status = STATUS_PARTIAL;
         else if (counts.active > 0) status = counts.sent > 0 ? STATUS_RUNNING : STATUS_SCHEDULED;
@@ -188,8 +254,59 @@ public final class CampaignStore extends SQLiteOpenHelper {
         else status = STATUS_PARTIAL;
         ContentValues values = new ContentValues();
         values.put("status", status);
+        if (!STATUS_PAUSED.equals(status)) values.put("pause_reason", "");
         values.put("updated_at", System.currentTimeMillis());
         getWritableDatabase().update("campaigns", values, "id=?", new String[]{campaignId});
+    }
+
+    public void setPaused(String campaignId, String reason) {
+        ContentValues values = new ContentValues();
+        values.put("status", STATUS_PAUSED);
+        values.put("pause_reason", safe(reason));
+        values.put("updated_at", System.currentTimeMillis());
+        getWritableDatabase().update("campaigns", values, "id=?", new String[]{campaignId});
+    }
+
+    public void setResumed(String campaignId, int subscriptionId, long scheduledAt) {
+        ContentValues values = new ContentValues();
+        values.put("status", STATUS_SCHEDULED);
+        values.put("subscription_id", subscriptionId);
+        values.put("pause_reason", "");
+        values.put("consecutive_failures", 0);
+        values.put("scheduled_at", scheduledAt);
+        values.put("updated_at", System.currentTimeMillis());
+        getWritableDatabase().update("campaigns", values, "id=?", new String[]{campaignId});
+    }
+
+    public void setRunning(String campaignId) {
+        ContentValues values = new ContentValues();
+        values.put("status", STATUS_RUNNING);
+        values.put("updated_at", System.currentTimeMillis());
+        getWritableDatabase().update("campaigns", values,
+                "id=? AND status=?", new String[]{campaignId, STATUS_SCHEDULED});
+    }
+
+    public void updateSubscription(String campaignId, int subscriptionId) {
+        ContentValues values = new ContentValues();
+        values.put("subscription_id", subscriptionId);
+        values.put("updated_at", System.currentTimeMillis());
+        getWritableDatabase().update("campaigns", values, "id=?", new String[]{campaignId});
+    }
+
+    public int incrementConsecutiveFailures(String campaignId) {
+        SQLiteDatabase db = getWritableDatabase();
+        db.execSQL("UPDATE campaigns SET consecutive_failures=consecutive_failures+1,updated_at=? WHERE id=?",
+                new Object[]{System.currentTimeMillis(), campaignId});
+        Campaign campaign = find(campaignId);
+        return campaign == null ? 0 : campaign.consecutiveFailures;
+    }
+
+    public void resetConsecutiveFailures(String campaignId) {
+        ContentValues values = new ContentValues();
+        values.put("consecutive_failures", 0);
+        values.put("updated_at", System.currentTimeMillis());
+        getWritableDatabase().update("campaigns", values,
+                "id=? AND consecutive_failures<>0", new String[]{campaignId});
     }
 
     public Counts counts(String campaignId) {
@@ -224,6 +341,9 @@ public final class CampaignStore extends SQLiteOpenHelper {
                 cursor.getString(cursor.getColumnIndexOrThrow("template_name")),
                 cursor.getString(cursor.getColumnIndexOrThrow("body_template")),
                 cursor.getString(cursor.getColumnIndexOrThrow("status")),
+                cursor.getInt(cursor.getColumnIndexOrThrow("subscription_id")),
+                cursor.getString(cursor.getColumnIndexOrThrow("pause_reason")),
+                cursor.getInt(cursor.getColumnIndexOrThrow("consecutive_failures")),
                 cursor.getLong(cursor.getColumnIndexOrThrow("scheduled_at")),
                 cursor.getLong(cursor.getColumnIndexOrThrow("created_at")),
                 cursor.getLong(cursor.getColumnIndexOrThrow("updated_at")));
@@ -261,13 +381,18 @@ public final class CampaignStore extends SQLiteOpenHelper {
         public final String templateName;
         public final String bodyTemplate;
         public final String status;
+        public final int subscriptionId;
+        public final String pauseReason;
+        public final int consecutiveFailures;
         public final long scheduledAt;
         public final long createdAt;
         public final long updatedAt;
 
         Campaign(String id, String name, String groupId, String groupName,
                  String templateId, String templateName, String bodyTemplate,
-                 String status, long scheduledAt, long createdAt, long updatedAt) {
+                 String status, int subscriptionId, String pauseReason,
+                 int consecutiveFailures, long scheduledAt, long createdAt,
+                 long updatedAt) {
             this.id = id;
             this.name = name;
             this.groupId = groupId;
@@ -276,6 +401,9 @@ public final class CampaignStore extends SQLiteOpenHelper {
             this.templateName = templateName;
             this.bodyTemplate = bodyTemplate;
             this.status = status;
+            this.subscriptionId = subscriptionId;
+            this.pauseReason = pauseReason;
+            this.consecutiveFailures = consecutiveFailures;
             this.scheduledAt = scheduledAt;
             this.createdAt = createdAt;
             this.updatedAt = updatedAt;
