@@ -65,7 +65,7 @@ public final class CampaignListActivity extends Activity {
         actions.addView(create, createParams);
         page.addView(actions, matchWrap());
 
-        TextView guide = body("캠페인별 전체·발송 예정·완료·실패·건너뜀 인원을 확인할 수 있습니다.");
+        TextView guide = body("한 번에 한 캠페인만 실행합니다. 회선 변경이나 연속 통신 오류가 감지되면 남은 발송이 자동 일시정지됩니다.");
         guide.setPadding(dp(20), dp(10), dp(20), dp(10));
         page.addView(guide, matchWrap());
 
@@ -118,6 +118,15 @@ public final class CampaignListActivity extends Activity {
         SimpleDateFormat date = new SimpleDateFormat("M/d a h:mm", Locale.KOREA);
         card.addView(body(campaign.groupName + " · 시작 "
                 + date.format(new Date(campaign.scheduledAt))), topMargin(6));
+        card.addView(body("회선 · "
+                + SimProfileManager.labelForId(this, campaign.subscriptionId)), topMargin(4));
+        if (CampaignStore.STATUS_PAUSED.equals(campaign.status)
+                && !campaign.pauseReason.trim().isEmpty()) {
+            TextView pause = body(campaign.pauseReason);
+            pause.setTextColor(getColor(R.color.danger));
+            card.addView(pause, topMargin(6));
+        }
+
         String progress = "전체 " + counts.total + "명 · 완료 " + counts.sent
                 + " · 진행 " + counts.active + " · 실패 " + counts.failed
                 + " · 건너뜀 " + counts.skipped + " · 취소 " + counts.cancelled;
@@ -127,7 +136,8 @@ public final class CampaignListActivity extends Activity {
         progressText.setPadding(dp(12), dp(10), dp(12), dp(10));
         card.addView(progressText, topMargin(10));
 
-        Button detail = button("수신자별 상태 보기", false);
+        Button detail = button(CampaignStore.STATUS_PAUSED.equals(campaign.status)
+                ? "회선 확인하고 발송 재개" : "수신자별 상태 보기", false);
         detail.setOnClickListener(v -> open(campaign.id));
         LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
@@ -144,6 +154,7 @@ public final class CampaignListActivity extends Activity {
     private String statusLabel(String status) {
         if (CampaignStore.STATUS_SCHEDULED.equals(status)) return "발송 예정";
         if (CampaignStore.STATUS_RUNNING.equals(status)) return "진행 중";
+        if (CampaignStore.STATUS_PAUSED.equals(status)) return "일시정지";
         if (CampaignStore.STATUS_COMPLETED.equals(status)) return "완료";
         if (CampaignStore.STATUS_CANCELLED.equals(status)) return "취소";
         return "일부 완료";
@@ -151,7 +162,8 @@ public final class CampaignListActivity extends Activity {
 
     private int statusColor(String status) {
         if (CampaignStore.STATUS_COMPLETED.equals(status)) return getColor(R.color.primary);
-        if (CampaignStore.STATUS_PARTIAL.equals(status)) return getColor(R.color.danger);
+        if (CampaignStore.STATUS_PAUSED.equals(status)
+                || CampaignStore.STATUS_PARTIAL.equals(status)) return getColor(R.color.danger);
         return getColor(R.color.text_secondary);
     }
 
