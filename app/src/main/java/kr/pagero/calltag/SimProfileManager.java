@@ -74,10 +74,27 @@ public final class SimProfileManager {
         return result;
     }
 
+    public static boolean isActive(Context context, int subscriptionId) {
+        if (!SubscriptionManager.isValidSubscriptionId(subscriptionId)) return false;
+        return find(context, subscriptionId) != null;
+    }
+
+    public static Profile find(Context context, int subscriptionId) {
+        for (Profile profile : activeProfiles(context)) {
+            if (profile.subscriptionId == subscriptionId) return profile;
+        }
+        return null;
+    }
+
+    public static String labelForId(Context context, int subscriptionId) {
+        Profile profile = find(context, subscriptionId);
+        return profile == null ? "사용할 수 없는 회선" : profile.label();
+    }
+
     public static int selectedOrDefault(Context context) {
         List<Profile> profiles = activeProfiles(context);
         int systemDefault = SubscriptionManager.getDefaultSmsSubscriptionId();
-        if (SubscriptionManager.isValidSubscriptionId(systemDefault)) return systemDefault;
+        if (isActive(context, systemDefault)) return systemDefault;
         return profiles.isEmpty()
                 ? SubscriptionManager.INVALID_SUBSCRIPTION_ID
                 : profiles.get(0).subscriptionId;
