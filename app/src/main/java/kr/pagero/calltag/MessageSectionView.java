@@ -40,6 +40,7 @@ public final class MessageSectionView extends LinearLayout {
     private void init() {
         setOrientation(VERTICAL);
         MessageAutomationStore.ensureDefaults(getContext());
+        MessageTemplateStore.ensureDefaults(getContext());
 
         LinearLayout planCard = card();
         plan = title("", 18f);
@@ -64,17 +65,24 @@ public final class MessageSectionView extends LinearLayout {
         composeRow.addView(free, freeParams);
         addView(composeRow, topMargin(10));
 
+        Button library = button("템플릿 보관함", false);
+        library.setOnClickListener(v -> getContext().startActivity(
+                new Intent(getContext(), MessageTemplateLibraryActivity.class)));
+        LayoutParams libraryParams = new LayoutParams(LayoutParams.MATCH_PARENT, dp(52));
+        libraryParams.topMargin = dp(10);
+        addView(library, libraryParams);
+
         TextView autoLabel = title("자동 발송", 15f);
         autoLabel.setTextColor(getContext().getColor(R.color.text_secondary));
         addView(autoLabel, topMargin(22));
 
         LinearLayout automation = card();
         connected = automationSwitch("통화 종료 후 자동 발송",
-                "연결된 수신·발신 통화가 끝나면 발송");
+                "수신·발신 통화별 기본 템플릿으로 발송");
         missed = automationSwitch("부재중·거절 자동 발송",
-                "받지 못한 전화에 설정한 안내문자 발송");
-        delayed = automationSwitch("3일 뒤 후속 문자",
-                "통화 후 설정한 날짜가 지나면 자동 발송");
+                "받지 못한 전화에 부재중 기본 템플릿 발송");
+        delayed = automationSwitch("후속문자 자동 예약",
+                "통화 후 지정한 시점에 후속 템플릿 발송");
         automation.addView(connected, matchWrap());
         automation.addView(divider(), new LayoutParams(LayoutParams.MATCH_PARENT, dp(1)));
         automation.addView(missed, matchWrap());
@@ -96,10 +104,12 @@ public final class MessageSectionView extends LinearLayout {
             render();
         });
 
-        Button settings = button("자동 발송 설정", false);
+        Button settings = button("회선·업무시간·중복방지 설정", false);
         settings.setOnClickListener(v -> getContext().startActivity(
                 new Intent(getContext(), MessageAutomationSettingsActivity.class)));
-        addView(settings, new LayoutParams(LayoutParams.MATCH_PARENT, dp(52)) {{ topMargin = dp(10); }});
+        LayoutParams settingsParams = new LayoutParams(LayoutParams.MATCH_PARENT, dp(52));
+        settingsParams.topMargin = dp(10);
+        addView(settings, settingsParams);
 
         summary = body("");
         summary.setBackgroundResource(R.drawable.bg_card);
@@ -109,7 +119,9 @@ public final class MessageSectionView extends LinearLayout {
         Button history = button("발송·예약 내역", false);
         history.setOnClickListener(v -> getContext().startActivity(
                 new Intent(getContext(), MessageHistoryActivity.class)));
-        addView(history, new LayoutParams(LayoutParams.MATCH_PARENT, dp(52)) {{ topMargin = dp(10); }});
+        LayoutParams historyParams = new LayoutParams(LayoutParams.MATCH_PARENT, dp(52));
+        historyParams.topMargin = dp(10);
+        addView(history, historyParams);
 
         render();
     }
@@ -126,7 +138,8 @@ public final class MessageSectionView extends LinearLayout {
         delayed.setAlpha(access ? 1f : 0.45f);
         connected.setChecked(access && MessageAutomationStore.connectedEnabled(getContext()));
         missed.setChecked(access && MessageAutomationStore.missedEnabled(getContext()));
-        delayed.setText(MessageAutomationStore.delayDays(getContext()) + "일 뒤 후속 문자\n통화 후 설정한 날짜가 지나면 자동 발송");
+        delayed.setText("후속문자 자동 예약\n발송 시점 "
+                + MessageAutomationStore.delayDays(getContext()) + "일 후 · 후속 기본 템플릿 사용");
         delayed.setChecked(access && MessageAutomationStore.delayedEnabled(getContext()));
 
         MessageLogStore store = new MessageLogStore(getContext());
