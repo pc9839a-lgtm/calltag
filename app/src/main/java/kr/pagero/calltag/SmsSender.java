@@ -18,25 +18,39 @@ public final class SmsSender {
     public static long queueAndSend(Context context, long customerId, long callLogId,
                                     String phone, String body, String triggerType,
                                     int subscriptionId) {
+        return queueAndSend(context, customerId, callLogId, 0L, "", "",
+                phone, body, triggerType, subscriptionId, false);
+    }
+
+    public static long queueAndSend(Context context, long customerId, long callLogId,
+                                    long scheduleId, String campaignId, String templateId,
+                                    String phone, String body, String triggerType,
+                                    int subscriptionId, boolean forceSend) {
         MessageLogStore store = new MessageLogStore(context);
         try {
-            if (callLogId > 0L && store.hasActiveImmediateForCall(callLogId)) {
-                return -1L;
-            }
-            long id = store.createJob(customerId, callLogId, phone, body, triggerType,
-                    MessageLogStore.STATUS_READY, System.currentTimeMillis(), subscriptionId);
-            sendExisting(context, id);
+            long id = store.createJobAdvanced(customerId, callLogId, scheduleId,
+                    campaignId, templateId, phone, body, triggerType,
+                    MessageLogStore.STATUS_READY, System.currentTimeMillis(),
+                    subscriptionId, forceSend);
+            if (store.isSendable(id)) sendExisting(context, id);
             return id;
         } finally {
             store.close();
         }
     }
 
+    public static long forceResend(Context context, MessageRecord source) {
+        if (source == null) return -1L;
+        return queueAndSend(context, source.customerId, source.callLogId,
+                0L, "", "", source.phone, source.body, source.triggerType,
+                source.subscriptionId, true);
+    }
+
     public static void sendExisting(Context context, long messageId) {
         MessageLogStore store = new MessageLogStore(context);
         try {
             MessageRecord record = store.find(messageId);
-            if (record == null) return;
+            if (record == null || !MessageLogStore.STATUS_READY.equals(record.status)) return;
 
             MessageExclusionStore.Decision exclusion = MessageExclusionStore.evaluate(
                     context, record.customerId, record.phone, record.triggerType);
@@ -101,7 +115,8 @@ public final class SmsSender {
         } catch (RuntimeException error) {
             String message = error.getMessage();
             store.markFailed(messageId,
-                    message == null || message.trim().isEmpty() ? "문자 발송 요청에 실패했습니다." : message);
+                    message == null || message.trim().isEmpty()
+                            ? "문자 발송 요청에 실패했습니다." : message);
         } finally {
             store.close();
         }
