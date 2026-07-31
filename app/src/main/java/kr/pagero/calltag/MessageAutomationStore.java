@@ -57,7 +57,18 @@ public final class MessageAutomationStore {
         if (!p.contains(KEY_BUSINESS_HOURS_ENABLED)) editor.putBoolean(KEY_BUSINESS_HOURS_ENABLED, false);
         if (!p.contains(KEY_START_HOUR)) editor.putInt(KEY_START_HOUR, 9);
         if (!p.contains(KEY_END_HOUR)) editor.putInt(KEY_END_HOUR, 20);
+
+        migrateTemplate(editor, p, KEY_CONNECTED_TEMPLATE, DEFAULT_CONNECTED_TEMPLATE);
+        migrateTemplate(editor, p, KEY_MISSED_TEMPLATE, DEFAULT_MISSED_TEMPLATE);
+        migrateTemplate(editor, p, KEY_DELAYED_TEMPLATE, DEFAULT_DELAYED_TEMPLATE);
         editor.apply();
+    }
+
+    private static void migrateTemplate(SharedPreferences.Editor editor, SharedPreferences prefs,
+                                        String key, String fallback) {
+        String current = prefs.getString(key, fallback);
+        String normalized = MessageTemplateEngine.normalizeLegacyAliases(current);
+        if (!normalized.equals(current)) editor.putString(key, normalized);
     }
 
     public static boolean isEnabled(Context context) {
@@ -102,7 +113,9 @@ public final class MessageAutomationStore {
     }
 
     public static void setConnectedTemplate(Context context, String value) {
-        prefs(context).edit().putString(KEY_CONNECTED_TEMPLATE, clean(value, DEFAULT_CONNECTED_TEMPLATE)).apply();
+        String normalized = MessageTemplateEngine.normalizeLegacyAliases(value);
+        prefs(context).edit().putString(KEY_CONNECTED_TEMPLATE,
+                clean(normalized, DEFAULT_CONNECTED_TEMPLATE)).apply();
     }
 
     public static String missedTemplate(Context context) {
@@ -111,7 +124,9 @@ public final class MessageAutomationStore {
     }
 
     public static void setMissedTemplate(Context context, String value) {
-        prefs(context).edit().putString(KEY_MISSED_TEMPLATE, clean(value, DEFAULT_MISSED_TEMPLATE)).apply();
+        String normalized = MessageTemplateEngine.normalizeLegacyAliases(value);
+        prefs(context).edit().putString(KEY_MISSED_TEMPLATE,
+                clean(normalized, DEFAULT_MISSED_TEMPLATE)).apply();
     }
 
     public static String delayedTemplate(Context context) {
@@ -120,7 +135,9 @@ public final class MessageAutomationStore {
     }
 
     public static void setDelayedTemplate(Context context, String value) {
-        prefs(context).edit().putString(KEY_DELAYED_TEMPLATE, clean(value, DEFAULT_DELAYED_TEMPLATE)).apply();
+        String normalized = MessageTemplateEngine.normalizeLegacyAliases(value);
+        prefs(context).edit().putString(KEY_DELAYED_TEMPLATE,
+                clean(normalized, DEFAULT_DELAYED_TEMPLATE)).apply();
     }
 
     public static int delayDays(Context context) {
@@ -191,17 +208,22 @@ public final class MessageAutomationStore {
         return hour >= start || hour < end;
     }
 
+    public static MessageTemplateEngine.RenderResult renderMessage(
+            Context context, String template, Customer customer, CallRecord record) {
+        return MessageTemplateEngine.render(context, template, customer, record);
+    }
+
     public static String buildMessage(String template, Customer customer, CallRecord record) {
         String customerName = customer == null ? "고객" : cleanCustomerName(customer.displayName);
         String phone = record == null ? "" : safe(record.phone);
         long time = record == null ? System.currentTimeMillis() : record.startedAt;
         String dateText = new SimpleDateFormat("M월 d일", Locale.KOREA).format(new Date(time));
         String timeText = new SimpleDateFormat("a h:mm", Locale.KOREA).format(new Date(time));
-        return safe(template)
-                .replace("{고객명}", customerName)
-                .replace("{전화번호}", phone)
-                .replace("{날짜}", dateText)
-                .replace("{시간}", timeText)
+        return MessageTemplateEngine.normalizeLegacyAliases(safe(template))
+                .replace(MessageTemplateEngine.VAR_CUSTOMER_NAME, customerName)
+                .replace(MessageTemplateEngine.VAR_PHONE, phone)
+                .replace(MessageTemplateEngine.VAR_CALL_DATE, dateText)
+                .replace(MessageTemplateEngine.VAR_CALL_TIME, timeText)
                 .trim();
     }
 
@@ -212,7 +234,8 @@ public final class MessageAutomationStore {
 
     private static String cleanCustomerName(String value) {
         String result = safe(value).trim();
-        if (result.isEmpty() || "이름없는고객".equals(result) || "이름 없음".equals(result)) return "고객";
+        if (result.isEmpty() || "이름없는고객".equals(result)
+                || "이름 없는 고객".equals(result) || "이름 없음".equals(result)) return "고객";
         return result;
     }
 
