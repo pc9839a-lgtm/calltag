@@ -13,11 +13,11 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 
-/**
- * Opens the device messaging app with an image, recipient and body prefilled.
- * The final send action remains in the user's messaging app.
- */
+/** Opens the device messaging app with an image, recipient and body prefilled. */
 public final class MmsComposer {
+    public static final String REQUIRED_PREFIX = "이미지 문자 전송 필요";
+    public static final String OPENED_PREFIX = "이미지 문자 작성창 열림";
+
     private static final String PREFS = "calltag_mms_compose_v1";
     private static final String KEY_PREFIX = "attachment_";
     private static final String CHANNEL_ID = "calltag_mms_follow_up";
@@ -41,6 +41,14 @@ public final class MmsComposer {
     public static void forget(Context context, long messageId) {
         if (context == null || messageId <= 0L) return;
         prefs(context).edit().remove(KEY_PREFIX + messageId).apply();
+    }
+
+    public static boolean isComposeRequired(String reason) {
+        return reason != null && reason.startsWith(REQUIRED_PREFIX);
+    }
+
+    public static boolean isComposerOpened(String reason) {
+        return reason != null && reason.startsWith(OPENED_PREFIX);
     }
 
     public static boolean openComposer(Context context, long messageId) {
@@ -74,8 +82,8 @@ public final class MmsComposer {
                 return false;
             }
             context.startActivity(intent);
-            store.markComposed(messageId,
-                    "메시지 앱 작성창을 열었습니다. 최종 전송 여부는 메시지 앱에서 확인해주세요.");
+            store.markSkipped(messageId, OPENED_PREFIX
+                    + " · 최종 전송 여부는 기본 메시지 앱에서 확인해주세요.");
             cancelNotification(context, messageId);
             return true;
         } catch (RuntimeException error) {
@@ -117,8 +125,8 @@ public final class MmsComposer {
         try {
             record = store.find(messageId);
             if (record == null) return false;
-            store.markComposeRequired(messageId,
-                    "예약 시간이 됐습니다. 알림을 눌러 메시지 앱에서 전송을 완료해주세요.");
+            store.markSkipped(messageId, REQUIRED_PREFIX
+                    + " · 예약 시간이 됐습니다. 알림을 눌러 메시지 앱에서 전송해주세요.");
         } finally {
             store.close();
         }
