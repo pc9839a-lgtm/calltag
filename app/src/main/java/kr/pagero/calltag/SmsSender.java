@@ -19,6 +19,9 @@ public final class SmsSender {
                                     int subscriptionId) {
         MessageLogStore store = new MessageLogStore(context);
         try {
+            if (callLogId > 0L && store.hasActiveImmediateForCall(callLogId)) {
+                return -1L;
+            }
             long id = store.createJob(customerId, callLogId, phone, body, triggerType,
                     MessageLogStore.STATUS_READY, System.currentTimeMillis(), subscriptionId);
             sendExisting(context, id);
