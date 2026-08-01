@@ -44,13 +44,12 @@ public final class CustomerListView extends LinearLayout {
         if (!(child instanceof LinearLayout)) return;
         LinearLayout card = (LinearLayout) child;
         card.setPadding(dp(14), dp(13), dp(14), dp(13));
-        card.setClickable(false);
-        card.setFocusable(false);
-        card.setMinimumHeight(dp(154));
+        card.setBackgroundResource(R.drawable.bg_card);
+        card.setMinimumHeight(dp(138));
         decorateCustomerCard(card);
 
         if (params instanceof LinearLayout.LayoutParams) {
-            ((LinearLayout.LayoutParams) params).bottomMargin = dp(9);
+            ((LinearLayout.LayoutParams) params).bottomMargin = dp(8);
         }
     }
 
@@ -91,6 +90,12 @@ public final class CustomerListView extends LinearLayout {
         } finally {
             db.close();
         }
+        if (customer == null) return;
+
+        final long customerId = customer.id;
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(v -> openCustomer(customerId));
 
         removeOldSourceBadges(header);
         if (phoneView.getParent() == card) card.removeView(phoneView);
@@ -105,54 +110,79 @@ public final class CustomerListView extends LinearLayout {
         contactRow.addView(phoneView, new LinearLayout.LayoutParams(
                 0, LayoutParams.WRAP_CONTENT, 1f));
 
-        if (customer != null && CustomerSourceResolver.isPagero(customer)) {
+        if (CustomerSourceResolver.isPagero(customer)) {
             TextView source = CustomerSourceBadge.create(getContext(), "페이지로");
             LinearLayout.LayoutParams sourceParams = new LinearLayout.LayoutParams(
-                    LayoutParams.WRAP_CONTENT, dp(28));
+                    LayoutParams.WRAP_CONTENT, dp(26));
             sourceParams.leftMargin = dp(8);
             contactRow.addView(source, sourceParams);
         }
-        card.addView(contactRow, Math.min(1, card.getChildCount()), topMargin(9));
+        card.addView(contactRow, Math.min(1, card.getChildCount()), topMargin(8));
 
         TextView memoView = new TextView(getContext());
         String compactMemo = compact(memo);
-        memoView.setText(compactMemo.isEmpty() ? "메모 없음" : "메모 · " + compactMemo);
+        memoView.setText(compactMemo.isEmpty() ? "메모 없음" : compactMemo);
         memoView.setTextColor(getContext().getColor(compactMemo.isEmpty()
                 ? R.color.text_muted : R.color.text_secondary));
         memoView.setTextSize(13f);
         memoView.setSingleLine(true);
         memoView.setEllipsize(TextUtils.TruncateAt.END);
         memoView.setIncludeFontPadding(false);
-        card.addView(memoView, Math.min(2, card.getChildCount()), topMargin(7));
+        card.addView(memoView, Math.min(2, card.getChildCount()), topMargin(6));
 
         if (recentView != null) {
             recentView.setSingleLine(true);
             recentView.setEllipsize(TextUtils.TruncateAt.END);
-            recentView.setTextSize(12.5f);
-            card.addView(recentView, Math.min(3, card.getChildCount()), topMargin(6));
+            recentView.setTextSize(12f);
+            card.addView(recentView, Math.min(3, card.getChildCount()), topMargin(5));
         }
 
-        if (actions == null || hasMessageButton(actions)) return;
-        final String customerPhone = phone;
-        Button message = new Button(getContext());
-        message.setText("문자");
-        message.setAllCaps(false);
-        message.setTextSize(13f);
-        message.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        message.setTextColor(getContext().getColor(android.R.color.white));
-        message.setMinWidth(0);
-        message.setPadding(dp(4), 0, dp(4), 0);
-        message.setBackgroundResource(R.drawable.bg_primary_button);
-        message.setTag("customer_message_button");
-        message.setOnClickListener(v -> openCustomerMessage(customerPhone));
-
-        actions.addView(message, 0, new LinearLayout.LayoutParams(0, dp(44), 1f));
-        for (int i = 1; i < actions.getChildCount(); i++) {
+        if (actions == null) return;
+        removeDetailButton(actions);
+        if (!hasMessageButton(actions)) {
+            final String customerPhone = phone;
+            Button message = compactButton("문자", true);
+            message.setTag("customer_message_button");
+            message.setOnClickListener(v -> openCustomerMessage(customerPhone));
+            actions.addView(message, 0, new LinearLayout.LayoutParams(0, dp(42), 1f));
+        }
+        for (int i = 0; i < actions.getChildCount(); i++) {
             View child = actions.getChildAt(i);
+            if (child instanceof Button) {
+                Button button = (Button) child;
+                button.setTextSize(13f);
+                button.setMinWidth(0);
+            }
             if (child.getLayoutParams() instanceof LinearLayout.LayoutParams) {
                 LinearLayout.LayoutParams item = (LinearLayout.LayoutParams) child.getLayoutParams();
-                item.leftMargin = dp(6);
+                item.height = dp(42);
+                item.leftMargin = i == 0 ? 0 : dp(7);
                 child.setLayoutParams(item);
+            }
+        }
+    }
+
+    private Button compactButton(String label, boolean primary) {
+        Button button = new Button(getContext());
+        button.setText(label);
+        button.setAllCaps(false);
+        button.setTextSize(13f);
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        button.setTextColor(getContext().getColor(primary
+                ? android.R.color.white : R.color.text_primary));
+        button.setMinWidth(0);
+        button.setPadding(dp(4), 0, dp(4), 0);
+        button.setBackgroundResource(primary
+                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        return button;
+    }
+
+    private void removeDetailButton(LinearLayout row) {
+        for (int i = row.getChildCount() - 1; i >= 0; i--) {
+            View child = row.getChildAt(i);
+            if (child instanceof Button
+                    && "고객 상세".contentEquals(((Button) child).getText())) {
+                row.removeViewAt(i);
             }
         }
     }
@@ -177,6 +207,11 @@ public final class CustomerListView extends LinearLayout {
             if ("customer_message_button".equals(row.getChildAt(i).getTag())) return true;
         }
         return false;
+    }
+
+    private void openCustomer(long customerId) {
+        getContext().startActivity(new Intent(getContext(), CustomerDetailActivity.class)
+                .putExtra(CustomerDetailActivity.EXTRA_CUSTOMER_ID, customerId));
     }
 
     private void openCustomerMessage(String phone) {
