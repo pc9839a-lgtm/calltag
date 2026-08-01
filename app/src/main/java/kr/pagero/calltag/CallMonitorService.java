@@ -208,6 +208,7 @@ public final class CallMonitorService extends Service {
                                 | Intent.FLAG_ACTIVITY_CLEAR_TOP
                                 | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
+                PostCallActivityLauncher.launch(this, review);
                 String memo = customer == null ? "" : CustomerInsightResolver.latestMemo(db, customer);
                 CallPopupNotificationManager.showPostCall(this, record, customer, review, memo);
             }
