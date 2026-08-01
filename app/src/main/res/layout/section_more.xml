@@ -20,21 +20,30 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:includeFontPadding="false"
-            android:text="문자"
+            android:text="더보기"
             android:textColor="@color/text_primary"
             android:textSize="28sp"
             android:textStyle="bold" />
 
-        <kr.pagero.calltag.MessageSectionView
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:text="문자 관리"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <kr.pagero.calltag.MessageSettingsView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp" />
+            android:layout_marginTop="10dp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="26dp"
-            android:text="고객관리 설정"
+            android:layout_marginTop="20dp"
+            android:text="고객·일정 설정"
             android:textColor="@color/text_secondary"
             android:textSize="13sp"
             android:textStyle="bold" />
