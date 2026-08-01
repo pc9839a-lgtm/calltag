@@ -6,7 +6,9 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -46,16 +48,15 @@ public final class TaskTypeSettingsActivity extends Activity {
     private void render() {
         list.removeAllViews();
         List<TaskTypeOption> types = store.list();
+        boolean customHeaderAdded = false;
         for (int i = 0; i < types.size(); i++) {
+            TaskTypeOption option = types.get(i);
             if (i == 0) list.addView(sectionLabel("기본 일정 종류"), sectionParams());
-            if (i > 0 && !types.get(i - 1).defaultType && types.get(i).defaultType) {
-                list.addView(sectionLabel("기본 일정 종류"), sectionParams());
-            }
-            if (i > 0 && types.get(i - 1).defaultType && !types.get(i).defaultType) {
+            if (!option.defaultType && !customHeaderAdded) {
+                customHeaderAdded = true;
                 list.addView(sectionLabel("사용자 일정 종류"), sectionParams());
             }
 
-            TaskTypeOption option = types.get(i);
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
@@ -68,11 +69,9 @@ public final class TaskTypeSettingsActivity extends Activity {
 
             LinearLayout labels = new LinearLayout(this);
             labels.setOrientation(LinearLayout.VERTICAL);
-            TextView title = text(option.name, 16f, R.color.text_primary, true);
-            labels.addView(title, matchWrap());
-            TextView subtitle = text(option.defaultType ? "기본 종류 · 이름과 색상 수정 가능" : "사용자 추가 종류",
-                    12f, R.color.text_muted, false);
-            labels.addView(subtitle, topMargin(4));
+            labels.addView(text(option.name, 16f, R.color.text_primary, true), matchWrap());
+            labels.addView(text(option.defaultType ? "기본 종류" : "사용자 추가 종류",
+                    12f, R.color.text_muted, false), topMargin(4));
             LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
             labelParams.leftMargin = dp(12);
@@ -109,6 +108,19 @@ public final class TaskTypeSettingsActivity extends Activity {
         content.addView(input, matchWrap());
         content.addView(sectionLabel("구분 색상"), topMargin(18));
 
+        EditText customColor = new EditText(this);
+        customColor.setSingleLine(true);
+        customColor.setHint("#4389FF");
+        customColor.setText(selectedColor[0]);
+        customColor.setTextColor(getColor(R.color.text_primary));
+        customColor.setHintTextColor(getColor(R.color.text_muted));
+        customColor.setTextSize(14f);
+        customColor.setBackgroundResource(R.drawable.bg_input);
+        customColor.setPadding(dp(14), 0, dp(14), 0);
+
+        View preview = new View(this);
+        preview.setBackground(colorShape(selectedColor[0], true));
+
         LinearLayout colors = new LinearLayout(this);
         colors.setOrientation(LinearLayout.HORIZONTAL);
         for (String color : COLORS) {
@@ -118,7 +130,10 @@ public final class TaskTypeSettingsActivity extends Activity {
             swatch.setFocusable(true);
             swatch.setOnClickListener(v -> {
                 selectedColor[0] = (String) v.getTag();
+                customColor.setText(selectedColor[0]);
+                customColor.setSelection(customColor.getText().length());
                 refreshSwatches(swatches, selectedColor[0]);
+                preview.setBackground(colorShape(selectedColor[0], true));
             });
             swatches.add(swatch);
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(44), 1f);
@@ -127,6 +142,28 @@ public final class TaskTypeSettingsActivity extends Activity {
         }
         refreshSwatches(swatches, selectedColor[0]);
         content.addView(colors, topMargin(8));
+
+        content.addView(sectionLabel("직접 색상"), topMargin(12));
+        LinearLayout customRow = new LinearLayout(this);
+        customRow.setGravity(Gravity.CENTER_VERTICAL);
+        customRow.addView(customColor, new LinearLayout.LayoutParams(0, dp(48), 1f));
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dp(48), dp(48));
+        previewParams.leftMargin = dp(8);
+        customRow.addView(preview, previewParams);
+        content.addView(customRow, topMargin(6));
+
+        customColor.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                String normalized = normalizeColor(s == null ? "" : s.toString());
+                if (normalized != null) {
+                    selectedColor[0] = normalized;
+                    preview.setBackground(colorShape(normalized, true));
+                    refreshSwatches(swatches, normalized);
+                }
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this)
                 .setTitle(option == null ? "일정 종류 추가" : "일정 종류 수정")
@@ -138,9 +175,14 @@ public final class TaskTypeSettingsActivity extends Activity {
         AlertDialog dialog = builder.create();
         dialog.setOnShowListener(ignored -> {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String color = normalizeColor(customColor.getText().toString());
+                if (color == null) {
+                    customColor.setError("#RRGGBB 형식으로 입력해주세요.");
+                    return;
+                }
                 try {
-                    if (option == null) store.add(input.getText().toString(), selectedColor[0]);
-                    else store.update(option, input.getText().toString(), selectedColor[0]);
+                    if (option == null) store.add(input.getText().toString(), color);
+                    else store.update(option, input.getText().toString(), color);
                     dialog.dismiss();
                     render();
                 } catch (IllegalArgumentException error) {
@@ -157,6 +199,18 @@ public final class TaskTypeSettingsActivity extends Activity {
             }
         });
         dialog.show();
+    }
+
+    private String normalizeColor(String raw) {
+        String value = raw == null ? "" : raw.trim().toUpperCase();
+        if (!value.startsWith("#")) value = "#" + value;
+        if (!value.matches("#[0-9A-F]{6}")) return null;
+        try {
+            Color.parseColor(value);
+            return value;
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     private void confirmDelete(TaskTypeOption option) {
