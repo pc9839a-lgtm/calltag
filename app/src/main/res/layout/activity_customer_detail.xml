@@ -8,11 +8,11 @@
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="66dp"
+        android:layout_height="56dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingLeft="12dp"
-        android:paddingRight="20dp">
+        android:paddingLeft="8dp"
+        android:paddingRight="16dp">
 
         <TextView
             android:id="@+id/detailBack"
@@ -21,13 +21,14 @@
             android:gravity="center"
             android:text="‹"
             android:textColor="@color/text_primary"
-            android:textSize="34sp" />
+            android:textSize="32sp" />
 
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:gravity="center"
+            android:includeFontPadding="false"
             android:text="고객"
             android:textColor="@color/text_primary"
             android:textSize="19sp"
@@ -54,10 +55,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingLeft="20dp"
-            android:paddingTop="20dp"
-            android:paddingRight="20dp"
-            android:paddingBottom="80dp">
+            android:paddingLeft="16dp"
+            android:paddingTop="16dp"
+            android:paddingRight="16dp"
+            android:paddingBottom="64dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -75,29 +76,34 @@
                         android:id="@+id/detailName"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:ellipsize="end"
                         android:includeFontPadding="false"
+                        android:maxLines="1"
                         android:textColor="@color/text_primary"
-                        android:textSize="28sp"
+                        android:textSize="24sp"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/detailPhone"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="7dp"
+                        android:layout_marginTop="5dp"
+                        android:ellipsize="end"
+                        android:maxLines="1"
                         android:textColor="@color/text_secondary"
-                        android:textSize="15sp" />
+                        android:textSize="14sp" />
                 </LinearLayout>
 
                 <TextView
                     android:id="@+id/detailStatus"
                     android:layout_width="wrap_content"
-                    android:layout_height="44dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="10dp"
                     android:background="@drawable/bg_clickable_row"
                     android:clickable="true"
                     android:focusable="true"
                     android:gravity="center"
-                    android:minWidth="84dp"
+                    android:minWidth="76dp"
                     android:paddingLeft="12dp"
                     android:paddingRight="12dp"
                     android:textColor="@color/primary"
@@ -107,67 +113,67 @@
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_height="64dp"
+                android:layout_marginTop="16dp"
                 android:background="@drawable/bg_card"
                 android:gravity="center"
                 android:orientation="horizontal"
-                android:paddingTop="10dp"
-                android:paddingBottom="10dp">
+                android:paddingLeft="4dp"
+                android:paddingRight="4dp">
 
                 <TextView
                     android:id="@+id/detailCall"
                     android:layout_width="0dp"
-                    android:layout_height="58dp"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:gravity="center"
                     android:text="전화"
                     android:textColor="@color/text_primary"
-                    android:textSize="15sp"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
 
                 <View
                     android:layout_width="1dp"
-                    android:layout_height="34dp"
+                    android:layout_height="28dp"
                     android:background="@color/border" />
 
                 <TextView
                     android:id="@+id/detailSchedule"
                     android:layout_width="0dp"
-                    android:layout_height="58dp"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:gravity="center"
-                    android:text="일정 추가"
+                    android:text="일정"
                     android:textColor="@color/text_primary"
-                    android:textSize="15sp"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
 
                 <View
                     android:layout_width="1dp"
-                    android:layout_height="34dp"
+                    android:layout_height="28dp"
                     android:background="@color/border" />
 
                 <TextView
                     android:id="@+id/detailMessage"
                     android:layout_width="0dp"
-                    android:layout_height="58dp"
+                    android:layout_height="match_parent"
                     android:layout_weight="1"
                     android:gravity="center"
                     android:text="문자"
-                    android:textColor="@color/text_primary"
-                    android:textSize="15sp"
+                    android:textColor="@color/primary"
+                    android:textSize="14sp"
                     android:textStyle="bold" />
             </LinearLayout>
 
             <kr.pagero.calltag.CustomerMessagePolicyView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp" />
+                android:layout_marginTop="8dp" />
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="28dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="24dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -175,19 +181,19 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:includeFontPadding="false"
                     android:text="일정"
                     android:textColor="@color/text_primary"
-                    android:textSize="18sp"
+                    android:textSize="17sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/detailScheduleShortcut"
                     android:layout_width="wrap_content"
                     android:layout_height="40dp"
-                    android:background="@drawable/bg_secondary_button"
                     android:gravity="center"
-                    android:paddingLeft="14dp"
-                    android:paddingRight="14dp"
+                    android:paddingLeft="10dp"
+                    android:paddingRight="10dp"
                     android:text="+ 추가"
                     android:textColor="@color/primary"
                     android:textSize="14sp"
@@ -198,79 +204,82 @@
                 android:id="@+id/detailTaskList"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="6dp"
                 android:orientation="vertical" />
 
             <TextView
                 android:id="@+id/detailTaskEmpty"
                 android:layout_width="match_parent"
-                android:layout_height="80dp"
-                android:layout_marginTop="12dp"
+                android:layout_height="64dp"
+                android:layout_marginTop="6dp"
                 android:background="@drawable/bg_card"
                 android:gravity="center"
-                android:text="등록된 일정이 없습니다."
+                android:text="등록된 일정이 없습니다"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="28dp"
+                android:layout_marginTop="24dp"
+                android:includeFontPadding="false"
                 android:text="메모"
                 android:textColor="@color/text_primary"
-                android:textSize="18sp"
+                android:textSize="17sp"
                 android:textStyle="bold" />
 
             <EditText
                 android:id="@+id/detailMemo"
                 android:layout_width="match_parent"
-                android:layout_height="100dp"
-                android:layout_marginTop="12dp"
+                android:layout_height="88dp"
+                android:layout_marginTop="8dp"
                 android:background="@drawable/bg_input"
-                android:gravity="top"
-                android:hint="메모"
+                android:gravity="top|start"
+                android:hint="고객 메모"
                 android:inputType="textMultiLine"
-                android:padding="15dp"
+                android:maxLines="4"
+                android:padding="14dp"
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_muted"
-                android:textSize="15sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:id="@+id/detailSaveMemo"
                 android:layout_width="match_parent"
-                android:layout_height="50dp"
-                android:layout_marginTop="10dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
                 android:background="@drawable/bg_primary_button"
                 android:gravity="center"
-                android:text="저장"
+                android:text="메모 저장"
                 android:textColor="@android:color/white"
-                android:textSize="15sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="28dp"
+                android:layout_marginTop="24dp"
+                android:includeFontPadding="false"
                 android:text="활동 기록"
                 android:textColor="@color/text_primary"
-                android:textSize="18sp"
+                android:textSize="17sp"
                 android:textStyle="bold" />
 
             <LinearLayout
                 android:id="@+id/detailInteractionList"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="8dp"
                 android:orientation="vertical" />
 
             <TextView
                 android:id="@+id/detailInteractionEmpty"
                 android:layout_width="match_parent"
-                android:layout_height="80dp"
-                android:layout_marginTop="12dp"
+                android:layout_height="64dp"
+                android:layout_marginTop="8dp"
                 android:background="@drawable/bg_card"
                 android:gravity="center"
-                android:text="활동 기록이 없습니다."
+                android:text="활동 기록이 없습니다"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
         </LinearLayout>
