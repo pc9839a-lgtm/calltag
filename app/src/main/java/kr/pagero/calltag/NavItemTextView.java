@@ -5,7 +5,7 @@ import android.content.res.ColorStateList;
 import android.util.AttributeSet;
 import android.widget.TextView;
 
-public final class NavItemTextView extends TextView {
+public class NavItemTextView extends TextView {
     public NavItemTextView(Context context) {
         super(context);
     }
