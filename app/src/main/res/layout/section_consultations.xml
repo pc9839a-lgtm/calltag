@@ -13,13 +13,13 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:paddingLeft="16dp"
-        android:paddingTop="14dp"
+        android:paddingTop="10dp"
         android:paddingRight="16dp"
         android:paddingBottom="96dp">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="46dp"
+            android:layout_height="44dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -34,13 +34,13 @@
                 android:textStyle="bold" />
 
             <kr.pagero.calltag.CalendarShareLauncherView
-                android:layout_width="132dp"
-                android:layout_height="42dp"
+                android:layout_width="78dp"
+                android:layout_height="38dp"
                 android:background="@drawable/bg_secondary_button"
                 android:gravity="center"
-                android:text="외부 캘린더 추가"
+                android:text="일정 공유"
                 android:textColor="@color/primary"
-                android:textSize="13sp"
+                android:textSize="12sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -48,7 +48,7 @@
             android:id="@+id/consultationSummary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="6dp"
             android:orientation="vertical" />
     </LinearLayout>
 </ScrollView>
