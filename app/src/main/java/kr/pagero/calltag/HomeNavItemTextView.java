@@ -1,11 +1,11 @@
 package kr.pagero.calltag;
 
 import android.content.Context;
-import android.content.res.ColorStateList;
-import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 
-/** 하단 중앙에서 항상 크게 보이는 홈 주 행동 버튼. */
+/** 하단 중앙 홈은 배경 원 없이 아이콘과 라벨만 한 단계 크게 표시한다. */
 public final class HomeNavItemTextView extends NavItemTextView {
     public HomeNavItemTextView(Context context) {
         super(context);
@@ -23,17 +23,21 @@ public final class HomeNavItemTextView extends NavItemTextView {
     }
 
     private void init() {
-        setBackgroundResource(R.drawable.bg_nav_home);
-        setElevation(dp(8));
-        setTranslationY(-dp(10));
-        setTextColor(Color.WHITE);
-        setCompoundDrawableTintList(ColorStateList.valueOf(Color.WHITE));
+        setBackground(null);
+        setElevation(0f);
+        setTranslationY(0f);
+        setTextSize(13f);
+        setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        post(this::enlargeIcon);
     }
 
-    @Override
-    public void setTextColor(int ignored) {
-        super.setTextColor(Color.WHITE);
-        setCompoundDrawableTintList(ColorStateList.valueOf(Color.WHITE));
+    private void enlargeIcon() {
+        Drawable[] drawables = getCompoundDrawables();
+        Drawable top = drawables[1];
+        if (top == null) return;
+        int size = dp(29);
+        top.setBounds(0, 0, size, size);
+        setCompoundDrawables(drawables[0], top, drawables[2], drawables[3]);
     }
 
     private int dp(int value) {
