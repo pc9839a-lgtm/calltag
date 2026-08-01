@@ -38,6 +38,7 @@
         <activity android:name=".InitialPermissionActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".MessageAutomationSettingsActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".MessageTemplateLibraryActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".MessageTemplateEditorActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".TemplateImageLibraryActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".TemplateImageActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".MmsComposeActivity" android:excludeFromRecents="true" android:exported="false" android:noHistory="true" android:theme="@style/Theme.CallTag" />
