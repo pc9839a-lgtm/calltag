@@ -204,25 +204,41 @@ public final class MessageTemplateLibraryActivity extends Activity {
             edit.setOnClickListener(v -> openEditor(template));
             actions.addView(edit, new LinearLayout.LayoutParams(0, dp(44), 1f));
 
-            Button more = button("더보기", false);
-            more.setOnClickListener(v -> showMore(template));
-            LinearLayout.LayoutParams moreParams = new LinearLayout.LayoutParams(0, dp(44), 1f);
-            moreParams.leftMargin = dp(7);
-            actions.addView(more, moreParams);
+            Button manage = button("관리", false);
+            manage.setOnClickListener(v -> showManageDialog(template));
+            LinearLayout.LayoutParams manageParams = new LinearLayout.LayoutParams(0, dp(44), 1f);
+            manageParams.leftMargin = dp(7);
+            actions.addView(manage, manageParams);
             card.addView(actions, topMargin(11));
         }
         return card;
     }
 
-    private void showMore(MessageTemplateStore.Template template) {
-        new AlertDialog.Builder(this)
+    private void showManageDialog(MessageTemplateStore.Template template) {
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(20), dp(6), dp(20), dp(6));
+
+        Button duplicate = button("복제", false);
+        Button delete = button("삭제", false);
+        delete.setTextColor(getColor(R.color.danger));
+        content.addView(duplicate, fixedHeight(50, 0));
+        content.addView(delete, fixedHeight(50, 8));
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(template.name)
-                .setItems(new String[]{"복제", "삭제"}, (dialog, which) -> {
-                    if (which == 0) duplicate(template);
-                    else confirmDelete(template);
-                })
+                .setView(content)
                 .setNegativeButton("닫기", null)
-                .show();
+                .create();
+        duplicate.setOnClickListener(v -> {
+            dialog.dismiss();
+            duplicate(template);
+        });
+        delete.setOnClickListener(v -> {
+            dialog.dismiss();
+            confirmDelete(template);
+        });
+        dialog.show();
     }
 
     private void openEditor(MessageTemplateStore.Template template) {
@@ -336,6 +352,13 @@ public final class MessageTemplateLibraryActivity extends Activity {
     private LinearLayout.LayoutParams topMargin(int value) {
         LinearLayout.LayoutParams params = matchWrap();
         params.topMargin = dp(value);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams fixedHeight(int height, int top) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(height));
+        params.topMargin = dp(top);
         return params;
     }
 
