@@ -4,18 +4,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
-import android.view.Gravity;
-import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 import android.widget.Toast;
 
-/** 고객 화면 안에서 사용하는 문자 발송 허브. 설정 메뉴는 더보기로 분리한다. */
+/** 고객 화면 안에서 고객을 기준으로 시작하는 문자 허브. */
 public final class MessageSectionView extends LinearLayout {
     public static final String ACTION_CHANGED = "kr.pagero.calltag.MESSAGE_CHANGED";
-
-    private TextView summary;
 
     public MessageSectionView(Context context) {
         super(context);
@@ -37,67 +32,53 @@ public final class MessageSectionView extends LinearLayout {
         MessageAutomationStore.ensureDefaults(getContext());
         MessageTemplateStore.ensureDefaults(getContext());
 
-        Button newMessage = button("새 문자 보내기", true);
-        newMessage.setTextSize(16f);
-        newMessage.setOnClickListener(v -> openCompose(false));
-        addView(newMessage, new LayoutParams(LayoutParams.MATCH_PARENT, dp(56)));
-
-        Button templateMessage = button("템플릿으로 보내기", false);
-        templateMessage.setOnClickListener(v -> openCompose(true));
-        addView(templateMessage, topMarginHeight(9, 52));
-
-        LinearLayout actionRow = new LinearLayout(getContext());
-        actionRow.setOrientation(HORIZONTAL);
-
-        Button campaigns = button("단체문자", false);
-        campaigns.setOnClickListener(v -> {
+        Button customerMessage = button("고객 선택 후 문자", true);
+        customerMessage.setTextSize(16f);
+        customerMessage.setOnClickListener(v -> {
             if (!requireMessageAccess()) return;
-            getContext().startActivity(new Intent(getContext(), CampaignListActivity.class));
+            getContext().startActivity(new Intent(
+                    getContext(), CustomerMessagePickerActivity.class));
         });
-        actionRow.addView(campaigns, new LayoutParams(0, dp(52), 1f));
+        addView(customerMessage, new LayoutParams(LayoutParams.MATCH_PARENT, dp(58)));
+
+        LinearLayout firstRow = new LinearLayout(getContext());
+        firstRow.setOrientation(HORIZONTAL);
+        Button templates = button("문자 템플릿", false);
+        templates.setOnClickListener(v -> getContext().startActivity(
+                new Intent(getContext(), MessageTemplateLibraryActivity.class)));
+        firstRow.addView(templates, new LayoutParams(0, dp(54), 1f));
+
+        Button groupCampaign = button("그룹·단체문자", false);
+        groupCampaign.setOnClickListener(v -> {
+            if (!requireMessageAccess()) return;
+            getContext().startActivity(new Intent(
+                    getContext(), GroupCampaignHubActivity.class));
+        });
+        LayoutParams groupParams = new LayoutParams(0, dp(54), 1f);
+        groupParams.leftMargin = dp(8);
+        firstRow.addView(groupCampaign, groupParams);
+        addView(firstRow, topMargin(10));
+
+        LinearLayout secondRow = new LinearLayout(getContext());
+        secondRow.setOrientation(HORIZONTAL);
+        Button automation = button("통화 후 자동문자", false);
+        automation.setOnClickListener(v -> getContext().startActivity(
+                new Intent(getContext(), MessageAutomationSettingsActivity.class)));
+        secondRow.addView(automation, new LayoutParams(0, dp(54), 1f));
 
         Button history = button("발송 내역", false);
         history.setOnClickListener(v -> getContext().startActivity(
                 new Intent(getContext(), MessageHistoryActivity.class)));
-        LayoutParams historyParams = new LayoutParams(0, dp(52), 1f);
+        LayoutParams historyParams = new LayoutParams(0, dp(54), 1f);
         historyParams.leftMargin = dp(8);
-        actionRow.addView(history, historyParams);
-        addView(actionRow, topMargin(9));
-
-        summary = new TextView(getContext());
-        summary.setGravity(Gravity.CENTER);
-        summary.setTextColor(getContext().getColor(R.color.text_secondary));
-        summary.setTextSize(13f);
-        summary.setIncludeFontPadding(false);
-        summary.setBackgroundResource(R.drawable.bg_soft_panel);
-        summary.setPadding(dp(12), dp(12), dp(12), dp(12));
-        addView(summary, topMargin(16));
-
-        render();
-    }
-
-    private void render() {
-        MessageLogStore store = new MessageLogStore(getContext());
-        try {
-            int scheduled = store.countByStatus(MessageLogStore.STATUS_SCHEDULED);
-            int sent = store.countByStatus(MessageLogStore.STATUS_SENT);
-            int failed = store.countByStatus(MessageLogStore.STATUS_FAILED);
-            summary.setText("예정 " + scheduled + "   ·   완료 " + sent + "   ·   실패 " + failed);
-        } finally {
-            store.close();
-        }
+        secondRow.addView(history, historyParams);
+        addView(secondRow, topMargin(10));
     }
 
     private boolean requireMessageAccess() {
         if (FeatureEntitlementStore.hasMessageAccess(getContext())) return true;
-        Toast.makeText(getContext(), "문자자동화 이용권이 필요합니다.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(getContext(), "문자 기능 이용 권한이 필요합니다.", Toast.LENGTH_SHORT).show();
         return false;
-    }
-
-    private void openCompose(boolean useTemplate) {
-        if (!requireMessageAccess()) return;
-        getContext().startActivity(new Intent(getContext(), ManualMessageActivity.class)
-                .putExtra(ManualMessageActivity.EXTRA_USE_TEMPLATE, useTemplate));
     }
 
     private Button button(String label, boolean primary) {
@@ -120,25 +101,7 @@ public final class MessageSectionView extends LinearLayout {
         return params;
     }
 
-    private LayoutParams topMarginHeight(int margin, int height) {
-        LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, dp(height));
-        params.topMargin = dp(margin);
-        return params;
-    }
-
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    @Override
-    protected void onVisibilityChanged(View changedView, int visibility) {
-        super.onVisibilityChanged(changedView, visibility);
-        if (visibility == VISIBLE && summary != null) render();
-    }
-
-    @Override
-    public void onWindowFocusChanged(boolean hasWindowFocus) {
-        super.onWindowFocusChanged(hasWindowFocus);
-        if (hasWindowFocus && summary != null) render();
     }
 }
