@@ -23,7 +23,7 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 핵심 자동화만 보여주고 공통 발송 조건은 한 화면으로 묶는다. */
+/** 자동문자 시나리오와 공통 조건을 분리한 compact 설정 화면. */
 public final class MessageAutomationSettingsActivity extends Activity {
     private static final int REQUEST_SMS = 8201;
     private static final int REQUEST_CONNECTED = 8301;
@@ -65,165 +65,158 @@ public final class MessageAutomationSettingsActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(18), dp(20), dp(44));
+        root.setPadding(dp(16), dp(14), dp(16), dp(32));
         scroll.addView(root, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        Button back = button("‹", false);
-        back.setTextSize(28f);
+        TextView back = title("‹", 30f);
+        back.setGravity(Gravity.CENTER);
+        back.setClickable(true);
+        back.setFocusable(true);
         back.setOnClickListener(v -> finish());
-        header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
-        TextView title = title("자동문자", 22f);
+        header.addView(back, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        TextView screenTitle = title("자동문자", 22f);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        titleParams.leftMargin = dp(12);
-        header.addView(title, titleParams);
+        titleParams.leftMargin = dp(8);
+        header.addView(screenTitle, titleParams);
         root.addView(header, matchWrap());
 
-        enabled = compactSwitch("자동문자 사용");
-        root.addView(enabled, topMargin(18));
+        enabled = switchCard("자동문자 사용");
+        root.addView(enabled, topMargin(14));
 
+        root.addView(sectionLabel("발송 시점"), topMargin(20));
         connected = new Switch(this);
-        connectedTemplate = addScenario(root, "통화 후", connected, REQUEST_CONNECTED, 12);
-
+        connectedTemplate = addScenario(root, "통화 후", connected, REQUEST_CONNECTED);
         missed = new Switch(this);
-        missedTemplate = addScenario(root, "부재중", missed, REQUEST_MISSED, 9);
-
+        missedTemplate = addScenario(root, "부재중", missed, REQUEST_MISSED);
         delayed = new Switch(this);
-        followTemplate = addScenario(root, "후속 예약", delayed, REQUEST_FOLLOW_UP, 9);
+        followTemplate = addScenario(root, "후속 예약", delayed, REQUEST_FOLLOW_UP);
 
+        root.addView(sectionLabel("공통 설정"), topMargin(20));
         LinearLayout common = new LinearLayout(this);
         common.setOrientation(LinearLayout.HORIZONTAL);
         common.setGravity(Gravity.CENTER_VERTICAL);
-        common.setPadding(dp(16), dp(14), dp(14), dp(14));
-        common.setBackgroundResource(R.drawable.bg_card);
+        common.setPadding(dp(14), dp(12), dp(10), dp(12));
+        common.setBackgroundResource(R.drawable.bg_clickable_row);
         common.setClickable(true);
         common.setFocusable(true);
         common.setOnClickListener(v -> showCommonSettings());
 
         LinearLayout commonText = new LinearLayout(this);
         commonText.setOrientation(LinearLayout.VERTICAL);
-        commonText.addView(title("공통 발송 설정", 16f), matchWrap());
+        commonText.addView(title("발송 조건·회선", 15f), matchWrap());
         commonSummary = body("");
         commonSummary.setMaxLines(2);
-        commonText.addView(commonSummary, topMargin(5));
+        commonText.addView(commonSummary, topMargin(4));
         common.addView(commonText, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        Button commonButton = button("설정", false);
-        commonButton.setOnClickListener(v -> showCommonSettings());
-        LinearLayout.LayoutParams commonButtonParams = new LinearLayout.LayoutParams(dp(84), dp(44));
-        commonButtonParams.leftMargin = dp(10);
-        common.addView(commonButton, commonButtonParams);
-        root.addView(common, topMargin(14));
+
+        TextView arrow = body("›");
+        arrow.setTextSize(24f);
+        arrow.setGravity(Gravity.CENTER);
+        common.addView(arrow, new LinearLayout.LayoutParams(dp(30), dp(44)));
+        root.addView(common, topMargin(8));
 
         Button save = button("저장", true);
         save.setOnClickListener(v -> save());
         LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(56));
-        saveParams.topMargin = dp(24);
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
+        saveParams.topMargin = dp(22);
         root.addView(save, saveParams);
         return scroll;
     }
 
     private TextView addScenario(LinearLayout root, String label,
-                                 Switch toggle, int requestCode, int marginTop) {
+                                 Switch toggle, int requestCode) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setPadding(dp(16), dp(12), dp(12), dp(12));
-        card.setBackgroundResource(R.drawable.bg_card);
+        card.setPadding(dp(14), dp(10), dp(10), dp(10));
+        card.setBackgroundResource(R.drawable.bg_clickable_row);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(v -> openTemplateSelector(requestCode));
 
         LinearLayout textArea = new LinearLayout(this);
         textArea.setOrientation(LinearLayout.VERTICAL);
-        textArea.addView(title(label, 16f), matchWrap());
+        textArea.addView(title(label, 15f), matchWrap());
         TextView selected = body("");
-        selected.setTextColor(getColor(R.color.text_secondary));
         selected.setSingleLine(true);
-        textArea.addView(selected, topMargin(5));
+        textArea.addView(selected, topMargin(4));
         card.addView(textArea, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        LinearLayout controls = new LinearLayout(this);
-        controls.setOrientation(LinearLayout.VERTICAL);
-        controls.setGravity(Gravity.END);
         toggle.setShowText(false);
-        controls.addView(toggle, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, dp(42)));
-        Button change = button("변경", false);
-        change.setTextSize(13f);
-        change.setOnClickListener(v -> openTemplateSelector(requestCode));
-        LinearLayout.LayoutParams changeParams = new LinearLayout.LayoutParams(dp(78), dp(40));
-        changeParams.topMargin = dp(4);
-        controls.addView(change, changeParams);
-        LinearLayout.LayoutParams controlsParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        controlsParams.leftMargin = dp(10);
-        card.addView(controls, controlsParams);
+        toggle.setContentDescription(label + " 자동문자 사용");
+        card.addView(toggle, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)));
 
-        root.addView(card, topMargin(marginTop));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(70));
+        params.topMargin = dp(7);
+        root.addView(card, params);
         return selected;
     }
 
     private void showCommonSettings() {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(20), dp(8), dp(20), dp(4));
+        panel.setPadding(dp(18), dp(6), dp(18), dp(2));
 
-        Switch business = compactSwitch("업무시간에만 보내기");
+        Switch business = switchCard("업무시간에만 보내기");
         business.setChecked(businessHoursValue);
         panel.addView(business, matchWrap());
 
-        TextView hoursLabel = label("발송 시간");
-        panel.addView(hoursLabel, topMargin(16));
+        panel.addView(fieldLabel("발송 시간"), topMargin(14));
         LinearLayout hours = new LinearLayout(this);
         hours.setGravity(Gravity.CENTER_VERTICAL);
         EditText start = numberInput(String.valueOf(startHourValue));
         start.setText(String.valueOf(startHourValue));
-        hours.addView(start, new LinearLayout.LayoutParams(0, dp(50), 1f));
+        hours.addView(start, new LinearLayout.LayoutParams(0, dp(48), 1f));
         TextView from = body("시부터");
         from.setGravity(Gravity.CENTER);
-        hours.addView(from, new LinearLayout.LayoutParams(dp(62), dp(50)));
+        hours.addView(from, new LinearLayout.LayoutParams(dp(58), dp(48)));
         EditText end = numberInput(String.valueOf(endHourValue));
         end.setText(String.valueOf(endHourValue));
-        hours.addView(end, new LinearLayout.LayoutParams(0, dp(50), 1f));
+        hours.addView(end, new LinearLayout.LayoutParams(0, dp(48), 1f));
         TextView until = body("시까지");
         until.setGravity(Gravity.CENTER);
-        hours.addView(until, new LinearLayout.LayoutParams(dp(66), dp(50)));
-        panel.addView(hours, topMargin(7));
+        hours.addView(until, new LinearLayout.LayoutParams(dp(62), dp(48)));
+        panel.addView(hours, topMargin(6));
 
-        panel.addView(label("같은 번호 중복 방지"), topMargin(16));
+        panel.addView(fieldLabel("중복 발송 방지"), topMargin(14));
         LinearLayout cooldown = new LinearLayout(this);
         cooldown.setGravity(Gravity.CENTER_VERTICAL);
         EditText cooldownInput = numberInput(String.valueOf(cooldownHoursValue));
         cooldownInput.setText(String.valueOf(cooldownHoursValue));
-        cooldown.addView(cooldownInput, new LinearLayout.LayoutParams(0, dp(50), 1f));
+        cooldown.addView(cooldownInput, new LinearLayout.LayoutParams(0, dp(48), 1f));
         TextView cooldownSuffix = body("시간 동안 다시 보내지 않음");
         cooldownSuffix.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams cooldownSuffixParams = new LinearLayout.LayoutParams(
-                0, dp(50), 2.2f);
-        cooldownSuffixParams.leftMargin = dp(10);
+                0, dp(48), 2.2f);
+        cooldownSuffixParams.leftMargin = dp(9);
         cooldown.addView(cooldownSuffix, cooldownSuffixParams);
-        panel.addView(cooldown, topMargin(7));
+        panel.addView(cooldown, topMargin(6));
 
-        panel.addView(label("후속 예약 시점"), topMargin(16));
+        panel.addView(fieldLabel("후속 예약 시점"), topMargin(14));
         LinearLayout delay = new LinearLayout(this);
         delay.setGravity(Gravity.CENTER_VERTICAL);
         EditText delayInput = numberInput(String.valueOf(delayDaysValue));
         delayInput.setText(String.valueOf(delayDaysValue));
-        delay.addView(delayInput, new LinearLayout.LayoutParams(0, dp(50), 1f));
+        delay.addView(delayInput, new LinearLayout.LayoutParams(0, dp(48), 1f));
         TextView delaySuffix = body("일 후 발송");
         delaySuffix.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams delaySuffixParams = new LinearLayout.LayoutParams(
-                0, dp(50), 2.2f);
-        delaySuffixParams.leftMargin = dp(10);
+                0, dp(48), 2.2f);
+        delaySuffixParams.leftMargin = dp(9);
         delay.addView(delaySuffix, delaySuffixParams);
-        panel.addView(delay, topMargin(7));
+        panel.addView(delay, topMargin(6));
 
-        panel.addView(label("발송 회선"), topMargin(16));
+        panel.addView(fieldLabel("발송 회선"), topMargin(14));
         Spinner line = new Spinner(this);
         List<String> labels = new ArrayList<>();
         for (SimProfileManager.Profile profile : profiles) labels.add(profile.label());
@@ -238,7 +231,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
                 break;
             }
         }
-        panel.addView(line, topMarginHeight(7, 52));
+        panel.addView(line, topMarginHeight(6, 50));
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("공통 발송 설정")
@@ -251,7 +244,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
                     int startValue = clamp(parse(start, 9), 0, 23);
                     int endValue = clamp(parse(end, 20), 1, 24);
                     if (business.isChecked() && startValue >= endValue) {
-                        Toast.makeText(this, "발송 종료 시간은 시작 시간보다 늦어야 합니다.",
+                        Toast.makeText(this, "종료 시간은 시작 시간보다 늦어야 합니다.",
                                 Toast.LENGTH_LONG).show();
                         return;
                     }
@@ -361,15 +354,15 @@ public final class MessageAutomationSettingsActivity extends Activity {
         finish();
     }
 
-    private Switch compactSwitch(String text) {
+    private Switch switchCard(String text) {
         Switch view = new Switch(this);
         view.setText(text);
         view.setTextColor(getColor(R.color.text_primary));
-        view.setTextSize(16f);
+        view.setTextSize(15f);
         view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         view.setGravity(Gravity.CENTER_VERTICAL);
-        view.setPadding(dp(16), dp(7), dp(12), dp(7));
-        view.setMinHeight(dp(58));
+        view.setPadding(dp(14), dp(6), dp(10), dp(6));
+        view.setMinHeight(dp(56));
         view.setBackgroundResource(R.drawable.bg_card);
         return view;
     }
@@ -379,15 +372,21 @@ public final class MessageAutomationSettingsActivity extends Activity {
         input.setHint(hint);
         input.setTextColor(getColor(R.color.text_primary));
         input.setHintTextColor(getColor(R.color.text_muted));
-        input.setTextSize(15f);
+        input.setTextSize(14f);
         input.setGravity(Gravity.CENTER);
         input.setInputType(InputType.TYPE_CLASS_NUMBER);
         input.setBackgroundResource(R.drawable.bg_secondary_button);
         return input;
     }
 
-    private TextView label(String value) {
-        TextView view = title(value, 14f);
+    private TextView sectionLabel(String value) {
+        TextView view = title(value, 13f);
+        view.setTextColor(getColor(R.color.text_secondary));
+        return view;
+    }
+
+    private TextView fieldLabel(String value) {
+        TextView view = title(value, 13f);
         view.setTextColor(getColor(R.color.text_secondary));
         return view;
     }
@@ -406,7 +405,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
         TextView text = new TextView(this);
         text.setText(value);
         text.setTextColor(getColor(R.color.text_secondary));
-        text.setTextSize(13f);
+        text.setTextSize(12.5f);
         text.setIncludeFontPadding(false);
         return text;
     }
