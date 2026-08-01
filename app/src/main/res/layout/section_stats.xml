@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<kr.pagero.calltag.StatsSectionScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/sectionStats"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:clipToPadding="false"
+    android:fillViewport="true"
+    android:visibility="gone">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingLeft="20dp"
+        android:paddingTop="18dp"
+        android:paddingRight="20dp"
+        android:paddingBottom="110dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:includeFontPadding="false"
+            android:text="통계"
+            android:textColor="@color/text_primary"
+            android:textSize="28sp"
+            android:textStyle="bold" />
+
+        <FrameLayout
+            android:id="@+id/customerStatsPanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp">
+
+            <kr.pagero.calltag.CustomerStatsView
+                android:id="@+id/customerStatsContent"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+        </FrameLayout>
+    </LinearLayout>
+</kr.pagero.calltag.StatsSectionScrollView>
