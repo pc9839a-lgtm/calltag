@@ -8,7 +8,7 @@
     const nav=document.createElement('nav');
     nav.className='ct-product-switch';
     nav.setAttribute('aria-label','제품 전환');
-    nav.innerHTML='<a class="active" href="/">콜태그</a><a href="https://calltag.pagero.kr/pagero/">페이지로</a>';
+    nav.innerHTML='<a class="active" href="/">콜태그</a><a href="https://pagero.kr/app">페이지로</a>';
     if(logo)logo.insertAdjacentElement('afterend',nav);else header.prepend(nav);
     if(!document.querySelector('style[data-ct-product-switch]')){
       const style=document.createElement('style');
