@@ -11,10 +11,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingLeft="20dp"
-        android:paddingTop="18dp"
-        android:paddingRight="20dp"
-        android:paddingBottom="110dp">
+        android:paddingLeft="16dp"
+        android:paddingTop="14dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="96dp">
 
         <TextView
             android:layout_width="wrap_content"
@@ -22,15 +22,14 @@
             android:includeFontPadding="false"
             android:text="더보기"
             android:textColor="@color/text_primary"
-            android:textSize="28sp"
+            android:textSize="22sp"
             android:textStyle="bold" />
 
         <kr.pagero.calltag.MoreSettingsHubView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp" />
+            android:layout_marginTop="12dp" />
 
-        <!-- 기존 MainActivity 동적 메뉴 바인딩 호환용. 사용자 화면에는 노출하지 않는다. -->
         <kr.pagero.calltag.MoreMenuListView
             android:id="@+id/moreMenuList"
             android:layout_width="1dp"
