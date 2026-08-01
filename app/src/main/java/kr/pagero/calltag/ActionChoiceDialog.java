@@ -60,11 +60,11 @@ public final class ActionChoiceDialog {
 
         LinearLayout content = new LinearLayout(activity);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(activity, 18), dp(activity, 10), dp(activity, 18), dp(activity, 8));
+        content.setPadding(dp(activity, 16), dp(activity, 6), dp(activity, 16), dp(activity, 4));
 
         if (description != null && !description.trim().isEmpty()) {
             TextView helper = text(activity, description.trim(), 13f, R.color.text_secondary, false);
-            helper.setLineSpacing(0f, 1.2f);
+            helper.setSingleLine(true);
             content.addView(helper, matchWrap());
         }
 
@@ -73,10 +73,10 @@ public final class ActionChoiceDialog {
         if (options != null) {
             for (int i = 0; i < options.size(); i++) {
                 Option option = options.get(i);
-                View row = optionRow(activity, option);
+                View row = optionRow(activity, option, saveMode);
                 row.setTag(R.id.customerListTab, i);
                 LinearLayout.LayoutParams rowParams = matchWrap();
-                rowParams.topMargin = dp(activity, 9);
+                rowParams.topMargin = dp(activity, saveMode ? 6 : 8);
                 optionList.addView(row, rowParams);
                 if (saveMode) {
                     row.setOnClickListener(v -> {
@@ -102,8 +102,8 @@ public final class ActionChoiceDialog {
             footer.setClickable(true);
             footer.setFocusable(true);
             LinearLayout.LayoutParams footerParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 50));
-            footerParams.topMargin = dp(activity, 12);
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(activity, 46));
+            footerParams.topMargin = dp(activity, 10);
             content.addView(footer, footerParams);
             footer.setOnClickListener(v -> {
                 AlertDialog dialog = (AlertDialog) v.getTag(R.id.appTitle);
@@ -164,7 +164,7 @@ public final class ActionChoiceDialog {
             View child = list.getChildAt(i);
             boolean selected = i == selectedIndex;
             child.setBackgroundResource(selected
-                    ? R.drawable.bg_secondary_button
+                    ? R.drawable.bg_selected_row
                     : R.drawable.bg_clickable_row);
             if (child instanceof LinearLayout) {
                 LinearLayout row = (LinearLayout) child;
@@ -186,41 +186,49 @@ public final class ActionChoiceDialog {
         }
     }
 
-    private static View optionRow(Activity activity, Option option) {
+    private static View optionRow(Activity activity, Option option, boolean compact) {
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(activity, 16), dp(activity, 11), dp(activity, 13), dp(activity, 11));
-        row.setMinimumHeight(dp(activity, 62));
+        row.setPadding(dp(activity, 14), compact ? dp(activity, 9) : dp(activity, 11),
+                dp(activity, 11), compact ? dp(activity, 9) : dp(activity, 11));
+        row.setMinimumHeight(dp(activity, compact ? 54 : 62));
         row.setBackgroundResource(R.drawable.bg_clickable_row);
         row.setClickable(true);
         row.setFocusable(true);
 
-        if (!option.color.trim().isEmpty()) {
+        boolean showColor = !compact && !option.color.trim().isEmpty();
+        if (showColor) {
             View swatch = new View(activity);
             swatch.setBackground(swatch(option.color));
-            row.addView(swatch, new LinearLayout.LayoutParams(dp(activity, 14), dp(activity, 36)));
+            row.addView(swatch, new LinearLayout.LayoutParams(dp(activity, 12), dp(activity, 32)));
         }
 
         LinearLayout labels = new LinearLayout(activity);
         labels.setOrientation(LinearLayout.VERTICAL);
-        TextView title = text(activity, option.title, 16f, R.color.text_primary, true);
+        TextView title = text(activity, option.title, compact ? 15f : 16f,
+                R.color.text_primary, true);
         labels.addView(title, matchWrap());
         if (!option.subtitle.trim().isEmpty()) {
-            TextView subtitle = text(activity, option.subtitle, 13f, R.color.text_secondary, false);
-            subtitle.setMaxLines(2);
+            String subtitleText = compact
+                    ? option.subtitle.replace("현재 설정 · ", "")
+                    : option.subtitle;
+            TextView subtitle = text(activity, subtitleText, compact ? 12.5f : 13f,
+                    R.color.text_secondary, false);
+            subtitle.setSingleLine(compact);
+            subtitle.setMaxLines(compact ? 1 : 2);
             LinearLayout.LayoutParams subtitleParams = matchWrap();
-            subtitleParams.topMargin = dp(activity, 4);
+            subtitleParams.topMargin = dp(activity, 3);
             labels.addView(subtitle, subtitleParams);
         }
         LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        labelParams.leftMargin = option.color.trim().isEmpty() ? 0 : dp(activity, 12);
+        labelParams.leftMargin = showColor ? dp(activity, 10) : 0;
         row.addView(labels, labelParams);
 
-        TextView arrow = text(activity, "", 20f, R.color.text_muted, true);
-        arrow.setGravity(Gravity.CENTER);
-        row.addView(arrow, new LinearLayout.LayoutParams(dp(activity, 28), dp(activity, 40)));
+        TextView marker = text(activity, "", 19f, R.color.text_muted, true);
+        marker.setGravity(Gravity.CENTER);
+        row.addView(marker, new LinearLayout.LayoutParams(dp(activity, 28), dp(activity, 36)));
         return row;
     }
 
@@ -229,7 +237,7 @@ public final class ActionChoiceDialog {
         try {
             color = Color.parseColor(rawColor);
         } catch (IllegalArgumentException ignored) {
-            color = Color.rgb(67, 137, 255);
+            color = Color.rgb(74, 141, 255);
         }
         GradientDrawable shape = new GradientDrawable();
         shape.setColor(color);
