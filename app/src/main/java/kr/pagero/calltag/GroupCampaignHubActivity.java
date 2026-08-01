@@ -6,11 +6,10 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-/** 고객 그룹과 단체문자를 하나의 흐름으로 묶은 화면. */
+/** 단체문자 생성과 그룹·캠페인 관리를 한 화면에 묶는다. */
 public final class GroupCampaignHubActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -21,74 +20,78 @@ public final class GroupCampaignHubActivity extends Activity {
     private View buildContent() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(18), dp(20), dp(36));
+        root.setPadding(dp(16), dp(10), dp(16), dp(36));
         root.setBackgroundColor(getColor(R.color.background));
+        root.setFitsSystemWindows(true);
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        Button back = button("‹", false);
-        back.setTextSize(28f);
+        TextView back = text("‹", 30f, false);
+        back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> finish());
-        header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
-        TextView title = title("그룹·단체문자", 22f);
+        header.addView(back, new LinearLayout.LayoutParams(dp(46), dp(46)));
+        TextView title = text("그룹·단체문자", 21f, true);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        titleParams.leftMargin = dp(12);
+        titleParams.leftMargin = dp(10);
         header.addView(title, titleParams);
         root.addView(header, matchWrap());
 
-        TextView group = actionCard(
-                "고객 그룹",
-                "단체문자를 보낼 고객을 묶고 관리합니다.");
-        group.setOnClickListener(v -> startActivity(
-                new Intent(this, MessageGroupActivity.class)));
-        root.addView(group, topMargin(22));
+        TextView create = text("단체문자 만들기", 15f, true);
+        create.setTextColor(getColor(android.R.color.white));
+        create.setGravity(Gravity.CENTER);
+        create.setBackgroundResource(R.drawable.bg_primary_button);
+        create.setClickable(true);
+        create.setFocusable(true);
+        create.setOnClickListener(v -> startActivity(
+                new Intent(this, CampaignComposerActivity.class)));
+        LinearLayout.LayoutParams createParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
+        createParams.topMargin = dp(18);
+        root.addView(create, createParams);
 
-        TextView campaign = actionCard(
-                "단체문자 보내기",
-                "선택한 고객 그룹으로 발송을 시작합니다.");
-        campaign.setOnClickListener(v -> startActivity(
-                new Intent(this, CampaignListActivity.class)));
-        root.addView(campaign, topMargin(12));
+        TextView label = text("관리", 13f, true);
+        label.setTextColor(getColor(R.color.text_secondary));
+        root.addView(label, topMargin(22));
+
+        LinearLayout menu = new LinearLayout(this);
+        menu.setOrientation(LinearLayout.VERTICAL);
+        menu.setPadding(dp(4), dp(4), dp(4), dp(4));
+        menu.setBackgroundResource(R.drawable.bg_card);
+        addRow(menu, "고객 그룹", MessageGroupActivity.class);
+        addRow(menu, "단체문자 목록", CampaignListActivity.class);
+        root.addView(menu, topMargin(8));
         return root;
     }
 
-    private TextView actionCard(String title, String subtitle) {
-        TextView card = new TextView(this);
-        card.setText(title + "\n" + subtitle + "    ›");
-        card.setTextColor(getColor(R.color.text_primary));
-        card.setTextSize(16f);
-        card.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setLineSpacing(0f, 1.35f);
-        card.setPadding(dp(18), dp(14), dp(18), dp(14));
-        card.setBackgroundResource(R.drawable.bg_secondary_button);
-        card.setClickable(true);
-        card.setFocusable(true);
-        return card;
+    private void addRow(LinearLayout parent, String title, Class<?> destination) {
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(14), 0, dp(8), 0);
+        row.setBackgroundResource(R.drawable.bg_clickable_row);
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setOnClickListener(v -> startActivity(new Intent(this, destination)));
+        row.addView(text(title, 15f, true), new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView arrow = text("›", 23f, false);
+        arrow.setTextColor(getColor(R.color.text_muted));
+        arrow.setGravity(Gravity.CENTER);
+        row.addView(arrow, new LinearLayout.LayoutParams(dp(30), dp(48)));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(54));
+        params.bottomMargin = dp(2);
+        parent.addView(row, params);
     }
 
-    private Button button(String value, boolean primary) {
-        Button button = new Button(this);
-        button.setText(value);
-        button.setAllCaps(false);
-        button.setTextSize(14f);
-        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setTextColor(getColor(primary ? android.R.color.white : R.color.text_primary));
-        button.setBackgroundResource(primary
-                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
-        button.setMinWidth(0);
-        return button;
-    }
-
-    private TextView title(String value, float size) {
-        TextView text = new TextView(this);
-        text.setText(value);
-        text.setTextColor(getColor(R.color.text_primary));
-        text.setTextSize(size);
-        text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        text.setIncludeFontPadding(false);
-        return text;
+    private TextView text(String value, float size, boolean bold) {
+        TextView view = new TextView(this);
+        view.setText(value);
+        view.setTextColor(getColor(R.color.text_primary));
+        view.setTextSize(size);
+        view.setIncludeFontPadding(false);
+        if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        return view;
     }
 
     private LinearLayout.LayoutParams matchWrap() {
