@@ -132,3 +132,12 @@
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>requestAnimationFrame(run),{once:true});
   else requestAnimationFrame(run);
 })();
+
+(()=>{
+  if(document.querySelector('script[data-ct-pagero-bridge-loader]'))return;
+  const script=document.createElement('script');
+  script.dataset.ctPageroBridgeLoader='1';
+  script.src='/assets/calltag-pagero-bridge.js?v=20260801-29';
+  script.defer=true;
+  document.body.append(script);
+})();
