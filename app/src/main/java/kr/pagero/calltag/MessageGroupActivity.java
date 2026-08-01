@@ -5,6 +5,9 @@ import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextUtils;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -21,8 +24,10 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
+/** 수동그룹은 검색·전체선택을 지원하고 스마트그룹은 조건으로 계산한다. */
 public final class MessageGroupActivity extends Activity {
     private MessageGroupStore store;
     private LinearLayout listContainer;
@@ -47,107 +52,115 @@ public final class MessageGroupActivity extends Activity {
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(20), dp(16), dp(20), dp(12));
-        Button back = button("‹", false);
-        back.setTextSize(28f);
+        header.setPadding(dp(8), dp(6), dp(16), dp(6));
+        TextView back = title("‹", 31f);
+        back.setGravity(Gravity.CENTER);
+        back.setClickable(true);
+        back.setFocusable(true);
         back.setOnClickListener(v -> finish());
-        header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
-        TextView title = title("문자 그룹", 22f);
+        header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        TextView screenTitle = title("고객 그룹", 21f);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        titleParams.leftMargin = dp(12);
-        header.addView(title, titleParams);
+        titleParams.leftMargin = dp(8);
+        header.addView(screenTitle, titleParams);
         page.addView(header, matchWrap());
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
-        actions.setPadding(dp(20), 0, dp(20), 0);
-        Button manual = button("수동 그룹", true);
+        actions.setPadding(dp(16), dp(6), dp(16), dp(8));
+        Button manual = button("수동 그룹 만들기", true);
         manual.setOnClickListener(v -> showManualEditor(null));
-        actions.addView(manual, new LinearLayout.LayoutParams(0, dp(52), 1f));
+        actions.addView(manual, new LinearLayout.LayoutParams(0, dp(48), 1f));
         Button smart = button("스마트 그룹", false);
         smart.setOnClickListener(v -> showSmartEditor(null));
-        LinearLayout.LayoutParams smartParams = new LinearLayout.LayoutParams(0, dp(52), 1f);
+        LinearLayout.LayoutParams smartParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
         smartParams.leftMargin = dp(8);
         actions.addView(smart, smartParams);
         page.addView(actions, matchWrap());
-
-        TextView guide = body("수동 그룹은 선택한 고객을 고정 저장합니다. 스마트 그룹은 캠페인을 만들 때 최신 고객 상태로 다시 계산합니다.");
-        guide.setPadding(dp(20), dp(10), dp(20), dp(10));
-        page.addView(guide, matchWrap());
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         listContainer = new LinearLayout(this);
         listContainer.setOrientation(LinearLayout.VERTICAL);
-        listContainer.setPadding(dp(20), dp(4), dp(20), dp(40));
+        listContainer.setPadding(dp(16), 0, dp(16), dp(32));
         scroll.addView(listContainer, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT));
         page.addView(scroll, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
         return page;
     }
 
     private void render() {
+        if (listContainer == null) return;
         listContainer.removeAllViews();
         List<MessageGroupStore.Group> groups = store.list();
         if (groups.isEmpty()) {
-            TextView empty = body("아직 만든 그룹이 없습니다.\n직접 고객을 고르거나 조건형 스마트 그룹을 만들어주세요.");
+            TextView empty = body("아직 만든 그룹이 없습니다.");
             empty.setGravity(Gravity.CENTER);
             empty.setBackgroundResource(R.drawable.bg_card);
-            empty.setPadding(dp(18), dp(34), dp(18), dp(34));
-            listContainer.addView(empty, matchWrap());
+            empty.setPadding(dp(18), dp(30), dp(18), dp(30));
+            listContainer.addView(empty, topMargin(10));
             return;
         }
         for (MessageGroupStore.Group group : groups) {
-            listContainer.addView(groupCard(group), topMargin(10));
+            listContainer.addView(groupCard(group), topMargin(8));
         }
     }
 
     private View groupCard(MessageGroupStore.Group group) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(16), dp(14), dp(16), dp(14));
+        card.setPadding(dp(15), dp(13), dp(15), dp(13));
         card.setBackgroundResource(R.drawable.bg_card);
 
         LinearLayout nameRow = new LinearLayout(this);
         nameRow.setGravity(Gravity.CENTER_VERTICAL);
-        nameRow.addView(title(group.name, 17f),
-                new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView name = title(group.name, 16f);
+        name.setSingleLine(true);
+        name.setEllipsize(TextUtils.TruncateAt.END);
+        nameRow.addView(name, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         TextView type = body(MessageGroupStore.TYPE_MANUAL.equals(group.type) ? "수동" : "스마트");
+        type.setTextColor(getColor(R.color.primary));
+        type.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         type.setBackgroundResource(R.drawable.bg_soft_panel);
         type.setPadding(dp(10), dp(5), dp(10), dp(5));
         nameRow.addView(type);
         card.addView(nameRow, matchWrap());
 
         int count = store.countMembers(this, group);
-        TextView rule = body(MessageGroupStore.describe(group) + " · 현재 " + count + "명");
-        card.addView(rule, topMargin(7));
+        TextView rule = body(MessageGroupStore.describe(group) + " · " + count + "명");
+        rule.setSingleLine(true);
+        rule.setEllipsize(TextUtils.TruncateAt.END);
+        card.addView(rule, topMargin(6));
 
-        LinearLayout primary = new LinearLayout(this);
-        primary.setOrientation(LinearLayout.HORIZONTAL);
-        Button campaign = button("이 그룹에 문자", true);
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        Button campaign = button("단체문자", true);
         campaign.setEnabled(count > 0);
         campaign.setAlpha(count > 0 ? 1f : 0.45f);
         campaign.setOnClickListener(v -> startActivity(new Intent(this, CampaignComposerActivity.class)
                 .putExtra(CampaignComposerActivity.EXTRA_GROUP_ID, group.id)));
-        primary.addView(campaign, new LinearLayout.LayoutParams(0, dp(48), 1f));
+        actions.addView(campaign, new LinearLayout.LayoutParams(0, dp(44), 1f));
+
         Button edit = button("수정", false);
         edit.setOnClickListener(v -> {
             if (MessageGroupStore.TYPE_MANUAL.equals(group.type)) showManualEditor(group);
             else showSmartEditor(group);
         });
-        LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
-        editParams.leftMargin = dp(8);
-        primary.addView(edit, editParams);
-        card.addView(primary, topMargin(12));
+        LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(0, dp(44), 1f);
+        editParams.leftMargin = dp(7);
+        actions.addView(edit, editParams);
 
-        Button delete = button("그룹 삭제", false);
+        Button delete = button("삭제", false);
+        delete.setTextColor(getColor(R.color.danger));
         delete.setOnClickListener(v -> confirmDelete(group));
-        LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(46));
-        deleteParams.topMargin = dp(8);
-        card.addView(delete, deleteParams);
+        LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(0, dp(44), 0.8f);
+        deleteParams.leftMargin = dp(7);
+        actions.addView(delete, deleteParams);
+        card.addView(actions, topMargin(11));
         return card;
     }
 
@@ -164,58 +177,110 @@ public final class MessageGroupActivity extends Activity {
             return;
         }
 
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        form.setPadding(dp(20), dp(4), dp(20), dp(4));
-        EditText name = input("그룹 이름");
-        name.setText(current == null ? "" : current.name);
-        form.addView(name, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(52)));
-
-        TextView selectedText = body("");
-        form.addView(selectedText, topMargin(10));
         Set<Long> selectedIds = new HashSet<>();
         if (current != null) selectedIds.addAll(store.manualMemberIds(current.id));
-        List<CheckBox> checks = new ArrayList<>();
+        List<ManualRow> rows = new ArrayList<>();
+
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(18), dp(4), dp(18), dp(4));
+
+        EditText name = input("그룹 이름");
+        name.setText(current == null ? "" : current.name);
+        content.addView(name, fixedHeight(50, 0));
+
+        EditText search = input("고객명·전화번호·상태 검색");
+        content.addView(search, fixedHeight(48, 9));
+
+        TextView selectedText = body("");
+        selectedText.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        selectedText.setTextColor(getColor(R.color.text_primary));
+
+        LinearLayout tools = new LinearLayout(this);
+        tools.setGravity(Gravity.CENTER_VERTICAL);
+        tools.addView(selectedText, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        Button selectAll = button("전체 선택", false);
+        tools.addView(selectAll, new LinearLayout.LayoutParams(dp(92), dp(42)));
+        Button clearAll = button("전체 해제", false);
+        LinearLayout.LayoutParams clearParams = new LinearLayout.LayoutParams(dp(92), dp(42));
+        clearParams.leftMargin = dp(6);
+        tools.addView(clearAll, clearParams);
+        content.addView(tools, topMargin(9));
+
         LinearLayout customerList = new LinearLayout(this);
         customerList.setOrientation(LinearLayout.VERTICAL);
         for (Customer customer : customers) {
-            CheckBox check = new CheckBox(this);
-            check.setText(customer.displayName + "\n" + customer.primaryPhone
-                    + " · " + customer.relationStatus);
-            check.setTextColor(getColor(R.color.text_primary));
-            check.setTextSize(14f);
-            check.setPadding(0, dp(7), 0, dp(7));
-            check.setTag(customer.id);
-            check.setChecked(selectedIds.contains(customer.id));
-            check.setOnCheckedChangeListener((buttonView, isChecked) -> updateSelectedCount(checks, selectedText));
-            checks.add(check);
-            customerList.addView(check, matchWrap());
-        }
-        updateSelectedCount(checks, selectedText);
-        form.addView(customerList, topMargin(4));
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(4), dp(5), dp(4), dp(5));
 
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(form);
+            CheckBox check = new CheckBox(this);
+            check.setChecked(selectedIds.contains(customer.id));
+            check.setTag(customer.id);
+            row.addView(check, new LinearLayout.LayoutParams(dp(48), dp(48)));
+
+            LinearLayout labels = new LinearLayout(this);
+            labels.setOrientation(LinearLayout.VERTICAL);
+            TextView customerName = title(customer.displayName, 14f);
+            customerName.setSingleLine(true);
+            customerName.setEllipsize(TextUtils.TruncateAt.END);
+            labels.addView(customerName, matchWrap());
+            TextView meta = body(customer.primaryPhone + " · " + customer.relationStatus);
+            meta.setSingleLine(true);
+            meta.setEllipsize(TextUtils.TruncateAt.END);
+            labels.addView(meta, topMargin(3));
+            row.addView(labels, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+            row.setClickable(true);
+            row.setFocusable(true);
+            row.setOnClickListener(v -> check.setChecked(!check.isChecked()));
+            ManualRow holder = new ManualRow(customer, row, check);
+            rows.add(holder);
+            check.setOnCheckedChangeListener((buttonView, checked) -> {
+                if (checked) selectedIds.add(customer.id);
+                else selectedIds.remove(customer.id);
+                updateSelectedCount(selectedIds, selectedText);
+            });
+            customerList.addView(row, matchWrap());
+        }
+        updateSelectedCount(selectedIds, selectedText);
+
+        search.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                filterManualRows(rows, s == null ? "" : s.toString());
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
+        selectAll.setOnClickListener(v -> setVisibleRowsChecked(rows, true));
+        clearAll.setOnClickListener(v -> setVisibleRowsChecked(rows, false));
+
+        ScrollView listScroll = new ScrollView(this);
+        listScroll.setFillViewport(true);
+        listScroll.addView(customerList, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT));
+        content.addView(listScroll, fixedHeight(360, 8));
+
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(current == null ? "수동 그룹 만들기" : "수동 그룹 수정")
-                .setView(scroll)
+                .setView(content)
                 .setPositiveButton("저장", null)
                 .setNegativeButton("취소", null)
                 .create();
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                 .setOnClickListener(v -> {
-                    List<Long> ids = new ArrayList<>();
-                    for (CheckBox check : checks) {
-                        if (check.isChecked()) ids.add((Long) check.getTag());
-                    }
-                    if (ids.isEmpty()) {
-                        Toast.makeText(this, "고객을 한 명 이상 선택해주세요.", Toast.LENGTH_SHORT).show();
+                    if (selectedIds.isEmpty()) {
+                        Toast.makeText(this, "고객을 한 명 이상 선택해주세요.",
+                                Toast.LENGTH_SHORT).show();
                         return;
                     }
                     try {
                         store.saveManual(current == null ? "" : current.id,
-                                name.getText().toString(), ids);
+                                name.getText().toString(), new ArrayList<>(selectedIds));
                         dialog.dismiss();
                         render();
                     } catch (IllegalArgumentException error) {
@@ -225,20 +290,37 @@ public final class MessageGroupActivity extends Activity {
         dialog.show();
     }
 
-    private void updateSelectedCount(List<CheckBox> checks, TextView text) {
-        int count = 0;
-        for (CheckBox check : checks) if (check.isChecked()) count++;
-        text.setText("선택한 고객 " + count + "명");
+    private void filterManualRows(List<ManualRow> rows, String rawQuery) {
+        String query = rawQuery == null ? "" : rawQuery.trim().toLowerCase(Locale.KOREA);
+        String phone = PhoneNumberNormalizer.normalize(rawQuery);
+        for (ManualRow holder : rows) {
+            Customer customer = holder.customer;
+            boolean visible = query.isEmpty()
+                    || customer.displayName.toLowerCase(Locale.KOREA).contains(query)
+                    || customer.relationStatus.toLowerCase(Locale.KOREA).contains(query)
+                    || (!phone.isEmpty()
+                    && PhoneNumberNormalizer.normalize(customer.primaryPhone).contains(phone));
+            holder.row.setVisibility(visible ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void setVisibleRowsChecked(List<ManualRow> rows, boolean checked) {
+        for (ManualRow holder : rows) {
+            if (holder.row.getVisibility() == View.VISIBLE) holder.check.setChecked(checked);
+        }
+    }
+
+    private void updateSelectedCount(Set<Long> selectedIds, TextView text) {
+        text.setText("선택 " + selectedIds.size() + "명");
     }
 
     private void showSmartEditor(MessageGroupStore.Group current) {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
-        form.setPadding(dp(20), dp(4), dp(20), dp(4));
+        form.setPadding(dp(18), dp(4), dp(18), dp(4));
         EditText name = input("그룹 이름");
         name.setText(current == null ? "" : current.name);
-        form.addView(name, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(52)));
+        form.addView(name, fixedHeight(50, 0));
 
         CallTagDbHelper crm = new CallTagDbHelper(this);
         List<StageOption> stages;
@@ -258,8 +340,7 @@ public final class MessageGroupActivity extends Activity {
         Spinner status = spinner(statusLabels);
         selectValue(status, statusValues, current == null ? "" : current.statusFilter);
         form.addView(label("고객 상태"), topMargin(14));
-        form.addView(status, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(52)));
+        form.addView(status, fixedHeight(50, 6));
 
         List<String> inactiveLabels = List.of("기간 제한 없음", "7일 이상 미접촉",
                 "30일 이상 미접촉", "90일 이상 미접촉");
@@ -270,8 +351,7 @@ public final class MessageGroupActivity extends Activity {
             if (inactiveValues[i] == currentDays) inactive.setSelection(i);
         }
         form.addView(label("최근 연락"), topMargin(12));
-        form.addView(inactive, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(52)));
+        form.addView(inactive, fixedHeight(50, 6));
 
         Switch pending = new Switch(this);
         pending.setText("미완료 일정이 있는 고객만");
@@ -288,8 +368,7 @@ public final class MessageGroupActivity extends Activity {
         selectValue(transaction, transactionValues,
                 current == null ? MessageGroupStore.TRANSACTION_ANY : current.transactionMode);
         form.addView(label("거래 여부"), topMargin(12));
-        form.addView(transaction, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(52)));
+        form.addView(transaction, fixedHeight(50, 6));
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(current == null ? "스마트 그룹 만들기" : "스마트 그룹 수정")
@@ -309,7 +388,8 @@ public final class MessageGroupActivity extends Activity {
                                 transactionValues.get(transaction.getSelectedItemPosition()));
                         int count = store.countMembers(this, saved);
                         dialog.dismiss();
-                        Toast.makeText(this, "현재 조건에 맞는 고객 " + count + "명", Toast.LENGTH_LONG).show();
+                        Toast.makeText(this, "현재 조건에 맞는 고객 " + count + "명",
+                                Toast.LENGTH_LONG).show();
                         render();
                     } catch (IllegalArgumentException error) {
                         Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
@@ -353,15 +433,15 @@ public final class MessageGroupActivity extends Activity {
         input.setHint(hint);
         input.setHintTextColor(getColor(R.color.text_muted));
         input.setTextColor(getColor(R.color.text_primary));
-        input.setTextSize(15f);
+        input.setTextSize(14f);
         input.setSingleLine(true);
-        input.setPadding(dp(14), dp(10), dp(14), dp(10));
-        input.setBackgroundResource(R.drawable.bg_secondary_button);
+        input.setPadding(dp(14), 0, dp(14), 0);
+        input.setBackgroundResource(R.drawable.bg_input);
         return input;
     }
 
     private TextView label(String value) {
-        TextView text = title(value, 14f);
+        TextView text = title(value, 13f);
         text.setTextColor(getColor(R.color.text_secondary));
         return text;
     }
@@ -381,7 +461,7 @@ public final class MessageGroupActivity extends Activity {
         text.setText(value);
         text.setTextColor(getColor(R.color.text_secondary));
         text.setTextSize(13f);
-        text.setLineSpacing(dp(3), 1f);
+        text.setIncludeFontPadding(false);
         return text;
     }
 
@@ -389,10 +469,12 @@ public final class MessageGroupActivity extends Activity {
         Button button = new Button(this);
         button.setText(value);
         button.setAllCaps(false);
-        button.setTextSize(14f);
+        button.setTextSize(13f);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setTextColor(getColor(R.color.text_primary));
-        button.setBackgroundResource(primary ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        button.setTextColor(getColor(primary ? android.R.color.white : R.color.text_primary));
+        button.setBackgroundResource(primary
+                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        button.setMinWidth(0);
         return button;
     }
 
@@ -408,6 +490,13 @@ public final class MessageGroupActivity extends Activity {
         return params;
     }
 
+    private LinearLayout.LayoutParams fixedHeight(int height, int topMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(height));
+        params.topMargin = dp(topMargin);
+        return params;
+    }
+
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
@@ -416,5 +505,17 @@ public final class MessageGroupActivity extends Activity {
     protected void onDestroy() {
         if (store != null) store.close();
         super.onDestroy();
+    }
+
+    private static final class ManualRow {
+        final Customer customer;
+        final View row;
+        final CheckBox check;
+
+        ManualRow(Customer customer, View row, CheckBox check) {
+            this.customer = customer;
+            this.row = row;
+            this.check = check;
+        }
     }
 }
