@@ -3,6 +3,7 @@ package kr.pagero.calltag;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
+import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
@@ -42,27 +43,36 @@ public final class CustomerListView extends LinearLayout {
 
         if (!(child instanceof LinearLayout)) return;
         LinearLayout card = (LinearLayout) child;
-        card.setPadding(dp(14), dp(12), dp(14), dp(12));
+        card.setPadding(dp(14), dp(13), dp(14), dp(13));
         card.setClickable(false);
         card.setFocusable(false);
-        card.setMinimumHeight(dp(126));
+        card.setMinimumHeight(dp(154));
         decorateCustomerCard(card);
 
         if (params instanceof LinearLayout.LayoutParams) {
-            ((LinearLayout.LayoutParams) params).bottomMargin = dp(8);
+            ((LinearLayout.LayoutParams) params).bottomMargin = dp(9);
         }
     }
 
     private void decorateCustomerCard(LinearLayout card) {
         String phone = "";
+        TextView phoneView = null;
+        TextView recentView = null;
         LinearLayout actions = null;
         LinearLayout header = null;
+
         for (int i = 0; i < card.getChildCount(); i++) {
             View child = card.getChildAt(i);
             if (i == 0 && child instanceof LinearLayout) header = (LinearLayout) child;
             if (child instanceof TextView) {
-                String candidate = String.valueOf(((TextView) child).getText()).trim();
-                if (PhoneNumberNormalizer.normalize(candidate).length() >= 8) phone = candidate;
+                TextView text = (TextView) child;
+                String candidate = String.valueOf(text.getText()).trim();
+                if (PhoneNumberNormalizer.normalize(candidate).length() >= 8) {
+                    phone = candidate;
+                    phoneView = text;
+                } else if (candidate.startsWith("최근 연락")) {
+                    recentView = text;
+                }
             }
             if (child instanceof LinearLayout
                     && ((LinearLayout) child).getOrientation() == LinearLayout.HORIZONTAL) {
@@ -70,24 +80,56 @@ public final class CustomerListView extends LinearLayout {
                 if (row.getChildCount() >= 2 && row.getChildAt(0) instanceof Button) actions = row;
             }
         }
-        if (phone.isEmpty()) return;
+        if (phone.isEmpty() || phoneView == null) return;
 
-        Customer customer = null;
+        Customer customer;
+        String memo = "";
         CallTagDbHelper db = new CallTagDbHelper(getContext());
         try {
             customer = db.findByPhone(phone);
+            if (customer != null) memo = CustomerInsightResolver.latestMemo(db, customer);
         } finally {
             db.close();
         }
 
-        if (header != null && customer != null && !hasSourceBadge(header)) {
-            TextView source = CustomerSourceBadge.create(
-                    getContext(), CustomerSourceResolver.label(getContext(), customer));
+        removeOldSourceBadges(header);
+        if (phoneView.getParent() == card) card.removeView(phoneView);
+        if (recentView != null && recentView.getParent() == card) card.removeView(recentView);
+
+        LinearLayout contactRow = new LinearLayout(getContext());
+        contactRow.setOrientation(HORIZONTAL);
+        contactRow.setGravity(Gravity.CENTER_VERTICAL);
+        phoneView.setSingleLine(true);
+        phoneView.setEllipsize(TextUtils.TruncateAt.END);
+        phoneView.setTextSize(14f);
+        contactRow.addView(phoneView, new LinearLayout.LayoutParams(
+                0, LayoutParams.WRAP_CONTENT, 1f));
+
+        if (customer != null && CustomerSourceResolver.isPagero(customer)) {
+            TextView source = CustomerSourceBadge.create(getContext(), "페이지로");
             LinearLayout.LayoutParams sourceParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT, dp(28));
-            sourceParams.leftMargin = dp(6);
-            int index = Math.max(1, header.getChildCount() - 1);
-            header.addView(source, index, sourceParams);
+                    LayoutParams.WRAP_CONTENT, dp(28));
+            sourceParams.leftMargin = dp(8);
+            contactRow.addView(source, sourceParams);
+        }
+        card.addView(contactRow, Math.min(1, card.getChildCount()), topMargin(9));
+
+        TextView memoView = new TextView(getContext());
+        String compactMemo = compact(memo);
+        memoView.setText(compactMemo.isEmpty() ? "메모 없음" : "메모 · " + compactMemo);
+        memoView.setTextColor(getContext().getColor(compactMemo.isEmpty()
+                ? R.color.text_muted : R.color.text_secondary));
+        memoView.setTextSize(13f);
+        memoView.setSingleLine(true);
+        memoView.setEllipsize(TextUtils.TruncateAt.END);
+        memoView.setIncludeFontPadding(false);
+        card.addView(memoView, Math.min(2, card.getChildCount()), topMargin(7));
+
+        if (recentView != null) {
+            recentView.setSingleLine(true);
+            recentView.setEllipsize(TextUtils.TruncateAt.END);
+            recentView.setTextSize(12.5f);
+            card.addView(recentView, Math.min(3, card.getChildCount()), topMargin(6));
         }
 
         if (actions == null || hasMessageButton(actions)) return;
@@ -115,11 +157,19 @@ public final class CustomerListView extends LinearLayout {
         }
     }
 
-    private boolean hasSourceBadge(LinearLayout row) {
-        for (int i = 0; i < row.getChildCount(); i++) {
-            if ("customer_source_badge".equals(row.getChildAt(i).getTag())) return true;
+    private void removeOldSourceBadges(LinearLayout row) {
+        if (row == null) return;
+        for (int i = row.getChildCount() - 1; i >= 0; i--) {
+            if ("customer_source_badge".equals(row.getChildAt(i).getTag())) {
+                row.removeViewAt(i);
+            }
         }
-        return false;
+    }
+
+    private String compact(String value) {
+        if (value == null) return "";
+        String safe = value.trim().replaceAll("\\s+", " ");
+        return safe.length() <= 52 ? safe : safe.substring(0, 49) + "…";
     }
 
     private boolean hasMessageButton(LinearLayout row) {
@@ -146,6 +196,13 @@ public final class CustomerListView extends LinearLayout {
                 .putExtra(ManualMessageActivity.EXTRA_PHONE, phone)
                 .putExtra(ManualMessageActivity.EXTRA_CUSTOMER_ID, customerId);
         getContext().startActivity(intent);
+    }
+
+    private LayoutParams topMargin(int value) {
+        LayoutParams params = new LayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        params.topMargin = dp(value);
+        return params;
     }
 
     private int dp(int value) {
