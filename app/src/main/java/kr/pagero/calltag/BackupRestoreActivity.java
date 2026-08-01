@@ -7,8 +7,8 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.view.Gravity;
-import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -39,14 +39,14 @@ public final class BackupRestoreActivity extends Activity {
         renderStatus();
     }
 
-    private View buildContent() {
+    private ScrollView buildContent() {
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setBackgroundColor(getColor(R.color.background));
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(18), dp(20), dp(42));
+        root.setPadding(dp(16), dp(10), dp(16), dp(36));
         scroll.addView(root, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
@@ -54,47 +54,50 @@ public final class BackupRestoreActivity extends Activity {
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
         Button back = button("‹", false);
-        back.setTextSize(28f);
+        back.setTextSize(27f);
         back.setOnClickListener(v -> {
             if (!working) finish();
         });
-        header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
-        TextView title = title("백업 및 복원", 22f);
+        header.addView(back, new LinearLayout.LayoutParams(dp(46), dp(46)));
+        TextView title = title("백업 및 복원", 21f);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        titleParams.leftMargin = dp(12);
+        titleParams.leftMargin = dp(10);
         header.addView(title, titleParams);
         root.addView(header, matchWrap());
 
-        LinearLayout notice = card();
-        notice.addView(title("콜태그 전용 암호화 백업", 17f), matchWrap());
-        notice.addView(body("고객·통화·일정·문자·그룹·캠페인·템플릿 이미지를 하나의 .ctbackup 파일로 보관합니다."), topMargin(8));
-        notice.addView(body("로그인 세션과 결제 권한은 백업하지 않습니다. 새 기기에서는 본인 계정으로 다시 로그인해야 합니다."), topMargin(7));
-        notice.addView(body("이 기능은 CSV·엑셀·고객 목록 내보내기가 아닙니다."), topMargin(7));
-        root.addView(notice, topMargin(18));
+        TextView label = title("최근 상태", 13f);
+        label.setTextColor(getColor(R.color.text_secondary));
+        root.addView(label, topMargin(16));
+
+        statusView = body("기록을 확인하는 중입니다");
+        statusView.setTextIsSelectable(true);
+        statusView.setMaxLines(4);
+        statusView.setEllipsize(TextUtils.TruncateAt.END);
+        statusView.setBackgroundResource(R.drawable.bg_card);
+        statusView.setPadding(dp(14), dp(13), dp(14), dp(13));
+        root.addView(statusView, topMargin(8));
 
         createButton = button("암호화 백업 만들기", true);
         createButton.setOnClickListener(v -> showBackupPasswordDialog());
-        root.addView(createButton, fixedHeight(54, 18));
+        root.addView(createButton, fixedHeight(52, 16));
 
         restoreButton = button("백업 파일 복원", false);
         restoreButton.setOnClickListener(v -> chooseRestoreFile());
-        root.addView(restoreButton, fixedHeight(54, 10));
+        root.addView(restoreButton, fixedHeight(50, 8));
 
-        LinearLayout warning = card();
-        TextView warningTitle = title("복원 전 확인", 16f);
-        warningTitle.setTextColor(getColor(R.color.danger));
-        warning.addView(warningTitle, matchWrap());
-        warning.addView(body("복원은 현재 데이터와 백업 데이터를 합치지 않습니다. 현재 고객·문자·일정·캠페인 데이터를 백업 시점 데이터로 교체합니다."), topMargin(8));
-        warning.addView(body("복원 직전 현재 데이터는 앱 내부 롤백 스냅샷으로 보존되며, 실패하면 자동으로 되돌립니다."), topMargin(7));
+        TextView format = body("콜태그 전용 .ctbackup · 로그인과 결제 권한은 제외");
+        format.setGravity(Gravity.CENTER);
+        format.setSingleLine(true);
+        format.setEllipsize(TextUtils.TruncateAt.END);
+        root.addView(format, topMargin(10));
+
+        TextView warning = body("복원하면 현재 데이터가 백업 시점 데이터로 교체됩니다");
+        warning.setTextColor(getColor(R.color.danger));
+        warning.setGravity(Gravity.CENTER_VERTICAL);
+        warning.setPadding(dp(14), dp(11), dp(14), dp(11));
+        warning.setBackgroundResource(R.drawable.bg_soft_panel);
         root.addView(warning, topMargin(18));
-
-        root.addView(title("최근 작업", 17f), topMargin(24));
-        statusView = body("기록을 확인하는 중입니다.");
-        statusView.setTextIsSelectable(true);
-        statusView.setBackgroundResource(R.drawable.bg_card);
-        statusView.setPadding(dp(16), dp(14), dp(16), dp(14));
-        root.addView(statusView, topMargin(10));
         return scroll;
     }
 
@@ -108,7 +111,7 @@ public final class BackupRestoreActivity extends Activity {
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("백업 암호 설정")
-                .setMessage("암호는 콜태그에 저장되지 않습니다. 암호를 잊으면 복원할 수 없습니다.")
+                .setMessage("암호는 저장되지 않습니다. 잊으면 복원할 수 없습니다.")
                 .setView(form)
                 .setNegativeButton("취소", null)
                 .setPositiveButton("파일 선택", null)
@@ -186,7 +189,6 @@ public final class BackupRestoreActivity extends Activity {
         form.addView(password, matchWrap());
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("백업 암호 입력")
-                .setMessage("선택한 .ctbackup 파일의 암호를 입력해주세요.")
                 .setView(form)
                 .setNegativeButton("취소", (ignored, which) -> pendingRestoreUri = null)
                 .setPositiveButton("다음", null)
@@ -211,7 +213,7 @@ public final class BackupRestoreActivity extends Activity {
         pendingRestoreUri = null;
         new AlertDialog.Builder(this)
                 .setTitle("현재 데이터를 교체할까요?")
-                .setMessage("현재 고객·상담·일정·문자·그룹·캠페인 데이터가 백업 시점으로 교체됩니다. 복원 직전 현재 데이터는 자동 롤백용으로 먼저 보존합니다.")
+                .setMessage("현재 고객·일정·문자·캠페인 데이터가 백업 시점으로 교체됩니다. 실패하면 복원 전 데이터로 자동 롤백합니다.")
                 .setNegativeButton("취소", (dialog, which) -> Arrays.fill(password, '\0'))
                 .setPositiveButton("복원 시작", (dialog, which) -> runRestore(source, password))
                 .show();
@@ -232,8 +234,7 @@ public final class BackupRestoreActivity extends Activity {
                     renderStatus();
                     new AlertDialog.Builder(this)
                             .setTitle("백업 완료")
-                            .setMessage(result.summary()
-                                    + "\n\n선택한 위치에 콜태그 전용 암호화 파일을 저장했습니다.")
+                            .setMessage(result.summary())
                             .setPositiveButton("확인", null)
                             .show();
                 });
@@ -267,12 +268,11 @@ public final class BackupRestoreActivity extends Activity {
                         message += "\n백업 앱 버전 " + result.backupAppVersion;
                     }
                     if (result.missingImageCount > 0) {
-                        message += "\n\n참조된 이미지 " + result.missingImageCount
-                                + "개가 백업에 없어 해당 템플릿은 이미지 없이 표시됩니다.";
+                        message += "\n이미지 누락 " + result.missingImageCount + "개";
                     }
                     new AlertDialog.Builder(this)
                             .setTitle("복원 완료")
-                            .setMessage(message + "\n\n새 데이터로 화면을 다시 시작합니다.")
+                            .setMessage(message)
                             .setCancelable(false)
                             .setPositiveButton("앱 다시 시작", (dialog, which) -> restartApp())
                             .show();
@@ -322,8 +322,7 @@ public final class BackupRestoreActivity extends Activity {
     private LinearLayout dialogForm() {
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
-        int horizontal = dp(24);
-        form.setPadding(horizontal, dp(8), horizontal, 0);
+        form.setPadding(dp(24), dp(8), dp(24), 0);
         return form;
     }
 
@@ -341,14 +340,6 @@ public final class BackupRestoreActivity extends Activity {
         return input;
     }
 
-    private LinearLayout card() {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(16), dp(14), dp(16), dp(14));
-        card.setBackgroundResource(R.drawable.bg_card);
-        return card;
-    }
-
     private TextView title(String value, float size) {
         TextView text = new TextView(this);
         text.setText(value);
@@ -363,18 +354,17 @@ public final class BackupRestoreActivity extends Activity {
         TextView text = new TextView(this);
         text.setText(value);
         text.setTextColor(getColor(R.color.text_secondary));
-        text.setTextSize(13f);
-        text.setLineSpacing(dp(3), 1f);
+        text.setTextSize(12f);
+        text.setIncludeFontPadding(false);
         return text;
     }
 
     private Button button(String value, boolean primary) {
         Button button = new Button(this);
         button.setText(value);
-        button.setAllCaps(false);
-        button.setTextSize(14f);
+        button.setTextSize(13f);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setTextColor(getColor(primary ? R.color.background : R.color.text_primary));
+        button.setTextColor(getColor(primary ? android.R.color.white : R.color.text_primary));
         button.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
         return button;
