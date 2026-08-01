@@ -4,8 +4,10 @@
 
 ## 먼저 읽을 문서
 
-- [`docs/DEVELOPMENT_STATUS_AND_ROADMAP_KO.md`](docs/DEVELOPMENT_STATUS_AND_ROADMAP_KO.md) — **최신 구현 상태·남은 패치·인수인계 정본**
+- [`docs/DEVELOPMENT_STATUS_AND_ROADMAP_KO.md`](docs/DEVELOPMENT_STATUS_AND_ROADMAP_KO.md) — 최신 구현 상태·남은 패치·인수인계 정본
 - [`docs/PRODUCT_SPEC_KO.md`](docs/PRODUCT_SPEC_KO.md) — 현재 제품 정의
+- [`docs/DESIGN_SYSTEM_KO.md`](docs/DESIGN_SYSTEM_KO.md) — 현재 Android UX/UI 규격
+- [`docs/UX_UI_FULL_AUDIT_V037_KO.md`](docs/UX_UI_FULL_AUDIT_V037_KO.md) — 0.37.0 전체 UX/UI 재검토
 - [`docs/PATCH_14_BACKUP_RESTORE_PLAN_KO.md`](docs/PATCH_14_BACKUP_RESTORE_PLAN_KO.md) — 암호화 백업·복원 상세 기준
 
 기획 문서에 적혀 있다는 이유만으로 구현 완료로 판단하지 않습니다. 코드, 버전, 기능 커밋과 빌드 결과가 확인된 항목만 코드 완료입니다. APK 빌드 성공과 실제 휴대전화 검증 성공도 구분합니다.
@@ -29,18 +31,19 @@
 
 ## 현재 Android 상태
 
-- versionName: `0.33.0`
-- versionCode: `35`
+- versionName: `0.37.0`
+- versionCode: `43`
 - 최소 Android: API 26
-- 14차 기능 HEAD: `91e300ca27c824ff0785d2db35e64fb66252d61e`
+- 전체 UX/UI 재검토 HEAD: `e66ed614b99a02a37bbfe1183fcbc97c4c7b6691`
 - 검증 Workflow: `Validate CallTag Android`
-- Run ID: `30646727731`
-- Job ID: `91209824186`
-- 결과: Java 컴파일·Debug APK 패키징·아티팩트 업로드 성공
-- Artifact ID: `8799741185`
-- digest: `sha256:2e8134adf50095665fd040725209cf0f42eb956cfe9dbe76a78ceb8970cfe112`
+- Run ID: `30702742334`
+- Job ID: `91376476438`
+- 결과: Android 리소스 처리·Java 컴파일·Debug APK 패키징·아티팩트 업로드 성공
+- Artifact ID: `8819355151`
+- Artifact digest: `sha256:fec354970beb88de0fc9fd0a37d01f721a7c29557fd8b57205d3adf1a4c11cb5`
+- 실제 APK SHA-256: `c52b2b587415b9788ffba5a1752083e7c506a7abfc12faf47c7cefb236368476`
 
-임시 Android 검증 PR `#7`은 병합하지 않고 닫았습니다. 개발 PR `#1`은 계속 Draft·미병합 상태입니다.
+임시 Android 검증 PR `#15`는 병합하지 않고 닫았습니다. 개발 PR `#1`은 계속 Draft·미병합 상태입니다.
 
 ## 구현 완료 패치
 
@@ -61,12 +64,30 @@
 | 13 | DB 정합성·고아 작업·남은 알람 복구 | 0.32.0 |
 | 14 | 앱 데이터 암호화 백업·복원 | 0.33.0 |
 
-## 14차 백업·복원
+## 0.37.0 전체 UX/UI 재검토
+
+- 고객 / 캘린더 / 홈 / 통계 / 더보기 5개 내비게이션 유지
+- 파란색 1개와 무채색 중심으로 전 화면 색상 통일
+- 보조 버튼의 반복 테두리 제거
+- 앱바 56dp, 화면 제목 21~22sp, 본문 좌우 16dp 규격 통일
+- 고객 문자 탭을 `고객 선택 후 문자`와 목록형 관리 메뉴로 재구성
+- 고객 상세·고객 추가·문자 작성·템플릿 편집 화면 밀도 축소
+- 발송 내역 본문·오류·행동 compact화
+- 그룹·단체문자 허브와 생성·목록·상세 흐름 재구성
+- 계정 화면을 내 계정 / 앱 및 데이터 / 약관 / 계정 관리로 구분
+- 진단 상세 보고서와 실기기 체크리스트 접이식 전환
+- 백업·복원 화면을 최근 상태와 두 행동 중심으로 재구성
+- 통화 종료 3열 결과와 하단 고정 저장 버튼 구조 유지
+- 메시지 발송 안전 정책과 DB 구조 변경 없음
+
+## 암호화 백업·복원
 
 경로:
 
 ```text
-계정 및 개인정보
+더보기
+→ 앱·계정
+→ 계정 및 개인정보
 → 백업 및 복원
 ```
 
@@ -87,8 +108,6 @@
 
 ## 데이터 정책
 
-백업·복원은 같은 콜태그 앱에서 장애·기기 변경·데이터 손상을 복구하는 기능입니다.
-
 현재 구현 금지:
 
 - CSV·XLSX 내보내기
@@ -97,7 +116,7 @@
 - 범용 연락처 파일
 - 외부 CRM 이전용 데이터
 
-데이터 내보내기는 추후 별도 유료 기능으로만 기획합니다. `.ctbackup`을 일반 업무 데이터 파일로 변환하는 기능도 넣지 않습니다.
+백업·복원은 같은 콜태그 앱에서 장애·기기 변경·데이터 손상을 복구하기 위한 기능입니다. `.ctbackup`을 일반 업무 데이터 파일로 변환하지 않습니다.
 
 ## 남은 패치
 
@@ -106,7 +125,7 @@
 17. 결제·구독·운영 권한 검증
 18. Android 8~15 전체 QA·릴리스 서명·AAB 검증
 
-다음 신규 코드 패치는 **15차 캠페인 수신자 관리**입니다.
+다음 신규 기능 패치는 **15차 캠페인 수신자 관리**입니다.
 
 ## 작업 규칙
 
