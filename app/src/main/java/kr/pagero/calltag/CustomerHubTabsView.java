@@ -2,13 +2,14 @@ package kr.pagero.calltag;
 
 import android.content.Context;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-/** 고객 목록과 고객 연결 문자를 전환하는 상단 탭. */
+/** 고객 목록과 고객 연결 문자를 전환하는 compact 세그먼트 탭. */
 public final class CustomerHubTabsView extends LinearLayout {
     private TextView customersTab;
     private TextView messagesTab;
@@ -30,14 +31,14 @@ public final class CustomerHubTabsView extends LinearLayout {
 
     private void init() {
         setOrientation(HORIZONTAL);
-        setPadding(dp(4), dp(4), dp(4), dp(4));
+        setPadding(dp(3), dp(3), dp(3), dp(3));
         setBackgroundResource(R.drawable.bg_soft_panel);
 
         customersTab = tab("고객");
         messagesTab = tab("문자");
-        addView(customersTab, new LayoutParams(0, dp(46), 1f));
-        LayoutParams messageParams = new LayoutParams(0, dp(46), 1f);
-        messageParams.leftMargin = dp(6);
+        addView(customersTab, new LayoutParams(0, dp(38), 1f));
+        LayoutParams messageParams = new LayoutParams(0, dp(38), 1f);
+        messageParams.leftMargin = dp(4);
         addView(messagesTab, messageParams);
 
         customersTab.setOnClickListener(v -> showCustomers());
@@ -69,18 +70,22 @@ public final class CustomerHubTabsView extends LinearLayout {
         TextView view = new TextView(getContext());
         view.setText(label);
         view.setGravity(Gravity.CENTER);
-        view.setTextSize(16f);
+        view.setTextSize(14f);
         view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        view.setIncludeFontPadding(false);
         view.setClickable(true);
         view.setFocusable(true);
         return view;
     }
 
     private void style(TextView tab, boolean selected) {
-        tab.setBackgroundResource(selected
-                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        GradientDrawable background = new GradientDrawable();
+        background.setCornerRadius(dp(10));
+        background.setColor(getContext().getColor(selected
+                ? R.color.primary_soft : android.R.color.transparent));
+        tab.setBackground(background);
         tab.setTextColor(getContext().getColor(selected
-                ? android.R.color.white : R.color.text_primary));
+                ? R.color.primary : R.color.text_secondary));
     }
 
     private int dp(int value) {
