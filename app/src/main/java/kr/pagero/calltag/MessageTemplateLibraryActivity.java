@@ -7,6 +7,7 @@ import android.graphics.Bitmap;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.Editable;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
@@ -20,7 +21,7 @@ import android.widget.Toast;
 
 import java.util.List;
 
-/** 토글 없이 이름·본문·이미지를 한 화면에서 바로 확인하는 템플릿 목록. */
+/** 이름과 본문 미리보기 중심의 compact 템플릿 목록. */
 public final class MessageTemplateLibraryActivity extends Activity {
     public static final String EXTRA_SELECT_MODE = "select_mode";
     public static final String EXTRA_PURPOSE_FILTER = "purpose_filter";
@@ -57,33 +58,32 @@ public final class MessageTemplateLibraryActivity extends Activity {
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(20), dp(16), dp(20), dp(12));
+        header.setPadding(dp(16), dp(10), dp(16), dp(8));
         Button back = button("‹", false);
-        back.setTextSize(28f);
+        back.setTextSize(27f);
         back.setOnClickListener(v -> finish());
-        header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
+        header.addView(back, new LinearLayout.LayoutParams(dp(46), dp(46)));
 
-        TextView title = title(selectMode ? "템플릿 선택" : "문자 템플릿", 22f);
+        TextView title = title(selectMode ? "템플릿 선택" : "문자 템플릿", 21f);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        titleParams.leftMargin = dp(12);
+        titleParams.leftMargin = dp(10);
         header.addView(title, titleParams);
 
         if (!selectMode) {
             Button add = button("+ 추가", true);
             add.setOnClickListener(v -> openEditor(null));
-            header.addView(add, new LinearLayout.LayoutParams(dp(96), dp(48)));
+            header.addView(add, new LinearLayout.LayoutParams(dp(84), dp(44)));
         }
         page.addView(header, matchWrap());
 
         LinearLayout tools = new LinearLayout(this);
-        tools.setOrientation(LinearLayout.HORIZONTAL);
         tools.setGravity(Gravity.CENTER_VERTICAL);
-        tools.setPadding(dp(20), 0, dp(20), dp(12));
+        tools.setPadding(dp(16), 0, dp(16), dp(10));
         searchInput = new EditText(this);
         searchInput.setHint("템플릿 검색");
         searchInput.setSingleLine(true);
-        searchInput.setTextSize(15f);
+        searchInput.setTextSize(14f);
         searchInput.setTextColor(getColor(R.color.text_primary));
         searchInput.setHintTextColor(getColor(R.color.text_muted));
         searchInput.setBackgroundResource(R.drawable.bg_input);
@@ -95,11 +95,11 @@ public final class MessageTemplateLibraryActivity extends Activity {
             }
             @Override public void afterTextChanged(Editable s) {}
         });
-        tools.addView(searchInput, new LinearLayout.LayoutParams(0, dp(50), 1f));
+        tools.addView(searchInput, new LinearLayout.LayoutParams(0, dp(46), 1f));
 
         countText = body("");
         countText.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams countParams = new LinearLayout.LayoutParams(dp(62), dp(50));
+        LinearLayout.LayoutParams countParams = new LinearLayout.LayoutParams(dp(52), dp(46));
         countParams.leftMargin = dp(8);
         tools.addView(countText, countParams);
         page.addView(tools, matchWrap());
@@ -108,7 +108,7 @@ public final class MessageTemplateLibraryActivity extends Activity {
         scroll.setFillViewport(true);
         listContainer = new LinearLayout(this);
         listContainer.setOrientation(LinearLayout.VERTICAL);
-        listContainer.setPadding(dp(20), 0, dp(20), dp(40));
+        listContainer.setPadding(dp(16), 0, dp(16), dp(32));
         scroll.addView(listContainer, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
@@ -130,87 +130,99 @@ public final class MessageTemplateLibraryActivity extends Activity {
             TextView empty = body("템플릿이 없습니다.");
             empty.setGravity(Gravity.CENTER);
             empty.setBackgroundResource(R.drawable.bg_card);
-            empty.setPadding(dp(18), dp(34), dp(18), dp(34));
+            empty.setPadding(dp(18), dp(28), dp(18), dp(28));
             listContainer.addView(empty, matchWrap());
             return;
         }
 
         for (MessageTemplateStore.Template template : templates) {
-            listContainer.addView(templateCard(template), topMargin(10));
+            listContainer.addView(templateCard(template), topMargin(7));
         }
     }
 
     private View templateCard(MessageTemplateStore.Template template) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(16), dp(14), dp(16), dp(14));
-        card.setBackgroundResource(R.drawable.bg_card);
+        card.setPadding(dp(15), dp(13), dp(15), dp(13));
+        card.setBackgroundResource(selectMode
+                ? R.drawable.bg_clickable_row : R.drawable.bg_card);
 
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        TextView name = title(template.name, 17f);
+        TextView name = title(template.name, 16f);
+        name.setSingleLine(true);
+        name.setEllipsize(TextUtils.TruncateAt.END);
         top.addView(name, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         if (MessageTemplateStore.isDefault(this, template.id)) {
-            top.addView(badge("자동문자 사용 중"), badgeParams(104));
+            top.addView(badge("자동문자"), badgeParams(70));
         }
         if (MessageAttachmentStore.exists(this, template.imageRef)) {
-            LinearLayout.LayoutParams imageBadge = badgeParams(56);
-            imageBadge.leftMargin = dp(6);
+            LinearLayout.LayoutParams imageBadge = badgeParams(50);
+            imageBadge.leftMargin = dp(5);
             top.addView(badge("이미지"), imageBadge);
+        }
+        if (selectMode) {
+            TextView arrow = title("›", 23f);
+            arrow.setTextColor(getColor(R.color.text_muted));
+            arrow.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams arrowParams = new LinearLayout.LayoutParams(dp(28), dp(36));
+            arrowParams.leftMargin = dp(4);
+            top.addView(arrow, arrowParams);
         }
         card.addView(top, matchWrap());
 
+        LinearLayout previewRow = new LinearLayout(this);
+        previewRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView preview = body(template.body);
-        preview.setTextColor(getColor(R.color.text_primary));
-        preview.setTextSize(14f);
-        preview.setMaxLines(4);
-        preview.setLineSpacing(0f, 1.25f);
-        preview.setPadding(0, dp(10), 0, 0);
-        card.addView(preview, matchWrap());
+        preview.setTextColor(getColor(R.color.text_secondary));
+        preview.setTextSize(13f);
+        preview.setMaxLines(2);
+        preview.setEllipsize(TextUtils.TruncateAt.END);
+        preview.setLineSpacing(0f, 1.15f);
+        previewRow.addView(preview, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
         if (MessageAttachmentStore.exists(this, template.imageRef)) {
             Bitmap bitmap = MessageAttachmentStore.preview(this, template.imageRef);
             ImageView image = new ImageView(this);
             image.setImageBitmap(bitmap);
-            image.setAdjustViewBounds(true);
             image.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dp(150));
-            imageParams.topMargin = dp(10);
-            card.addView(image, imageParams);
+            LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(dp(52), dp(52));
+            imageParams.leftMargin = dp(10);
+            previewRow.addView(image, imageParams);
         }
+        card.addView(previewRow, topMargin(7));
 
         if (selectMode) {
             card.setClickable(true);
             card.setFocusable(true);
             card.setOnClickListener(v -> choose(template));
-            Button choose = button("이 템플릿 선택", true);
-            choose.setOnClickListener(v -> choose(template));
-            card.addView(choose, actionParams(14));
         } else {
             LinearLayout actions = new LinearLayout(this);
-            actions.setOrientation(LinearLayout.HORIZONTAL);
-
             Button edit = button("수정", true);
             edit.setOnClickListener(v -> openEditor(template));
-            actions.addView(edit, new LinearLayout.LayoutParams(0, dp(48), 1f));
+            actions.addView(edit, new LinearLayout.LayoutParams(0, dp(44), 1f));
 
-            Button duplicate = button("복제", false);
-            duplicate.setOnClickListener(v -> duplicate(template));
-            LinearLayout.LayoutParams duplicateParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
-            duplicateParams.leftMargin = dp(7);
-            actions.addView(duplicate, duplicateParams);
-
-            Button delete = button("삭제", false);
-            delete.setTextColor(getColor(R.color.danger));
-            delete.setOnClickListener(v -> confirmDelete(template));
-            LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
-            deleteParams.leftMargin = dp(7);
-            actions.addView(delete, deleteParams);
-            card.addView(actions, topMargin(14));
+            Button more = button("더보기", false);
+            more.setOnClickListener(v -> showMore(template));
+            LinearLayout.LayoutParams moreParams = new LinearLayout.LayoutParams(0, dp(44), 1f);
+            moreParams.leftMargin = dp(7);
+            actions.addView(more, moreParams);
+            card.addView(actions, topMargin(11));
         }
         return card;
+    }
+
+    private void showMore(MessageTemplateStore.Template template) {
+        new AlertDialog.Builder(this)
+                .setTitle(template.name)
+                .setItems(new String[]{"복제", "삭제"}, (dialog, which) -> {
+                    if (which == 0) duplicate(template);
+                    else confirmDelete(template);
+                })
+                .setNegativeButton("닫기", null)
+                .show();
     }
 
     private void openEditor(MessageTemplateStore.Template template) {
@@ -280,7 +292,7 @@ public final class MessageTemplateLibraryActivity extends Activity {
     }
 
     private LinearLayout.LayoutParams badgeParams(int width) {
-        return new LinearLayout.LayoutParams(dp(width), dp(28));
+        return new LinearLayout.LayoutParams(dp(width), dp(26));
     }
 
     private Button button(String value, boolean primary) {
@@ -313,13 +325,6 @@ public final class MessageTemplateLibraryActivity extends Activity {
         text.setTextSize(13f);
         text.setIncludeFontPadding(false);
         return text;
-    }
-
-    private LinearLayout.LayoutParams actionParams(int top) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(50));
-        params.topMargin = dp(top);
-        return params;
     }
 
     private LinearLayout.LayoutParams matchWrap() {
