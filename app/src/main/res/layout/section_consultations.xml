@@ -17,20 +17,38 @@
         android:paddingRight="16dp"
         android:paddingBottom="96dp">
 
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:includeFontPadding="false"
-            android:text="캘린더"
-            android:textColor="@color/text_primary"
-            android:textSize="22sp"
-            android:textStyle="bold" />
+            android:layout_height="46dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:includeFontPadding="false"
+                android:text="캘린더"
+                android:textColor="@color/text_primary"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <kr.pagero.calltag.CalendarShareLauncherView
+                android:layout_width="132dp"
+                android:layout_height="42dp"
+                android:background="@drawable/bg_secondary_button"
+                android:gravity="center"
+                android:text="외부 캘린더 추가"
+                android:textColor="@color/primary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
         <LinearLayout
             android:id="@+id/consultationSummary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
             android:orientation="vertical" />
     </LinearLayout>
 </ScrollView>
