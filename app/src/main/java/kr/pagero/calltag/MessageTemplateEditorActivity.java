@@ -7,6 +7,7 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -60,7 +61,7 @@ public final class MessageTemplateEditorActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(18), dp(20), dp(40));
+        root.setPadding(dp(16), dp(10), dp(16), dp(36));
         scroll.addView(root, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
@@ -68,69 +69,69 @@ public final class MessageTemplateEditorActivity extends Activity {
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
         Button back = button("‹", false);
-        back.setTextSize(28f);
+        back.setTextSize(27f);
         back.setOnClickListener(v -> finish());
-        header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
-        TextView title = title(current == null ? "새 템플릿" : "템플릿 수정", 22f);
+        header.addView(back, new LinearLayout.LayoutParams(dp(46), dp(46)));
+        TextView title = title(current == null ? "새 템플릿" : "템플릿 수정", 21f);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        titleParams.leftMargin = dp(12);
+        titleParams.leftMargin = dp(10);
         header.addView(title, titleParams);
         root.addView(header, matchWrap());
 
-        root.addView(label("템플릿 이름"), topMargin(22));
+        root.addView(label("이름"), topMargin(18));
         nameInput = input("예: 예약 안내", false);
-        root.addView(nameInput, fieldParams());
+        root.addView(nameInput, fixedHeight(50, 7));
 
         root.addView(label("문자 내용"), topMargin(18));
-        bodyInput = input("문자 내용을 입력해주세요.", true);
+        bodyInput = input("문자 내용을 입력해주세요", true);
         bodyInput.setGravity(Gravity.TOP | Gravity.START);
-        bodyInput.setMinLines(7);
+        bodyInput.setMinLines(5);
         bodyInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(220));
-        bodyParams.topMargin = dp(8);
-        root.addView(bodyInput, bodyParams);
+        root.addView(bodyInput, fixedHeight(170, 7));
 
-        TextView variables = body("사용 가능: " + MessageTemplateEngine.supportedVariablesLabel());
-        root.addView(variables, topMargin(8));
+        TextView variables = body("변수 · " + MessageTemplateEngine.supportedVariablesLabel());
+        variables.setSingleLine(true);
+        variables.setEllipsize(TextUtils.TruncateAt.END);
+        root.addView(variables, topMargin(7));
 
-        root.addView(label("이미지"), topMargin(20));
-        LinearLayout imageCard = new LinearLayout(this);
-        imageCard.setOrientation(LinearLayout.VERTICAL);
-        imageCard.setPadding(dp(14), dp(12), dp(14), dp(12));
-        imageCard.setBackgroundResource(R.drawable.bg_card);
+        root.addView(label("이미지"), topMargin(18));
+        LinearLayout imageRow = new LinearLayout(this);
+        imageRow.setGravity(Gravity.CENTER_VERTICAL);
+        imageRow.setPadding(dp(14), 0, dp(8), 0);
+        imageRow.setBackgroundResource(R.drawable.bg_clickable_row);
+        imageRow.setClickable(true);
+        imageRow.setFocusable(true);
+        imageRow.setOnClickListener(v -> pickImage());
+
         imageStatus = body("첨부 이미지 없음");
-        imageCard.addView(imageStatus, matchWrap());
+        imageStatus.setTextColor(getColor(R.color.text_primary));
+        imageStatus.setSingleLine(true);
+        imageStatus.setEllipsize(TextUtils.TruncateAt.END);
+        imageRow.addView(imageStatus, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        Button pick = button("추가", false);
+        pick.setOnClickListener(v -> pickImage());
+        imageRow.addView(pick, new LinearLayout.LayoutParams(dp(66), dp(40)));
+        removeImage = button("삭제", false);
+        removeImage.setTextColor(getColor(R.color.danger));
+        removeImage.setOnClickListener(v -> clearImage());
+        imageRow.addView(removeImage, new LinearLayout.LayoutParams(dp(66), dp(40)));
+        root.addView(imageRow, fixedHeight(54, 7));
 
         imagePreview = new ImageView(this);
         imagePreview.setAdjustViewBounds(true);
         imagePreview.setScaleType(ImageView.ScaleType.CENTER_CROP);
         imagePreview.setVisibility(View.GONE);
         LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(220));
-        previewParams.topMargin = dp(10);
-        imageCard.addView(imagePreview, previewParams);
-
-        LinearLayout imageActions = new LinearLayout(this);
-        imageActions.setOrientation(LinearLayout.HORIZONTAL);
-        Button pick = button("이미지 추가·교체", false);
-        pick.setOnClickListener(v -> pickImage());
-        imageActions.addView(pick, new LinearLayout.LayoutParams(0, dp(48), 1f));
-        removeImage = button("제거", false);
-        removeImage.setOnClickListener(v -> clearImage());
-        LinearLayout.LayoutParams removeParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
-        removeParams.leftMargin = dp(8);
-        imageActions.addView(removeImage, removeParams);
-        imageCard.addView(imageActions, topMargin(10));
-        root.addView(imageCard, topMargin(8));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(150));
+        previewParams.topMargin = dp(8);
+        root.addView(imagePreview, previewParams);
 
         Button save = button("저장", true);
         save.setOnClickListener(v -> saveTemplate());
-        LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(56));
-        saveParams.topMargin = dp(24);
-        root.addView(save, saveParams);
+        root.addView(save, fixedHeight(52, 22));
         return scroll;
     }
 
@@ -236,13 +237,11 @@ public final class MessageTemplateEditorActivity extends Activity {
     private Button button(String value, boolean primary) {
         Button button = new Button(this);
         button.setText(value);
-        button.setAllCaps(false);
-        button.setTextSize(14f);
+        button.setTextSize(13f);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setTextColor(getColor(primary ? android.R.color.white : R.color.text_primary));
         button.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
-        button.setMinWidth(0);
         return button;
     }
 
@@ -251,7 +250,7 @@ public final class MessageTemplateEditorActivity extends Activity {
         input.setHint(hint);
         input.setTextColor(getColor(R.color.text_primary));
         input.setHintTextColor(getColor(R.color.text_muted));
-        input.setTextSize(15f);
+        input.setTextSize(14f);
         input.setBackgroundResource(R.drawable.bg_input);
         input.setPadding(dp(14), dp(multiline ? 12 : 0), dp(14), dp(multiline ? 12 : 0));
         input.setSingleLine(!multiline);
@@ -269,7 +268,7 @@ public final class MessageTemplateEditorActivity extends Activity {
     }
 
     private TextView label(String value) {
-        TextView text = title(value, 15f);
+        TextView text = title(value, 14f);
         text.setTextColor(getColor(R.color.text_secondary));
         return text;
     }
@@ -278,14 +277,15 @@ public final class MessageTemplateEditorActivity extends Activity {
         TextView text = new TextView(this);
         text.setText(value);
         text.setTextColor(getColor(R.color.text_secondary));
-        text.setTextSize(13f);
+        text.setTextSize(12f);
+        text.setIncludeFontPadding(false);
         return text;
     }
 
-    private LinearLayout.LayoutParams fieldParams() {
+    private LinearLayout.LayoutParams fixedHeight(int height, int topMargin) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(54));
-        params.topMargin = dp(8);
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(height));
+        params.topMargin = dp(topMargin);
         return params;
     }
 
