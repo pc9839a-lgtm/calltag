@@ -28,6 +28,10 @@ public final class DiagnosticActivity extends Activity {
     private Button refreshButton;
     private Button repairButton;
     private Button copyButton;
+    private LinearLayout checklist;
+    private Button resetChecklist;
+    private TextView reportToggle;
+    private TextView checklistToggle;
     private DiagnosticReport.Snapshot snapshot;
     private boolean working;
     private final List<CheckItem> checks = new ArrayList<>();
@@ -46,83 +50,116 @@ public final class DiagnosticActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(18), dp(20), dp(42));
+        root.setPadding(dp(16), dp(10), dp(16), dp(36));
         scroll.addView(root, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT));
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
         Button back = button("‹", false);
-        back.setTextSize(28f);
+        back.setTextSize(27f);
         back.setOnClickListener(v -> {
             if (!working) finish();
         });
-        header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
-        TextView title = title("앱 상태 진단", 22f);
+        header.addView(back, new LinearLayout.LayoutParams(dp(46), dp(46)));
+        TextView title = title("앱 상태 진단", 21f);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        titleParams.leftMargin = dp(12);
+        titleParams.leftMargin = dp(10);
         header.addView(title, titleParams);
         root.addView(header, matchWrap());
 
-        LinearLayout notice = card();
-        notice.addView(title("실제 단말 테스트·데이터 복구", 17f), matchWrap());
-        notice.addView(body("권한·SIM·예약·캠페인·DB 연결 상태를 확인합니다. 정합성 복구는 누락 문자를 새로 발송하지 않고 고아 예약과 잘못된 참조만 안전하게 차단·정리합니다."), topMargin(8));
-        root.addView(notice, topMargin(18));
-
-        statusTitle = title("상태를 확인하는 중입니다.", 18f);
-        root.addView(statusTitle, topMargin(20));
+        LinearLayout statusCard = card();
+        statusTitle = title("상태를 확인하는 중입니다", 17f);
+        statusCard.addView(statusTitle, matchWrap());
+        TextView statusMeta = body("권한·SIM·예약·캠페인·데이터 연결 상태");
+        statusCard.addView(statusMeta, topMargin(5));
+        root.addView(statusCard, topMargin(14));
 
         LinearLayout actionRow = new LinearLayout(this);
         actionRow.setOrientation(LinearLayout.HORIZONTAL);
         refreshButton = button("새로고침", false);
         refreshButton.setOnClickListener(v -> refreshReport());
-        actionRow.addView(refreshButton, new LinearLayout.LayoutParams(0, dp(52), 1f));
+        actionRow.addView(refreshButton, new LinearLayout.LayoutParams(0, dp(48), 1f));
         repairButton = button("정합성 복구", true);
         repairButton.setOnClickListener(v -> confirmRepair());
-        LinearLayout.LayoutParams repairParams = new LinearLayout.LayoutParams(0, dp(52), 1f);
-        repairParams.leftMargin = dp(8);
+        LinearLayout.LayoutParams repairParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
+        repairParams.leftMargin = dp(7);
         actionRow.addView(repairButton, repairParams);
-        root.addView(actionRow, topMargin(10));
+        root.addView(actionRow, topMargin(8));
 
-        reportView = body("진단 정보를 생성하고 있습니다.");
+        reportToggle = toggleRow("상세 진단 정보");
+        reportToggle.setOnClickListener(v -> toggleReport());
+        root.addView(reportToggle, topMargin(20));
+
+        reportView = body("진단 정보를 생성하고 있습니다");
         reportView.setTextIsSelectable(true);
         reportView.setBackgroundResource(R.drawable.bg_card);
-        reportView.setPadding(dp(16), dp(16), dp(16), dp(16));
-        root.addView(reportView, topMargin(12));
+        reportView.setPadding(dp(14), dp(13), dp(14), dp(13));
+        reportView.setVisibility(View.GONE);
+        root.addView(reportView, topMargin(8));
 
-        copyButton = button("비식별 진단 정보 복사", false);
+        copyButton = button("진단 정보 복사", false);
         copyButton.setOnClickListener(v -> copyReport());
-        root.addView(copyButton, fixedHeight(52, 10));
-        root.addView(body("복사되는 정보에는 고객명·전화번호·문자 본문이 포함되지 않습니다. 고객 데이터 내보내기 기능이 아닙니다."), topMargin(8));
+        copyButton.setVisibility(View.GONE);
+        root.addView(copyButton, fixedHeight(48, 8));
 
-        root.addView(title("실제 단말 E2E 체크리스트", 18f), topMargin(26));
-        root.addView(body("각 항목을 실제 휴대전화에서 확인한 뒤 체크하세요. 체크 상태는 이 기기에만 저장됩니다."), topMargin(7));
+        checklistToggle = toggleRow("실기기 체크리스트");
+        checklistToggle.setOnClickListener(v -> toggleChecklist());
+        root.addView(checklistToggle, topMargin(20));
 
-        LinearLayout checklist = card();
-        addCheck(checklist, "single_sim", "단일 SIM에서 수동 문자 발송 성공");
-        addCheck(checklist, "dual_sim", "듀얼 SIM에서 선택 회선 발송 성공");
-        addCheck(checklist, "permission_denied", "문자·전화·알림 권한 거부 시 데이터 손실 없음");
-        addCheck(checklist, "exclusion", "발송 제외 고객이 실제로 건너뜀 처리됨");
-        addCheck(checklist, "duplicate", "같은 번호·같은 캠페인 중복발송 차단");
-        addCheck(checklist, "invalid_phone", "잘못된 번호가 전체 캠페인을 중단하지 않음");
-        addCheck(checklist, "long_sms", "장문 문자가 분할 발송되고 최종 상태가 반영됨");
-        addCheck(checklist, "scheduled", "예약 시각에 문자 발송 및 상태 반영");
-        addCheck(checklist, "retry", "실패·건너뜀 고객만 재시도 가능");
-        addCheck(checklist, "app_killed", "앱을 닫은 상태에서 예약 발송 동작 확인");
-        addCheck(checklist, "reboot", "재부팅 후 예약 작업 상태 확인");
-        addCheck(checklist, "campaign_100", "100명 이상 캠페인 생성·스크롤·상태 갱신 확인");
-        addCheck(checklist, "concurrent", "통화 종료 정리와 캠페인 발송 동시 발생 확인");
-        addCheck(checklist, "orphan_job", "고아 캠페인 문자 작업이 자동 발송되지 않고 취소됨");
-        addCheck(checklist, "late_callback", "취소 후 늦은 SMS 성공 콜백이 상태를 덮어쓰지 않음");
-        addCheck(checklist, "campaign_delete", "캠페인 삭제 전 남은 알람이 정리됨");
-        addCheck(checklist, "stale_group_member", "삭제 고객의 수동 그룹 참조가 정리됨");
-        root.addView(checklist, topMargin(10));
+        checklist = card();
+        checklist.setVisibility(View.GONE);
+        addCheck(checklist, "single_sim", "단일 SIM 수동 문자 발송");
+        addCheck(checklist, "dual_sim", "듀얼 SIM 선택 회선 발송");
+        addCheck(checklist, "permission_denied", "권한 거부 시 데이터 유지");
+        addCheck(checklist, "exclusion", "발송 제외 고객 건너뜀");
+        addCheck(checklist, "duplicate", "같은 번호 중복발송 차단");
+        addCheck(checklist, "invalid_phone", "잘못된 번호 개별 실패 처리");
+        addCheck(checklist, "long_sms", "장문 문자 최종 상태 반영");
+        addCheck(checklist, "scheduled", "예약 문자 시각·상태 반영");
+        addCheck(checklist, "retry", "실패·건너뜀 고객만 재시도");
+        addCheck(checklist, "app_killed", "앱 종료 상태 예약 발송");
+        addCheck(checklist, "reboot", "재부팅 후 예약 상태 유지");
+        addCheck(checklist, "campaign_100", "100명 캠페인 스크롤·상태 갱신");
+        addCheck(checklist, "concurrent", "통화 정리와 캠페인 동시 처리");
+        addCheck(checklist, "orphan_job", "고아 작업 자동 발송 차단");
+        addCheck(checklist, "late_callback", "늦은 콜백 최종 상태 보호");
+        addCheck(checklist, "campaign_delete", "캠페인 삭제 전 알람 정리");
+        addCheck(checklist, "stale_group_member", "삭제 고객 그룹 참조 정리");
+        root.addView(checklist, topMargin(8));
 
-        Button resetChecklist = button("체크리스트 초기화", false);
+        resetChecklist = button("체크 초기화", false);
         resetChecklist.setOnClickListener(v -> confirmResetChecklist());
-        root.addView(resetChecklist, fixedHeight(48, 10));
+        resetChecklist.setVisibility(View.GONE);
+        root.addView(resetChecklist, fixedHeight(46, 8));
         return scroll;
+    }
+
+    private void toggleReport() {
+        boolean show = reportView.getVisibility() != View.VISIBLE;
+        reportView.setVisibility(show ? View.VISIBLE : View.GONE);
+        copyButton.setVisibility(show ? View.VISIBLE : View.GONE);
+        reportToggle.setText("상세 진단 정보" + (show ? "    ︿" : "    ﹀"));
+    }
+
+    private void toggleChecklist() {
+        boolean show = checklist.getVisibility() != View.VISIBLE;
+        checklist.setVisibility(show ? View.VISIBLE : View.GONE);
+        resetChecklist.setVisibility(show ? View.VISIBLE : View.GONE);
+        checklistToggle.setText("실기기 체크리스트" + (show ? "    ︿" : "    ﹀"));
+    }
+
+    private TextView toggleRow(String label) {
+        TextView row = title(label + "    ﹀", 15f);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(14), 0, dp(14), 0);
+        row.setBackgroundResource(R.drawable.bg_clickable_row);
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setMinHeight(dp(54));
+        return row;
     }
 
     private void refreshReport() {
@@ -134,8 +171,10 @@ public final class DiagnosticActivity extends Activity {
                 snapshot = result;
                 reportView.setText(result.text);
                 statusTitle.setText(result.warningCount == 0
-                        ? "자동 점검 결과 · 확인 필요 없음"
-                        : "자동 점검 결과 · 확인 필요 " + result.warningCount + "개");
+                        ? "확인 필요한 문제가 없습니다"
+                        : "확인 필요 " + result.warningCount + "개");
+                statusTitle.setTextColor(getColor(result.warningCount == 0
+                        ? R.color.text_primary : R.color.danger));
                 setWorking(false, "새로고침");
             });
         }, "calltag-diagnostic-refresh").start();
@@ -144,10 +183,10 @@ public final class DiagnosticActivity extends Activity {
     private void confirmRepair() {
         if (working) return;
         new AlertDialog.Builder(this)
-                .setTitle("데이터 정합성을 복구할까요?")
-                .setMessage("고아 예약을 취소하고, 연결 문자 작업이 없는 진행 수신자를 실패 처리하며, 최종 상태 알람과 삭제 고객의 그룹 참조를 정리합니다. 누락 문자를 새로 만들거나 자동 재발송하지 않습니다.")
+                .setTitle("데이터 정합성 복구")
+                .setMessage("잘못된 참조와 남은 알람을 정리합니다. 누락 문자를 만들거나 자동 재발송하지 않습니다.")
                 .setNegativeButton("취소", null)
-                .setPositiveButton("정합성 복구", (dialog, which) -> repair())
+                .setPositiveButton("복구", (dialog, which) -> repair())
                 .show();
     }
 
@@ -161,8 +200,10 @@ public final class DiagnosticActivity extends Activity {
                 snapshot = refreshed;
                 reportView.setText(refreshed.text);
                 statusTitle.setText(refreshed.warningCount == 0
-                        ? "자동 점검 결과 · 확인 필요 없음"
-                        : "자동 점검 결과 · 확인 필요 " + refreshed.warningCount + "개");
+                        ? "확인 필요한 문제가 없습니다"
+                        : "확인 필요 " + refreshed.warningCount + "개");
+                statusTitle.setTextColor(getColor(refreshed.warningCount == 0
+                        ? R.color.text_primary : R.color.danger));
                 setWorking(false, "새로고침");
                 Toast.makeText(this, repair.summary(), Toast.LENGTH_LONG).show();
             });
@@ -180,7 +221,7 @@ public final class DiagnosticActivity extends Activity {
             return;
         }
         clipboard.setPrimaryClip(ClipData.newPlainText("콜태그 비식별 진단", snapshot.text));
-        Toast.makeText(this, "비식별 진단 정보를 복사했습니다.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "진단 정보를 복사했습니다.", Toast.LENGTH_SHORT).show();
     }
 
     private void addCheck(LinearLayout parent, String key, String label) {
@@ -188,8 +229,8 @@ public final class DiagnosticActivity extends Activity {
         CheckBox check = new CheckBox(this);
         check.setText(label);
         check.setTextColor(getColor(R.color.text_primary));
-        check.setTextSize(14f);
-        check.setPadding(0, dp(7), 0, dp(7));
+        check.setTextSize(13f);
+        check.setPadding(0, dp(5), 0, dp(5));
         check.setChecked(prefs.getBoolean(key, false));
         check.setOnCheckedChangeListener((buttonView, isChecked) ->
                 getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(key, isChecked).apply());
@@ -199,8 +240,8 @@ public final class DiagnosticActivity extends Activity {
 
     private void confirmResetChecklist() {
         new AlertDialog.Builder(this)
-                .setTitle("체크리스트 초기화")
-                .setMessage("이 기기에 저장된 실제 단말 테스트 체크 상태를 모두 해제할까요?")
+                .setTitle("체크 초기화")
+                .setMessage("이 기기에 저장된 체크 상태를 모두 해제할까요?")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("초기화", (dialog, which) -> {
                     getSharedPreferences(PREFS, MODE_PRIVATE).edit().clear().apply();
@@ -223,7 +264,7 @@ public final class DiagnosticActivity extends Activity {
     private LinearLayout card() {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(16), dp(14), dp(16), dp(14));
+        card.setPadding(dp(14), dp(13), dp(14), dp(13));
         card.setBackgroundResource(R.drawable.bg_card);
         return card;
     }
@@ -242,18 +283,17 @@ public final class DiagnosticActivity extends Activity {
         TextView text = new TextView(this);
         text.setText(value);
         text.setTextColor(getColor(R.color.text_secondary));
-        text.setTextSize(13f);
-        text.setLineSpacing(dp(3), 1f);
+        text.setTextSize(12f);
+        text.setIncludeFontPadding(false);
         return text;
     }
 
     private Button button(String value, boolean primary) {
         Button button = new Button(this);
         button.setText(value);
-        button.setAllCaps(false);
-        button.setTextSize(14f);
+        button.setTextSize(13f);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setTextColor(getColor(R.color.text_primary));
+        button.setTextColor(getColor(primary ? android.R.color.white : R.color.text_primary));
         button.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
         return button;
