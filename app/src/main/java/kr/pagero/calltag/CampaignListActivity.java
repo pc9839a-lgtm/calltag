@@ -4,9 +4,9 @@ import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -36,46 +36,40 @@ public final class CampaignListActivity extends Activity {
     private View buildContent() {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(dp(16), dp(10), dp(16), 0);
         page.setBackgroundColor(getColor(R.color.background));
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(20), dp(16), dp(20), dp(12));
-        Button back = button("‹", false);
-        back.setTextSize(28f);
+        TextView back = text("‹", 30f, false);
+        back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> finish());
-        header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
-        TextView title = title("단체문자 캠페인", 22f);
+        header.addView(back, new LinearLayout.LayoutParams(dp(46), dp(46)));
+        TextView title = text("단체문자", 21f, true);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        titleParams.leftMargin = dp(12);
+        titleParams.leftMargin = dp(10);
         header.addView(title, titleParams);
         page.addView(header, matchWrap());
 
-        LinearLayout actions = new LinearLayout(this);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        actions.setPadding(dp(20), 0, dp(20), 0);
-        Button groups = button("그룹 관리", false);
-        groups.setOnClickListener(v -> startActivity(new Intent(this, MessageGroupActivity.class)));
-        actions.addView(groups, new LinearLayout.LayoutParams(0, dp(52), 1f));
-        Button create = button("새 캠페인", true);
-        create.setOnClickListener(v -> startActivity(new Intent(this, CampaignComposerActivity.class)));
-        LinearLayout.LayoutParams createParams = new LinearLayout.LayoutParams(0, dp(52), 1f);
-        createParams.leftMargin = dp(8);
-        actions.addView(create, createParams);
-        page.addView(actions, matchWrap());
-
-        TextView guide = body("한 번에 한 캠페인만 실행합니다. 회선 변경이나 연속 통신 오류가 감지되면 남은 발송이 자동 일시정지됩니다.");
-        guide.setPadding(dp(20), dp(10), dp(20), dp(10));
-        page.addView(guide, matchWrap());
+        TextView create = text("단체문자 만들기", 15f, true);
+        create.setTextColor(getColor(android.R.color.white));
+        create.setGravity(Gravity.CENTER);
+        create.setBackgroundResource(R.drawable.bg_primary_button);
+        create.setClickable(true);
+        create.setFocusable(true);
+        create.setOnClickListener(v -> startActivity(
+                new Intent(this, CampaignComposerActivity.class)));
+        page.addView(create, fixedHeight(52, 14));
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         listContainer = new LinearLayout(this);
         listContainer.setOrientation(LinearLayout.VERTICAL);
-        listContainer.setPadding(dp(20), dp(4), dp(20), dp(40));
+        listContainer.setPadding(0, dp(14), 0, dp(36));
         scroll.addView(listContainer, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT));
         page.addView(scroll, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
         return page;
@@ -85,16 +79,16 @@ public final class CampaignListActivity extends Activity {
         listContainer.removeAllViews();
         List<CampaignStore.Campaign> campaigns = store.list();
         if (campaigns.isEmpty()) {
-            TextView empty = body("아직 단체문자 캠페인이 없습니다.\n그룹을 선택해 첫 캠페인을 만들어주세요.");
+            TextView empty = body("등록된 단체문자가 없습니다");
             empty.setGravity(Gravity.CENTER);
+            empty.setMinHeight(dp(64));
             empty.setBackgroundResource(R.drawable.bg_card);
-            empty.setPadding(dp(18), dp(34), dp(18), dp(34));
             listContainer.addView(empty, matchWrap());
             return;
         }
         for (CampaignStore.Campaign original : campaigns) {
             CampaignStore.Campaign campaign = store.sync(this, original.id);
-            if (campaign != null) listContainer.addView(campaignCard(campaign), topMargin(10));
+            if (campaign != null) listContainer.addView(campaignCard(campaign), bottomMargin(8));
         }
     }
 
@@ -102,47 +96,57 @@ public final class CampaignListActivity extends Activity {
         CampaignStore.Counts counts = store.counts(campaign.id);
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(16), dp(14), dp(16), dp(14));
+        card.setPadding(dp(14), dp(13), dp(10), dp(13));
         card.setBackgroundResource(R.drawable.bg_clickable_card);
+        card.setClickable(true);
+        card.setFocusable(true);
         card.setOnClickListener(v -> open(campaign.id));
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.addView(title(campaign.name, 17f),
-                new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        TextView status = title(statusLabel(campaign.status), 13f);
+        TextView name = text(campaign.name, 15f, true);
+        name.setSingleLine(true);
+        name.setEllipsize(TextUtils.TruncateAt.END);
+        header.addView(name, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView status = text(statusLabel(campaign.status), 12f, true);
         status.setTextColor(statusColor(campaign.status));
-        header.addView(status);
+        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        statusParams.leftMargin = dp(8);
+        header.addView(status, statusParams);
+        TextView arrow = text("›", 23f, false);
+        arrow.setTextColor(getColor(R.color.text_muted));
+        arrow.setGravity(Gravity.CENTER);
+        header.addView(arrow, new LinearLayout.LayoutParams(dp(28), dp(34)));
         card.addView(header, matchWrap());
 
         SimpleDateFormat date = new SimpleDateFormat("M/d a h:mm", Locale.KOREA);
-        card.addView(body(campaign.groupName + " · 시작 "
-                + date.format(new Date(campaign.scheduledAt))), topMargin(6));
-        card.addView(body("회선 · "
-                + SimProfileManager.labelForId(this, campaign.subscriptionId)), topMargin(4));
+        TextView meta = body(campaign.groupName + " · "
+                + date.format(new Date(campaign.scheduledAt)) + " · "
+                + SimProfileManager.labelForId(this, campaign.subscriptionId));
+        meta.setSingleLine(true);
+        meta.setEllipsize(TextUtils.TruncateAt.END);
+        card.addView(meta, topMargin(5));
+
+        String progress = "전체 " + counts.total + " · 완료 " + counts.sent
+                + " · 진행 " + counts.active + " · 실패 " + counts.failed
+                + " · 제외 " + counts.skipped + " · 취소 " + counts.cancelled;
+        TextView progressText = body(progress);
+        progressText.setTextColor(getColor(R.color.text_primary));
+        progressText.setSingleLine(true);
+        progressText.setEllipsize(TextUtils.TruncateAt.END);
+        card.addView(progressText, topMargin(7));
+
         if (CampaignStore.STATUS_PAUSED.equals(campaign.status)
                 && !campaign.pauseReason.trim().isEmpty()) {
             TextView pause = body(campaign.pauseReason);
             pause.setTextColor(getColor(R.color.danger));
+            pause.setMaxLines(2);
+            pause.setEllipsize(TextUtils.TruncateAt.END);
             card.addView(pause, topMargin(6));
         }
-
-        String progress = "전체 " + counts.total + "명 · 완료 " + counts.sent
-                + " · 진행 " + counts.active + " · 실패 " + counts.failed
-                + " · 건너뜀 " + counts.skipped + " · 취소 " + counts.cancelled;
-        TextView progressText = body(progress);
-        progressText.setTextColor(getColor(R.color.text_primary));
-        progressText.setBackgroundResource(R.drawable.bg_soft_panel);
-        progressText.setPadding(dp(12), dp(10), dp(12), dp(10));
-        card.addView(progressText, topMargin(10));
-
-        Button detail = button(CampaignStore.STATUS_PAUSED.equals(campaign.status)
-                ? "회선 확인하고 발송 재개" : "수신자별 상태 보기", false);
-        detail.setOnClickListener(v -> open(campaign.id));
-        LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
-        detailParams.topMargin = dp(10);
-        card.addView(detail, detailParams);
         return card;
     }
 
@@ -152,7 +156,7 @@ public final class CampaignListActivity extends Activity {
     }
 
     private String statusLabel(String status) {
-        if (CampaignStore.STATUS_SCHEDULED.equals(status)) return "발송 예정";
+        if (CampaignStore.STATUS_SCHEDULED.equals(status)) return "예정";
         if (CampaignStore.STATUS_RUNNING.equals(status)) return "진행 중";
         if (CampaignStore.STATUS_PAUSED.equals(status)) return "일시정지";
         if (CampaignStore.STATUS_COMPLETED.equals(status)) return "완료";
@@ -161,39 +165,27 @@ public final class CampaignListActivity extends Activity {
     }
 
     private int statusColor(String status) {
-        if (CampaignStore.STATUS_COMPLETED.equals(status)) return getColor(R.color.primary);
+        if (CampaignStore.STATUS_COMPLETED.equals(status)
+                || CampaignStore.STATUS_RUNNING.equals(status)) return getColor(R.color.primary);
         if (CampaignStore.STATUS_PAUSED.equals(status)
                 || CampaignStore.STATUS_PARTIAL.equals(status)) return getColor(R.color.danger);
         return getColor(R.color.text_secondary);
     }
 
-    private TextView title(String value, float size) {
-        TextView text = new TextView(this);
-        text.setText(value);
-        text.setTextColor(getColor(R.color.text_primary));
-        text.setTextSize(size);
-        text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        return text;
+    private TextView text(String value, float size, boolean bold) {
+        TextView view = new TextView(this);
+        view.setText(value);
+        view.setTextColor(getColor(R.color.text_primary));
+        view.setTextSize(size);
+        view.setIncludeFontPadding(false);
+        if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        return view;
     }
 
     private TextView body(String value) {
-        TextView text = new TextView(this);
-        text.setText(value);
+        TextView text = text(value, 12f, false);
         text.setTextColor(getColor(R.color.text_secondary));
-        text.setTextSize(13f);
-        text.setLineSpacing(dp(3), 1f);
         return text;
-    }
-
-    private Button button(String value, boolean primary) {
-        Button button = new Button(this);
-        button.setText(value);
-        button.setAllCaps(false);
-        button.setTextSize(14f);
-        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setTextColor(getColor(R.color.text_primary));
-        button.setBackgroundResource(primary ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
-        return button;
     }
 
     private LinearLayout.LayoutParams matchWrap() {
@@ -202,9 +194,22 @@ public final class CampaignListActivity extends Activity {
                 LinearLayout.LayoutParams.WRAP_CONTENT);
     }
 
+    private LinearLayout.LayoutParams fixedHeight(int height, int top) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(height));
+        params.topMargin = dp(top);
+        return params;
+    }
+
     private LinearLayout.LayoutParams topMargin(int value) {
         LinearLayout.LayoutParams params = matchWrap();
         params.topMargin = dp(value);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams bottomMargin(int value) {
+        LinearLayout.LayoutParams params = matchWrap();
+        params.bottomMargin = dp(value);
         return params;
     }
 
