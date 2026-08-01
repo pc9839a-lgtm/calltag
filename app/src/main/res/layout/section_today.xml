@@ -11,37 +11,56 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingLeft="20dp"
-        android:paddingTop="18dp"
-        android:paddingRight="20dp"
-        android:paddingBottom="112dp">
+        android:paddingLeft="16dp"
+        android:paddingTop="14dp"
+        android:paddingRight="16dp"
+        android:paddingBottom="96dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:includeFontPadding="false"
-            android:text="오늘의 콜태그"
-            android:textColor="@color/text_secondary"
-            android:textSize="13sp" />
+            android:text="홈"
+            android:textColor="@color/text_primary"
+            android:textSize="22sp"
+            android:textStyle="bold" />
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_height="72dp"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/bg_card"
             android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:paddingLeft="16dp"
+            android:paddingRight="12dp">
 
-            <TextView
-                android:id="@+id/monitorStateText"
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:includeFontPadding="false"
-                android:lineSpacingExtra="3dp"
-                android:text="통화 감지가 꺼져 있어요"
-                android:textColor="@color/text_primary"
-                android:textSize="28sp"
-                android:textStyle="bold" />
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:includeFontPadding="false"
+                    android:text="통화 감지"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/monitorStateText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:includeFontPadding="false"
+                    android:maxLines="2"
+                    android:text="통화 감지가 꺼져 있어요"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
+            </LinearLayout>
 
             <Switch
                 android:id="@+id/enableMonitorButton"
@@ -53,127 +72,127 @@
         <kr.pagero.calltag.CallerIdSetupButton
             android:id="@+id/callerIdSetupButton"
             android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/bg_primary_button"
-            android:text="수신 고객정보 표시 설정"
+            android:layout_height="46dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_secondary_button"
+            android:text="수신 고객정보 표시"
             android:textAllCaps="false"
             android:textColor="@color/text_primary"
-            android:textSize="15sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_height="88dp"
+            android:layout_marginTop="12dp"
             android:background="@drawable/bg_card"
             android:gravity="center"
             android:orientation="horizontal"
-            android:paddingTop="18dp"
-            android:paddingBottom="18dp">
+            android:paddingLeft="4dp"
+            android:paddingRight="4dp">
 
             <TextView
                 android:id="@+id/todayDueCount"
                 android:layout_width="0dp"
-                android:layout_height="76dp"
+                android:layout_height="64dp"
                 android:layout_weight="1"
                 android:gravity="center"
                 android:includeFontPadding="false"
-                android:lineSpacingExtra="6dp"
+                android:lineSpacingExtra="4dp"
                 android:text="0\n오늘 할 일"
                 android:textColor="@color/text_primary"
-                android:textSize="15sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <View
                 android:layout_width="1dp"
-                android:layout_height="44dp"
+                android:layout_height="36dp"
                 android:background="@color/border" />
 
             <TextView
                 android:id="@+id/overdueCount"
                 android:layout_width="0dp"
-                android:layout_height="76dp"
+                android:layout_height="64dp"
                 android:layout_weight="1"
                 android:gravity="center"
                 android:includeFontPadding="false"
-                android:lineSpacingExtra="6dp"
+                android:lineSpacingExtra="4dp"
                 android:text="0\n기한 지남"
                 android:textColor="@color/danger"
-                android:textSize="15sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
 
             <View
                 android:layout_width="1dp"
-                android:layout_height="44dp"
+                android:layout_height="36dp"
                 android:background="@color/border" />
 
             <TextView
                 android:id="@+id/todayNewCount"
                 android:layout_width="0dp"
-                android:layout_height="76dp"
+                android:layout_height="64dp"
                 android:layout_weight="1"
                 android:gravity="center"
                 android:includeFontPadding="false"
-                android:lineSpacingExtra="6dp"
+                android:lineSpacingExtra="4dp"
                 android:text="0\n신규 고객"
                 android:textColor="@color/text_primary"
-                android:textSize="15sp"
+                android:textSize="14sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
+            android:layout_marginTop="22dp"
             android:includeFontPadding="false"
             android:text="빠른 메뉴"
             android:textColor="@color/text_primary"
-            android:textSize="18sp"
+            android:textSize="17sp"
             android:textStyle="bold" />
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="58dp"
-            android:layout_marginTop="12dp"
+            android:layout_height="50dp"
+            android:layout_marginTop="10dp"
             android:orientation="horizontal">
 
             <kr.pagero.calltag.CustomerAddLauncherView
                 android:id="@+id/quickAddCustomer"
                 android:layout_width="0dp"
-                android:layout_height="58dp"
+                android:layout_height="50dp"
                 android:layout_weight="1"
                 android:background="@drawable/bg_primary_button"
                 android:gravity="center"
                 android:text="고객 추가"
                 android:textColor="@android:color/white"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/quickCustomers"
                 android:layout_width="0dp"
-                android:layout_height="58dp"
-                android:layout_marginStart="8dp"
+                android:layout_height="50dp"
+                android:layout_marginStart="7dp"
                 android:layout_weight="1"
                 android:background="@drawable/bg_secondary_button"
                 android:gravity="center"
                 android:text="고객 목록"
                 android:textColor="@color/text_primary"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
 
             <kr.pagero.calltag.QuickCustomerMessageView
                 android:id="@+id/quickConsultations"
                 android:layout_width="0dp"
-                android:layout_height="58dp"
-                android:layout_marginStart="8dp"
+                android:layout_height="50dp"
+                android:layout_marginStart="7dp"
                 android:layout_weight="1"
                 android:background="@drawable/bg_secondary_button"
                 android:gravity="center"
                 android:text="문자"
                 android:textColor="@color/text_primary"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -181,30 +200,30 @@
             android:id="@+id/pendingCallSection"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="28dp" />
+            android:layout_marginTop="22dp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
+            android:layout_marginTop="22dp"
             android:includeFontPadding="false"
             android:text="오늘 할 일"
             android:textColor="@color/text_primary"
-            android:textSize="18sp"
+            android:textSize="17sp"
             android:textStyle="bold" />
 
         <kr.pagero.calltag.TodayTaskListView
             android:id="@+id/todayTaskList"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="10dp"
             android:orientation="vertical" />
 
         <TextView
             android:id="@+id/todayEmpty"
             android:layout_width="match_parent"
-            android:layout_height="96dp"
-            android:layout_marginTop="12dp"
+            android:layout_height="82dp"
+            android:layout_marginTop="10dp"
             android:background="@drawable/bg_card"
             android:gravity="center"
             android:text="등록된 할 일이 없습니다."
