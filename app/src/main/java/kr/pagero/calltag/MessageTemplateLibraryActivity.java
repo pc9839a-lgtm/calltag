@@ -3,26 +3,29 @@ package kr.pagero.calltag;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.Editable;
-import android.text.InputType;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
-import android.widget.Spinner;
-import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
+/** 내부 자동문자 용도를 숨기고 카테고리·기본·이미지만 보여주는 템플릿 보관함. */
 public final class MessageTemplateLibraryActivity extends Activity {
     public static final String EXTRA_SELECT_MODE = "select_mode";
     public static final String EXTRA_PURPOSE_FILTER = "purpose_filter";
@@ -31,9 +34,11 @@ public final class MessageTemplateLibraryActivity extends Activity {
     public static final String EXTRA_TEMPLATE_BODY = "template_body";
     public static final String EXTRA_TEMPLATE_NAME = "template_name";
 
-    private final List<String> filterValues = new ArrayList<>();
+    private static final int REQUEST_EDITOR = 8301;
+
+    private final Set<String> openCategories = new HashSet<>();
+    private final Set<String> expandedTemplates = new HashSet<>();
     private EditText searchInput;
-    private Spinner purposeFilter;
     private LinearLayout listContainer;
     private TextView countText;
     private boolean selectMode;
@@ -44,6 +49,7 @@ public final class MessageTemplateLibraryActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         MessageTemplateStore.ensureDefaults(this);
+        MessageTemplateCleanup.runOnce(this);
         selectMode = getIntent().getBooleanExtra(EXTRA_SELECT_MODE, false);
         fixedPurpose = safe(getIntent().getStringExtra(EXTRA_PURPOSE_FILTER));
         defaultPurpose = safe(getIntent().getStringExtra(EXTRA_DEFAULT_PURPOSE));
@@ -64,22 +70,32 @@ public final class MessageTemplateLibraryActivity extends Activity {
         back.setTextSize(28f);
         back.setOnClickListener(v -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
+
         TextView title = title(selectMode ? "템플릿 선택" : "문자 템플릿", 22f);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         titleParams.leftMargin = dp(12);
         header.addView(title, titleParams);
-        Button add = button("새 템플릿", true);
-        add.setOnClickListener(v -> showEditor(null));
-        header.addView(add, new LinearLayout.LayoutParams(dp(116), dp(50)));
+
+        if (!selectMode) {
+            Button add = button("+ 추가", true);
+            add.setOnClickListener(v -> openEditor(null));
+            header.addView(add, new LinearLayout.LayoutParams(dp(96), dp(48)));
+        }
         page.addView(header, matchWrap());
 
         LinearLayout tools = new LinearLayout(this);
-        tools.setOrientation(LinearLayout.VERTICAL);
+        tools.setOrientation(LinearLayout.HORIZONTAL);
+        tools.setGravity(Gravity.CENTER_VERTICAL);
         tools.setPadding(dp(20), 0, dp(20), dp(12));
-
-        searchInput = input("이름·내용·카테고리 검색", false);
+        searchInput = new EditText(this);
+        searchInput.setHint("템플릿 검색");
         searchInput.setSingleLine(true);
+        searchInput.setTextSize(15f);
+        searchInput.setTextColor(getColor(R.color.text_primary));
+        searchInput.setHintTextColor(getColor(R.color.text_muted));
+        searchInput.setBackgroundResource(R.drawable.bg_input);
+        searchInput.setPadding(dp(14), 0, dp(14), 0);
         searchInput.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -87,43 +103,19 @@ public final class MessageTemplateLibraryActivity extends Activity {
             }
             @Override public void afterTextChanged(Editable s) {}
         });
-        tools.addView(searchInput, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(52)));
-
-        LinearLayout filterRow = new LinearLayout(this);
-        filterRow.setGravity(Gravity.CENTER_VERTICAL);
-        purposeFilter = new Spinner(this);
-        purposeFilter.setBackgroundResource(R.drawable.bg_secondary_button);
-        purposeFilter.setPadding(dp(12), 0, dp(12), 0);
-        setupPurposeFilter();
-        purposeFilter.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(android.widget.AdapterView<?> parent, View view,
-                                       int position, long id) {
-                renderTemplates();
-            }
-
-            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
-        });
-        filterRow.addView(purposeFilter, new LinearLayout.LayoutParams(0, dp(50), 1f));
+        tools.addView(searchInput, new LinearLayout.LayoutParams(0, dp(50), 1f));
         countText = body("");
         countText.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams countParams = new LinearLayout.LayoutParams(dp(112), dp(50));
-        countParams.leftMargin = dp(10);
-        filterRow.addView(countText, countParams);
-        tools.addView(filterRow, topMargin(10));
-
-        TextView help = body(selectMode
-                ? "템플릿을 선택하면 현재 고객 정보로 치환된 문자 작성 화면으로 이동합니다."
-                : "즐겨찾기와 최근 사용 순으로 정렬됩니다. 기본 템플릿은 삭제 전에 다른 템플릿으로 변경해야 합니다.");
-        tools.addView(help, topMargin(8));
+        LinearLayout.LayoutParams countParams = new LinearLayout.LayoutParams(dp(60), dp(50));
+        countParams.leftMargin = dp(8);
+        tools.addView(countText, countParams);
         page.addView(tools, matchWrap());
 
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         listContainer = new LinearLayout(this);
         listContainer.setOrientation(LinearLayout.VERTICAL);
-        listContainer.setPadding(dp(20), dp(4), dp(20), dp(40));
+        listContainer.setPadding(dp(20), 0, dp(20), dp(40));
         scroll.addView(listContainer, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
         page.addView(scroll, new LinearLayout.LayoutParams(
@@ -131,134 +123,182 @@ public final class MessageTemplateLibraryActivity extends Activity {
         return page;
     }
 
-    private void setupPurposeFilter() {
-        List<String> labels = new ArrayList<>();
-        filterValues.clear();
-        if (fixedPurpose.isEmpty()) {
-            labels.add("전체 템플릿");
-            filterValues.add("");
-        }
-        for (String purpose : MessageTemplateStore.purposeValues()) {
-            if (!fixedPurpose.isEmpty()
-                    && !fixedPurpose.equals(purpose)
-                    && !MessageTemplateStore.PURPOSE_GENERAL.equals(purpose)) continue;
-            labels.add(MessageTemplateStore.purposeLabel(purpose));
-            filterValues.add(purpose);
-        }
-        purposeFilter.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_dropdown_item, labels));
-        if (!fixedPurpose.isEmpty()) {
-            for (int i = 0; i < filterValues.size(); i++) {
-                if (fixedPurpose.equals(filterValues.get(i))) {
-                    purposeFilter.setSelection(i);
-                    break;
-                }
-            }
-            purposeFilter.setEnabled(false);
-            purposeFilter.setAlpha(0.8f);
-        }
-    }
-
     private void renderTemplates() {
-        if (listContainer == null || purposeFilter == null) return;
-        String purpose = "";
-        int position = purposeFilter.getSelectedItemPosition();
-        if (position >= 0 && position < filterValues.size()) purpose = filterValues.get(position);
+        if (listContainer == null) return;
         List<MessageTemplateStore.Template> templates = MessageTemplateStore.list(
                 this,
                 searchInput == null ? "" : searchInput.getText().toString(),
-                purpose);
+                fixedPurpose);
         countText.setText(templates.size() + "개");
         listContainer.removeAllViews();
         if (templates.isEmpty()) {
-            TextView empty = body("조건에 맞는 템플릿이 없습니다.\n새 템플릿을 만들어주세요.");
+            TextView empty = body("템플릿이 없습니다.");
             empty.setGravity(Gravity.CENTER);
             empty.setBackgroundResource(R.drawable.bg_card);
             empty.setPadding(dp(18), dp(34), dp(18), dp(34));
             listContainer.addView(empty, matchWrap());
             return;
         }
+
+        Map<String, List<MessageTemplateStore.Template>> grouped = new LinkedHashMap<>();
         for (MessageTemplateStore.Template template : templates) {
-            listContainer.addView(templateCard(template), topMargin(10));
+            String category = safe(template.category).trim();
+            if (category.isEmpty()) category = "기타";
+            grouped.computeIfAbsent(category, ignored -> new ArrayList<>()).add(template);
         }
+        if (openCategories.isEmpty() && !grouped.isEmpty()) {
+            openCategories.add(grouped.keySet().iterator().next());
+        }
+        boolean searching = searchInput != null && !searchInput.getText().toString().trim().isEmpty();
+        for (Map.Entry<String, List<MessageTemplateStore.Template>> entry : grouped.entrySet()) {
+            listContainer.addView(categoryGroup(entry.getKey(), entry.getValue(), searching), topMargin(10));
+        }
+    }
+
+    private View categoryGroup(String category,
+                               List<MessageTemplateStore.Template> templates,
+                               boolean searching) {
+        LinearLayout group = new LinearLayout(this);
+        group.setOrientation(LinearLayout.VERTICAL);
+        group.setBackgroundResource(R.drawable.bg_card);
+
+        boolean open = searching || openCategories.contains(category);
+        TextView header = title(category + "    " + templates.size() + "개    "
+                + (open ? "︿" : "﹀"), 16f);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(16), 0, dp(16), 0);
+        header.setClickable(true);
+        header.setFocusable(true);
+        header.setOnClickListener(v -> {
+            if (openCategories.contains(category)) openCategories.remove(category);
+            else openCategories.add(category);
+            renderTemplates();
+        });
+        group.addView(header, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(58)));
+
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(8), 0, dp(8), dp(8));
+        body.setVisibility(open ? View.VISIBLE : View.GONE);
+        for (MessageTemplateStore.Template template : templates) {
+            body.addView(templateCard(template), topMargin(7));
+        }
+        group.addView(body, matchWrap());
+        return group;
     }
 
     private View templateCard(MessageTemplateStore.Template template) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(16), dp(14), dp(16), dp(14));
-        card.setBackgroundResource(R.drawable.bg_card);
-        if (selectMode) card.setOnClickListener(v -> choose(template));
+        card.setPadding(dp(14), dp(12), dp(14), dp(12));
+        card.setBackgroundResource(R.drawable.bg_soft_panel);
 
-        LinearLayout titleRow = new LinearLayout(this);
-        titleRow.setGravity(Gravity.CENTER_VERTICAL);
-        TextView name = title(template.name, 16f);
-        titleRow.addView(name, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        Button favorite = button(template.favorite ? "★" : "☆", false);
-        favorite.setTextSize(21f);
-        favorite.setOnClickListener(v -> {
-            MessageTemplateStore.setFavorite(this, template.id, !template.favorite);
+        boolean expanded = expandedTemplates.contains(template.id);
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setClickable(true);
+        header.setFocusable(true);
+        header.setOnClickListener(v -> {
+            if (expandedTemplates.contains(template.id)) expandedTemplates.remove(template.id);
+            else expandedTemplates.add(template.id);
             renderTemplates();
         });
-        titleRow.addView(favorite, new LinearLayout.LayoutParams(dp(52), dp(44)));
-        card.addView(titleRow, matchWrap());
 
-        String defaultLabel = MessageTemplateStore.defaultUsageLabel(this, template.id);
-        String metaText = MessageTemplateStore.purposeLabel(template.purpose)
-                + " · " + template.category;
-        if (!defaultLabel.isEmpty()) metaText += " · " + defaultLabel;
-        if (template.useCount > 0) metaText += " · 최근 사용 " + template.useCount + "회";
-        TextView meta = body(metaText);
-        card.addView(meta, topMargin(3));
+        TextView name = title(template.name, 16f);
+        header.addView(name, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        if (MessageTemplateStore.isDefault(this, template.id)) {
+            header.addView(badge("기본"), badgeParams());
+        }
+        if (MessageAttachmentStore.exists(this, template.imageRef)) {
+            LinearLayout.LayoutParams imageBadge = badgeParams();
+            imageBadge.leftMargin = dp(5);
+            header.addView(badge("이미지"), imageBadge);
+        }
+        TextView arrow = title(expanded ? "︿" : "﹀", 18f);
+        arrow.setTextColor(getColor(R.color.text_muted));
+        LinearLayout.LayoutParams arrowParams = new LinearLayout.LayoutParams(
+                dp(34), LinearLayout.LayoutParams.WRAP_CONTENT);
+        arrowParams.leftMargin = dp(6);
+        header.addView(arrow, arrowParams);
+        card.addView(header, matchWrap());
+
+        TextView category = body(safe(template.category).isEmpty() ? "기타" : template.category);
+        card.addView(category, topMargin(3));
+
+        LinearLayout details = new LinearLayout(this);
+        details.setOrientation(LinearLayout.VERTICAL);
+        details.setVisibility(expanded ? View.VISIBLE : View.GONE);
 
         TextView preview = body(template.body);
         preview.setTextColor(getColor(R.color.text_primary));
-        preview.setMaxLines(4);
-        preview.setBackgroundResource(R.drawable.bg_soft_panel);
+        preview.setMaxLines(6);
         preview.setPadding(dp(12), dp(10), dp(12), dp(10));
-        card.addView(preview, topMargin(10));
+        preview.setBackgroundResource(R.drawable.bg_card);
+        details.addView(preview, topMargin(10));
 
-        LinearLayout firstActions = new LinearLayout(this);
-        firstActions.setOrientation(LinearLayout.HORIZONTAL);
-        if (selectMode) {
-            Button choose = button("이 템플릿 사용", true);
-            choose.setOnClickListener(v -> choose(template));
-            firstActions.addView(choose, new LinearLayout.LayoutParams(0, dp(48), 1f));
-        } else {
-            Button makeDefault = button(defaultLabel.isEmpty() ? "기본 지정" : defaultLabel, false);
-            makeDefault.setOnClickListener(v -> setAsDefault(template));
-            firstActions.addView(makeDefault, new LinearLayout.LayoutParams(0, dp(48), 1f));
+        if (MessageAttachmentStore.exists(this, template.imageRef)) {
+            Bitmap bitmap = MessageAttachmentStore.preview(this, template.imageRef);
+            ImageView image = new ImageView(this);
+            image.setImageBitmap(bitmap);
+            image.setAdjustViewBounds(true);
+            image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, dp(180));
+            imageParams.topMargin = dp(8);
+            details.addView(image, imageParams);
         }
-        Button edit = button("수정", false);
-        edit.setOnClickListener(v -> showEditor(template));
-        LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
-        editParams.leftMargin = dp(8);
-        firstActions.addView(edit, editParams);
-        card.addView(firstActions, topMargin(10));
 
-        LinearLayout secondActions = new LinearLayout(this);
-        secondActions.setOrientation(LinearLayout.HORIZONTAL);
-        Button duplicate = button("복제", false);
-        duplicate.setOnClickListener(v -> {
-            MessageTemplateStore.Template copied = MessageTemplateStore.duplicate(this, template.id);
-            if (copied != null) {
-                Toast.makeText(this, "템플릿을 복제했습니다.", Toast.LENGTH_SHORT).show();
-                renderTemplates();
-            }
-        });
-        secondActions.addView(duplicate, new LinearLayout.LayoutParams(0, dp(46), 1f));
-        Button delete = button("삭제", false);
-        delete.setOnClickListener(v -> confirmDelete(template));
-        LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(0, dp(46), 1f);
-        deleteParams.leftMargin = dp(8);
-        secondActions.addView(delete, deleteParams);
-        card.addView(secondActions, topMargin(8));
+        if (selectMode) {
+            Button use = button("이 템플릿 사용", true);
+            use.setOnClickListener(v -> choose(template));
+            details.addView(use, actionParams(10));
+        } else {
+            LinearLayout actions = new LinearLayout(this);
+            actions.setOrientation(LinearLayout.HORIZONTAL);
+            Button edit = button("수정", false);
+            edit.setOnClickListener(v -> openEditor(template));
+            actions.addView(edit, new LinearLayout.LayoutParams(0, dp(48), 1f));
+
+            Button makeDefault = button(MessageTemplateStore.isDefault(this, template.id)
+                    ? "기본 사용 중" : "기본 지정", false);
+            makeDefault.setOnClickListener(v -> setAsDefault(template));
+            LinearLayout.LayoutParams defaultParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
+            defaultParams.leftMargin = dp(7);
+            actions.addView(makeDefault, defaultParams);
+
+            Button more = button("더보기", false);
+            more.setOnClickListener(v -> showMore(template));
+            LinearLayout.LayoutParams moreParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
+            moreParams.leftMargin = dp(7);
+            actions.addView(more, moreParams);
+            details.addView(actions, topMargin(10));
+        }
+        card.addView(details, matchWrap());
         return card;
     }
 
+    private void openEditor(MessageTemplateStore.Template template) {
+        Intent intent = new Intent(this, MessageTemplateEditorActivity.class)
+                .putExtra(MessageTemplateEditorActivity.EXTRA_FIXED_PURPOSE, fixedPurpose);
+        if (template != null) {
+            intent.putExtra(MessageTemplateEditorActivity.EXTRA_TEMPLATE_ID, template.id);
+        }
+        startActivityForResult(intent, REQUEST_EDITOR);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_EDITOR && resultCode == RESULT_OK) {
+            MessageTemplateCleanup.runOnce(this);
+            renderTemplates();
+        }
+    }
+
     private void choose(MessageTemplateStore.Template template) {
-        if (!defaultPurpose.isEmpty()) {
+        if (!defaultPurpose.isEmpty() && safe(template.imageRef).isEmpty()) {
             MessageTemplateStore.setDefault(this, defaultPurpose, template.id);
         }
         MessageTemplateStore.markUsed(this, template.id);
@@ -270,165 +310,110 @@ public final class MessageTemplateLibraryActivity extends Activity {
     }
 
     private void setAsDefault(MessageTemplateStore.Template template) {
+        if (!safe(template.imageRef).isEmpty()) {
+            Toast.makeText(this,
+                    "이미지 템플릿은 자동문자 기본값으로 지정할 수 없습니다.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
         if (!fixedPurpose.isEmpty()) {
             MessageTemplateStore.setDefault(this, fixedPurpose, template.id);
-            Toast.makeText(this,
-                    MessageTemplateStore.purposeLabel(fixedPurpose) + " 기본 템플릿으로 지정했습니다.",
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "기본 템플릿으로 지정했습니다.", Toast.LENGTH_SHORT).show();
             renderTemplates();
             return;
         }
-        List<String> purposes = new ArrayList<>();
-        purposes.add(MessageTemplateStore.PURPOSE_INCOMING);
-        purposes.add(MessageTemplateStore.PURPOSE_OUTGOING);
-        purposes.add(MessageTemplateStore.PURPOSE_MISSED);
-        purposes.add(MessageTemplateStore.PURPOSE_FOLLOW_UP);
-        String[] labels = new String[purposes.size()];
-        for (int i = 0; i < purposes.size(); i++) {
-            labels[i] = MessageTemplateStore.purposeLabel(purposes.get(i));
-        }
+
+        String[] labels = {"통화 후", "부재중", "후속 예약", "모두"};
         new AlertDialog.Builder(this)
-                .setTitle("기본 사용 위치")
+                .setTitle("기본으로 사용할 위치")
                 .setItems(labels, (dialog, which) -> {
-                    String purpose = purposes.get(which);
-                    MessageTemplateStore.setDefault(this, purpose, template.id);
-                    Toast.makeText(this, labels[which] + " 기본 템플릿으로 지정했습니다.",
-                            Toast.LENGTH_SHORT).show();
+                    if (which == 0 || which == 3) {
+                        MessageTemplateStore.setDefault(this,
+                                MessageTemplateStore.PURPOSE_INCOMING, template.id);
+                        MessageTemplateStore.setDefault(this,
+                                MessageTemplateStore.PURPOSE_OUTGOING, template.id);
+                    }
+                    if (which == 1 || which == 3) {
+                        MessageTemplateStore.setDefault(this,
+                                MessageTemplateStore.PURPOSE_MISSED, template.id);
+                    }
+                    if (which == 2 || which == 3) {
+                        MessageTemplateStore.setDefault(this,
+                                MessageTemplateStore.PURPOSE_FOLLOW_UP, template.id);
+                    }
+                    Toast.makeText(this, "기본 템플릿으로 지정했습니다.", Toast.LENGTH_SHORT).show();
                     renderTemplates();
                 })
                 .setNegativeButton("취소", null)
                 .show();
     }
 
-    private void showEditor(MessageTemplateStore.Template current) {
-        boolean editing = current != null;
-        LinearLayout form = new LinearLayout(this);
-        form.setOrientation(LinearLayout.VERTICAL);
-        form.setPadding(dp(20), dp(4), dp(20), 0);
-
-        EditText name = input("템플릿 이름", false);
-        name.setText(editing ? current.name : "");
-        form.addView(name, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(52)));
-
-        EditText category = input("카테고리 예: 예약, 상담, 결제", false);
-        category.setText(editing ? current.category : "");
-        LinearLayout.LayoutParams categoryParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
-        categoryParams.topMargin = dp(10);
-        form.addView(category, categoryParams);
-
-        Spinner purpose = new Spinner(this);
-        purpose.setBackgroundResource(R.drawable.bg_secondary_button);
-        purpose.setPadding(dp(12), 0, dp(12), 0);
-        List<String> purposeValues = MessageTemplateStore.purposeValues();
-        List<String> purposeLabels = new ArrayList<>();
-        for (String value : purposeValues) purposeLabels.add(MessageTemplateStore.purposeLabel(value));
-        purpose.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_dropdown_item, purposeLabels));
-        String selectedPurpose = editing ? current.purpose
-                : (!fixedPurpose.isEmpty() ? fixedPurpose : MessageTemplateStore.PURPOSE_GENERAL);
-        for (int i = 0; i < purposeValues.size(); i++) {
-            if (selectedPurpose.equals(purposeValues.get(i))) purpose.setSelection(i);
-        }
-        LinearLayout.LayoutParams purposeParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
-        purposeParams.topMargin = dp(10);
-        form.addView(purpose, purposeParams);
-
-        EditText body = input("문자 내용을 입력해주세요.", true);
-        body.setGravity(Gravity.TOP | Gravity.START);
-        body.setMinLines(6);
-        body.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        body.setText(editing ? current.body : "");
-        LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(180));
-        bodyParams.topMargin = dp(10);
-        form.addView(body, bodyParams);
-
-        Switch favorite = new Switch(this);
-        favorite.setText("즐겨찾기");
-        favorite.setTextColor(getColor(R.color.text_primary));
-        favorite.setChecked(editing && current.favorite);
-        form.addView(favorite, topMargin(8));
-
-        TextView variables = body("사용 가능: " + MessageTemplateEngine.supportedVariablesLabel());
-        form.addView(variables, topMargin(8));
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(form);
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(editing ? "템플릿 수정" : "새 템플릿")
-                .setView(scroll)
-                .setPositiveButton("저장", null)
-                .setNegativeButton("취소", null)
-                .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
-                    MessageTemplateStore.Template value = new MessageTemplateStore.Template(
-                            editing ? current.id : "",
-                            name.getText().toString(),
-                            body.getText().toString(),
-                            category.getText().toString(),
-                            purposeValues.get(purpose.getSelectedItemPosition()),
-                            favorite.isChecked(),
-                            editing ? current.createdAt : 0L,
-                            editing ? current.updatedAt : 0L,
-                            editing ? current.lastUsedAt : 0L,
-                            editing ? current.useCount : 0);
-                    try {
-                        MessageTemplateStore.save(this, value);
-                        dialog.dismiss();
-                        Toast.makeText(this, editing ? "템플릿을 수정했습니다." : "템플릿을 저장했습니다.",
-                                Toast.LENGTH_SHORT).show();
-                        renderTemplates();
-                    } catch (IllegalArgumentException error) {
-                        Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+    private void showMore(MessageTemplateStore.Template template) {
+        String[] actions = {"복제", "삭제"};
+        new AlertDialog.Builder(this)
+                .setTitle(template.name)
+                .setItems(actions, (dialog, which) -> {
+                    if (which == 0) {
+                        MessageTemplateStore.Template copied =
+                                MessageTemplateStore.duplicate(this, template.id);
+                        if (copied != null) {
+                            Toast.makeText(this, "복제했습니다.", Toast.LENGTH_SHORT).show();
+                            renderTemplates();
+                        }
+                    } else {
+                        confirmDelete(template);
                     }
-                }));
-        dialog.show();
+                })
+                .setNegativeButton("닫기", null)
+                .show();
     }
 
     private void confirmDelete(MessageTemplateStore.Template template) {
         if (MessageTemplateStore.isDefault(this, template.id)) {
             Toast.makeText(this,
-                    "기본 템플릿입니다. 다른 템플릿을 기본으로 지정한 뒤 삭제해주세요.",
+                    "기본 사용 중입니다. 다른 템플릿을 기본으로 지정한 뒤 삭제해주세요.",
                     Toast.LENGTH_LONG).show();
             return;
         }
         new AlertDialog.Builder(this)
                 .setTitle("템플릿 삭제")
-                .setMessage("‘" + template.name + "’ 템플릿을 삭제할까요?")
+                .setMessage("‘" + template.name + "’을 삭제합니다.")
+                .setNegativeButton("취소", null)
                 .setPositiveButton("삭제", (dialog, which) -> {
                     if (MessageTemplateStore.delete(this, template.id)) {
-                        Toast.makeText(this, "템플릿을 삭제했습니다.", Toast.LENGTH_SHORT).show();
+                        expandedTemplates.remove(template.id);
+                        Toast.makeText(this, "삭제했습니다.", Toast.LENGTH_SHORT).show();
                         renderTemplates();
                     }
                 })
-                .setNegativeButton("취소", null)
                 .show();
     }
 
-    private EditText input(String hint, boolean multiline) {
-        EditText input = new EditText(this);
-        input.setHint(hint);
-        input.setHintTextColor(getColor(R.color.text_muted));
-        input.setTextColor(getColor(R.color.text_primary));
-        input.setTextSize(15f);
-        input.setPadding(dp(14), dp(10), dp(14), dp(10));
-        input.setBackgroundResource(R.drawable.bg_secondary_button);
-        input.setSingleLine(!multiline);
-        return input;
+    private TextView badge(String value) {
+        TextView badge = new TextView(this);
+        badge.setText(value);
+        badge.setTextSize(11f);
+        badge.setTextColor(getColor(R.color.primary));
+        badge.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        badge.setGravity(Gravity.CENTER);
+        badge.setBackgroundResource(R.drawable.bg_card);
+        return badge;
+    }
+
+    private LinearLayout.LayoutParams badgeParams() {
+        return new LinearLayout.LayoutParams(dp(52), dp(28));
     }
 
     private Button button(String value, boolean primary) {
         Button button = new Button(this);
         button.setText(value);
         button.setAllCaps(false);
-        button.setTextSize(14f);
+        button.setTextSize(13f);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setTextColor(getColor(R.color.text_primary));
-        button.setBackgroundResource(primary ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        button.setTextColor(getColor(primary ? android.R.color.white : R.color.text_primary));
+        button.setBackgroundResource(primary
+                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        button.setMinWidth(0);
         return button;
     }
 
@@ -447,8 +432,15 @@ public final class MessageTemplateLibraryActivity extends Activity {
         text.setText(value);
         text.setTextColor(getColor(R.color.text_secondary));
         text.setTextSize(13f);
-        text.setLineSpacing(dp(3), 1f);
+        text.setIncludeFontPadding(false);
         return text;
+    }
+
+    private LinearLayout.LayoutParams actionParams(int top) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(50));
+        params.topMargin = dp(top);
+        return params;
     }
 
     private LinearLayout.LayoutParams matchWrap() {
@@ -463,11 +455,11 @@ public final class MessageTemplateLibraryActivity extends Activity {
         return params;
     }
 
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
+    private String safe(String value) {
+        return value == null ? "" : value;
     }
 
-    private static String safe(String value) {
-        return value == null ? "" : value.trim();
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }
