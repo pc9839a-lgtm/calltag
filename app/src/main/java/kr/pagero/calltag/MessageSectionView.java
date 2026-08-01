@@ -4,11 +4,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
-import android.widget.Button;
+import android.view.Gravity;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
-/** 고객 화면 안에서 고객을 기준으로 시작하는 문자 허브. */
+/** 고객을 기준으로 시작하는 문자 허브. */
 public final class MessageSectionView extends LinearLayout {
     public static final String ACTION_CHANGED = "kr.pagero.calltag.MESSAGE_CHANGED";
 
@@ -32,47 +33,52 @@ public final class MessageSectionView extends LinearLayout {
         MessageAutomationStore.ensureDefaults(getContext());
         MessageTemplateStore.ensureDefaults(getContext());
 
-        Button customerMessage = button("고객 선택 후 문자", true);
-        customerMessage.setTextSize(16f);
-        customerMessage.setOnClickListener(v -> {
+        TextView primary = primaryAction("고객 선택 후 문자");
+        primary.setOnClickListener(v -> {
             if (!requireMessageAccess()) return;
             getContext().startActivity(new Intent(
                     getContext(), CustomerMessagePickerActivity.class));
         });
-        addView(customerMessage, new LayoutParams(LayoutParams.MATCH_PARENT, dp(58)));
+        addView(primary, new LayoutParams(LayoutParams.MATCH_PARENT, dp(52)));
 
-        LinearLayout firstRow = new LinearLayout(getContext());
-        firstRow.setOrientation(HORIZONTAL);
-        Button templates = button("문자 템플릿", false);
-        templates.setOnClickListener(v -> getContext().startActivity(
-                new Intent(getContext(), MessageTemplateLibraryActivity.class)));
-        firstRow.addView(templates, new LayoutParams(0, dp(54), 1f));
+        TextView section = label("문자 관리");
+        addView(section, topMargin(20));
 
-        Button groupCampaign = button("그룹·단체문자", false);
-        groupCampaign.setOnClickListener(v -> {
-            if (!requireMessageAccess()) return;
-            getContext().startActivity(new Intent(
-                    getContext(), GroupCampaignHubActivity.class));
+        LinearLayout menu = new LinearLayout(getContext());
+        menu.setOrientation(VERTICAL);
+        menu.setPadding(dp(4), dp(4), dp(4), dp(4));
+        menu.setBackgroundResource(R.drawable.bg_card);
+        addMenuRow(menu, "문자 템플릿", MessageTemplateLibraryActivity.class, false);
+        addMenuRow(menu, "통화 후 자동문자", MessageAutomationSettingsActivity.class, false);
+        addMenuRow(menu, "그룹·단체문자", GroupCampaignHubActivity.class, true);
+        addMenuRow(menu, "발송 내역", MessageHistoryActivity.class, false);
+        addView(menu, topMargin(8));
+    }
+
+    private void addMenuRow(LinearLayout parent, String title,
+                            Class<?> destination, boolean accessRequired) {
+        LinearLayout row = new LinearLayout(getContext());
+        row.setOrientation(HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(14), 0, dp(8), 0);
+        row.setBackgroundResource(R.drawable.bg_clickable_row);
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setOnClickListener(v -> {
+            if (accessRequired && !requireMessageAccess()) return;
+            getContext().startActivity(new Intent(getContext(), destination));
         });
-        LayoutParams groupParams = new LayoutParams(0, dp(54), 1f);
-        groupParams.leftMargin = dp(8);
-        firstRow.addView(groupCampaign, groupParams);
-        addView(firstRow, topMargin(10));
 
-        LinearLayout secondRow = new LinearLayout(getContext());
-        secondRow.setOrientation(HORIZONTAL);
-        Button automation = button("통화 후 자동문자", false);
-        automation.setOnClickListener(v -> getContext().startActivity(
-                new Intent(getContext(), MessageAutomationSettingsActivity.class)));
-        secondRow.addView(automation, new LayoutParams(0, dp(54), 1f));
+        TextView titleView = text(title, 15f, true);
+        row.addView(titleView, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        TextView arrow = text("›", 23f, false);
+        arrow.setTextColor(getContext().getColor(R.color.text_muted));
+        arrow.setGravity(Gravity.CENTER);
+        row.addView(arrow, new LayoutParams(dp(30), dp(48)));
 
-        Button history = button("발송 내역", false);
-        history.setOnClickListener(v -> getContext().startActivity(
-                new Intent(getContext(), MessageHistoryActivity.class)));
-        LayoutParams historyParams = new LayoutParams(0, dp(54), 1f);
-        historyParams.leftMargin = dp(8);
-        secondRow.addView(history, historyParams);
-        addView(secondRow, topMargin(10));
+        LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, dp(54));
+        params.bottomMargin = dp(2);
+        parent.addView(row, params);
     }
 
     private boolean requireMessageAccess() {
@@ -81,18 +87,30 @@ public final class MessageSectionView extends LinearLayout {
         return false;
     }
 
-    private Button button(String label, boolean primary) {
-        Button button = new Button(getContext());
-        button.setText(label);
-        button.setAllCaps(false);
-        button.setTextSize(14f);
-        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setTextColor(getContext().getColor(primary
-                ? android.R.color.white : R.color.text_primary));
-        button.setBackgroundResource(primary
-                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
-        button.setMinWidth(0);
-        return button;
+    private TextView primaryAction(String label) {
+        TextView view = text(label, 15f, true);
+        view.setTextColor(getContext().getColor(android.R.color.white));
+        view.setGravity(Gravity.CENTER);
+        view.setBackgroundResource(R.drawable.bg_primary_button);
+        view.setClickable(true);
+        view.setFocusable(true);
+        return view;
+    }
+
+    private TextView label(String value) {
+        TextView view = text(value, 13f, true);
+        view.setTextColor(getContext().getColor(R.color.text_secondary));
+        return view;
+    }
+
+    private TextView text(String value, float size, boolean bold) {
+        TextView view = new TextView(getContext());
+        view.setText(value);
+        view.setTextColor(getContext().getColor(R.color.text_primary));
+        view.setTextSize(size);
+        view.setIncludeFontPadding(false);
+        if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        return view;
     }
 
     private LayoutParams topMargin(int value) {
