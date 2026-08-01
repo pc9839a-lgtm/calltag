@@ -31,18 +31,39 @@
           <article class="ct-plan-card">
             <small>CALL</small>
             <h3>전화관리</h3>
+            <ul class="ct-plan-points">
+              <li>통화 후 태그</li>
+              <li>고객 상태 기록</li>
+              <li>재연락 일정</li>
+              <li>오늘 할 일</li>
+              <li>상담 이력 관리</li>
+            </ul>
             <div class="ct-plan-sale"><del>월 6,900원</del><em>5,000원 할인</em></div>
             <div class="ct-plan-price"><b>1,900원</b><span>/ 월</span></div>
           </article>
           <article class="ct-plan-card">
             <small>MESSAGE</small>
             <h3>문자자동화</h3>
+            <ul class="ct-plan-points">
+              <li>자동문자 발송</li>
+              <li>수신·발신 대응</li>
+              <li>부재중 안내</li>
+              <li>후속문자 예약</li>
+              <li>중복발송 방지</li>
+            </ul>
             <div class="ct-plan-sale"><del>월 4,900원</del><em>3,910원 할인</em></div>
             <div class="ct-plan-price"><b>990원</b><span>/ 월</span></div>
           </article>
           <article class="ct-plan-card pagero">
             <small>PAGERO</small>
             <h3>페이지로</h3>
+            <ul class="ct-plan-points">
+              <li>랜딩페이지 제작</li>
+              <li>고객 접수 수집</li>
+              <li>광고용 페이지</li>
+              <li>모바일 최적화</li>
+              <li>빠른 배포</li>
+            </ul>
             <div class="ct-plan-sale"><del>월 9,900원</del><em>6,400원 할인</em></div>
             <div class="ct-plan-price"><b>3,500원</b><span>/ 월</span></div>
           </article>
@@ -50,6 +71,13 @@
             <span class="ct-plan-badge">추천</span>
             <small>ALL IN ONE</small>
             <h3>통합권</h3>
+            <ul class="ct-plan-points">
+              <li>고객 접수부터</li>
+              <li>전화관리까지</li>
+              <li>문자 후속관리</li>
+              <li>자동 고객 등록</li>
+              <li>한 번에 통합</li>
+            </ul>
             <div class="ct-plan-sale"><del>월 19,900원</del><em>13,900원 할인</em></div>
             <div class="ct-plan-price"><b>6,000원</b><span>/ 월</span></div>
           </article>
@@ -69,12 +97,15 @@
         .ct-pricing-head h2 span{color:var(--blue-2)}
         .ct-pricing-head>strong{display:block;margin-top:15px;color:#c7ccd7;font-size:14px}
         .ct-pricing-grid{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:14px!important}
-        .ct-plan-card{position:relative;min-width:0;min-height:280px!important;display:flex;flex-direction:column;padding:29px 27px!important;border:1px solid rgba(255,255,255,.14);border-radius:22px;background:linear-gradient(155deg,#171a21,#111319);box-shadow:0 18px 48px rgba(0,0,0,.2)}
+        .ct-plan-card{position:relative;min-width:0;min-height:455px!important;display:flex;flex-direction:column;padding:29px 27px!important;border:1px solid rgba(255,255,255,.14);border-radius:22px;background:linear-gradient(155deg,#171a21,#111319);box-shadow:0 18px 48px rgba(0,0,0,.2)}
         .ct-plan-card.pagero{border-color:rgba(124,153,255,.42)}
         .ct-plan-card.all{border-color:rgba(59,111,255,.88);background:linear-gradient(155deg,rgba(59,111,255,.2),#121722 54%);box-shadow:0 24px 64px rgba(59,111,255,.16)}
         .ct-plan-card>small{display:block;color:var(--blue-2);font-size:10px;font-weight:900;letter-spacing:.05em}
         .ct-plan-card h3{margin:18px 0 0;color:#fff;font-size:clamp(28px,2.15vw,36px);line-height:1;letter-spacing:-.06em}
-        .ct-plan-sale{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:auto;padding-top:38px}
+        .ct-plan-points{display:grid;gap:7px;margin:24px 0 0;padding:0;list-style:none}
+        .ct-plan-points li{color:#eef2ff;font-size:clamp(16px,1.28vw,20px);font-weight:900;line-height:1.12;letter-spacing:-.045em}
+        .ct-plan-points li:before{content:'—';margin-right:8px;color:var(--blue-2);font-weight:900}
+        .ct-plan-sale{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:auto;padding-top:30px}
         .ct-plan-sale del{color:#747b89;font-size:12px;font-weight:700}
         .ct-plan-sale em{padding:5px 8px;border-radius:999px;background:rgba(59,111,255,.15);color:#9eb1ff;font-size:10px;font-style:normal;font-weight:900;white-space:nowrap}
         .ct-plan-price{display:flex;align-items:flex-end;gap:6px;margin-top:10px;white-space:nowrap}
@@ -86,14 +117,15 @@
         @media(max-width:1050px){
           .ct-pricing-wrap{max-width:850px!important}
           .ct-pricing-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
-          .ct-plan-card{min-height:260px!important}
+          .ct-plan-card{min-height:430px!important}
+          .ct-plan-points li{font-size:18px}
         }
         @media(max-width:650px){
           #pricing.ct-pricing-redesign{padding:80px 0!important}
           .ct-pricing-head{margin-bottom:28px}.ct-pricing-head h2{font-size:38px}.ct-pricing-head>strong{font-size:12px;line-height:1.5}
           .ct-pricing-grid{grid-template-columns:1fr!important}
-          .ct-plan-card{min-height:235px!important;padding:23px 21px!important;border-radius:19px}
-          .ct-plan-card h3{font-size:31px}.ct-plan-sale{padding-top:30px}.ct-plan-price b{font-size:43px}
+          .ct-plan-card{min-height:410px!important;padding:23px 21px!important;border-radius:19px}
+          .ct-plan-card h3{font-size:31px}.ct-plan-points{margin-top:20px;gap:6px}.ct-plan-points li{font-size:17px}.ct-plan-sale{padding-top:26px}.ct-plan-price b{font-size:43px}
           .ct-plan-badge{top:17px;right:17px}.ct-vat-note{text-align:center;font-size:11px}
         }
       `;
