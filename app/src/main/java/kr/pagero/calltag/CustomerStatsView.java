@@ -5,7 +5,6 @@ import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.content.Context;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
@@ -20,7 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-/** 핵심 지표, 통화 유형, 페이지로 유입 성과를 기간별로 보여준다. */
+/** 기간별 핵심 지표를 2×2 카드 규격으로 표시한다. */
 public final class CustomerStatsView extends LinearLayout {
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
     private static final int MAX_CUSTOM_DAYS = 365;
@@ -121,48 +120,41 @@ public final class CustomerStatsView extends LinearLayout {
                 }
             }
 
+            int pageroUncontacted = Math.max(0, pageroLeads - pageroContacted);
+            int pageroRate = pageroLeads == 0
+                    ? 0 : Math.round(pageroContacted * 100f / pageroLeads);
+
             addFilterRow();
-            addKpiGrid(new Kpi[] {
-                    new Kpi(String.valueOf(contacted.size()), "연락 고객"),
-                    new Kpi(String.valueOf(calls), "전체 통화"),
-                    new Kpi(String.valueOf(newCustomers), "신규 고객"),
-                    new Kpi(String.valueOf(completedTasks), "완료한 일")
-            });
+            addGrid(new Metric[] {
+                    metric("연락 고객", String.valueOf(contacted.size()), "명", false),
+                    metric("전체 통화", String.valueOf(calls), "건", true),
+                    metric("신규 고객", String.valueOf(newCustomers), "명", false),
+                    metric("완료한 일", String.valueOf(completedTasks), "건", false)
+            }, 14);
 
-            super.addView(sectionTitle("통화 유형"), topMargin(22));
-            LinearLayout callCard = verticalCard();
-            addCallType(callCard, "수신", incoming, calls);
-            addDivider(callCard);
-            addCallType(callCard, "발신", outgoing, calls);
-            addDivider(callCard);
-            addCallType(callCard, "부재중", missed, calls);
-            addDivider(callCard);
-            addCallType(callCard, "거절", rejected, calls);
-            super.addView(callCard, topMargin(9));
+            addSection("통화 유형");
+            addGrid(new Metric[] {
+                    callMetric("수신", incoming, calls),
+                    callMetric("발신", outgoing, calls),
+                    callMetric("부재중", missed, calls),
+                    callMetric("거절", rejected, calls)
+            }, 9);
 
-            super.addView(sectionTitle("페이지로 유입"), topMargin(22));
-            LinearLayout pagero = verticalCard();
-            int uncontacted = Math.max(0, pageroLeads - pageroContacted);
-            int rate = pageroLeads == 0 ? 0 : Math.round(pageroContacted * 100f / pageroLeads);
-            pagero.addView(metricRow("유입 고객", pageroLeads + "명", false));
-            addDivider(pagero);
-            pagero.addView(metricRow("연락 완료", pageroContacted + "명", true));
-            addDivider(pagero);
-            pagero.addView(metricRow("아직 미연락", uncontacted + "명", false));
-            addDivider(pagero);
-            pagero.addView(metricRow("연락률", rate + "%", true));
-            super.addView(pagero, topMargin(9));
+            addSection("페이지로 유입");
+            addGrid(new Metric[] {
+                    metric("유입 고객", String.valueOf(pageroLeads), "명", false),
+                    metric("연락 완료", String.valueOf(pageroContacted), "명", true),
+                    metric("미연락", String.valueOf(pageroUncontacted), "명", false),
+                    metric("연락률", String.valueOf(pageroRate), "%", true)
+            }, 9);
 
-            super.addView(sectionTitle("지금 처리할 일"), topMargin(22));
-            LinearLayout attention = verticalCard();
-            attention.addView(metricRow("오늘 할 일", db.countDueTodayTasks() + "건", true));
-            addDivider(attention);
-            attention.addView(metricRow("기한 지남", db.countOverdueTasks() + "건", false));
-            addDivider(attention);
-            attention.addView(metricRow("예정된 할 일", pendingTasks.size() + "건", false));
-            addDivider(attention);
-            attention.addView(metricRow("확인할 통화", pendingCalls.countPending() + "건", false));
-            super.addView(attention, topMargin(9));
+            addSection("지금 처리할 일");
+            addGrid(new Metric[] {
+                    metric("오늘 할 일", String.valueOf(db.countDueTodayTasks()), "건", true),
+                    metric("기한 지남", String.valueOf(db.countOverdueTasks()), "건", false),
+                    metric("예정된 할 일", String.valueOf(pendingTasks.size()), "건", false),
+                    metric("확인할 통화", String.valueOf(pendingCalls.countPending()), "건", false)
+            }, 9);
         } finally {
             pendingCalls.close();
             db.close();
@@ -199,7 +191,7 @@ public final class CustomerStatsView extends LinearLayout {
                     renderDashboard();
                 }
             });
-            LayoutParams params = new LayoutParams(0, dp(44), 1f);
+            LayoutParams params = new LayoutParams(0, dp(42), 1f);
             if (i > 0) params.leftMargin = dp(6);
             row.addView(chip, params);
         }
@@ -220,6 +212,7 @@ public final class CustomerStatsView extends LinearLayout {
             Calendar start = Calendar.getInstance();
             start.set(year, month, day, 0, 0, 0);
             start.set(Calendar.MILLISECOND, 0);
+
             Calendar endInitial = Calendar.getInstance();
             new DatePickerDialog(activity, (endView, endYear, endMonth, endDay) -> {
                 Calendar end = Calendar.getInstance();
@@ -254,93 +247,57 @@ public final class CustomerStatsView extends LinearLayout {
                 .show();
     }
 
-    private void addKpiGrid(Kpi[] values) {
+    private void addSection(String label) {
+        super.addView(title(label, 17f), topMargin(21));
+    }
+
+    private void addGrid(Metric[] values, int firstTopMargin) {
         for (int i = 0; i < values.length; i += 2) {
             LinearLayout row = new LinearLayout(getContext());
             row.setOrientation(HORIZONTAL);
-            row.addView(kpiCard(values[i]), new LayoutParams(0, dp(88), 1f));
-            LayoutParams right = new LayoutParams(0, dp(88), 1f);
+            row.addView(metricCard(values[i]), new LayoutParams(0, dp(82), 1f));
+            LayoutParams right = new LayoutParams(0, dp(82), 1f);
             right.leftMargin = dp(8);
-            row.addView(kpiCard(values[i + 1]), right);
-            super.addView(row, topMargin(i == 0 ? 14 : 8));
+            row.addView(metricCard(values[i + 1]), right);
+            super.addView(row, topMargin(i == 0 ? firstTopMargin : 8));
         }
     }
 
-    private View kpiCard(Kpi value) {
+    private View metricCard(Metric metric) {
         LinearLayout card = new LinearLayout(getContext());
         card.setOrientation(VERTICAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setPadding(dp(15), dp(10), dp(15), dp(10));
+        card.setPadding(dp(14), dp(10), dp(14), dp(10));
         card.setBackgroundResource(R.drawable.bg_card);
-        TextView number = title(value.number, 24f);
-        card.addView(number, matchWrap());
-        TextView label = body(value.label);
-        label.setTextSize(12f);
+
+        LinearLayout valueRow = new LinearLayout(getContext());
+        valueRow.setGravity(Gravity.BOTTOM);
+        TextView number = title(metric.value, 23f);
+        number.setTextColor(getContext().getColor(metric.primary
+                ? R.color.primary : R.color.text_primary));
+        valueRow.addView(number);
+        TextView suffix = body(metric.suffix);
+        suffix.setTextSize(12f);
+        LayoutParams suffixParams = new LayoutParams(
+                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        suffixParams.leftMargin = dp(3);
+        suffixParams.bottomMargin = dp(2);
+        valueRow.addView(suffix, suffixParams);
+        card.addView(valueRow, matchWrap());
+
+        TextView label = body(metric.label);
+        label.setTextSize(12.5f);
         card.addView(label, topMargin(4));
         return card;
     }
 
-    private void addCallType(LinearLayout parent, String label, int count, int total) {
-        LinearLayout row = new LinearLayout(getContext());
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, dp(11), 0, dp(11));
-
-        TextView name = body(label);
-        name.setTextColor(getContext().getColor(R.color.text_primary));
-        name.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        row.addView(name, new LayoutParams(dp(62), LayoutParams.WRAP_CONTENT));
-
-        LinearLayout track = new LinearLayout(getContext());
-        track.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-        GradientDrawable trackBg = new GradientDrawable();
-        trackBg.setColor(getContext().getColor(R.color.surface_soft));
-        trackBg.setCornerRadius(dp(5));
-        track.setBackground(trackBg);
+    private Metric callMetric(String label, int count, int total) {
         int percent = total == 0 ? 0 : Math.round(count * 100f / total);
-        View fill = new View(getContext());
-        GradientDrawable fillBg = new GradientDrawable();
-        fillBg.setColor(getContext().getColor(R.color.primary));
-        fillBg.setCornerRadius(dp(5));
-        fill.setBackground(fillBg);
-        track.addView(fill, new LayoutParams(0, dp(8), Math.max(0.04f, percent / 100f)));
-        row.addView(track, new LayoutParams(0, dp(8), 1f));
-
-        TextView number = title(count + " · " + percent + "%", 13f);
-        number.setGravity(Gravity.END);
-        LayoutParams numberParams = new LayoutParams(dp(74), LayoutParams.WRAP_CONTENT);
-        numberParams.leftMargin = dp(10);
-        row.addView(number, numberParams);
-        parent.addView(row, matchWrap());
+        return metric(label + " · " + percent + "%", String.valueOf(count), "건", false);
     }
 
-    private LinearLayout verticalCard() {
-        LinearLayout card = new LinearLayout(getContext());
-        card.setOrientation(VERTICAL);
-        card.setPadding(dp(15), dp(4), dp(15), dp(4));
-        card.setBackgroundResource(R.drawable.bg_card);
-        return card;
-    }
-
-    private View metricRow(String label, String value, boolean primary) {
-        LinearLayout row = new LinearLayout(getContext());
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, dp(13), 0, dp(13));
-        row.addView(body(label), new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
-        TextView result = title(value, 16f);
-        result.setTextColor(getContext().getColor(primary
-                ? R.color.primary : R.color.text_primary));
-        row.addView(result);
-        return row;
-    }
-
-    private void addDivider(LinearLayout parent) {
-        View line = new View(getContext());
-        line.setBackgroundColor(getContext().getColor(R.color.border));
-        parent.addView(line, matchHeight(1));
-    }
-
-    private TextView sectionTitle(String value) {
-        return title(value, 17f);
+    private Metric metric(String label, String value, String suffix, boolean primary) {
+        return new Metric(label, value, suffix, primary);
     }
 
     private TextView title(String value, float size) {
@@ -404,10 +361,6 @@ public final class CustomerStatsView extends LinearLayout {
         return new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
     }
 
-    private LayoutParams matchHeight(int height) {
-        return new LayoutParams(LayoutParams.MATCH_PARENT, dp(height));
-    }
-
     private LayoutParams topMargin(int value) {
         LayoutParams params = matchWrap();
         params.topMargin = dp(value);
@@ -418,13 +371,17 @@ public final class CustomerStatsView extends LinearLayout {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    private static final class Kpi {
-        final String number;
+    private static final class Metric {
         final String label;
+        final String value;
+        final String suffix;
+        final boolean primary;
 
-        Kpi(String number, String label) {
-            this.number = number;
+        Metric(String label, String value, String suffix, boolean primary) {
             this.label = label;
+            this.value = value;
+            this.suffix = suffix;
+            this.primary = primary;
         }
     }
 }
