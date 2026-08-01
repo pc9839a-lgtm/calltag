@@ -42,6 +42,9 @@ public final class CallTagApplication extends Application implements Application
 
     @Override
     public void onActivityResumed(Activity activity) {
+        if (activity instanceof ManualMessageActivity) {
+            ManualMessageUxEnhancer.enhance((ManualMessageActivity) activity);
+        }
         if (activity instanceof CallerIdSetupActivity
                 || activity instanceof InitialPermissionActivity
                 || activity instanceof AuthGateActivity
@@ -94,12 +97,19 @@ public final class CallTagApplication extends Application implements Application
         return activity instanceof MainActivity
                 || activity instanceof CustomerAddActivity
                 || activity instanceof CustomerDetailActivity
+                || activity instanceof CustomerMessagePickerActivity
                 || activity instanceof PostCallActivity
                 || activity instanceof StageSettingsActivity
                 || activity instanceof TaskTypeSettingsActivity
                 || activity instanceof MessageAutomationSettingsActivity
+                || activity instanceof MessageTemplateLibraryActivity
+                || activity instanceof MessageTemplateEditorActivity
                 || activity instanceof ManualMessageActivity
                 || activity instanceof MessageHistoryActivity
+                || activity instanceof MessageGroupActivity
+                || activity instanceof GroupCampaignHubActivity
+                || activity instanceof MessageSafetyHubActivity
+                || activity instanceof CampaignListActivity
                 || activity instanceof AccountActivity
                 || activity instanceof BackupRestoreActivity;
     }
