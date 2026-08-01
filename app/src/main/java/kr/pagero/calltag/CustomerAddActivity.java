@@ -10,6 +10,7 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.provider.CallLog;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -51,18 +52,17 @@ public final class CustomerAddActivity extends Activity {
 
         LinearLayout topBar = new LinearLayout(this);
         topBar.setGravity(Gravity.CENTER_VERTICAL);
-        topBar.setPadding(dp(12), 0, dp(20), 0);
-        TextView back = text("‹", 34f, R.color.text_primary, false);
+        topBar.setPadding(dp(8), 0, dp(16), 0);
+        TextView back = text("‹", 32f, R.color.text_primary, false);
         back.setGravity(Gravity.CENTER);
-        back.setBackgroundResource(R.drawable.bg_clickable_row);
         back.setOnClickListener(v -> {
             if (!saving) finish();
         });
-        topBar.addView(back, new LinearLayout.LayoutParams(dp(48), dp(66)));
+        topBar.addView(back, new LinearLayout.LayoutParams(dp(48), dp(56)));
         TextView topTitle = text("고객 추가", 19f, R.color.text_primary, true);
         topTitle.setGravity(Gravity.CENTER);
-        topBar.addView(topTitle, new LinearLayout.LayoutParams(0, dp(66), 1f));
-        topBar.addView(new View(this), new LinearLayout.LayoutParams(dp(48), dp(66)));
+        topBar.addView(topTitle, new LinearLayout.LayoutParams(0, dp(56), 1f));
+        topBar.addView(new View(this), new LinearLayout.LayoutParams(dp(48), dp(56)));
         root.addView(topBar, matchWrap());
 
         View divider = new View(this);
@@ -76,39 +76,30 @@ public final class CustomerAddActivity extends Activity {
 
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(20), dp(22), dp(20), dp(80));
+        content.setPadding(dp(16), dp(16), dp(16), dp(48));
 
-        TextView heading = text("최근 통화에서 선택", 27f, R.color.text_primary, true);
-        content.addView(heading, matchWrap());
-
-        TextView direct = text("직접 입력", 15f, R.color.text_primary, true);
+        TextView direct = text("직접 입력", 15f, android.R.color.white, true);
         direct.setGravity(Gravity.CENTER);
-        direct.setBackgroundResource(R.drawable.bg_secondary_button);
+        direct.setBackgroundResource(R.drawable.bg_primary_button);
+        direct.setClickable(true);
+        direct.setFocusable(true);
         direct.setOnClickListener(v -> {
             if (!saving) showRegistrationDialog("", "");
         });
-        LinearLayout.LayoutParams directParams = matchWrap();
-        directParams.height = dp(52);
-        directParams.topMargin = dp(16);
-        content.addView(direct, directParams);
+        content.addView(direct, fixedHeight(52, 0));
 
-        TextView recentTitle = text("최근 통화", 17f, R.color.text_primary, true);
-        LinearLayout.LayoutParams titleParams = matchWrap();
-        titleParams.topMargin = dp(28);
-        content.addView(recentTitle, titleParams);
+        TextView recentTitle = text("최근 통화", 13f, R.color.text_secondary, true);
+        content.addView(recentTitle, topMargin(22));
 
         recentCallList = new LinearLayout(this);
         recentCallList.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout.LayoutParams listParams = matchWrap();
-        listParams.topMargin = dp(12);
-        content.addView(recentCallList, listParams);
+        content.addView(recentCallList, topMargin(8));
 
-        emptyState = text("불러올 최근 통화가 없습니다.", 14f, R.color.text_secondary, false);
+        emptyState = text("불러올 최근 통화가 없습니다", 13f,
+                R.color.text_secondary, false);
         emptyState.setGravity(Gravity.CENTER);
         emptyState.setBackgroundResource(R.drawable.bg_card);
-        LinearLayout.LayoutParams emptyParams = matchWrap();
-        emptyParams.height = dp(96);
-        emptyParams.topMargin = dp(12);
+        LinearLayout.LayoutParams emptyParams = fixedHeight(64, 8);
         content.addView(emptyState, emptyParams);
 
         scroll.addView(content, matchWrap());
@@ -122,10 +113,12 @@ public final class CustomerAddActivity extends Activity {
         if (checkSelfPermission(Manifest.permission.READ_CALL_LOG)
                 != PackageManager.PERMISSION_GRANTED) {
             emptyState.setVisibility(View.VISIBLE);
-            emptyState.setText("통화 목록 불러오기");
-            emptyState.setTextColor(getColor(R.color.text_primary));
+            emptyState.setText("최근 통화 불러오기");
+            emptyState.setTextColor(getColor(android.R.color.white));
             emptyState.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
             emptyState.setBackgroundResource(R.drawable.bg_primary_button);
+            emptyState.setClickable(true);
+            emptyState.setFocusable(true);
             emptyState.setOnClickListener(v -> requestPermissions(
                     new String[]{Manifest.permission.READ_CALL_LOG}, REQUEST_CALL_LOG));
             return;
@@ -133,47 +126,56 @@ public final class CustomerAddActivity extends Activity {
 
         List<RecentCallItem> calls = loadRecentCalls();
         emptyState.setOnClickListener(null);
+        emptyState.setClickable(false);
+        emptyState.setFocusable(false);
         emptyState.setBackgroundResource(R.drawable.bg_card);
         emptyState.setTextColor(getColor(R.color.text_secondary));
         emptyState.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
-        emptyState.setText("불러올 최근 통화가 없습니다.");
+        emptyState.setText("불러올 최근 통화가 없습니다");
         emptyState.setVisibility(calls.isEmpty() ? View.VISIBLE : View.GONE);
 
         SimpleDateFormat formatter = new SimpleDateFormat("M월 d일 a h:mm", Locale.KOREA);
         for (RecentCallItem item : calls) {
             LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.VERTICAL);
-            row.setPadding(dp(18), dp(15), dp(18), dp(15));
-            row.setBackgroundResource(R.drawable.bg_dialog_choice);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(14), dp(11), dp(8), dp(11));
+            row.setBackgroundResource(R.drawable.bg_clickable_row);
             row.setClickable(true);
             row.setFocusable(true);
             row.setOnClickListener(v -> {
                 if (!saving) showRegistrationDialog(item.cachedName, item.number);
             });
 
-            LinearLayout header = new LinearLayout(this);
-            header.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout labels = new LinearLayout(this);
+            labels.setOrientation(LinearLayout.VERTICAL);
             String name = item.cachedName.isEmpty() ? "이름 없음" : item.cachedName;
-            TextView nameView = text(name, 16f, R.color.text_primary, true);
-            header.addView(nameView, new LinearLayout.LayoutParams(
+            TextView nameView = text(name, 15f, R.color.text_primary, true);
+            nameView.setSingleLine(true);
+            nameView.setEllipsize(TextUtils.TruncateAt.END);
+            labels.addView(nameView, matchWrap());
+
+            TextView phone = text(item.number, 13f, R.color.text_secondary, false);
+            phone.setSingleLine(true);
+            phone.setEllipsize(TextUtils.TruncateAt.END);
+            labels.addView(phone, topMargin(4));
+
+            String meta = callTypeLabel(item.type) + " · "
+                    + formatter.format(new Date(item.date)) + " · "
+                    + durationLabel(item.durationSec);
+            TextView metaView = text(meta, 11f, R.color.text_muted, false);
+            metaView.setSingleLine(true);
+            metaView.setEllipsize(TextUtils.TruncateAt.END);
+            labels.addView(metaView, topMargin(4));
+            row.addView(labels, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            TextView typeView = text(callTypeLabel(item.type), 12f, R.color.primary, true);
-            header.addView(typeView);
-            row.addView(header, matchWrap());
 
-            TextView phone = text(item.number, 15f, R.color.text_secondary, false);
-            LinearLayout.LayoutParams phoneParams = matchWrap();
-            phoneParams.topMargin = dp(7);
-            row.addView(phone, phoneParams);
-
-            String meta = formatter.format(new Date(item.date)) + " · " + durationLabel(item.durationSec);
-            TextView metaView = text(meta, 12f, R.color.text_muted, false);
-            LinearLayout.LayoutParams metaParams = matchWrap();
-            metaParams.topMargin = dp(5);
-            row.addView(metaView, metaParams);
+            TextView arrow = text("›", 23f, R.color.text_muted, false);
+            arrow.setGravity(Gravity.CENTER);
+            row.addView(arrow, new LinearLayout.LayoutParams(dp(30), dp(46)));
 
             LinearLayout.LayoutParams rowParams = matchWrap();
-            rowParams.bottomMargin = dp(10);
+            rowParams.bottomMargin = dp(6);
             recentCallList.addView(row, rowParams);
         }
     }
@@ -215,7 +217,8 @@ public final class CustomerAddActivity extends Activity {
                 int type = typeIndex >= 0 ? cursor.getInt(typeIndex) : CallLog.Calls.INCOMING_TYPE;
                 long date = dateIndex >= 0 ? cursor.getLong(dateIndex) : System.currentTimeMillis();
                 long duration = durationIndex >= 0 ? Math.max(0L, cursor.getLong(durationIndex)) : 0L;
-                rows.add(new RecentCallItem(number, name == null ? "" : name.trim(), type, date, duration));
+                rows.add(new RecentCallItem(number, name == null ? "" : name.trim(),
+                        type, date, duration));
             }
         } catch (SecurityException ignored) {
             Toast.makeText(this, "통화 목록 권한이 필요합니다.", Toast.LENGTH_SHORT).show();
@@ -241,9 +244,11 @@ public final class CustomerAddActivity extends Activity {
         name.setText(defaultName == null ? "" : defaultName);
         EditText phone = input("전화번호", InputType.TYPE_CLASS_PHONE);
         phone.setText(defaultPhone == null ? "" : defaultPhone);
-        form.addView(name, matchWrap());
-        LinearLayout.LayoutParams phoneParams = matchWrap();
-        phoneParams.topMargin = dp(12);
+        form.addView(name, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(52)));
+        LinearLayout.LayoutParams phoneParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
+        phoneParams.topMargin = dp(10);
         form.addView(phone, phoneParams);
 
         AlertDialog dialog = new AlertDialog.Builder(this)
@@ -339,11 +344,11 @@ public final class CustomerAddActivity extends Activity {
         input.setHint(hint);
         input.setHintTextColor(getColor(R.color.text_muted));
         input.setTextColor(getColor(R.color.text_primary));
-        input.setTextSize(16f);
+        input.setTextSize(15f);
         input.setSingleLine(true);
         input.setInputType(inputType);
         input.setBackgroundResource(R.drawable.bg_input);
-        input.setPadding(dp(14), dp(12), dp(14), dp(12));
+        input.setPadding(dp(14), 0, dp(14), 0);
         return input;
     }
 
@@ -351,6 +356,19 @@ public final class CustomerAddActivity extends Activity {
         return new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
+    }
+
+    private LinearLayout.LayoutParams fixedHeight(int height, int topMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(height));
+        params.topMargin = dp(topMargin);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams topMargin(int value) {
+        LinearLayout.LayoutParams params = matchWrap();
+        params.topMargin = dp(value);
+        return params;
     }
 
     private int dp(int value) {
@@ -370,7 +388,8 @@ public final class CustomerAddActivity extends Activity {
         final long date;
         final long durationSec;
 
-        RecentCallItem(String number, String cachedName, int type, long date, long durationSec) {
+        RecentCallItem(String number, String cachedName, int type,
+                       long date, long durationSec) {
             this.number = number;
             this.cachedName = cachedName;
             this.type = type;
