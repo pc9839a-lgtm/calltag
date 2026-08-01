@@ -14,7 +14,7 @@
         android:paddingLeft="20dp"
         android:paddingTop="18dp"
         android:paddingRight="20dp"
-        android:paddingBottom="100dp">
+        android:paddingBottom="110dp">
 
         <TextView
             android:layout_width="wrap_content"
@@ -25,48 +25,17 @@
             android:textSize="28sp"
             android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:text="문자 관리"
-            android:textColor="@color/text_secondary"
-            android:textSize="13sp"
-            android:textStyle="bold" />
-
-        <kr.pagero.calltag.MessageSettingsView
+        <kr.pagero.calltag.MoreSettingsHubView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp" />
+            android:layout_marginTop="16dp" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:text="고객·일정 설정"
-            android:textColor="@color/text_secondary"
-            android:textSize="13sp"
-            android:textStyle="bold" />
-
+        <!-- 기존 MainActivity 동적 메뉴 바인딩 호환용. 사용자 화면에는 노출하지 않는다. -->
         <kr.pagero.calltag.MoreMenuListView
             android:id="@+id/moreMenuList"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:orientation="vertical" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="계정"
-            android:textColor="@color/text_secondary"
-            android:textSize="13sp"
-            android:textStyle="bold" />
-
-        <kr.pagero.calltag.AccountLauncherView
-            android:layout_width="match_parent"
-            android:layout_height="72dp"
-            android:layout_marginTop="10dp" />
+            android:layout_width="1dp"
+            android:layout_height="1dp"
+            android:orientation="vertical"
+            android:visibility="gone" />
     </LinearLayout>
 </ScrollView>
