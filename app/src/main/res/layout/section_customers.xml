@@ -6,112 +6,162 @@
     android:background="@color/background"
     android:orientation="vertical"
     android:paddingLeft="16dp"
-    android:paddingTop="14dp"
+    android:paddingTop="12dp"
     android:paddingRight="16dp"
     android:paddingBottom="12dp"
     android:visibility="gone">
 
-    <LinearLayout
-        android:id="@+id/customerListPanel"
+    <kr.pagero.calltag.CustomerHubTabsView
+        android:id="@+id/customerHubTabs"
+        android:layout_width="match_parent"
+        android:layout_height="54dp" />
+
+    <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:orientation="vertical">
+        android:layout_marginTop="10dp"
+        android:layout_weight="1">
 
         <LinearLayout
+            android:id="@+id/customerListPanel"
             android:layout_width="match_parent"
-            android:layout_height="46dp"
-            android:gravity="center_vertical|end"
-            android:orientation="horizontal">
+            android:layout_height="match_parent"
+            android:orientation="vertical">
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:includeFontPadding="false"
-                android:text="고객"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:gravity="center_vertical|end"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:includeFontPadding="false"
+                    android:text="고객 목록"
+                    android:textColor="@color/text_primary"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <kr.pagero.calltag.CustomerAddLauncherView
+                    android:id="@+id/addCustomerButton"
+                    android:layout_width="92dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/bg_primary_button"
+                    android:gravity="center"
+                    android:text="+ 추가"
+                    android:textColor="@android:color/white"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <EditText
+                android:id="@+id/customerSearchInput"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_input"
+                android:hint="고객명·전화번호 검색"
+                android:inputType="text"
+                android:paddingLeft="14dp"
+                android:paddingRight="14dp"
+                android:singleLine="true"
                 android:textColor="@color/text_primary"
-                android:textSize="26sp"
-                android:textStyle="bold" />
+                android:textColorHint="@color/text_muted"
+                android:textSize="14sp" />
 
-            <kr.pagero.calltag.CustomerAddLauncherView
-                android:id="@+id/addCustomerButton"
-                android:layout_width="92dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="42dp"
-                android:background="@drawable/bg_primary_button"
-                android:gravity="center"
-                android:text="+ 추가"
-                android:textColor="@android:color/white"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+                android:layout_marginTop="7dp"
+                android:orientation="horizontal">
 
-        <EditText
-            android:id="@+id/customerSearchInput"
-            android:layout_width="match_parent"
-            android:layout_height="46dp"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/bg_input"
-            android:hint="고객명·전화번호 검색"
-            android:inputType="text"
-            android:paddingLeft="14dp"
-            android:paddingRight="14dp"
-            android:singleLine="true"
-            android:textColor="@color/text_primary"
-            android:textColorHint="@color/text_muted"
-            android:textSize="14sp" />
+                <Button
+                    android:id="@+id/customerFilterButton"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_secondary_button"
+                    android:minHeight="0dp"
+                    android:minWidth="0dp"
+                    android:text="전체 상태  ▾"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="42dp"
-            android:layout_marginTop="7dp"
-            android:orientation="horizontal">
+                <Button
+                    android:id="@+id/customerDateFilterButton"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_marginLeft="7dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_secondary_button"
+                    android:minHeight="0dp"
+                    android:minWidth="0dp"
+                    android:text="전체 기간  ▾"
+                    android:textAllCaps="false"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
-            <Button
-                android:id="@+id/customerFilterButton"
-                android:layout_width="0dp"
-                android:layout_height="42dp"
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="9dp"
                 android:layout_weight="1"
-                android:background="@drawable/bg_secondary_button"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:text="전체 상태  ▾"
-                android:textAllCaps="false"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp"
-                android:textStyle="bold" />
+                android:clipToPadding="false">
 
-            <Button
-                android:id="@+id/customerDateFilterButton"
-                android:layout_width="0dp"
-                android:layout_height="42dp"
-                android:layout_marginLeft="7dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_secondary_button"
-                android:minHeight="0dp"
-                android:minWidth="0dp"
-                android:text="전체 기간  ▾"
-                android:textAllCaps="false"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp"
-                android:textStyle="bold" />
+                <kr.pagero.calltag.CustomerListView
+                    android:id="@+id/customerList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingBottom="96dp" />
+            </ScrollView>
         </LinearLayout>
 
         <ScrollView
+            android:id="@+id/customerMessagesPanel"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_marginTop="9dp"
-            android:layout_weight="1"
-            android:clipToPadding="false">
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:fillViewport="true"
+            android:visibility="gone">
 
-            <kr.pagero.calltag.CustomerListView
-                android:id="@+id/customerList"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingBottom="88dp" />
+                android:paddingTop="4dp"
+                android:paddingBottom="110dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:includeFontPadding="false"
+                    android:text="고객 문자"
+                    android:textColor="@color/text_primary"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:text="고객을 선택한 뒤 문자 내용을 작성합니다."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
+
+                <kr.pagero.calltag.MessageSectionView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp" />
+            </LinearLayout>
         </ScrollView>
-    </LinearLayout>
+    </FrameLayout>
 
     <!-- 기존 MainActivity 바인딩 호환용 숨김 뷰 -->
     <Button
