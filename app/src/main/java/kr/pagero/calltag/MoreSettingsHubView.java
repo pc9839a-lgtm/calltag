@@ -8,6 +8,7 @@ import android.text.TextWatcher;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -16,10 +17,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** 검색과 접이식 묶음으로 정리한 더보기 화면. */
+/** 텍스트 나열 대신 검색 가능한 큰 버튼 카드로 구성한 더보기. */
 public final class MoreSettingsHubView extends LinearLayout {
-    private final List<Group> groups = new ArrayList<>();
-    private EditText search;
+    private final List<MenuItem> items = new ArrayList<>();
+    private final List<Section> sections = new ArrayList<>();
 
     public MoreSettingsHubView(Context context) {
         super(context);
@@ -39,7 +40,7 @@ public final class MoreSettingsHubView extends LinearLayout {
     private void init() {
         setOrientation(VERTICAL);
 
-        search = new EditText(getContext());
+        EditText search = new EditText(getContext());
         search.setSingleLine(true);
         search.setHint("설정 검색");
         search.setTextSize(15f);
@@ -50,134 +51,115 @@ public final class MoreSettingsHubView extends LinearLayout {
         search.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                applySearch(s == null ? "" : s.toString());
+                filter(s == null ? "" : s.toString());
             }
             @Override public void afterTextChanged(Editable s) {}
         });
         addView(search, new LayoutParams(LayoutParams.MATCH_PARENT, dp(52)));
 
-        Group messages = addGroup("문자", true);
-        messages.add("문자 템플릿", MessageTemplateLibraryActivity.class);
-        messages.add("자동문자", MessageAutomationSettingsActivity.class);
-        messages.add("단체문자", CampaignListActivity.class);
-        messages.add("고객 그룹", MessageGroupActivity.class);
-        messages.add("발송 내역", MessageHistoryActivity.class);
-        messages.add("발송 제외", MessageExclusionActivity.class);
+        Section messages = section("문자");
+        messages.add("문자 템플릿", "템플릿 문구 이미지", MessageTemplateLibraryActivity.class);
+        messages.add("통화 후 자동문자", "자동 발송 부재중 후속", MessageAutomationSettingsActivity.class);
+        messages.add("그룹·단체문자", "고객 그룹 캠페인", GroupCampaignHubActivity.class);
+        messages.add("발송 관리", "발송 내역 제외 번호", MessageSafetyHubActivity.class);
 
-        Group customer = addGroup("고객·일정", false);
-        customer.add("고객 상태", StageSettingsActivity.class);
-        customer.add("일정 종류", TaskTypeSettingsActivity.class);
+        Section customers = section("고객·일정");
+        customers.add("고객 상태", "고객 단계 상태 색상", StageSettingsActivity.class);
+        customers.add("일정 종류", "할 일 일정 종류", TaskTypeSettingsActivity.class);
 
-        Group app = addGroup("앱·계정", false);
-        app.add("계정 및 개인정보", AccountActivity.class);
-        app.add("앱 상태 진단", DiagnosticActivity.class);
-        app.add("백업 및 복원", BackupRestoreActivity.class);
-
-        renderGroups();
+        Section app = section("앱·계정");
+        app.add("계정", "개인정보 로그인", AccountActivity.class);
+        app.add("앱 진단", "권한 오류 상태", DiagnosticActivity.class);
+        app.add("백업·복원", "암호화 백업 복원", BackupRestoreActivity.class);
     }
 
-    private Group addGroup(String title, boolean open) {
-        Group group = new Group(title, open);
-        groups.add(group);
-        return group;
+    private Section section(String title) {
+        Section section = new Section(title);
+        sections.add(section);
+        addView(section.root, topMargin(18));
+        return section;
     }
 
-    private void applySearch(String value) {
-        String query = value.trim().toLowerCase(Locale.KOREA);
-        for (Group group : groups) {
-            boolean groupMatch = group.title.toLowerCase(Locale.KOREA).contains(query);
-            int visibleRows = 0;
-            for (Row row : group.rows) {
-                boolean visible = query.isEmpty()
-                        || groupMatch
-                        || row.title.toLowerCase(Locale.KOREA).contains(query);
-                row.view.setVisibility(visible ? VISIBLE : GONE);
-                if (visible) visibleRows++;
-            }
-            group.root.setVisibility(query.isEmpty() || visibleRows > 0 ? VISIBLE : GONE);
-            group.forcedOpen = !query.isEmpty() && visibleRows > 0;
-            group.render();
+    private void filter(String raw) {
+        String query = raw.trim().toLowerCase(Locale.KOREA);
+        for (MenuItem item : items) {
+            boolean visible = query.isEmpty()
+                    || item.searchText.contains(query);
+            item.button.setVisibility(visible ? VISIBLE : GONE);
         }
+        for (Section section : sections) section.refreshVisibility();
     }
 
-    private void renderGroups() {
-        for (Group group : groups) {
-            addView(group.root, topMargin(12));
-            group.render();
-        }
-    }
-
-    private final class Group {
-        final String title;
+    private final class Section {
         final LinearLayout root;
-        final TextView header;
-        final LinearLayout body;
-        final List<Row> rows = new ArrayList<>();
-        boolean open;
-        boolean forcedOpen;
+        final LinearLayout rows;
+        final List<MenuItem> menuItems = new ArrayList<>();
 
-        Group(String title, boolean open) {
-            this.title = title;
-            this.open = open;
+        Section(String title) {
             root = new LinearLayout(getContext());
             root.setOrientation(VERTICAL);
-            root.setBackgroundResource(R.drawable.bg_card);
 
-            header = new TextView(getContext());
-            header.setTextSize(17f);
-            header.setTextColor(getContext().getColor(R.color.text_primary));
-            header.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-            header.setGravity(Gravity.CENTER_VERTICAL);
-            header.setPadding(dp(16), 0, dp(16), 0);
-            header.setClickable(true);
-            header.setFocusable(true);
-            header.setOnClickListener(v -> {
-                if (forcedOpen) return;
-                this.open = !this.open;
-                render();
-            });
-            root.addView(header, new LayoutParams(LayoutParams.MATCH_PARENT, dp(58)));
+            TextView label = new TextView(getContext());
+            label.setText(title);
+            label.setTextColor(getContext().getColor(R.color.text_primary));
+            label.setTextSize(17f);
+            label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+            label.setIncludeFontPadding(false);
+            root.addView(label, new LayoutParams(
+                    LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
-            body = new LinearLayout(getContext());
-            body.setOrientation(VERTICAL);
-            body.setPadding(dp(8), 0, dp(8), dp(8));
-            root.addView(body, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+            rows = new LinearLayout(getContext());
+            rows.setOrientation(VERTICAL);
+            root.addView(rows, topMargin(8));
         }
 
-        void add(String title, Class<?> destination) {
-            TextView view = new TextView(getContext());
-            view.setText(title + "    ›");
-            view.setTextSize(15f);
-            view.setTextColor(getContext().getColor(R.color.text_primary));
-            view.setGravity(Gravity.CENTER_VERTICAL);
-            view.setPadding(dp(14), 0, dp(14), 0);
-            view.setBackgroundResource(R.drawable.bg_clickable_row);
-            view.setClickable(true);
-            view.setFocusable(true);
-            view.setOnClickListener(v -> getContext().startActivity(
+        void add(String title, String keywords, Class<?> destination) {
+            Button button = new Button(getContext());
+            button.setText(title);
+            button.setAllCaps(false);
+            button.setTextSize(15f);
+            button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+            button.setTextColor(getContext().getColor(R.color.text_primary));
+            button.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+            button.setPadding(dp(18), 0, dp(18), 0);
+            button.setBackgroundResource(R.drawable.bg_secondary_button);
+            button.setMinWidth(0);
+            button.setOnClickListener(v -> getContext().startActivity(
                     new Intent(getContext(), destination)));
-            Row row = new Row(title, view);
-            rows.add(row);
-            LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, dp(54));
-            params.topMargin = dp(6);
-            body.addView(view, params);
+
+            MenuItem item = new MenuItem(button,
+                    (title + " " + keywords).toLowerCase(Locale.KOREA));
+            items.add(item);
+            menuItems.add(item);
+            rows.addView(button, rowParams());
         }
 
-        void render() {
-            boolean expanded = forcedOpen || open;
-            header.setText(title + (expanded ? "    ︿" : "    ﹀"));
-            body.setVisibility(expanded ? VISIBLE : GONE);
+        void refreshVisibility() {
+            boolean any = false;
+            for (MenuItem item : menuItems) {
+                if (item.button.getVisibility() == VISIBLE) {
+                    any = true;
+                    break;
+                }
+            }
+            root.setVisibility(any ? VISIBLE : GONE);
         }
     }
 
-    private static final class Row {
-        final String title;
-        final View view;
+    private static final class MenuItem {
+        final Button button;
+        final String searchText;
 
-        Row(String title, View view) {
-            this.title = title;
-            this.view = view;
+        MenuItem(Button button, String searchText) {
+            this.button = button;
+            this.searchText = searchText;
         }
+    }
+
+    private LayoutParams rowParams() {
+        LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, dp(58));
+        params.bottomMargin = dp(8);
+        return params;
     }
 
     private LayoutParams topMargin(int value) {
