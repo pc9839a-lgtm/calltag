@@ -51,14 +51,12 @@
     <LinearLayout
         android:id="@+id/bottomNavigation"
         android:layout_width="match_parent"
-        android:layout_height="92dp"
+        android:layout_height="82dp"
         android:background="@color/surface_soft"
-        android:clipChildren="false"
-        android:clipToPadding="false"
         android:gravity="center"
         android:orientation="horizontal"
         android:paddingLeft="2dp"
-        android:paddingTop="10dp"
+        android:paddingTop="8dp"
         android:paddingRight="2dp"
         android:paddingBottom="4dp">
 
@@ -91,16 +89,14 @@
         <kr.pagero.calltag.HomeNavItemTextView
             android:id="@+id/navToday"
             android:layout_width="0dp"
-            android:layout_height="76dp"
-            android:layout_weight="1.22"
+            android:layout_height="match_parent"
+            android:layout_weight="1.08"
             android:drawableTop="@drawable/ic_nav_today"
             android:drawablePadding="3dp"
             android:gravity="center"
             android:includeFontPadding="false"
-            android:paddingTop="8dp"
-            android:paddingBottom="7dp"
             android:text="홈"
-            android:textColor="@android:color/white"
+            android:textColor="@color/nav_inactive"
             android:textSize="13sp"
             android:textStyle="bold" />
 
