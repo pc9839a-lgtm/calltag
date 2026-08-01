@@ -110,15 +110,16 @@ public final class SetupRequirements {
     }
 
     /**
-     * 최초 시스템 권한창을 한 번 거쳤는지만 확인한다. 권한을 나중에 거절하거나
-     * 해제해도 긴 설정 화면으로 강제 이동하지 않고 각 기능 화면에서 다시 요청한다.
+     * 앱 진입을 별도 설정 페이지로 막지 않는다. 필요한 권한과 역할은 사용자가
+     * 해당 기능을 누른 시점에 Android 시스템 창으로 직접 요청한다.
      */
     public static boolean isReady(Context context) {
-        return initialFlowCompleted(context);
+        return true;
     }
 
+    /** 이전 호출부 호환용이며 강제 설정 화면 대신 메인으로 이동한다. */
     public static Intent requiredSetupIntent(Context context) {
-        return new Intent(context, InitialPermissionActivity.class)
+        return new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     }
 
