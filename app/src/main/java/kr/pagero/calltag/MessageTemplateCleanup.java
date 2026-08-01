@@ -37,19 +37,20 @@ public final class MessageTemplateCleanup {
             for (int i = 0; i < source.length(); i++) {
                 JSONObject item = source.optJSONObject(i);
                 if (item == null) continue;
+                item.put("favorite", false);
                 String id = item.optString("id", "");
                 String key = duplicateKey(item);
                 JSONObject canonical = byKey.get(key);
                 if (canonical == null) {
                     canonical = new JSONObject(item.toString());
+                    canonical.put("favorite", false);
                     byKey.put(key, canonical);
                     compacted.put(canonical);
                     continue;
                 }
                 String canonicalId = canonical.optString("id", "");
                 if (!id.isEmpty() && !canonicalId.isEmpty()) redirectedIds.put(id, canonicalId);
-                canonical.put("favorite", canonical.optBoolean("favorite", false)
-                        || item.optBoolean("favorite", false));
+                canonical.put("favorite", false);
                 canonical.put("useCount", canonical.optInt("useCount", 0)
                         + item.optInt("useCount", 0));
                 canonical.put("lastUsedAt", Math.max(canonical.optLong("lastUsedAt", 0L),
