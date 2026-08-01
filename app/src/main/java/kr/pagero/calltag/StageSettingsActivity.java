@@ -6,7 +6,9 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.Editable;
 import android.text.InputType;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -133,6 +135,19 @@ public final class StageSettingsActivity extends Activity {
         colorRow.setGravity(Gravity.CENTER_VERTICAL);
         List<View> colorViews = new ArrayList<>();
 
+        EditText customColor = new EditText(this);
+        customColor.setSingleLine(true);
+        customColor.setHint("#4389FF");
+        customColor.setText(selectedColor[0]);
+        customColor.setTextColor(getColor(R.color.text_primary));
+        customColor.setHintTextColor(getColor(R.color.text_muted));
+        customColor.setTextSize(14f);
+        customColor.setBackgroundResource(R.drawable.bg_input);
+        customColor.setPadding(dp(14), 0, dp(14), 0);
+
+        View customPreview = new View(this);
+        customPreview.setBackground(colorShape(selectedColor[0], true));
+
         for (String color : COLOR_OPTIONS) {
             View choice = new View(this);
             choice.setTag(color);
@@ -144,11 +159,36 @@ public final class StageSettingsActivity extends Activity {
             colorRow.addView(choice, params);
             choice.setOnClickListener(v -> {
                 selectedColor[0] = (String) v.getTag();
+                customColor.setText(selectedColor[0]);
+                customColor.setSelection(customColor.getText().length());
                 refreshColorChoices(colorViews, selectedColor[0]);
+                customPreview.setBackground(colorShape(selectedColor[0], true));
             });
         }
         refreshColorChoices(colorViews, selectedColor[0]);
         content.addView(colorRow, topMargin(8));
+
+        content.addView(sectionLabel("직접 색상"), topMargin(12));
+        LinearLayout customRow = new LinearLayout(this);
+        customRow.setGravity(Gravity.CENTER_VERTICAL);
+        customRow.addView(customColor, new LinearLayout.LayoutParams(0, dp(48), 1f));
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(dp(48), dp(48));
+        previewParams.leftMargin = dp(8);
+        customRow.addView(customPreview, previewParams);
+        content.addView(customRow, topMargin(6));
+
+        customColor.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                String normalized = normalizeColor(s == null ? "" : s.toString());
+                if (normalized != null) {
+                    selectedColor[0] = normalized;
+                    customPreview.setBackground(colorShape(normalized, true));
+                    refreshColorChoices(colorViews, normalized);
+                }
+            }
+            @Override public void afterTextChanged(Editable s) {}
+        });
 
         AlertDialog.Builder builder = new AlertDialog.Builder(this)
                 .setTitle(stage == null ? "사용자 상태 추가" : "상태 수정")
@@ -160,11 +200,16 @@ public final class StageSettingsActivity extends Activity {
         AlertDialog dialog = builder.create();
         dialog.setOnShowListener(ignored -> {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String color = normalizeColor(customColor.getText().toString());
+                if (color == null) {
+                    customColor.setError("#RRGGBB 형식으로 입력해주세요.");
+                    return;
+                }
                 try {
                     if (stage == null) {
-                        db.addStage(input.getText().toString(), selectedColor[0]);
+                        db.addStage(input.getText().toString(), color);
                     } else {
-                        db.updateStage(stage.id, stage.name, input.getText().toString(), selectedColor[0]);
+                        db.updateStage(stage.id, stage.name, input.getText().toString(), color);
                     }
                     dialog.dismiss();
                     render();
@@ -183,6 +228,18 @@ public final class StageSettingsActivity extends Activity {
             }
         });
         dialog.show();
+    }
+
+    private String normalizeColor(String raw) {
+        String value = raw == null ? "" : raw.trim().toUpperCase();
+        if (!value.startsWith("#")) value = "#" + value;
+        if (!value.matches("#[0-9A-F]{6}")) return null;
+        try {
+            Color.parseColor(value);
+            return value;
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     private void refreshColorChoices(List<View> views, String selected) {
