@@ -31,25 +31,30 @@
           <article class="ct-plan-card">
             <small>CALL</small>
             <h3>전화관리</h3>
+            <div class="ct-plan-sale"><del>월 6,900원</del><em>5,000원 할인</em></div>
             <div class="ct-plan-price"><b>1,900원</b><span>/ 월</span></div>
           </article>
           <article class="ct-plan-card">
             <small>MESSAGE</small>
             <h3>문자자동화</h3>
+            <div class="ct-plan-sale"><del>월 4,900원</del><em>3,910원 할인</em></div>
             <div class="ct-plan-price"><b>990원</b><span>/ 월</span></div>
           </article>
           <article class="ct-plan-card pagero">
             <small>PAGERO</small>
             <h3>페이지로</h3>
+            <div class="ct-plan-sale"><del>월 9,900원</del><em>6,400원 할인</em></div>
             <div class="ct-plan-price"><b>3,500원</b><span>/ 월</span></div>
           </article>
           <article class="ct-plan-card all">
             <span class="ct-plan-badge">추천</span>
             <small>ALL IN ONE</small>
             <h3>통합권</h3>
-            <div class="ct-plan-price"><b>5,500원</b><span>/ 월</span></div>
+            <div class="ct-plan-sale"><del>월 19,900원</del><em>13,900원 할인</em></div>
+            <div class="ct-plan-price"><b>6,000원</b><span>/ 월</span></div>
           </article>
         </div>
+        <p class="ct-vat-note">모든 요금제는 부가세 별도입니다.</p>
       </div>`;
 
     if(!document.querySelector('style[data-ct-pricing-redesign]')){
@@ -64,27 +69,32 @@
         .ct-pricing-head h2 span{color:var(--blue-2)}
         .ct-pricing-head>strong{display:block;margin-top:15px;color:#c7ccd7;font-size:14px}
         .ct-pricing-grid{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:14px!important}
-        .ct-plan-card{position:relative;min-width:0;min-height:250px!important;display:flex;flex-direction:column;justify-content:space-between;padding:29px 27px!important;border:1px solid rgba(255,255,255,.14);border-radius:22px;background:linear-gradient(155deg,#171a21,#111319);box-shadow:0 18px 48px rgba(0,0,0,.2)}
+        .ct-plan-card{position:relative;min-width:0;min-height:280px!important;display:flex;flex-direction:column;padding:29px 27px!important;border:1px solid rgba(255,255,255,.14);border-radius:22px;background:linear-gradient(155deg,#171a21,#111319);box-shadow:0 18px 48px rgba(0,0,0,.2)}
         .ct-plan-card.pagero{border-color:rgba(124,153,255,.42)}
         .ct-plan-card.all{border-color:rgba(59,111,255,.88);background:linear-gradient(155deg,rgba(59,111,255,.2),#121722 54%);box-shadow:0 24px 64px rgba(59,111,255,.16)}
         .ct-plan-card>small{display:block;color:var(--blue-2);font-size:10px;font-weight:900;letter-spacing:.05em}
         .ct-plan-card h3{margin:18px 0 0;color:#fff;font-size:clamp(28px,2.15vw,36px);line-height:1;letter-spacing:-.06em}
-        .ct-plan-price{display:flex;align-items:flex-end;gap:6px;margin-top:auto;padding-top:48px;white-space:nowrap}
+        .ct-plan-sale{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:auto;padding-top:38px}
+        .ct-plan-sale del{color:#747b89;font-size:12px;font-weight:700}
+        .ct-plan-sale em{padding:5px 8px;border-radius:999px;background:rgba(59,111,255,.15);color:#9eb1ff;font-size:10px;font-style:normal;font-weight:900;white-space:nowrap}
+        .ct-plan-price{display:flex;align-items:flex-end;gap:6px;margin-top:10px;white-space:nowrap}
         .ct-plan-price b{color:#fff;font-size:clamp(38px,3vw,50px);line-height:1;letter-spacing:-.075em}
         .ct-plan-price span{margin-bottom:5px;color:#aeb4c0;font-size:11px;font-weight:750}
         .ct-plan-badge{position:absolute;top:20px;right:20px;padding:7px 10px;border-radius:999px;background:var(--blue);color:#fff;font-size:9px;font-weight:900}
+        .ct-vat-note{margin:18px 0 0;color:#9da4b2;font-size:12px;font-weight:750;text-align:right}
+        .ct-vat-note:before{content:'* ';color:var(--blue-2)}
         @media(max-width:1050px){
           .ct-pricing-wrap{max-width:850px!important}
           .ct-pricing-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
-          .ct-plan-card{min-height:230px!important}
+          .ct-plan-card{min-height:260px!important}
         }
         @media(max-width:650px){
           #pricing.ct-pricing-redesign{padding:80px 0!important}
           .ct-pricing-head{margin-bottom:28px}.ct-pricing-head h2{font-size:38px}.ct-pricing-head>strong{font-size:12px;line-height:1.5}
           .ct-pricing-grid{grid-template-columns:1fr!important}
-          .ct-plan-card{min-height:205px!important;padding:23px 21px!important;border-radius:19px}
-          .ct-plan-card h3{font-size:31px}.ct-plan-price{padding-top:34px}.ct-plan-price b{font-size:43px}
-          .ct-plan-badge{top:17px;right:17px}
+          .ct-plan-card{min-height:235px!important;padding:23px 21px!important;border-radius:19px}
+          .ct-plan-card h3{font-size:31px}.ct-plan-sale{padding-top:30px}.ct-plan-price b{font-size:43px}
+          .ct-plan-badge{top:17px;right:17px}.ct-vat-note{text-align:center;font-size:11px}
         }
       `;
       document.head.append(style);
