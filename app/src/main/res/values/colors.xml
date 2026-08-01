@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#4389FF</color>
-    <color name="primary_dark">#276FE8</color>
-    <color name="primary_soft">#16263A</color>
-    <color name="accent">#4389FF</color>
+    <color name="primary">#4A8DFF</color>
+    <color name="primary_dark">#3376E8</color>
+    <color name="primary_soft">#18243A</color>
+    <color name="accent">#4A8DFF</color>
 
-    <color name="surface">#1D1F22</color>
-    <color name="surface_soft">#18191C</color>
-    <color name="background">#111214</color>
+    <color name="surface">#1B1D21</color>
+    <color name="surface_soft">#15171A</color>
+    <color name="background">#0F1012</color>
 
-    <color name="text_primary">#F5F6F7</color>
-    <color name="text_secondary">#A7ABB2</color>
-    <color name="text_muted">#6E737B</color>
-    <color name="nav_inactive">#737983</color>
-    <color name="border">#32353A</color>
+    <color name="text_primary">#F4F5F7</color>
+    <color name="text_secondary">#A6ABB3</color>
+    <color name="text_muted">#707680</color>
+    <color name="nav_inactive">#747A84</color>
+    <color name="border">#2B2E34</color>
 
-    <color name="success">#F5F6F7</color>
-    <color name="success_soft">#1D1F22</color>
-    <color name="warning">#A7ABB2</color>
-    <color name="warning_soft">#1D1F22</color>
-    <color name="danger">#FF7D7D</color>
+    <color name="success">#F4F5F7</color>
+    <color name="success_soft">#1B1D21</color>
+    <color name="warning">#A6ABB3</color>
+    <color name="warning_soft">#1B1D21</color>
+    <color name="danger">#FF7A7A</color>
     <color name="danger_soft">#2A2022</color>
 </resources>
