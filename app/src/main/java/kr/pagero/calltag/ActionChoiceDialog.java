@@ -55,6 +55,9 @@ public final class ActionChoiceDialog {
                             View.OnClickListener footerListener) {
         if (activity == null || activity.isFinishing()) return;
 
+        boolean saveMode = title != null && title.trim().startsWith("연결 문자");
+        int[] selectedIndex = {findSelectedIndex(options)};
+
         LinearLayout content = new LinearLayout(activity);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(activity, 18), dp(activity, 10), dp(activity, 18), dp(activity, 8));
@@ -68,16 +71,26 @@ public final class ActionChoiceDialog {
         LinearLayout optionList = new LinearLayout(activity);
         optionList.setOrientation(LinearLayout.VERTICAL);
         if (options != null) {
-            for (Option option : options) {
+            for (int i = 0; i < options.size(); i++) {
+                Option option = options.get(i);
                 View row = optionRow(activity, option);
+                row.setTag(R.id.customerListTab, i);
                 LinearLayout.LayoutParams rowParams = matchWrap();
                 rowParams.topMargin = dp(activity, 9);
                 optionList.addView(row, rowParams);
-                row.setOnClickListener(v -> {
-                    AlertDialog dialog = (AlertDialog) v.getTag(R.id.appTitle);
-                    if (dialog != null) dialog.dismiss();
-                    if (listener != null) listener.onSelected(option);
-                });
+                if (saveMode) {
+                    row.setOnClickListener(v -> {
+                        Object rawIndex = v.getTag(R.id.customerListTab);
+                        selectedIndex[0] = rawIndex instanceof Integer ? (Integer) rawIndex : 0;
+                        renderSelection(activity, optionList, selectedIndex[0]);
+                    });
+                } else {
+                    row.setOnClickListener(v -> {
+                        AlertDialog dialog = (AlertDialog) v.getTag(R.id.appTitle);
+                        if (dialog != null) dialog.dismiss();
+                        if (listener != null) listener.onSelected(option);
+                    });
+                }
             }
         }
         content.addView(optionList, matchWrap());
@@ -104,19 +117,67 @@ public final class ActionChoiceDialog {
         scroll.addView(content, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
 
-        AlertDialog dialog = new AlertDialog.Builder(activity)
+        AlertDialog.Builder builder = new AlertDialog.Builder(activity)
                 .setTitle(title)
-                .setView(scroll)
-                .setNegativeButton("닫기", null)
-                .create();
+                .setView(scroll);
+        if (saveMode) {
+            builder.setNegativeButton("취소", null)
+                    .setPositiveButton("저장", null);
+        } else {
+            builder.setNegativeButton("닫기", null);
+        }
+
+        AlertDialog dialog = builder.create();
         dialog.setOnShowListener(ignored -> {
             bindDialogTag(optionList, dialog);
             if (footerTitle != null && content.getChildCount() > 0) {
                 View footer = content.getChildAt(content.getChildCount() - 1);
                 footer.setTag(R.id.appTitle, dialog);
             }
+            if (saveMode) {
+                renderSelection(activity, optionList, selectedIndex[0]);
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                    if (options == null || options.isEmpty()) {
+                        dialog.dismiss();
+                        return;
+                    }
+                    int safeIndex = Math.max(0, Math.min(selectedIndex[0], options.size() - 1));
+                    if (listener != null) listener.onSelected(options.get(safeIndex));
+                    dialog.dismiss();
+                });
+            }
         });
         dialog.show();
+    }
+
+    private static int findSelectedIndex(List<Option> options) {
+        if (options == null || options.isEmpty()) return 0;
+        for (int i = 0; i < options.size(); i++) {
+            String subtitle = options.get(i).subtitle;
+            if (subtitle != null && subtitle.startsWith("현재 설정")) return i;
+        }
+        return 0;
+    }
+
+    private static void renderSelection(Activity activity, LinearLayout list, int selectedIndex) {
+        for (int i = 0; i < list.getChildCount(); i++) {
+            View child = list.getChildAt(i);
+            boolean selected = i == selectedIndex;
+            child.setBackgroundResource(selected
+                    ? R.drawable.bg_secondary_button
+                    : R.drawable.bg_clickable_row);
+            if (child instanceof LinearLayout) {
+                LinearLayout row = (LinearLayout) child;
+                View indicator = row.getChildAt(row.getChildCount() - 1);
+                if (indicator instanceof TextView) {
+                    TextView marker = (TextView) indicator;
+                    marker.setText(selected ? "✓" : "");
+                    marker.setTextColor(activity.getColor(selected
+                            ? R.color.primary : R.color.text_muted));
+                    marker.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                }
+            }
+        }
     }
 
     private static void bindDialogTag(LinearLayout list, AlertDialog dialog) {
@@ -157,9 +218,9 @@ public final class ActionChoiceDialog {
         labelParams.leftMargin = option.color.trim().isEmpty() ? 0 : dp(activity, 12);
         row.addView(labels, labelParams);
 
-        TextView arrow = text(activity, "›", 24f, R.color.text_muted, false);
+        TextView arrow = text(activity, "", 20f, R.color.text_muted, true);
         arrow.setGravity(Gravity.CENTER);
-        row.addView(arrow, new LinearLayout.LayoutParams(dp(activity, 24), dp(activity, 40)));
+        row.addView(arrow, new LinearLayout.LayoutParams(dp(activity, 28), dp(activity, 40)));
         return row;
     }
 
