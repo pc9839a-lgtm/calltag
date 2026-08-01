@@ -19,7 +19,7 @@ import android.widget.Toast;
 
 import java.util.UUID;
 
-/** 용도·즐겨찾기 같은 내부값을 숨긴 단순 템플릿 편집 화면. */
+/** 템플릿 이름·내용·이미지만 편집한다. */
 public final class MessageTemplateEditorActivity extends Activity {
     public static final String EXTRA_TEMPLATE_ID = "template_id";
     public static final String EXTRA_FIXED_PURPOSE = "fixed_purpose";
@@ -27,7 +27,6 @@ public final class MessageTemplateEditorActivity extends Activity {
     private static final int REQUEST_IMAGE = 8401;
 
     private EditText nameInput;
-    private EditText categoryInput;
     private EditText bodyInput;
     private TextView imageStatus;
     private ImageView imagePreview;
@@ -63,7 +62,8 @@ public final class MessageTemplateEditorActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(20), dp(18), dp(20), dp(40));
         scroll.addView(root, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT));
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
@@ -78,25 +78,21 @@ public final class MessageTemplateEditorActivity extends Activity {
         header.addView(title, titleParams);
         root.addView(header, matchWrap());
 
-        root.addView(label("이름"), topMargin(22));
+        root.addView(label("템플릿 이름"), topMargin(22));
         nameInput = input("예: 예약 안내", false);
         root.addView(nameInput, fieldParams());
 
-        root.addView(label("분류"), topMargin(18));
-        categoryInput = input("예: 예약, 상담, 결제", false);
-        root.addView(categoryInput, fieldParams());
-
-        root.addView(label("내용"), topMargin(18));
+        root.addView(label("문자 내용"), topMargin(18));
         bodyInput = input("문자 내용을 입력해주세요.", true);
         bodyInput.setGravity(Gravity.TOP | Gravity.START);
         bodyInput.setMinLines(7);
         bodyInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(210));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(220));
         bodyParams.topMargin = dp(8);
         root.addView(bodyInput, bodyParams);
 
-        TextView variables = body("변수: " + MessageTemplateEngine.supportedVariablesLabel());
+        TextView variables = body("사용 가능: " + MessageTemplateEngine.supportedVariablesLabel());
         root.addView(variables, topMargin(8));
 
         root.addView(label("이미지"), topMargin(20));
@@ -129,9 +125,6 @@ public final class MessageTemplateEditorActivity extends Activity {
         imageCard.addView(imageActions, topMargin(10));
         root.addView(imageCard, topMargin(8));
 
-        TextView imageNotice = body("이미지가 있는 템플릿은 메시지 앱에 번호·본문·이미지를 채워 열고 사용자가 전송합니다.");
-        root.addView(imageNotice, topMargin(8));
-
         Button save = button("저장", true);
         save.setOnClickListener(v -> saveTemplate());
         LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(
@@ -144,7 +137,6 @@ public final class MessageTemplateEditorActivity extends Activity {
     private void bindValues() {
         if (current == null) return;
         nameInput.setText(current.name);
-        categoryInput.setText(current.category);
         bodyInput.setText(current.body);
     }
 
@@ -162,8 +154,8 @@ public final class MessageTemplateEditorActivity extends Activity {
         Uri uri = data.getData();
         if (uri == null) return;
         try {
-            String ref = MessageAttachmentStore.importImage(this, uri,
-                    "template-draft-" + UUID.randomUUID());
+            String ref = MessageAttachmentStore.importImage(
+                    this, uri, "template-draft-" + UUID.randomUUID());
             clearOwnedImage();
             selectedImageRef = ref;
             ownsSelectedImage = true;
@@ -199,7 +191,6 @@ public final class MessageTemplateEditorActivity extends Activity {
 
     private void saveTemplate() {
         String name = text(nameInput);
-        String category = text(categoryInput);
         String body = text(bodyInput);
         if (name.isEmpty()) {
             Toast.makeText(this, "템플릿 이름을 입력해주세요.", Toast.LENGTH_SHORT).show();
@@ -210,12 +201,14 @@ public final class MessageTemplateEditorActivity extends Activity {
             return;
         }
 
+        String storedCategory = current == null || safe(current.category).isEmpty()
+                ? "일반" : current.category;
         MessageTemplateStore.Template value = current == null
-                ? MessageTemplateStore.Template.create(name, body, category,
-                        MessageTemplateStore.PURPOSE_GENERAL)
+                ? MessageTemplateStore.Template.create(
+                        name, body, storedCategory, MessageTemplateStore.PURPOSE_GENERAL)
                 : current;
         value.name = name;
-        value.category = category.isEmpty() ? "기타" : category;
+        value.category = storedCategory;
         value.body = body;
         value.favorite = false;
         value.imageRef = selectedImageRef;
