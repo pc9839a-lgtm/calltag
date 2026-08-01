@@ -2,6 +2,7 @@ package kr.pagero.calltag;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
@@ -22,7 +23,7 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 통화 후·부재중·후속 예약 세 가지로만 구성한 자동문자 설정. */
+/** 핵심 자동화만 보여주고 공통 발송 조건은 한 화면으로 묶는다. */
 public final class MessageAutomationSettingsActivity extends Activity {
     private static final int REQUEST_SMS = 8201;
     private static final int REQUEST_CONNECTED = 8301;
@@ -33,15 +34,17 @@ public final class MessageAutomationSettingsActivity extends Activity {
     private Switch connected;
     private Switch missed;
     private Switch delayed;
-    private Switch businessHours;
-    private EditText delayDays;
-    private EditText cooldownHours;
-    private EditText startHour;
-    private EditText endHour;
-    private Spinner lineSpinner;
     private TextView connectedTemplate;
     private TextView missedTemplate;
     private TextView followTemplate;
+    private TextView commonSummary;
+
+    private boolean businessHoursValue;
+    private int delayDaysValue;
+    private int cooldownHoursValue;
+    private int startHourValue;
+    private int endHourValue;
+    private int selectedSubscriptionId;
     private final List<SimProfileManager.Profile> profiles = new ArrayList<>();
 
     @Override
@@ -49,8 +52,10 @@ public final class MessageAutomationSettingsActivity extends Activity {
         super.onCreate(savedInstanceState);
         MessageAutomationStore.ensureDefaults(this);
         MessageTemplateStore.ensureDefaults(this);
+        profiles.addAll(SimProfileManager.activeProfiles(this));
+        loadValues();
         setContentView(buildContent());
-        load();
+        renderValues();
     }
 
     private ScrollView buildContent() {
@@ -71,122 +76,197 @@ public final class MessageAutomationSettingsActivity extends Activity {
         back.setTextSize(28f);
         back.setOnClickListener(v -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
-        TextView title = title("통화 후 자동문자", 22f);
+        TextView title = title("자동문자", 22f);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         titleParams.leftMargin = dp(12);
         header.addView(title, titleParams);
         root.addView(header, matchWrap());
 
-        enabled = switchView("자동문자 사용");
+        enabled = compactSwitch("자동문자 사용");
         root.addView(enabled, topMargin(18));
 
         connected = new Switch(this);
-        connectedTemplate = addScenario(
-                root, "통화 후", connected, REQUEST_CONNECTED, 16);
+        connectedTemplate = addScenario(root, "통화 후", connected, REQUEST_CONNECTED, 12);
 
         missed = new Switch(this);
-        missedTemplate = addScenario(
-                root, "부재중", missed, REQUEST_MISSED, 12);
+        missedTemplate = addScenario(root, "부재중", missed, REQUEST_MISSED, 9);
 
         delayed = new Switch(this);
-        followTemplate = addScenario(
-                root, "후속 예약", delayed, REQUEST_FOLLOW_UP, 12);
+        followTemplate = addScenario(root, "후속 예약", delayed, REQUEST_FOLLOW_UP, 9);
 
-        LinearLayout delayRow = new LinearLayout(this);
-        delayRow.setGravity(Gravity.CENTER_VERTICAL);
-        delayRow.setPadding(dp(16), 0, dp(16), dp(14));
-        delayDays = numberInput("3");
-        delayRow.addView(delayDays, new LinearLayout.LayoutParams(0, dp(48), 1f));
-        TextView suffix = body("일 후 발송");
-        suffix.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams suffixParams = new LinearLayout.LayoutParams(
-                dp(108), dp(48));
-        suffixParams.leftMargin = dp(10);
-        delayRow.addView(suffix, suffixParams);
-        root.addView(delayRow, matchWrap());
+        LinearLayout common = new LinearLayout(this);
+        common.setOrientation(LinearLayout.HORIZONTAL);
+        common.setGravity(Gravity.CENTER_VERTICAL);
+        common.setPadding(dp(16), dp(14), dp(14), dp(14));
+        common.setBackgroundResource(R.drawable.bg_card);
+        common.setClickable(true);
+        common.setFocusable(true);
+        common.setOnClickListener(v -> showCommonSettings());
 
-        root.addView(sectionLabel("발송 조건"), topMargin(24));
+        LinearLayout commonText = new LinearLayout(this);
+        commonText.setOrientation(LinearLayout.VERTICAL);
+        commonText.addView(title("공통 발송 설정", 16f), matchWrap());
+        commonSummary = body("");
+        commonSummary.setMaxLines(2);
+        commonText.addView(commonSummary, topMargin(5));
+        common.addView(commonText, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        Button commonButton = button("설정", false);
+        commonButton.setOnClickListener(v -> showCommonSettings());
+        LinearLayout.LayoutParams commonButtonParams = new LinearLayout.LayoutParams(dp(84), dp(44));
+        commonButtonParams.leftMargin = dp(10);
+        common.addView(commonButton, commonButtonParams);
+        root.addView(common, topMargin(14));
 
-        businessHours = switchView("업무시간에만 보내기");
-        root.addView(businessHours, topMargin(10));
-
-        LinearLayout hoursRow = new LinearLayout(this);
-        hoursRow.setGravity(Gravity.CENTER_VERTICAL);
-        startHour = numberInput("9");
-        hoursRow.addView(startHour, new LinearLayout.LayoutParams(0, dp(50), 1f));
-        TextView from = body("시부터");
-        from.setGravity(Gravity.CENTER);
-        hoursRow.addView(from, new LinearLayout.LayoutParams(dp(62), dp(50)));
-        endHour = numberInput("20");
-        hoursRow.addView(endHour, new LinearLayout.LayoutParams(0, dp(50), 1f));
-        TextView until = body("시까지");
-        until.setGravity(Gravity.CENTER);
-        hoursRow.addView(until, new LinearLayout.LayoutParams(dp(66), dp(50)));
-        root.addView(hoursRow, topMargin(8));
-
-        LinearLayout cooldownRow = new LinearLayout(this);
-        cooldownRow.setGravity(Gravity.CENTER_VERTICAL);
-        cooldownHours = numberInput("24");
-        cooldownRow.addView(cooldownHours, new LinearLayout.LayoutParams(0, dp(50), 1f));
-        TextView cooldownLabel = body("시간 동안 같은 번호 중복 발송 방지");
-        cooldownLabel.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams cooldownParams = new LinearLayout.LayoutParams(
-                0, dp(50), 2.4f);
-        cooldownParams.leftMargin = dp(10);
-        cooldownRow.addView(cooldownLabel, cooldownParams);
-        root.addView(cooldownRow, topMargin(8));
-
-        root.addView(sectionLabel("발송 회선"), topMargin(22));
-        lineSpinner = new Spinner(this);
-        lineSpinner.setBackgroundResource(R.drawable.bg_secondary_button);
-        lineSpinner.setPadding(dp(12), 0, dp(12), 0);
-        LinearLayout.LayoutParams lineParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(54));
-        lineParams.topMargin = dp(8);
-        root.addView(lineSpinner, lineParams);
-        setupLines();
-
-        Button save = button("설정 저장", true);
+        Button save = button("저장", true);
         save.setOnClickListener(v -> save());
         LinearLayout.LayoutParams saveParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(58));
-        saveParams.topMargin = dp(26);
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(56));
+        saveParams.topMargin = dp(24);
         root.addView(save, saveParams);
         return scroll;
     }
 
     private TextView addScenario(LinearLayout root, String label,
-                                 Switch toggle, int requestCode, int topMargin) {
+                                 Switch toggle, int requestCode, int marginTop) {
         LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(16), dp(12), dp(16), dp(14));
+        card.setOrientation(LinearLayout.HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(16), dp(12), dp(12), dp(12));
         card.setBackgroundResource(R.drawable.bg_card);
 
-        toggle.setText(label);
-        toggle.setTextColor(getColor(R.color.text_primary));
-        toggle.setTextSize(16f);
-        toggle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        toggle.setGravity(Gravity.CENTER_VERTICAL);
-        card.addView(toggle, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(50)));
-
-        LinearLayout templateRow = new LinearLayout(this);
-        templateRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout textArea = new LinearLayout(this);
+        textArea.setOrientation(LinearLayout.VERTICAL);
+        textArea.addView(title(label, 16f), matchWrap());
         TextView selected = body("");
-        selected.setTextColor(getColor(R.color.text_primary));
-        selected.setTextSize(14f);
-        selected.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        templateRow.addView(selected, new LinearLayout.LayoutParams(
+        selected.setTextColor(getColor(R.color.text_secondary));
+        selected.setSingleLine(true);
+        textArea.addView(selected, topMargin(5));
+        card.addView(textArea, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        LinearLayout controls = new LinearLayout(this);
+        controls.setOrientation(LinearLayout.VERTICAL);
+        controls.setGravity(Gravity.END);
+        toggle.setShowText(false);
+        controls.addView(toggle, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, dp(42)));
         Button change = button("변경", false);
+        change.setTextSize(13f);
         change.setOnClickListener(v -> openTemplateSelector(requestCode));
-        LinearLayout.LayoutParams changeParams = new LinearLayout.LayoutParams(dp(92), dp(46));
-        changeParams.leftMargin = dp(10);
-        templateRow.addView(change, changeParams);
-        card.addView(templateRow, topMargin(4));
-        root.addView(card, topMargin(topMargin));
+        LinearLayout.LayoutParams changeParams = new LinearLayout.LayoutParams(dp(78), dp(40));
+        changeParams.topMargin = dp(4);
+        controls.addView(change, changeParams);
+        LinearLayout.LayoutParams controlsParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        controlsParams.leftMargin = dp(10);
+        card.addView(controls, controlsParams);
+
+        root.addView(card, topMargin(marginTop));
         return selected;
+    }
+
+    private void showCommonSettings() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(20), dp(8), dp(20), dp(4));
+
+        Switch business = compactSwitch("업무시간에만 보내기");
+        business.setChecked(businessHoursValue);
+        panel.addView(business, matchWrap());
+
+        TextView hoursLabel = label("발송 시간");
+        panel.addView(hoursLabel, topMargin(16));
+        LinearLayout hours = new LinearLayout(this);
+        hours.setGravity(Gravity.CENTER_VERTICAL);
+        EditText start = numberInput(String.valueOf(startHourValue));
+        start.setText(String.valueOf(startHourValue));
+        hours.addView(start, new LinearLayout.LayoutParams(0, dp(50), 1f));
+        TextView from = body("시부터");
+        from.setGravity(Gravity.CENTER);
+        hours.addView(from, new LinearLayout.LayoutParams(dp(62), dp(50)));
+        EditText end = numberInput(String.valueOf(endHourValue));
+        end.setText(String.valueOf(endHourValue));
+        hours.addView(end, new LinearLayout.LayoutParams(0, dp(50), 1f));
+        TextView until = body("시까지");
+        until.setGravity(Gravity.CENTER);
+        hours.addView(until, new LinearLayout.LayoutParams(dp(66), dp(50)));
+        panel.addView(hours, topMargin(7));
+
+        panel.addView(label("같은 번호 중복 방지"), topMargin(16));
+        LinearLayout cooldown = new LinearLayout(this);
+        cooldown.setGravity(Gravity.CENTER_VERTICAL);
+        EditText cooldownInput = numberInput(String.valueOf(cooldownHoursValue));
+        cooldownInput.setText(String.valueOf(cooldownHoursValue));
+        cooldown.addView(cooldownInput, new LinearLayout.LayoutParams(0, dp(50), 1f));
+        TextView cooldownSuffix = body("시간 동안 다시 보내지 않음");
+        cooldownSuffix.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams cooldownSuffixParams = new LinearLayout.LayoutParams(
+                0, dp(50), 2.2f);
+        cooldownSuffixParams.leftMargin = dp(10);
+        cooldown.addView(cooldownSuffix, cooldownSuffixParams);
+        panel.addView(cooldown, topMargin(7));
+
+        panel.addView(label("후속 예약 시점"), topMargin(16));
+        LinearLayout delay = new LinearLayout(this);
+        delay.setGravity(Gravity.CENTER_VERTICAL);
+        EditText delayInput = numberInput(String.valueOf(delayDaysValue));
+        delayInput.setText(String.valueOf(delayDaysValue));
+        delay.addView(delayInput, new LinearLayout.LayoutParams(0, dp(50), 1f));
+        TextView delaySuffix = body("일 후 발송");
+        delaySuffix.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams delaySuffixParams = new LinearLayout.LayoutParams(
+                0, dp(50), 2.2f);
+        delaySuffixParams.leftMargin = dp(10);
+        delay.addView(delaySuffix, delaySuffixParams);
+        panel.addView(delay, topMargin(7));
+
+        panel.addView(label("발송 회선"), topMargin(16));
+        Spinner line = new Spinner(this);
+        List<String> labels = new ArrayList<>();
+        for (SimProfileManager.Profile profile : profiles) labels.add(profile.label());
+        if (labels.isEmpty()) labels.add("기본 문자 회선");
+        line.setAdapter(new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_dropdown_item, labels));
+        line.setBackgroundResource(R.drawable.bg_secondary_button);
+        line.setPadding(dp(12), 0, dp(12), 0);
+        for (int i = 0; i < profiles.size(); i++) {
+            if (profiles.get(i).subscriptionId == selectedSubscriptionId) {
+                line.setSelection(i);
+                break;
+            }
+        }
+        panel.addView(line, topMarginHeight(7, 52));
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("공통 발송 설정")
+                .setView(panel)
+                .setNegativeButton("취소", null)
+                .setPositiveButton("적용", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    int startValue = clamp(parse(start, 9), 0, 23);
+                    int endValue = clamp(parse(end, 20), 1, 24);
+                    if (business.isChecked() && startValue >= endValue) {
+                        Toast.makeText(this, "발송 종료 시간은 시작 시간보다 늦어야 합니다.",
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    businessHoursValue = business.isChecked();
+                    startHourValue = startValue;
+                    endHourValue = endValue;
+                    cooldownHoursValue = clamp(parse(cooldownInput, 24), 1, 168);
+                    delayDaysValue = clamp(parse(delayInput, 3), 1, 30);
+                    if (!profiles.isEmpty() && line.getSelectedItemPosition() < profiles.size()) {
+                        selectedSubscriptionId = profiles.get(line.getSelectedItemPosition()).subscriptionId;
+                    }
+                    renderValues();
+                    dialog.dismiss();
+                }));
+        dialog.show();
     }
 
     private void openTemplateSelector(int requestCode) {
@@ -212,58 +292,50 @@ public final class MessageAutomationSettingsActivity extends Activity {
         }
 
         if (requestCode == REQUEST_CONNECTED) {
-            MessageTemplateStore.setDefault(
-                    this, MessageTemplateStore.PURPOSE_INCOMING, template.id);
-            MessageTemplateStore.setDefault(
-                    this, MessageTemplateStore.PURPOSE_OUTGOING, template.id);
+            MessageTemplateStore.setDefault(this, MessageTemplateStore.PURPOSE_INCOMING, template.id);
+            MessageTemplateStore.setDefault(this, MessageTemplateStore.PURPOSE_OUTGOING, template.id);
         } else if (requestCode == REQUEST_MISSED) {
-            MessageTemplateStore.setDefault(
-                    this, MessageTemplateStore.PURPOSE_MISSED, template.id);
+            MessageTemplateStore.setDefault(this, MessageTemplateStore.PURPOSE_MISSED, template.id);
         } else {
-            MessageTemplateStore.setDefault(
-                    this, MessageTemplateStore.PURPOSE_FOLLOW_UP, template.id);
+            MessageTemplateStore.setDefault(this, MessageTemplateStore.PURPOSE_FOLLOW_UP, template.id);
         }
-        loadTemplateLabels();
+        renderValues();
     }
 
-    private void setupLines() {
-        profiles.clear();
-        profiles.addAll(SimProfileManager.activeProfiles(this));
-        List<String> labels = new ArrayList<>();
-        for (SimProfileManager.Profile profile : profiles) labels.add(profile.label());
-        if (labels.isEmpty()) labels.add("기본 문자 회선");
-        lineSpinner.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_dropdown_item, labels));
+    private void loadValues() {
+        businessHoursValue = MessageAutomationStore.businessHoursEnabled(this);
+        delayDaysValue = MessageAutomationStore.delayDays(this);
+        cooldownHoursValue = MessageAutomationStore.cooldownHours(this);
+        startHourValue = MessageAutomationStore.startHour(this);
+        endHourValue = MessageAutomationStore.endHour(this);
+        selectedSubscriptionId = MessageAutomationStore.selectedSubscriptionId(this);
     }
 
-    private void load() {
+    private void renderValues() {
+        if (enabled == null) return;
         enabled.setChecked(MessageAutomationStore.isEnabled(this));
         connected.setChecked(MessageAutomationStore.connectedEnabled(this));
         missed.setChecked(MessageAutomationStore.missedEnabled(this));
         delayed.setChecked(MessageAutomationStore.delayedEnabled(this));
-        businessHours.setChecked(MessageAutomationStore.businessHoursEnabled(this));
-        delayDays.setText(String.valueOf(MessageAutomationStore.delayDays(this)));
-        cooldownHours.setText(String.valueOf(MessageAutomationStore.cooldownHours(this)));
-        startHour.setText(String.valueOf(MessageAutomationStore.startHour(this)));
-        endHour.setText(String.valueOf(MessageAutomationStore.endHour(this)));
-        loadTemplateLabels();
-
-        int selected = MessageAutomationStore.selectedSubscriptionId(this);
-        for (int i = 0; i < profiles.size(); i++) {
-            if (profiles.get(i).subscriptionId == selected) {
-                lineSpinner.setSelection(i);
-                break;
-            }
-        }
+        connectedTemplate.setText(MessageTemplateStore.defaultName(
+                this, MessageTemplateStore.PURPOSE_INCOMING));
+        missedTemplate.setText(MessageTemplateStore.defaultName(
+                this, MessageTemplateStore.PURPOSE_MISSED));
+        followTemplate.setText(MessageTemplateStore.defaultName(
+                this, MessageTemplateStore.PURPOSE_FOLLOW_UP)
+                + " · " + delayDaysValue + "일 후");
+        commonSummary.setText((businessHoursValue
+                ? startHourValue + ":00–" + endHourValue + ":00"
+                : "시간 제한 없음")
+                + " · " + cooldownHoursValue + "시간 중복 방지"
+                + "\n" + selectedLineLabel());
     }
 
-    private void loadTemplateLabels() {
-        connectedTemplate.setText("템플릿 · " + MessageTemplateStore.defaultName(
-                this, MessageTemplateStore.PURPOSE_INCOMING));
-        missedTemplate.setText("템플릿 · " + MessageTemplateStore.defaultName(
-                this, MessageTemplateStore.PURPOSE_MISSED));
-        followTemplate.setText("템플릿 · " + MessageTemplateStore.defaultName(
-                this, MessageTemplateStore.PURPOSE_FOLLOW_UP));
+    private String selectedLineLabel() {
+        for (SimProfileManager.Profile profile : profiles) {
+            if (profile.subscriptionId == selectedSubscriptionId) return profile.label();
+        }
+        return "기본 문자 회선";
     }
 
     private void save() {
@@ -275,15 +347,11 @@ public final class MessageAutomationSettingsActivity extends Activity {
         MessageAutomationStore.setConnectedEnabled(this, connected.isChecked());
         MessageAutomationStore.setMissedEnabled(this, missed.isChecked());
         MessageAutomationStore.setDelayedEnabled(this, delayed.isChecked());
-        MessageAutomationStore.setBusinessHoursEnabled(this, businessHours.isChecked());
-        MessageAutomationStore.setDelayDays(this, parse(delayDays, 3));
-        MessageAutomationStore.setCooldownHours(this, parse(cooldownHours, 24));
-        MessageAutomationStore.setBusinessHours(
-                this, parse(startHour, 9), parse(endHour, 20));
-        if (!profiles.isEmpty() && lineSpinner.getSelectedItemPosition() < profiles.size()) {
-            MessageAutomationStore.setSelectedSubscriptionId(
-                    this, profiles.get(lineSpinner.getSelectedItemPosition()).subscriptionId);
-        }
+        MessageAutomationStore.setBusinessHoursEnabled(this, businessHoursValue);
+        MessageAutomationStore.setDelayDays(this, delayDaysValue);
+        MessageAutomationStore.setCooldownHours(this, cooldownHoursValue);
+        MessageAutomationStore.setBusinessHours(this, startHourValue, endHourValue);
+        MessageAutomationStore.setSelectedSubscriptionId(this, selectedSubscriptionId);
         if ((connected.isChecked() || missed.isChecked() || delayed.isChecked())
                 && checkSelfPermission(Manifest.permission.SEND_SMS)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -293,23 +361,15 @@ public final class MessageAutomationSettingsActivity extends Activity {
         finish();
     }
 
-    private int parse(EditText input, int fallback) {
-        try {
-            return Integer.parseInt(input.getText().toString().trim());
-        } catch (NumberFormatException ignored) {
-            return fallback;
-        }
-    }
-
-    private Switch switchView(String title) {
+    private Switch compactSwitch(String text) {
         Switch view = new Switch(this);
-        view.setText(title);
+        view.setText(text);
         view.setTextColor(getColor(R.color.text_primary));
         view.setTextSize(16f);
         view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         view.setGravity(Gravity.CENTER_VERTICAL);
-        view.setPadding(dp(16), dp(8), dp(12), dp(8));
-        view.setMinHeight(dp(62));
+        view.setPadding(dp(16), dp(7), dp(12), dp(7));
+        view.setMinHeight(dp(58));
         view.setBackgroundResource(R.drawable.bg_card);
         return view;
     }
@@ -326,8 +386,9 @@ public final class MessageAutomationSettingsActivity extends Activity {
         return input;
     }
 
-    private TextView sectionLabel(String value) {
-        TextView view = title(value, 17f);
+    private TextView label(String value) {
+        TextView view = title(value, 14f);
+        view.setTextColor(getColor(R.color.text_secondary));
         return view;
     }
 
@@ -363,6 +424,18 @@ public final class MessageAutomationSettingsActivity extends Activity {
         return button;
     }
 
+    private int parse(EditText input, int fallback) {
+        try {
+            return Integer.parseInt(input.getText().toString().trim());
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private int clamp(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
     private LinearLayout.LayoutParams matchWrap() {
         return new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -372,6 +445,13 @@ public final class MessageAutomationSettingsActivity extends Activity {
     private LinearLayout.LayoutParams topMargin(int value) {
         LinearLayout.LayoutParams params = matchWrap();
         params.topMargin = dp(value);
+        return params;
+    }
+
+    private LinearLayout.LayoutParams topMarginHeight(int margin, int height) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(height));
+        params.topMargin = dp(margin);
         return params;
     }
 
