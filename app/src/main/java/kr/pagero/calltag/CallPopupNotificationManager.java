@@ -17,7 +17,7 @@ import android.provider.Settings;
 
 public final class CallPopupNotificationManager {
     public static final String INCOMING_CHANNEL_ID = "calltag_incoming_popup_v5";
-    public static final String POST_CALL_CHANNEL_ID = "calltag_post_call_popup_v3";
+    public static final String POST_CALL_CHANNEL_ID = "calltag_post_call_popup_v4";
 
     private static final String[] LEGACY_CHANNEL_IDS = {
             "calltag_caller_info_v2",
@@ -25,7 +25,8 @@ public final class CallPopupNotificationManager {
             "calltag_caller_info_v4",
             "calltag_incoming_customer_popup_v5",
             "calltag_post_call",
-            "calltag_post_call_popup_v2"
+            "calltag_post_call_popup_v2",
+            "calltag_post_call_popup_v3"
     };
 
     private CallPopupNotificationManager() {}
@@ -164,6 +165,16 @@ public final class CallPopupNotificationManager {
         ensureChannels(context);
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager == null) return false;
+
+        Intent directIntent = new Intent(reviewIntent)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        try {
+            context.startActivity(directIntent);
+        } catch (RuntimeException ignored) {
+            // OEM background-launch rules can block direct activity launch.
+        }
 
         int notificationId = 5000 + (int) (record.id % 100000L);
         PendingIntent pending = PendingIntent.getActivity(
