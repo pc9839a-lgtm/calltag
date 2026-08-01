@@ -39,6 +39,7 @@
         <include layout="@layout/section_today" />
         <include layout="@layout/section_customers" />
         <include layout="@layout/section_consultations" />
+        <include layout="@layout/section_stats" />
         <include layout="@layout/section_more" />
     </FrameLayout>
 
@@ -54,23 +55,10 @@
         android:background="@color/surface_soft"
         android:gravity="center"
         android:orientation="horizontal"
-        android:paddingLeft="4dp"
+        android:paddingLeft="2dp"
         android:paddingTop="8dp"
-        android:paddingRight="4dp"
+        android:paddingRight="2dp"
         android:paddingBottom="4dp">
-
-        <kr.pagero.calltag.NavItemTextView
-            android:id="@+id/navToday"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:drawableTop="@drawable/ic_nav_today"
-            android:drawablePadding="4dp"
-            android:gravity="center"
-            android:includeFontPadding="false"
-            android:text="홈"
-            android:textColor="@color/nav_inactive"
-            android:textSize="12sp" />
 
         <kr.pagero.calltag.NavItemTextView
             android:id="@+id/navCustomers"
@@ -83,7 +71,7 @@
             android:includeFontPadding="false"
             android:text="고객"
             android:textColor="@color/nav_inactive"
-            android:textSize="12sp" />
+            android:textSize="11sp" />
 
         <kr.pagero.calltag.NavItemTextView
             android:id="@+id/navConsultations"
@@ -96,7 +84,34 @@
             android:includeFontPadding="false"
             android:text="캘린더"
             android:textColor="@color/nav_inactive"
-            android:textSize="12sp" />
+            android:textSize="11sp" />
+
+        <kr.pagero.calltag.NavItemTextView
+            android:id="@+id/navToday"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:drawableTop="@drawable/ic_nav_today"
+            android:drawablePadding="4dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="홈"
+            android:textColor="@color/nav_inactive"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <kr.pagero.calltag.StatsNavItemTextView
+            android:id="@+id/navStats"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:drawableTop="@drawable/ic_nav_stats"
+            android:drawablePadding="4dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="통계"
+            android:textColor="@color/nav_inactive"
+            android:textSize="11sp" />
 
         <kr.pagero.calltag.NavItemTextView
             android:id="@+id/navMore"
@@ -109,6 +124,6 @@
             android:includeFontPadding="false"
             android:text="더보기"
             android:textColor="@color/nav_inactive"
-            android:textSize="12sp" />
+            android:textSize="11sp" />
     </LinearLayout>
 </LinearLayout>
