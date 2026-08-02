@@ -11,6 +11,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
@@ -79,7 +80,7 @@ public final class CallerOverlayManager {
         Customer demo = new Customer(
                 -1L,
                 "테스트 고객",
-                "010-1234-5678",
+                "010-1234-5678 · 견적서 수정 후 금요일 오전에 다시 연락하기",
                 "01012345678",
                 "진행 중",
                 "",
@@ -181,9 +182,13 @@ public final class CallerOverlayManager {
 
         TextView phone = text(context, customer.primaryPhone, 14f,
                 context.getColor(R.color.text_secondary), false);
+        phone.setMaxLines(2);
+        phone.setEllipsize(TextUtils.TruncateAt.END);
+        phone.setLineSpacing(0f, 1.12f);
         LinearLayout.LayoutParams phoneParams = new LinearLayout.LayoutParams(
+                0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
+                1f);
         phoneParams.leftMargin = dp(context, 11);
         meta.addView(phone, phoneParams);
         LinearLayout.LayoutParams metaParams = new LinearLayout.LayoutParams(
