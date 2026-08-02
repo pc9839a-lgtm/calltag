@@ -15,10 +15,13 @@ public final class CustomerSourceResolver {
     public static boolean isPagero(Customer customer) {
         if (customer == null) return false;
         String source = safe(customer.source).toLowerCase(Locale.KOREA);
+        String memo = safe(customer.memo).toLowerCase(Locale.KOREA);
         return source.contains("pagero")
                 || source.contains("페이지로")
                 || source.contains("landing")
-                || source.contains("lead_form");
+                || source.contains("lead_form")
+                || memo.contains("[페이지로]")
+                || memo.contains("pagero");
     }
 
     private static String safe(String value) {
