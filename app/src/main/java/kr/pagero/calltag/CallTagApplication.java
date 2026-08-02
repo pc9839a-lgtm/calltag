@@ -40,6 +40,8 @@ public final class CallTagApplication extends Application implements Application
         }
         if (AuthSessionStore.hasSession(this)) {
             PageroLeadSyncManager.requestSync(this, true);
+            PageroAccountConnectionManager.refresh(this, false);
+            CallTagPushManager.registerIfAvailable(this);
         }
     }
 
@@ -47,6 +49,11 @@ public final class CallTagApplication extends Application implements Application
     public void onActivityResumed(Activity activity) {
         if (activity instanceof MainActivity) {
             MainExitGuard.install(activity);
+            if (AuthSessionStore.hasSession(activity)) {
+                PageroAccountConnectionManager.refresh(activity, false);
+                CallTagPushManager.registerIfAvailable(activity);
+                CallTagPushManager.refreshStatus(activity);
+            }
         }
         if (activity instanceof ManualMessageActivity) {
             ManualMessageUxEnhancer.enhance((ManualMessageActivity) activity);
