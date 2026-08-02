@@ -1,115 +1,119 @@
 (()=>{
-  if(document.documentElement.dataset.ctPageroIndustriesTwoColumn)return;
-  document.documentElement.dataset.ctPageroIndustriesTwoColumn='1';
+  if(document.documentElement.dataset.ctPageroIndustriesThreeColumnFix)return;
+  document.documentElement.dataset.ctPageroIndustriesThreeColumnFix='1';
 
   const css=`
+    #ct-pagero-intro .ct-industry-auto{display:none!important}
+
     @media(min-width:761px){
       #ct-pagero-intro .ct-industry-showcase{
-        grid-template-columns:minmax(0,.96fr) minmax(0,1.08fr)!important;
+        grid-template-columns:repeat(3,minmax(0,1fr))!important;
         align-items:stretch!important;
-        gap:52px!important;
-        width:min(100%,1000px)!important;
-        max-width:1000px!important;
+        gap:28px!important;
+        width:100%!important;
+        max-width:1100px!important;
       }
       #ct-pagero-intro .ct-industry-card{
         min-width:0!important;
+        width:100%!important;
         height:100%!important;
         display:flex!important;
         flex-direction:column!important;
       }
       #ct-pagero-intro .ct-industry-phone{
         width:100%!important;
-        flex:1 1 auto!important;
+        height:620px!important;
+        min-height:620px!important;
         display:flex!important;
       }
       #ct-pagero-intro .ct-industry-screen{
         width:100%!important;
-        min-height:650px!important;
+        height:600px!important;
+        min-height:600px!important;
       }
-      #ct-pagero-intro .ct-industry-auto{
-        min-height:22px!important;
-        margin-top:16px!important;
-      }
+
       #ct-pagero-intro .ct-hospital .ct-industry-screen{
-        padding:0 20px 66px!important;
+        padding:0 17px 58px!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-head{
-        height:60px!important;
+        height:56px!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-head strong{
-        font-size:15px!important;
+        font-size:14px!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-head span{
-        width:34px!important;
-        height:34px!important;
-        font-size:13px!important;
+        width:31px!important;
+        height:31px!important;
+        font-size:12px!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-doctor{
-        grid-template-columns:92px 1fr!important;
-        gap:16px!important;
-        padding:18px!important;
+        grid-template-columns:80px 1fr!important;
+        gap:14px!important;
+        padding:16px!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-photo{
-        height:108px!important;
+        height:96px!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-info small{
-        font-size:9px!important;
+        font-size:8px!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-info h3{
         margin:7px 0 5px!important;
-        font-size:22px!important;
+        font-size:19px!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-info p{
-        font-size:9px!important;
-        line-height:1.55!important;
+        font-size:8px!important;
+        line-height:1.5!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-title{
-        margin:24px 0 13px!important;
-        font-size:16px!important;
+        margin:21px 0 11px!important;
+        font-size:14px!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-days{
-        gap:8px!important;
+        gap:7px!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-day{
-        min-height:54px!important;
-        padding:11px 3px!important;
+        min-height:48px!important;
+        padding:10px 2px!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-day b{
-        font-size:11px!important;
-      }
-      #ct-pagero-intro .ct-hospital .ct-hos-day small{
-        font-size:8px!important;
-      }
-      #ct-pagero-intro .ct-hospital .ct-hos-times{
-        gap:9px!important;
-      }
-      #ct-pagero-intro .ct-hospital .ct-hos-times span{
-        height:43px!important;
         font-size:10px!important;
       }
+      #ct-pagero-intro .ct-hospital .ct-hos-day small{
+        font-size:7px!important;
+      }
+      #ct-pagero-intro .ct-hospital .ct-hos-times{
+        gap:8px!important;
+      }
+      #ct-pagero-intro .ct-hospital .ct-hos-times span{
+        height:39px!important;
+        font-size:9px!important;
+      }
       #ct-pagero-intro .ct-hospital .ct-hos-summary{
-        min-height:48px!important;
-        margin-top:18px!important;
-        padding:14px!important;
+        min-height:44px!important;
+        margin-top:16px!important;
+        padding:13px!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-summary span,
       #ct-pagero-intro .ct-hospital .ct-hos-summary b{
-        font-size:10px!important;
+        font-size:9px!important;
       }
       #ct-pagero-intro .ct-hospital .ct-hos-submit{
-        height:50px!important;
-        margin-top:13px!important;
-        font-size:11px!important;
+        height:44px!important;
+        margin-top:12px!important;
+        font-size:10px!important;
       }
     }
 
     @media(min-width:761px) and (max-width:1080px){
-      #ct-pagero-intro .ct-industry-showcase{
-        gap:30px!important;
-        width:min(100%,900px)!important;
+      #ct-pagero-intro .ct-industry-showcase{gap:17px!important}
+      #ct-pagero-intro .ct-industry-phone{
+        height:595px!important;
+        min-height:595px!important;
       }
       #ct-pagero-intro .ct-industry-screen{
-        min-height:620px!important;
+        height:575px!important;
+        min-height:575px!important;
       }
     }
   `;
@@ -119,15 +123,16 @@
     if(!showcase)return false;
 
     showcase.querySelectorAll('.ct-industry-card.ct-estate').forEach(card=>card.remove());
+    showcase.querySelectorAll('.ct-industry-auto').forEach(text=>text.remove());
 
-    if(!document.querySelector('style[data-ct-pagero-industries-two-column]')){
+    if(!document.querySelector('style[data-ct-pagero-industries-three-column-fix]')){
       const style=document.createElement('style');
-      style.dataset.ctPageroIndustriesTwoColumn='1';
+      style.dataset.ctPageroIndustriesThreeColumnFix='1';
       style.textContent=css;
       document.head.append(style);
     }
 
-    showcase.dataset.layout='two-column';
+    showcase.dataset.layout='three-column';
     return showcase.querySelectorAll('.ct-industry-card').length===2;
   };
 
