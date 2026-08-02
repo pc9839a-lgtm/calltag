@@ -56,9 +56,11 @@
   };
 
   const stabilizeCtas=()=>{
+    const label='7일 무료체험 시작';
+    const ariaLabel='콜태그 7일 무료체험 시작';
     document.querySelectorAll('.ad-sticky a').forEach(link=>{
-      if(!link.textContent.trim()||/시작|체험|신청/.test(link.textContent))link.textContent='7일 무료체험 시작';
-      link.setAttribute('aria-label','콜태그 7일 무료체험 시작');
+      if(link.textContent.trim()!==label)link.textContent=label;
+      if(link.getAttribute('aria-label')!==ariaLabel)link.setAttribute('aria-label',ariaLabel);
     });
   };
 
