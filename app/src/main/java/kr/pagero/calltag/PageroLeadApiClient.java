@@ -9,7 +9,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,6 +16,8 @@ import java.util.List;
 
 public final class PageroLeadApiClient {
     private static final String[] BASE_URLS = {
+            "https://pagero.kr",
+            "https://inlet-8mr.pages.dev",
             "https://calltag.pagero.kr",
             "https://agent-calltag-foundation.calltag.pages.dev"
     };
