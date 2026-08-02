@@ -70,10 +70,11 @@ Target/Compile SDK: 35
 
 ### 뒤로가기 종료 방지
 
-- `MainActivityExitGuard`가 `CallTagApplication`의 lifecycle callback에서 `MainActivity`에 설치된다.
+- `CallTagApplication`이 `MainActivity` resume 시 `MainExitGuard.install(activity)`을 호출한다.
 - Android 13 이상은 `OnBackInvokedDispatcher`를 사용한다.
-- Android 12 이하는 `MainActivity.onBackPressed()` 경로를 사용한다.
+- Android 12 이하는 Window decor의 back key listener를 사용한다.
 - 다른 탭에서는 홈으로 이동하고 홈에서만 종료 확인창을 띄운다.
+- Activity destroy 시 `MainExitGuard.uninstall(activity)`을 호출한다.
 
 ### 통계 고도화
 
@@ -120,28 +121,96 @@ Target/Compile SDK: 35
 
 ---
 
-## 4. 주요 화면과 코드 위치
+## 4. 검증된 핵심 파일
 
 ### 앱 진입·전역 lifecycle
 
-| 역할 | 주요 파일 |
+| 역할 | 파일 |
 |---|---|
 | Application 초기화·복구·Activity lifecycle | `CallTagApplication.java` |
 | 로그인·앱 진입 분기 | `AuthGateActivity.java`, `LoginActivity.java` |
 | 초기 설정 준비 여부 | `SetupRequirements.java` |
-| 메인 5개 탭 | `MainActivity.java`, `activity_main.xml` |
-| 메인 종료 확인 | `MainActivityExitGuard.java` |
+| 메인 탭·홈·고객·캘린더 렌더링 | `MainActivity.java`, `activity_main.xml` |
+| 메인 종료 확인 | `MainExitGuard.java` |
+| 공통 옵션 선택창 | `ActionChoiceDialog.java` |
 
 `SetupRequirements.isReady()`는 현재 강제 중간 설정 화면으로 보내지 않도록 구성돼 있다. 기능별 권한은 해당 기능 화면에서 요청한다.
 
-### 홈
+### 고객·일정·통계 데이터
 
-| 역할 | 주요 파일 |
+| 역할 | 파일 |
 |---|---|
-| 홈 레이아웃 | `section_today.xml` |
-| 오늘 할 일·빠른 메뉴 렌더링 | `MainActivity.java` |
-| 홈 내비게이션 강조 | `HomeNavItemTextView.java` |
-| 오늘 할 일 페이지로 오표시 방지 | `TodayTaskSourceCleanerView.java` |
+| 고객·interaction·일정 SQLite | `CallTagDbHelper.java` |
+| 고객 모델 | `Customer.java` |
+| 일정 모델 | `FollowUpTask.java` |
+| interaction 모델 | `InteractionRecord.java` |
+| 통계 집계·날짜 필터 | `CustomerStatsView.java` |
+| 통계 추이 차트 | `StatsTrendChartView.java` |
+
+### 통화 수신·종료
+
+| 역할 | 파일 |
+|---|---|
+| 통화 감지 | `CallMonitorService.java` |
+| 수신 고객정보 | `CallTagScreeningService.java`, `CallerInfoActivity.java` |
+| 통화 종료 정리 | `PostCallActivity.java`, `activity_post_call.xml` |
+| 종료 화면 직접 호출·전체화면 알림 | `CallPopupNotificationManager.java` |
+| 미정리 통화 | `PendingCallStore.java` |
+
+### 문자·템플릿
+
+| 역할 | 파일 |
+|---|---|
+| 고객 선택 문자 시작 | `CustomerMessagePickerActivity.java` |
+| 문자 작성·예약 | `ManualMessageActivity.java` |
+| 문자 작성 UX 후처리 | `ManualMessageUxEnhancer.java` |
+| 템플릿 목록 | `MessageTemplateLibraryActivity.java` |
+| 템플릿 편집 | `MessageTemplateEditorActivity.java` |
+| 템플릿 저장 | `MessageTemplateStore.java` |
+| 중복 템플릿 정리 | `MessageTemplateCleanup.java` |
+| 이미지 저장 | `MessageAttachmentStore.java` |
+| MMS 사용자 확인 흐름 | `MmsComposeActivity.java` |
+| 자동문자 설정 | `MessageAutomationSettingsActivity.java`, `MessageAutomationStore.java` |
+| 발송 내역 | `MessageHistoryActivity.java` |
+
+### 그룹·캠페인
+
+| 역할 | 파일 |
+|---|---|
+| 수동·스마트 그룹 | `MessageGroupActivity.java` 및 그룹 Store 관련 코드 |
+| 그룹·단체문자 진입 | `GroupCampaignHubActivity.java` |
+| 캠페인 목록 | `CampaignListActivity.java` |
+| 캠페인 작성 | `CampaignComposerActivity.java` |
+| 캠페인 상세 | `CampaignDetailActivity.java` |
+
+### 계정·진단·백업
+
+| 역할 | 파일 |
+|---|---|
+| 계정 | `AccountActivity.java`, `activity_account.xml` |
+| 진단 | `DiagnosticActivity.java` |
+| 백업·복원 UI | `BackupRestoreActivity.java` |
+| 암호화 백업 처리 | `CallTagBackupManager.java` |
+
+### 기능 위치를 찾을 때 사용할 검색어
+
+파일명이 여러 번 바뀐 기능은 클래스명을 추측하지 말고 다음 문자열로 검색한다.
+
+```text
+CalendarContract.Events.CONTENT_URI   외부 캘린더 등록
+PageroLeadSyncManager                 페이지로 고객 동기화
+CustomerSourceResolver                페이지로 유입 판별
+message allowed / excluded            고객별 문자 허용·발송 제외
+setFullScreenIntent                   통화 종료 전체화면 알림
+ROLE_CALL_SCREENING                   수신 고객정보 역할 요청
+SENDING                               문자·캠페인 발송 안전 상태
+```
+
+---
+
+## 5. 화면별 동작 기준
+
+### 홈
 
 홈 빠른 메뉴의 기본 방향:
 
@@ -152,16 +221,6 @@ Target/Compile SDK: 35
 오늘 할 일 카드에는 일정 종류, 고객명, 예정시간, 핵심 실행 버튼만 보여준다. 페이지로 여부는 고객명으로 추정하면 안 된다.
 
 ### 고객
-
-| 역할 | 주요 파일 |
-|---|---|
-| 고객 탭 레이아웃 | `section_customers.xml` |
-| 고객 카드 후처리·문자 버튼 | `CustomerListView.java` |
-| 고객 상세 | `CustomerDetailActivity.java` |
-| 고객 추가 | `CustomerAddActivity.java` |
-| 고객 유입 판별 | `CustomerSourceResolver.java` |
-| 페이지로 배지 | `CustomerSourceBadge.java` |
-| 고객 인사이트·최근 메모 | `CustomerInsightResolver.java` |
 
 고객 카드 정보 순서:
 
@@ -178,15 +237,9 @@ Target/Compile SDK: 35
 - `customer.source`에 `pagero`, `페이지로`, `landing`, `lead_form`이 포함된 경우만 페이지로로 본다.
 - 고객명, 일정명, 전화 통화 여부로 페이지로 고객을 추정하지 않는다.
 - 직접 등록 고객과 전화 유입 고객은 별도 유입 배지를 화면에 표시하지 않는다.
+- 페이지로 동기화 진입은 `PageroLeadSyncManager`를 확인한다.
 
 ### 캘린더·일정
-
-| 역할 | 주요 파일 |
-|---|---|
-| 캘린더 탭 | `section_consultations.xml`, `MainActivity.java` |
-| 일정 종류 저장 | `TaskTypeStore.java`, `TaskTypeSettingsActivity.java` |
-| 외부 캘린더 공유 | `CalendarShareActivity.java` |
-| 일정 DB | `CallTagDbHelper.java`, `FollowUpTask.java` |
 
 일정 추가 흐름:
 
@@ -201,84 +254,43 @@ Target/Compile SDK: 35
 
 외부 캘린더 공유:
 
-- Android `CalendarContract.Events.CONTENT_URI`의 INSERT Intent를 사용한다.
+- Android Calendar INSERT Intent를 사용한다.
+- 저장소에서 `CalendarContract.Events.CONTENT_URI`를 검색하면 구현 위치를 찾을 수 있다.
 - Google 캘린더·삼성 캘린더 등 설치된 앱에서 저장 계정을 사용자가 선택한다.
-- 고객명·전화번호·일정 종류·메모·시간을 채운다.
 - 현재는 콜태그 → 외부 캘린더 단방향 등록이다.
-- 외부 캘린더 수정·삭제가 콜태그 일정에 자동 반영되지 않는다.
-- 콜태그 일정 수정·삭제도 기존 외부 캘린더 이벤트를 자동 변경하지 않는다.
+- 양방향 동기화나 외부 이벤트 자동 수정·삭제는 구현되지 않았다.
 
 ### 통계
-
-| 역할 | 주요 파일 |
-|---|---|
-| 통계 탭 레이아웃 | `section_stats.xml` |
-| 통계 집계·필터·화면 구성 | `CustomerStatsView.java` |
-| 추이 차트 | `StatsTrendChartView.java` |
-| 통계 탭 동작 | `StatsNavItemTextView.java`, `StatsSectionScrollView.java` |
 
 집계 데이터:
 
 - 통화: `InteractionRecord.type`의 `INCOMING_CALL`, `OUTGOING_CALL`, `MISSED_CALL`, `REJECTED_CALL`
 - 완료한 일: `TASK_COMPLETE`, `TASK_AUTO_COMPLETE`
 - 신규 고객: `Customer.firstContactAt`
-- 페이지로 유입: 생성일이 기간 안이고 `CustomerSourceResolver.isPagero(customer)`가 true
+- 페이지로 유입: 생성일이 기간 안이고 페이지로 source 판별이 true
 - 페이지로 연락 완료: 선택 기간의 통화 interaction에 해당 고객 ID가 포함됨
 
 주의:
 
-- `listRecentInteractions(5000)` 상한이 있다. 장기 운영·대량 데이터에서 통계 정확도를 유지하려면 기간 기반 DB 쿼리로 바꾸는 것이 다음 개선점이다.
-- 직접 선택은 최대 365일이지만 차트는 최대 30일까지만 표시한다. 31일 이상은 숫자 집계만 표시한다.
+- `listRecentInteractions(5000)` 상한이 있다.
+- 장기 운영·대량 데이터에서는 기간 기반 SQL 쿼리로 바꾸는 것이 다음 개선점이다.
+- 직접 선택은 최대 365일이지만 차트는 최대 30일까지만 표시한다.
+- 31일 이상은 숫자 집계만 표시한다.
 
-### 통화 수신·종료
-
-| 역할 | 주요 파일 |
-|---|---|
-| 수신 고객정보 | `CallTagScreeningService.java`, `CallerInfoActivity.java` |
-| 수신 역할 요청 | `CallerIdSetupButton.java`, `CallerIdSetupActivity.java` |
-| 통화 감지 | `CallMonitorService.java` |
-| 통화 종료 정리 | `PostCallActivity.java`, `activity_post_call.xml` |
-| 통화 종료 화면 호출·알림 | `CallPopupNotificationManager.java` |
-| 미정리 통화 | `PendingCallStore.java` |
-
-통화 종료 처리:
+### 통화 종료 큰 화면
 
 1. 통화 기록을 확인한다.
 2. `PostCallActivity` 직접 실행을 시도한다.
-3. Android 14 이상에서는 백그라운드 Activity 실행 허용 옵션이 있는 PendingIntent 경로도 사용한다.
-4. 제조사·OS 정책이 직접 실행을 막으면 전체 화면 알림으로 재진입한다.
+3. Android 14 이상 백그라운드 Activity 실행 허용 경로를 시도한다.
+4. 제조사·OS 정책이 직접 실행을 막으면 전체화면 알림으로 재진입한다.
 
-중요 제한:
+제한:
 
 - Android와 제조사 정책상 백그라운드 Activity 실행을 100% 강제할 수 없다.
-- 알림 권한, 전체 화면 알림 권한, 배터리 최적화, 잠금화면 설정에 따라 다르다.
-- 코드 빌드 성공만으로 큰 화면이 실제 단말에서 떴다고 기록하지 않는다.
+- 알림 권한, 전체화면 알림 권한, 배터리 최적화, 잠금화면 설정에 따라 다르다.
+- 코드 빌드 성공만으로 실제 단말에서 큰 화면이 떴다고 기록하지 않는다.
 
-실기기에서 반드시 확인:
-
-- 화면 켜짐/꺼짐
-- 앱 foreground/background/종료 상태
-- 삼성·픽셀 등 제조사별 동작
-- Android 13·14·15
-- 알림 채널 중요도 HIGH
-- 전체 화면 알림 허용 설정
-
-### 문자 작성·템플릿
-
-| 역할 | 주요 파일 |
-|---|---|
-| 고객 선택 문자 시작 | `CustomerMessagePickerActivity.java` |
-| 문자 작성·예약 | `ManualMessageActivity.java` |
-| 문자 작성 UX 후처리 | `ManualMessageUxEnhancer.java` |
-| 템플릿 목록 | `MessageTemplateLibraryActivity.java` |
-| 템플릿 편집 | `MessageTemplateEditorActivity.java` |
-| 템플릿 저장 | `MessageTemplateStore.java` |
-| 중복 템플릿 정리 | `MessageTemplateCleanup.java` |
-| 이미지 저장 | `MessageAttachmentStore.java` |
-| MMS 작성 | `MmsComposeActivity.java` |
-| 발송 내역 | `MessageHistoryActivity.java` |
-
-현재 문자 작성 화면 원칙:
+### 문자 작성
 
 - 고객과 연결된 경우 전화번호 입력칸을 다시 보여주지 않는다.
 - 고객명·전화번호를 상단에 표시한다.
@@ -287,24 +299,17 @@ Target/Compile SDK: 35
 - 이미지 첨부는 이미지가 있을 때만 미리보기·삭제를 보인다.
 - 발송·후속 예약 핵심 행동은 하단에 고정한다.
 
-템플릿 원칙:
+### 템플릿
 
 - 사용자가 입력하는 필드는 이름·내용·이미지다.
 - 내부 purpose 값은 사용자에게 노출하지 않는다.
 - `수신`, `발신`, `후속`, `일반` 같은 내부 구분을 템플릿명 옆에 나열하지 않는다.
 - 별표 즐겨찾기 UI를 사용하지 않는다.
 - 기본 템플릿은 `기본` 배지로 표시한다.
-- 이미지 템플릿은 자동 SMS 발송 기본값으로 지정하지 않는다.
+- 이미지 템플릿은 자동 SMS 기본값으로 지정하지 않는다.
 - 이미지 문자는 시스템 메시지 앱을 열고 사용자가 최종 전송한다.
 
 ### 자동문자·문자 허용
-
-| 역할 | 주요 파일 |
-|---|---|
-| 자동문자 설정 | `MessageAutomationSettingsActivity.java`, `MessageAutomationStore.java` |
-| 고객별 문자 허용/차단 | `CustomerMessagePermissionStore.java` 및 고객 상세 관련 코드 |
-| 발송 제외 | `MessageExclusionActivity.java` |
-| 중복발송 방지 | 문자 발송 직전 검사 코드·Store |
 
 자동문자 화면에는 다음 3개만 주요 시점으로 보인다.
 
@@ -314,56 +319,18 @@ Target/Compile SDK: 35
 
 공통 발송 설정에 업무시간·중복 방지·회선·후속 시점을 묶는다.
 
-고객별 문자 설정은 사용자 화면에서 `허용 / 비허용`만 제공한다. 복잡한 상태나 내부 코드를 노출하지 않는다.
+고객별 문자 설정은 사용자 화면에서 `허용 / 비허용`만 제공한다. 실제 저장 위치는 고객 상세와 발송 직전 검사 코드를 함께 검색해 확인한다.
 
-### 그룹·단체문자
-
-| 역할 | 주요 파일 |
-|---|---|
-| 그룹 목록·편집 | `MessageGroupActivity.java`, `MessageGroupStore.java` |
-| 그룹·단체문자 허브 | `GroupCampaignHubActivity.java` |
-| 캠페인 목록 | `CampaignListActivity.java` |
-| 캠페인 작성 | `CampaignComposerActivity.java` |
-| 캠페인 상세 | `CampaignDetailActivity.java` |
-| 캠페인 저장·실행 | 캠페인 Store·Runner·Receiver 관련 클래스 |
-
-수동그룹 편집:
+### 수동그룹
 
 - 고객명·전화번호·상태 검색
 - 검색 결과 기준 전체 선택
 - 검색 결과 기준 전체 해제
 - 선택 고객 수 표시
 
-현재 남은 핵심 작업은 캠페인 수신자 관리다.
-
-- 수신자 검색
-- 상태 필터
-- 실패 사유 필터
-- 선택 모드
-- 선택 재시도
-- 선택 취소
-- 대량 목록 성능
-
-### 더보기·계정·백업·진단
-
-| 역할 | 주요 파일 |
-|---|---|
-| 더보기 | `section_more.xml`, `MoreSettingsHubView.java` |
-| 계정 | `AccountActivity.java`, `activity_account.xml` |
-| 진단 | `DiagnosticActivity.java` |
-| 백업·복원 | `BackupRestoreActivity.java`, `CallTagBackupManager.java` |
-
-더보기 메뉴는 텍스트만 떠 있는 영역이 아니라 전체 행이 눌리는 버튼이어야 한다. 메뉴는 다음 범주로 묶는다.
-
-```text
-문자 / 고객·일정 / 앱·계정
-```
-
-백업 형식은 `.ctbackup`이며 앱 복구 목적이다. CSV·XLSX·CRM 이전용 데이터 내보내기와 합치지 않는다.
-
 ---
 
-## 5. 데이터 계층과 변경 원칙
+## 6. 데이터 계층과 변경 원칙
 
 ### 주요 데이터 객체
 
@@ -372,15 +339,6 @@ Target/Compile SDK: 35
 - `InteractionRecord`
 - `CallRecord`
 - 문자 작업·캠페인·수신자 관련 모델
-
-### 주요 저장소
-
-- `CallTagDbHelper`: 고객·상태·interaction·일정 중심 SQLite
-- `MessageTemplateStore`: 문자 템플릿
-- `MessageAutomationStore`: 자동문자 설정
-- `MessageAttachmentStore`: 앱 전용 이미지
-- `PendingCallStore`: 통화 종료 후 미정리 통화
-- 그룹·캠페인 Store 클래스
 
 ### DB 변경 규칙
 
@@ -392,7 +350,7 @@ Target/Compile SDK: 35
 
 ---
 
-## 6. 절대 변경하면 안 되는 발송 안전 규칙
+## 7. 절대 변경하면 안 되는 발송 안전 규칙
 
 1. 발송 직전 고객별 문자 허용 여부를 다시 확인한다.
 2. 발송 제외 번호를 다시 확인한다.
@@ -408,7 +366,7 @@ Target/Compile SDK: 35
 
 ---
 
-## 7. UX/UI 규칙
+## 8. UX/UI 규칙
 
 정본: `docs/DESIGN_SYSTEM_KO.md`
 
@@ -431,7 +389,7 @@ Target/Compile SDK: 35
 
 일부 레이아웃에는 이전 `MainActivity` 바인딩과의 호환을 위해 숨김 View ID가 남아 있을 수 있다. 화면에서 안 보인다는 이유로 제거하면 `findViewById()` 이후 NPE가 날 수 있다.
 
-리팩터링 전 반드시 다음을 검색한다.
+리팩터링 전 반드시 다음 문자열을 검색한다.
 
 ```text
 customerListTab
@@ -446,7 +404,7 @@ ID를 제거하려면 `MainActivity`의 바인딩과 동작을 먼저 함께 제
 
 ---
 
-## 8. 빌드와 검증 절차
+## 9. 빌드와 검증 절차
 
 ### 로컬 기준
 
@@ -466,20 +424,19 @@ gradle :app:assembleDebug --stacktrace
 4. Java 컴파일·APK 패키징·아티팩트 업로드를 확인한다.
 5. APK를 내려받아 실제 버전과 SHA-256을 확인한다.
 6. 임시 PR은 병합하지 않고 닫는다.
-7. PR `#1`과 `main`은 건드리지 않는다.
+7. PR `#1`과 `main`은 병합하지 않는다.
 
-주의: 검증 Workflow 아티팩트 이름이 과거 버전명으로 고정돼 표시될 수 있다. 실제 버전은 APK의 `versionName/versionCode`와 `app/build.gradle`로 확인한다.
+주의: 검증 Workflow 아티팩트 이름이 과거 버전명으로 고정돼 표시될 수 있다. 실제 버전은 APK와 `app/build.gradle`로 확인한다.
 
 ---
 
-## 9. 실제 단말 필수 검수
+## 10. 실제 단말 필수 검수
 
 ### 공통
 
 - Android 8~15
 - 360dp 폭
 - 큰 글자·화면 확대
-- 다크모드 영향
 - 키보드가 열린 상태
 - 긴 고객명·전화번호·메모·템플릿명
 - 고객 500명 이상
@@ -489,8 +446,9 @@ gradle :app:assembleDebug --stacktrace
 - 각 메인 탭에서 뒤로가기 → 홈
 - 홈에서 뒤로가기 → 종료 확인
 - Android 13 이상 제스처 뒤로가기
+- Android 12 이하 물리/소프트 back key
 - 확인창 중복 표시 여부
-- 하위 Activity에서는 일반 뒤로가기 유지
+- 하위 Activity 일반 뒤로가기 유지
 
 ### 일정
 
@@ -519,7 +477,7 @@ gradle :app:assembleDebug --stacktrace
 - 앱 foreground/background/종료
 - 화면 잠금 상태
 - 알림 권한 허용/거부
-- 전체 화면 알림 허용/거부
+- 전체화면 알림 허용/거부
 - 제조사 배터리 최적화 켜짐/꺼짐
 
 ### 문자·캠페인
@@ -535,12 +493,13 @@ gradle :app:assembleDebug --stacktrace
 
 ---
 
-## 10. 다음 개발 우선순위
+## 11. 다음 개발 우선순위
 
 ### 1순위 — 0.38.2 실기기 QA
 
 - 일정 고객 검색형 선택창
 - Android 13+ 뒤로가기 종료 확인
+- Android 12 이하 back key 확인
 - 통계 차트 값과 날짜 범위 선택
 - 통화 종료 큰 화면 제조사별 동작
 
@@ -580,7 +539,7 @@ gradle :app:assembleDebug --stacktrace
 
 ---
 
-## 11. 다음 개발자가 첫날 할 일
+## 12. 다음 개발자가 첫날 할 일
 
 1. `agent/calltag-foundation` checkout.
 2. `app/build.gradle`에서 `0.38.2 / 46` 확인.
