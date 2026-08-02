@@ -2,6 +2,7 @@ package kr.pagero.calltag;
 
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
 import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 
@@ -14,6 +15,12 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public final class PageroLeadSyncManager {
     public static final String ACTION_LEADS_UPDATED = "kr.pagero.calltag.PAGERO_LEADS_UPDATED";
+    public static final String EXTRA_SUCCESS = "success";
+    public static final String EXTRA_IMPORTED = "imported";
+    public static final String EXTRA_UPDATED = "updated";
+    public static final String EXTRA_REJECTED = "rejected";
+    public static final String EXTRA_MESSAGE = "message";
+    public static final String EXTRA_ERROR_CODE = "error_code";
 
     private static final String TAG = "PageroLeadSync";
     private static final long MIN_SYNC_INTERVAL_MS = 60_000L;
@@ -29,41 +36,63 @@ public final class PageroLeadSyncManager {
 
     private PageroLeadSyncManager() {}
 
-    public static void requestSync(Context context) {
-        requestSync(context, false);
+    public static boolean requestSync(Context context) {
+        return requestSync(context, false);
     }
 
-    public static void requestSync(Context context, boolean force) {
-        if (context == null || !AuthSessionStore.hasSession(context)) return;
+    public static boolean requestSync(Context context, boolean force) {
+        if (context == null) return false;
+        Context appContext = context.getApplicationContext();
+        if (!AuthSessionStore.hasSession(appContext)) {
+            String message = "콜태그 로그인이 필요합니다.";
+            PageroConnectionStatusStore.markFailure(appContext, message, "SESSION_REQUIRED");
+            sendResult(appContext, false, new SyncResult(), message, "SESSION_REQUIRED");
+            return false;
+        }
+
         long now = System.currentTimeMillis();
         long previous = LAST_ATTEMPT_AT.get();
-        if (!force && now - previous < MIN_SYNC_INTERVAL_MS) return;
-        if (!LAST_ATTEMPT_AT.compareAndSet(previous, now) && !force) return;
-        if (!RUNNING.compareAndSet(false, true)) return;
+        if (!force && now - previous < MIN_SYNC_INTERVAL_MS) return false;
+        if (force) {
+            LAST_ATTEMPT_AT.set(now);
+        } else if (!LAST_ATTEMPT_AT.compareAndSet(previous, now)) {
+            return false;
+        }
+        if (!RUNNING.compareAndSet(false, true)) return false;
 
-        Context appContext = context.getApplicationContext();
+        PageroConnectionStatusStore.markRunning(appContext);
         EXECUTOR.execute(() -> {
             try {
                 SyncResult result = syncNow(appContext);
-                if (result.imported > 0 || result.updated > 0) {
-                    appContext.sendBroadcast(new android.content.Intent(ACTION_LEADS_UPDATED)
-                            .setPackage(appContext.getPackageName())
-                            .putExtra("imported", result.imported)
-                            .putExtra("updated", result.updated));
-                }
+                PageroConnectionStatusStore.markSuccess(
+                        appContext, result.imported, result.updated, result.rejected);
+                sendResult(appContext, true, result, successMessage(result), "");
             } catch (PageroLeadApiClient.ApiException error) {
+                String message = safeMessage(error);
                 Log.w(TAG, "PageRo sync API unavailable: " + error.status + "/" + error.code);
+                PageroConnectionStatusStore.markFailure(appContext, message, error.code);
+                sendResult(appContext, false, new SyncResult(), message, error.code);
             } catch (Exception error) {
+                String message = safeMessage(error);
                 Log.e(TAG, "PageRo lead sync failed", error);
+                PageroConnectionStatusStore.markFailure(
+                        appContext, message, error.getClass().getSimpleName());
+                sendResult(appContext, false, new SyncResult(), message,
+                        error.getClass().getSimpleName());
             } finally {
                 RUNNING.set(false);
             }
         });
+        return true;
+    }
+
+    public static boolean isRunning() {
+        return RUNNING.get();
     }
 
     private static SyncResult syncNow(Context context) throws Exception {
         String session = AuthSessionStore.session(context);
-        if (session.isEmpty()) return new SyncResult();
+        if (session.isEmpty()) throw new IllegalStateException("콜태그 로그인이 필요합니다.");
 
         SyncResult result = new SyncResult();
         long after = 0L;
@@ -171,8 +200,42 @@ public final class PageroLeadSyncManager {
     private static String safeMessage(Throwable error) {
         String message = error == null ? "" : error.getMessage();
         return message == null || message.trim().isEmpty()
-                ? "앱에서 문의를 처리할 수 없습니다."
+                ? "페이지로 문의를 동기화하지 못했습니다."
                 : message.trim();
+    }
+
+    private static String successMessage(SyncResult result) {
+        if (result.imported == 0 && result.updated == 0 && result.rejected == 0) {
+            return "새로 가져올 문의가 없습니다.";
+        }
+        StringBuilder message = new StringBuilder();
+        if (result.imported > 0) message.append("신규 ").append(result.imported).append("건");
+        if (result.updated > 0) {
+            if (message.length() > 0) message.append(", ");
+            message.append("기존 고객 갱신 ").append(result.updated).append("건");
+        }
+        if (result.rejected > 0) {
+            if (message.length() > 0) message.append(", ");
+            message.append("확인 필요 ").append(result.rejected).append("건");
+        }
+        return message.toString();
+    }
+
+    private static void sendResult(
+            Context context,
+            boolean success,
+            SyncResult result,
+            String message,
+            String errorCode) {
+        Intent intent = new Intent(ACTION_LEADS_UPDATED)
+                .setPackage(context.getPackageName())
+                .putExtra(EXTRA_SUCCESS, success)
+                .putExtra(EXTRA_IMPORTED, result.imported)
+                .putExtra(EXTRA_UPDATED, result.updated)
+                .putExtra(EXTRA_REJECTED, result.rejected)
+                .putExtra(EXTRA_MESSAGE, message == null ? "" : message)
+                .putExtra(EXTRA_ERROR_CODE, errorCode == null ? "" : errorCode);
+        context.sendBroadcast(intent);
     }
 
     private static final class ImportResult {
