@@ -10,8 +10,4 @@
     if(isLegacyHorizontalListener)return;
     return originalAddEventListener.call(this,type,listener,options);
   };
-
-  setTimeout(()=>{
-    window.addEventListener=originalAddEventListener;
-  },0);
 })();
