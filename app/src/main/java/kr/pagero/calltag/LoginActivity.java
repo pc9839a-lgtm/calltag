@@ -5,11 +5,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.Gravity;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -29,6 +31,7 @@ public final class LoginActivity extends Activity {
     private TextView signupTab;
     private TextView notice;
     private TextView loginButton;
+    private TextView googleButton;
     private EditText loginEmail;
     private EditText loginPassword;
     private CheckBox privacyConsent;
@@ -40,8 +43,17 @@ public final class LoginActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_auth);
         bindViews();
+        installGoogleButton();
         bindActions();
         showLogin();
+        handleGoogleCallback(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleGoogleCallback(intent);
     }
 
     private void bindViews() {
@@ -59,12 +71,27 @@ public final class LoginActivity extends Activity {
         termsConsent = findViewById(R.id.checkTermsConsent);
     }
 
+    private void installGoogleButton() {
+        LinearLayout form = (LinearLayout) loginForm;
+        googleButton = new TextView(this);
+        googleButton.setGravity(Gravity.CENTER);
+        googleButton.setText("G  Google로 계속하기");
+        googleButton.setTextSize(15f);
+        googleButton.setTextColor(getColor(R.color.text_primary));
+        googleButton.setBackgroundResource(R.drawable.bg_secondary_button);
+        googleButton.setContentDescription("Google 계정으로 로그인");
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
+        params.topMargin = dp(8);
+        form.addView(googleButton, 3, params);
+    }
+
     private void bindActions() {
         loginTab.setOnClickListener(v -> showLogin());
         signupTab.setOnClickListener(v -> showSignup());
         findViewById(R.id.btnOpenPasswordReset).setOnClickListener(v -> showReset());
-        findViewById(R.id.btnClosePasswordReset).setOnClickListener(v -> showLogin());
         loginButton.setOnClickListener(v -> submitLogin());
+        googleButton.setOnClickListener(v -> startGoogleLogin());
         findViewById(R.id.btnSignupVerification).setOnClickListener(v -> {
             hideKeyboardAndClearFocus();
             requestSignupVerification();
@@ -147,6 +174,41 @@ public final class LoginActivity extends Activity {
         runTask(() -> AuthApiClient.login(text(loginEmail), text(loginPassword)), this::acceptAuth);
     }
 
+    private void startGoogleLogin() {
+        if (working) return;
+        hideKeyboardAndClearFocus();
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(AuthApiClient.googleLoginUrl())));
+        } catch (RuntimeException error) {
+            showNotice("Google 로그인 화면을 열지 못했습니다.", true);
+        }
+    }
+
+    private void handleGoogleCallback(Intent intent) {
+        if (intent == null || intent.getData() == null) return;
+        Uri uri = intent.getData();
+        if (!"calltag".equalsIgnoreCase(uri.getScheme())
+                || !"auth".equalsIgnoreCase(uri.getHost())
+                || !"/google".equals(uri.getPath())) return;
+        intent.setData(null);
+        showLogin();
+
+        String providerError = clean(uri.getQueryParameter("error"));
+        String providerMessage = clean(uri.getQueryParameter("message"));
+        if (!providerError.isEmpty()) {
+            showNotice(providerMessage.isEmpty()
+                    ? "Google 로그인을 완료하지 못했습니다." : providerMessage, true);
+            return;
+        }
+
+        String ticket = clean(uri.getQueryParameter("ticket"));
+        if (ticket.isEmpty() || ticket.length() > 256) {
+            showNotice("Google 로그인 확인값이 올바르지 않습니다.", true);
+            return;
+        }
+        runTask(() -> AuthApiClient.exchangeGoogleTicket(ticket), this::acceptAuth);
+    }
+
     private void requestSignupVerification() {
         if (!hasRequiredConsent()) return;
         EditText email = findViewById(R.id.editSignupEmail);
@@ -217,6 +279,18 @@ public final class LoginActivity extends Activity {
     private void acceptAuth(JSONObject response) {
         try {
             AuthSessionStore.save(this, response);
+            if (response.optJSONObject("pageroConnection") != null
+                    || response.optJSONObject("connection") != null) {
+                PageroAccountStatusStore.save(this, response);
+                PageroAccountStatusStore.Snapshot status = PageroAccountStatusStore.read(this);
+                if (!status.connected()) {
+                    Toast.makeText(this, status.message, Toast.LENGTH_LONG).show();
+                }
+            } else {
+                PageroAccountConnectionManager.refresh(this, true);
+            }
+            CallTagPushManager.registerIfAvailable(this);
+
             Intent destination = SetupRequirements.isReady(this)
                     ? new Intent(this, MainActivity.class)
                     : SetupRequirements.requiredSetupIntent(this);
@@ -256,6 +330,8 @@ public final class LoginActivity extends Activity {
         signupTab.setEnabled(enabled);
         loginButton.setEnabled(enabled);
         loginButton.setAlpha(enabled ? 1f : 0.6f);
+        googleButton.setEnabled(enabled);
+        googleButton.setAlpha(enabled ? 1f : 0.6f);
         findViewById(R.id.btnAuthSignup).setEnabled(enabled);
         findViewById(R.id.btnSignupVerification).setEnabled(enabled);
         findViewById(R.id.btnResetVerification).setEnabled(enabled);
@@ -277,6 +353,11 @@ public final class LoginActivity extends Activity {
             if ("EMAIL_VERIFICATION_REQUIRED".equals(code)) return "이메일 인증이 완료되지 않은 계정입니다.";
             if ("AUTH_ACCOUNT_SUSPENDED".equals(code)) return "사용이 정지된 계정입니다.";
             if ("AUTH_ACCOUNT_DELETED".equals(code)) return "삭제 처리된 계정입니다.";
+            if ("GOOGLE_LOGIN_NOT_CONFIGURED".equals(code)) return "Google 로그인 운영 설정이 아직 완료되지 않았습니다.";
+            if ("GOOGLE_TICKET_EXPIRED".equals(code)) return "Google 로그인 시간이 만료되었습니다. 다시 시도해주세요.";
+            if ("GOOGLE_TICKET_INVALID".equals(code) || "GOOGLE_TICKET_USED".equals(code)) {
+                return "Google 로그인 확인값이 올바르지 않습니다. 다시 시도해주세요.";
+            }
             String message = error.getMessage();
             if (message != null && !message.trim().isEmpty()) return message;
         }
@@ -312,6 +393,14 @@ public final class LoginActivity extends Activity {
 
     private String text(EditText editText) {
         return editText.getText().toString().trim();
+    }
+
+    private String clean(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     @Override
