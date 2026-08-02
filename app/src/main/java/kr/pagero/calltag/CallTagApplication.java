@@ -117,6 +117,7 @@ public final class CallTagApplication extends Application implements Application
                 || activity instanceof GroupCampaignHubActivity
                 || activity instanceof MessageSafetyHubActivity
                 || activity instanceof CampaignListActivity
+                || activity instanceof PageroConnectionActivity
                 || activity instanceof AccountActivity
                 || activity instanceof BackupRestoreActivity;
     }
