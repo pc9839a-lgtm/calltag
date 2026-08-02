@@ -15,14 +15,16 @@ import android.os.RemoteException;
 import android.provider.ContactsContract;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * 시스템 전화 앱이 연락처 표시명을 읽는 점을 이용해 고객명 뒤에 최근 메모를 붙인다.
- * 기존 계정 연락처는 수정하지 않고 콜태그 소유의 로컬 RawContact를 만들어 결합한다.
+ * 전화 앱의 기본 연락처 이름에 "고객명 · 최근 메모"가 보이도록 콜태그 전용
+ * 연락처 계정에 RawContact를 만든다. 원본 연락처는 수정하지 않는다.
+ *
+ * 기능 해제 시 전용 계정과 RawContact를 제거한다. 앱 삭제 시에도 Android가
+ * 콜태그 인증 계정을 제거하므로 해당 계정 소속 연락처만 함께 정리된다.
  */
 public final class ContactNameSyncManager {
     private static final String PREFS = "calltag_contact_name_sync";
@@ -76,22 +78,33 @@ public final class ContactNameSyncManager {
     }
 
     private static void syncAllNow(Context context) {
+        if (!CallTagContactsAccount.ensure(context)) {
+            SettingsStore.setContactNameSyncStatus(context,
+                    "콜태그 연락처 계정을 만들지 못했습니다.");
+            return;
+        }
+        cleanupLegacyLocalRows(context.getContentResolver());
+
         CallTagDbHelper db = new CallTagDbHelper(context);
+        int synced = 0;
         try {
             for (Customer customer : db.listCustomers(null)) {
-                syncCustomerNow(context, db, customer);
+                if (syncCustomerNow(context, db, customer)) synced++;
             }
-        } catch (RuntimeException ignored) {
-            SettingsStore.setContactNameSyncStatus(context, "연락처 이름 동기화 중 오류가 발생했습니다.");
+            SettingsStore.setContactNameSyncStatus(context,
+                    synced + "명의 고객명 옆에 최근 메모를 반영했습니다.");
+        } catch (RuntimeException error) {
+            SettingsStore.setContactNameSyncStatus(context,
+                    "연락처 이름 동기화 중 오류가 발생했습니다.");
         } finally {
             db.close();
         }
     }
 
-    private static void syncCustomerNow(Context context, CallTagDbHelper db, Customer customer) {
-        if (customer == null || customer.id <= 0L) return;
+    private static boolean syncCustomerNow(Context context, CallTagDbHelper db, Customer customer) {
+        if (customer == null || customer.id <= 0L) return false;
         String normalized = PhoneNumberNormalizer.normalize(customer.primaryPhone);
-        if (normalized.length() < 8) return;
+        if (normalized.length() < 8) return false;
 
         String alias = buildAlias(db, customer);
         SharedPreferences prefs = prefs(context);
@@ -101,7 +114,7 @@ public final class ContactNameSyncManager {
 
         if (appRawId <= 0L) {
             appRawId = createAppRawContact(resolver, customer, alias);
-            if (appRawId <= 0L) return;
+            if (appRawId <= 0L) return false;
         } else if (!alias.equals(lastAlias)) {
             updateAppRawContact(resolver, appRawId, customer.primaryPhone, alias);
         }
@@ -110,8 +123,7 @@ public final class ContactNameSyncManager {
         if (originalRawId > 0L) keepTogether(resolver, originalRawId, appRawId);
 
         prefs.edit().putString(KEY_LAST_ALIAS_PREFIX + customer.id, alias).apply();
-        SettingsStore.setContactNameSyncStatus(context,
-                "최근 메모를 연락처 이름에 반영했습니다.");
+        return true;
     }
 
     private static String buildAlias(CallTagDbHelper db, Customer customer) {
@@ -129,22 +141,26 @@ public final class ContactNameSyncManager {
         return shorten(base + " · " + memo, MAX_ALIAS_LENGTH);
     }
 
-    private static long createAppRawContact(ContentResolver resolver, Customer customer, String alias) {
-        ArrayList<ContentProviderOperation> ops = new ArrayList<>();
-        ops.add(ContentProviderOperation.newInsert(ContactsContract.RawContacts.CONTENT_URI)
-                .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, null)
-                .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, null)
+    private static long createAppRawContact(ContentResolver resolver, Customer customer,
+                                            String alias) {
+        ArrayList<ContentProviderOperation> operations = new ArrayList<>();
+        operations.add(ContentProviderOperation.newInsert(syncUri(ContactsContract.RawContacts.CONTENT_URI))
+                .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, CallTagContactsAccount.TYPE)
+                .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, CallTagContactsAccount.NAME)
                 .withValue(ContactsContract.RawContacts.SOURCE_ID, SOURCE_PREFIX + customer.id)
+                .withValue(ContactsContract.RawContacts.AGGREGATION_MODE,
+                        ContactsContract.RawContacts.AGGREGATION_MODE_DEFAULT)
                 .build());
-        ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+        operations.add(ContentProviderOperation.newInsert(syncUri(ContactsContract.Data.CONTENT_URI))
                 .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
                 .withValue(ContactsContract.Data.MIMETYPE,
                         ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
                 .withValue(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME, alias)
+                .withValue(ContactsContract.CommonDataKinds.StructuredName.GIVEN_NAME, alias)
                 .withValue(ContactsContract.Data.IS_PRIMARY, 1)
                 .withValue(ContactsContract.Data.IS_SUPER_PRIMARY, 1)
                 .build());
-        ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+        operations.add(ContentProviderOperation.newInsert(syncUri(ContactsContract.Data.CONTENT_URI))
                 .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
                 .withValue(ContactsContract.Data.MIMETYPE,
                         ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE)
@@ -155,10 +171,11 @@ public final class ContactNameSyncManager {
                 .withValue(ContactsContract.Data.IS_SUPER_PRIMARY, 1)
                 .build());
         try {
-            ContentProviderResult[] results = resolver.applyBatch(ContactsContract.AUTHORITY, ops);
+            ContentProviderResult[] results = resolver.applyBatch(
+                    ContactsContract.AUTHORITY, operations);
             Uri uri = results.length > 0 ? results[0].uri : null;
             return uri == null ? -1L : Long.parseLong(uri.getLastPathSegment());
-        } catch (RemoteException | OperationApplicationException | RuntimeException ignored) {
+        } catch (RemoteException | OperationApplicationException | RuntimeException error) {
             return -1L;
         }
     }
@@ -167,9 +184,10 @@ public final class ContactNameSyncManager {
                                             String phone, String alias) {
         ContentValues name = new ContentValues();
         name.put(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME, alias);
+        name.put(ContactsContract.CommonDataKinds.StructuredName.GIVEN_NAME, alias);
         name.put(ContactsContract.Data.IS_PRIMARY, 1);
         name.put(ContactsContract.Data.IS_SUPER_PRIMARY, 1);
-        int updated = resolver.update(ContactsContract.Data.CONTENT_URI, name,
+        int updated = resolver.update(syncUri(ContactsContract.Data.CONTENT_URI), name,
                 ContactsContract.Data.RAW_CONTACT_ID + "=? AND "
                         + ContactsContract.Data.MIMETYPE + "=?",
                 new String[]{String.valueOf(rawId),
@@ -178,12 +196,14 @@ public final class ContactNameSyncManager {
             name.put(ContactsContract.Data.RAW_CONTACT_ID, rawId);
             name.put(ContactsContract.Data.MIMETYPE,
                     ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE);
-            resolver.insert(ContactsContract.Data.CONTENT_URI, name);
+            resolver.insert(syncUri(ContactsContract.Data.CONTENT_URI), name);
         }
 
         ContentValues phoneValues = new ContentValues();
         phoneValues.put(ContactsContract.CommonDataKinds.Phone.NUMBER, phone);
-        resolver.update(ContactsContract.Data.CONTENT_URI, phoneValues,
+        phoneValues.put(ContactsContract.Data.IS_PRIMARY, 1);
+        phoneValues.put(ContactsContract.Data.IS_SUPER_PRIMARY, 1);
+        resolver.update(syncUri(ContactsContract.Data.CONTENT_URI), phoneValues,
                 ContactsContract.Data.RAW_CONTACT_ID + "=? AND "
                         + ContactsContract.Data.MIMETYPE + "=?",
                 new String[]{String.valueOf(rawId),
@@ -193,11 +213,14 @@ public final class ContactNameSyncManager {
     private static long findAppRawContact(ContentResolver resolver, long customerId) {
         try (Cursor cursor = resolver.query(ContactsContract.RawContacts.CONTENT_URI,
                 new String[]{ContactsContract.RawContacts._ID},
-                ContactsContract.RawContacts.SOURCE_ID + "=? AND "
+                ContactsContract.RawContacts.ACCOUNT_TYPE + "=? AND "
+                        + ContactsContract.RawContacts.ACCOUNT_NAME + "=? AND "
+                        + ContactsContract.RawContacts.SOURCE_ID + "=? AND "
                         + ContactsContract.RawContacts.DELETED + "=0",
-                new String[]{SOURCE_PREFIX + customerId}, null)) {
+                new String[]{CallTagContactsAccount.TYPE, CallTagContactsAccount.NAME,
+                        SOURCE_PREFIX + customerId}, null)) {
             return cursor != null && cursor.moveToFirst() ? cursor.getLong(0) : -1L;
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException error) {
             return -1L;
         }
     }
@@ -210,7 +233,7 @@ public final class ContactNameSyncManager {
         try (Cursor cursor = resolver.query(lookupUri,
                 new String[]{ContactsContract.PhoneLookup.CONTACT_ID}, null, null, null)) {
             if (cursor != null && cursor.moveToFirst()) contactId = cursor.getLong(0);
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException error) {
             return -1L;
         }
         if (contactId <= 0L) return -1L;
@@ -219,16 +242,20 @@ public final class ContactNameSyncManager {
                 new String[]{ContactsContract.RawContacts._ID},
                 ContactsContract.RawContacts.CONTACT_ID + "=? AND "
                         + ContactsContract.RawContacts._ID + "<>? AND "
+                        + "(" + ContactsContract.RawContacts.ACCOUNT_TYPE + " IS NULL OR "
+                        + ContactsContract.RawContacts.ACCOUNT_TYPE + "<>?) AND "
                         + ContactsContract.RawContacts.DELETED + "=0",
-                new String[]{String.valueOf(contactId), String.valueOf(appRawId)},
+                new String[]{String.valueOf(contactId), String.valueOf(appRawId),
+                        CallTagContactsAccount.TYPE},
                 ContactsContract.RawContacts._ID + " ASC")) {
             return cursor != null && cursor.moveToFirst() ? cursor.getLong(0) : -1L;
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException error) {
             return -1L;
         }
     }
 
-    private static void keepTogether(ContentResolver resolver, long firstRawId, long secondRawId) {
+    private static void keepTogether(ContentResolver resolver, long firstRawId,
+                                     long secondRawId) {
         if (firstRawId <= 0L || secondRawId <= 0L || firstRawId == secondRawId) return;
         ContentValues values = new ContentValues();
         values.put(ContactsContract.AggregationExceptions.TYPE,
@@ -239,24 +266,53 @@ public final class ContactNameSyncManager {
             resolver.update(ContactsContract.AggregationExceptions.CONTENT_URI,
                     values, null, null);
         } catch (RuntimeException ignored) {
-            // 같은 전화번호를 사용하므로 자동 결합이 계속 시도된다.
+            // The identical phone number still allows automatic aggregation.
+        }
+    }
+
+    private static void cleanupLegacyLocalRows(ContentResolver resolver) {
+        try {
+            resolver.delete(syncUri(ContactsContract.RawContacts.CONTENT_URI),
+                    ContactsContract.RawContacts.SOURCE_ID + " LIKE ? AND ("
+                            + ContactsContract.RawContacts.ACCOUNT_TYPE + " IS NULL OR "
+                            + ContactsContract.RawContacts.ACCOUNT_TYPE + "<>?)",
+                    new String[]{SOURCE_PREFIX + "%", CallTagContactsAccount.TYPE});
+        } catch (RuntimeException ignored) {
+            // A later sync can retry the migration cleanup.
         }
     }
 
     private static void restoreAllNow(Context context) {
-        if (!hasPermissions(context)) return;
+        if (!hasPermissions(context)) {
+            CallTagContactsAccount.remove(context);
+            prefs(context).edit().clear().apply();
+            return;
+        }
         ContentResolver resolver = context.getContentResolver();
         try {
-            resolver.delete(ContactsContract.RawContacts.CONTENT_URI,
-                    ContactsContract.RawContacts.SOURCE_ID + " LIKE ?",
-                    new String[]{SOURCE_PREFIX + "%"});
+            resolver.delete(syncUri(ContactsContract.RawContacts.CONTENT_URI),
+                    ContactsContract.RawContacts.ACCOUNT_TYPE + "=? AND "
+                            + ContactsContract.RawContacts.ACCOUNT_NAME + "=?",
+                    new String[]{CallTagContactsAccount.TYPE, CallTagContactsAccount.NAME});
+            cleanupLegacyLocalRows(resolver);
+            CallTagContactsAccount.remove(context);
             prefs(context).edit().clear().apply();
             SettingsStore.setContactNameSyncStatus(context,
-                    "콜태그 연락처 이름을 제거하고 원래 연락처로 복원했습니다.");
-        } catch (RuntimeException ignored) {
+                    "콜태그 메모 연락처를 제거하고 원래 연락처로 복원했습니다.");
+        } catch (RuntimeException error) {
             SettingsStore.setContactNameSyncStatus(context,
                     "연락처 이름 복원에 실패했습니다.");
         }
+    }
+
+    private static Uri syncUri(Uri base) {
+        return base.buildUpon()
+                .appendQueryParameter(ContactsContract.CALLER_IS_SYNCADAPTER, "true")
+                .appendQueryParameter(ContactsContract.RawContacts.ACCOUNT_NAME,
+                        CallTagContactsAccount.NAME)
+                .appendQueryParameter(ContactsContract.RawContacts.ACCOUNT_TYPE,
+                        CallTagContactsAccount.TYPE)
+                .build();
     }
 
     private static SharedPreferences prefs(Context context) {
