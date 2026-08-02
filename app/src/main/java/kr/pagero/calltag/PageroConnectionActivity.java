@@ -9,6 +9,8 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -22,9 +24,14 @@ import java.util.Date;
 
 /** 일반 사용자가 PageRo 연결 계정과 문의 동기화 결과를 확인하는 화면. */
 public final class PageroConnectionActivity extends Activity {
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final Runnable delayedRender = this::renderState;
+
     private TextView accountValue;
     private TextView connectionTitle;
     private TextView connectionBody;
+    private TextView realtimeTitle;
+    private TextView realtimeBody;
     private TextView syncResult;
     private Button syncButton;
     private boolean receiverRegistered;
@@ -65,7 +72,19 @@ public final class PageroConnectionActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        PageroAccountConnectionManager.refresh(this, false);
+        CallTagPushManager.registerIfAvailable(this);
+        CallTagPushManager.refreshStatus(this);
         renderState();
+        handler.removeCallbacks(delayedRender);
+        handler.postDelayed(delayedRender, 1200L);
+        handler.postDelayed(delayedRender, 3200L);
+    }
+
+    @Override
+    protected void onPause() {
+        handler.removeCallbacks(delayedRender);
+        super.onPause();
     }
 
     @Override
@@ -117,12 +136,12 @@ public final class PageroConnectionActivity extends Activity {
                 R.color.text_primary);
         content.addView(intro, wrap());
 
-        TextView introSub = text("두 서비스에 같은 계정으로 로그인하면 별도 키 입력 없이 연결됩니다.",
+        TextView introSub = text("두 서비스가 같은 계정이면 별도 키 입력 없이 연결됩니다.",
                 14f, false, R.color.text_secondary);
         content.addView(introSub, top(8));
 
         LinearLayout accountCard = card();
-        accountCard.addView(label("현재 연결 계정"), wrap());
+        accountCard.addView(label("현재 콜태그 계정"), wrap());
         accountValue = text("", 17f, true, R.color.text_primary);
         accountCard.addView(accountValue, top(8));
         content.addView(accountCard, top(20));
@@ -136,6 +155,13 @@ public final class PageroConnectionActivity extends Activity {
         stateCard.addView(syncResult, top(12));
         content.addView(stateCard, top(10));
 
+        LinearLayout realtimeCard = card();
+        realtimeTitle = text("", 17f, true, R.color.text_primary);
+        realtimeCard.addView(realtimeTitle, wrap());
+        realtimeBody = text("", 14f, false, R.color.text_secondary);
+        realtimeCard.addView(realtimeBody, top(7));
+        content.addView(realtimeCard, top(10));
+
         syncButton = button("지금 동기화", true);
         syncButton.setOnClickListener(v -> startSync());
         content.addView(syncButton, fixedTop(50, 14));
@@ -148,17 +174,17 @@ public final class PageroConnectionActivity extends Activity {
         content.addView(guideTitle, top(26));
 
         LinearLayout guide = card();
-        guide.addView(step("1", "페이지로와 콜태그에 같은 이메일로 로그인"), wrap());
+        guide.addView(step("1", "페이지로와 콜태그에 같은 이메일 또는 Google 계정으로 로그인"), wrap());
         guide.addView(divider(), new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(1)));
         guide.addView(step("2", "페이지로에서 랜딩페이지를 만들고 공개"), wrap());
         guide.addView(divider(), new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(1)));
-        guide.addView(step("3", "문의 접수 후 콜태그에서 지금 동기화"), wrap());
+        guide.addView(step("3", "새 문의는 실시간 반영하고, 실패하면 앱 실행·지금 동기화로 보완"), wrap());
         content.addView(guide, top(10));
 
         TextView note = text(
-                "계정이 다르면 문의가 보이지 않습니다. 연결 계정을 바꾸려면 콜태그에서 로그아웃한 뒤 페이지로와 같은 계정으로 다시 로그인하세요.",
+                "페이지로 계정이 확인되지 않아도 콜태그 로그인과 전화·문자 기능은 사용할 수 있습니다. 나중에 이 화면에서 같은 계정으로 연결 상태를 다시 확인하세요.",
                 13f, false, R.color.text_muted);
         content.addView(note, top(14));
 
@@ -203,15 +229,39 @@ public final class PageroConnectionActivity extends Activity {
         String email = AuthSessionStore.email(this).trim().toLowerCase();
         accountValue.setText(email.isEmpty() ? "로그인 계정 확인 필요" : email);
 
+        PageroAccountStatusStore.Snapshot account = PageroAccountStatusStore.read(this);
         if (!hasSession) {
             connectionTitle.setText("로그인이 필요합니다");
             connectionBody.setText("콜태그에 로그인한 뒤 페이지로 연결을 확인하세요.");
         } else if (email.isEmpty()) {
             connectionTitle.setText("계정 이메일을 확인할 수 없습니다");
-            connectionBody.setText("로그아웃 후 페이지로와 같은 이메일로 다시 로그인하세요.");
+            connectionBody.setText("로그아웃 후 페이지로와 같은 계정으로 다시 로그인하세요.");
+        } else if (account.connected()) {
+            connectionTitle.setText("페이지로 계정 연결됨");
+            connectionBody.setText(account.projectCount > 0
+                    ? "이 계정의 페이지 " + account.projectCount + "개에서 접수된 문의를 가져옵니다."
+                    : "이 계정의 페이지로 문의를 가져옵니다.");
+        } else if (PageroAccountStatusStore.NOT_CONNECTED.equals(account.status)) {
+            connectionTitle.setText("페이지로 계정 확인 필요");
+            connectionBody.setText(account.message);
         } else {
-            connectionTitle.setText("자동 연결 준비 완료");
-            connectionBody.setText(email + " 계정의 페이지로 문의만 가져옵니다.");
+            connectionTitle.setText("페이지로 연결 상태 확인 중");
+            connectionBody.setText(account.message);
+        }
+
+        CallTagPushStatusStore.Snapshot realtime = CallTagPushStatusStore.read(this);
+        if (realtime.realtime) {
+            realtimeTitle.setText("실시간 문의 연결됨");
+            realtimeBody.setText("페이지로에 새 문의가 접수되면 콜태그가 즉시 동기화를 시작합니다.");
+        } else if (!CallTagFirebaseInitializer.configured()) {
+            realtimeTitle.setText("실시간 설정 필요");
+            realtimeBody.setText("Firebase 운영 설정 전에는 앱 실행·화면 재진입·지금 동기화로 문의를 가져옵니다.");
+        } else if (realtime.registered) {
+            realtimeTitle.setText("실시간 서버 확인 중");
+            realtimeBody.setText(realtime.message);
+        } else {
+            realtimeTitle.setText("이 기기 실시간 등록 필요");
+            realtimeBody.setText(realtime.message);
         }
 
         PageroConnectionStatusStore.Snapshot status = PageroConnectionStatusStore.read(this);
@@ -291,7 +341,7 @@ public final class PageroConnectionActivity extends Activity {
         button.setAllCaps(false);
         button.setTextSize(15f);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setTextColor(getColor(R.color.text_primary));
+        button.setTextColor(getColor(primary ? android.R.color.white : R.color.text_primary));
         button.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
         return button;
