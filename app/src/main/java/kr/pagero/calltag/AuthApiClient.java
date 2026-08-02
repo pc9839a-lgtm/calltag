@@ -13,9 +13,9 @@ import java.nio.charset.StandardCharsets;
 
 public final class AuthApiClient {
     private static final String[] BASE_URLS = {
+            "https://pagero.kr",
             "https://inlet-8mr.pages.dev",
-            "https://call.pagero.kr",
-            "https://pagero.kr"
+            "https://call.pagero.kr"
     };
 
     public static final class ApiException extends Exception {
@@ -30,6 +30,19 @@ public final class AuthApiClient {
     }
 
     private AuthApiClient() {}
+
+    public static String googleLoginUrl() {
+        return BASE_URLS[0] + "/api/call/google/start?return_scheme=calltag";
+    }
+
+    public static JSONObject exchangeGoogleTicket(String ticket) throws Exception {
+        return post("/api/call/google/exchange", new JSONObject()
+                .put("ticket", clean(ticket)), "");
+    }
+
+    public static JSONObject pageroConnection(String session) throws Exception {
+        return get("/api/call/pagero/account", session);
+    }
 
     public static JSONObject login(String email, String password) throws Exception {
         return post("/api/call/login", new JSONObject()
@@ -96,11 +109,23 @@ public final class AuthApiClient {
     }
 
     private static JSONObject post(String path, JSONObject body, String session) throws Exception {
+        return callWithFallback("POST", path, body, session);
+    }
+
+    private static JSONObject get(String path, String session) throws Exception {
+        return callWithFallback("GET", path, null, session);
+    }
+
+    private static JSONObject callWithFallback(
+            String method,
+            String path,
+            JSONObject body,
+            String session) throws Exception {
         ApiException lastApi = null;
         Exception lastTransport = null;
         for (String base : BASE_URLS) {
             try {
-                return request(base + path, body, session);
+                return request(base + path, method, body, session);
             } catch (ApiException error) {
                 lastApi = error;
                 if (!shouldTryNextBase(error)) throw error;
@@ -122,25 +147,30 @@ public final class AuthApiClient {
                 || "NON_JSON_RESPONSE".equals(error.code);
     }
 
-    private static JSONObject request(String address, JSONObject body, String session) throws Exception {
+    private static JSONObject request(
+            String address,
+            String method,
+            JSONObject body,
+            String session) throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
         try {
-            connection.setRequestMethod("POST");
+            connection.setRequestMethod(method);
             connection.setConnectTimeout(10_000);
             connection.setReadTimeout(15_000);
-            connection.setDoOutput(true);
-            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
             connection.setRequestProperty("Accept", "application/json");
             connection.setRequestProperty("X-CallLink-Client", "android");
             connection.setRequestProperty("X-Pagero-Product", "calltag");
             if (session != null && !session.trim().isEmpty()) {
                 connection.setRequestProperty("X-Inlet-Session", session.trim());
             }
-
-            byte[] payload = body.toString().getBytes(StandardCharsets.UTF_8);
-            connection.setFixedLengthStreamingMode(payload.length);
-            try (OutputStream output = connection.getOutputStream()) {
-                output.write(payload);
+            if (body != null) {
+                connection.setDoOutput(true);
+                connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                byte[] payload = body.toString().getBytes(StandardCharsets.UTF_8);
+                connection.setFixedLengthStreamingMode(payload.length);
+                try (OutputStream output = connection.getOutputStream()) {
+                    output.write(payload);
+                }
             }
 
             int status = connection.getResponseCode();
