@@ -42,6 +42,9 @@ public final class CallTagApplication extends Application implements Application
 
     @Override
     public void onActivityResumed(Activity activity) {
+        if (activity instanceof MainActivity) {
+            MainExitGuard.install(activity);
+        }
         if (activity instanceof ManualMessageActivity) {
             ManualMessageUxEnhancer.enhance((ManualMessageActivity) activity);
         }
@@ -116,5 +119,7 @@ public final class CallTagApplication extends Application implements Application
 
     @Override public void onActivityCreated(Activity activity, Bundle savedInstanceState) {}
     @Override public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
-    @Override public void onActivityDestroyed(Activity activity) {}
+    @Override public void onActivityDestroyed(Activity activity) {
+        MainExitGuard.uninstall(activity);
+    }
 }
