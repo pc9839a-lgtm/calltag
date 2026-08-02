@@ -79,6 +79,8 @@ public final class AccountActivity extends Activity {
                 runOnUiThread(() -> {
                     setWorking(false, "회원정보 새로고침");
                     render();
+                    PageroAccountConnectionManager.refresh(this, false);
+                    CallTagPushManager.registerIfAvailable(this);
                     Toast.makeText(this, "회원정보를 새로고침했습니다.", Toast.LENGTH_SHORT).show();
                 });
             } catch (Exception error) {
@@ -101,8 +103,11 @@ public final class AccountActivity extends Activity {
     }
 
     private void logout() {
+        String session = AuthSessionStore.session(this);
         stopService(new Intent(this, CallMonitorService.class));
         SettingsStore.setMonitorEnabled(this, false);
+        CallTagPushManager.unregisterBestEffort(this, session);
+        PageroAccountStatusStore.clear(this);
         AuthSessionStore.clear(this);
         startActivity(new Intent(this, LoginActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -142,7 +147,7 @@ public final class AccountActivity extends Activity {
         new Thread(() -> {
             try {
                 AuthApiClient.deleteAccount(session);
-                runOnUiThread(this::finishAccountDeletion);
+                runOnUiThread(() -> finishAccountDeletion(session));
             } catch (Exception error) {
                 runOnUiThread(() -> {
                     working = false;
@@ -159,8 +164,10 @@ public final class AccountActivity extends Activity {
         }, "calltag-account-delete").start();
     }
 
-    private void finishAccountDeletion() {
+    private void finishAccountDeletion(String session) {
         stopService(new Intent(this, CallMonitorService.class));
+        CallTagPushManager.unregisterBestEffort(this, session);
+        PageroAccountStatusStore.clear(this);
         getSharedPreferences("calltag_settings", MODE_PRIVATE).edit().clear().commit();
         getSharedPreferences("calltag_message_automation", MODE_PRIVATE).edit().clear().commit();
         getSharedPreferences("calltag_entitlements", MODE_PRIVATE).edit().clear().commit();
