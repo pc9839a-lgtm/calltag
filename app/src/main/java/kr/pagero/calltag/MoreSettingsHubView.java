@@ -66,6 +66,10 @@ public final class MoreSettingsHubView extends LinearLayout {
         customers.add("고객 상태", "단계 상태 색상", StageSettingsActivity.class);
         customers.add("일정 종류", "할 일 종류", TaskTypeSettingsActivity.class);
 
+        Section integrations = section("연동");
+        integrations.add("페이지로 연결", "랜딩 고객 문의 자동 등록 동기화",
+                PageroConnectionActivity.class);
+
         Section app = section("앱·계정");
         app.add("계정 및 개인정보", "계정 개인정보 로그인", AccountActivity.class);
         app.add("앱 진단", "권한 오류 상태", DiagnosticActivity.class);
