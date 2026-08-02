@@ -47,6 +47,9 @@ public final class CallTagApplication extends Application implements Application
 
     @Override
     public void onActivityResumed(Activity activity) {
+        if (activity instanceof PostCallActivity) {
+            PostCallPopupWindowInstaller.install(activity);
+        }
         if (activity instanceof MainActivity) {
             MainExitGuard.install(activity);
             if (AuthSessionStore.hasSession(activity)) {
@@ -129,7 +132,13 @@ public final class CallTagApplication extends Application implements Application
                 || activity instanceof BackupRestoreActivity;
     }
 
-    @Override public void onActivityCreated(Activity activity, Bundle savedInstanceState) {}
+    @Override
+    public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+        if (activity instanceof PostCallActivity) {
+            PostCallPopupWindowInstaller.install(activity);
+        }
+    }
+
     @Override public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
     @Override public void onActivityDestroyed(Activity activity) {
         MainExitGuard.uninstall(activity);
