@@ -73,7 +73,22 @@
         <activity android:name=".AccountActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".DiagnosticActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".BackupRestoreActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".LoginActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".LoginActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="calltag"
+                    android:host="auth"
+                    android:path="/google" />
+            </intent-filter>
+        </activity>
         <activity android:name=".CustomerAddActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".CustomerDetailActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity
@@ -96,6 +111,14 @@
         <service android:name=".CallTagScreeningService" android:exported="true" android:permission="android.permission.BIND_SCREENING_SERVICE">
             <intent-filter>
                 <action android:name="android.telecom.CallScreeningService" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".CallTagMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
 
