@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">콜태그</string>
+    <string name="contact_account_name">콜태그 메모</string>
+    <string name="contact_account_label">콜태그 연락처 메모</string>
+</resources>
