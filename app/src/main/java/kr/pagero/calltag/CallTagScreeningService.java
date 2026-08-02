@@ -54,16 +54,18 @@ public final class CallTagScreeningService extends CallScreeningService {
 
             String memo = CustomerInsightResolver.latestMemo(db, customer);
             String stageColor = db.stageColor(customer.relationStatus);
+            Customer displayCustomer = withInlineMemo(customer, memo);
             SettingsStore.setCallerScreeningStatus(this,
-                    "등록 고객을 찾았습니다. 전화 화면 위 표시를 시도합니다: " + customer.displayName);
+                    "등록 고객을 찾았습니다. 전화번호 옆 최근 메모 표시를 시도합니다: "
+                            + customer.displayName);
 
-            ContextSnapshot snapshot = new ContextSnapshot(customer, memo, stageColor);
+            ContextSnapshot snapshot = new ContextSnapshot(displayCustomer, memo, stageColor);
             boolean requested = CallerOverlayManager.show(
-                    getApplicationContext(), customer, memo, stageColor, shown -> {
+                    getApplicationContext(), displayCustomer, memo, stageColor, shown -> {
                         if (shown) {
                             CallerOverlayCallStateWatcher.start(getApplicationContext());
                             SettingsStore.setCallerScreeningStatus(getApplicationContext(),
-                                    "오버레이 창 추가 성공 · 통화 종료 감시 시작: "
+                                    "오버레이 창 추가 성공 · 전화번호 옆 최근 메모 표시 · 통화 종료 감시 시작: "
                                             + snapshot.customer.displayName);
                             return;
                         }
@@ -76,6 +78,31 @@ public final class CallTagScreeningService extends CallScreeningService {
         } finally {
             db.close();
         }
+    }
+
+    private Customer withInlineMemo(Customer customer, String memo) {
+        String compactMemo = compactMemo(memo);
+        String phoneAndMemo = compactMemo.isEmpty()
+                ? customer.primaryPhone
+                : customer.primaryPhone + " · " + compactMemo;
+        return new Customer(
+                customer.id,
+                customer.displayName,
+                phoneAndMemo,
+                customer.normalizedPhone,
+                customer.relationStatus,
+                customer.source,
+                customer.memo,
+                customer.firstContactAt,
+                customer.lastContactAt,
+                customer.firstTransactionAt);
+    }
+
+    private String compactMemo(String value) {
+        if (value == null) return "";
+        String compact = value.trim().replaceAll("\\s+", " ");
+        if (compact.isEmpty()) return "";
+        return compact.length() <= 24 ? compact : compact.substring(0, 23) + "…";
     }
 
     private void postFallback(ContextSnapshot snapshot, String reason) {
