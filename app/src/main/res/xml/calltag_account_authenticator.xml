@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<account-authenticator xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accountType="kr.pagero.calltag.contacts"
+    android:icon="@drawable/bg_logo_mark"
+    android:label="@string/contact_account_label"
+    android:smallIcon="@drawable/bg_logo_mark" />
