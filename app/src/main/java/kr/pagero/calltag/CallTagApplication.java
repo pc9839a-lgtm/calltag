@@ -38,6 +38,9 @@ public final class CallTagApplication extends Application implements Application
         if (FeatureEntitlementStore.hasPhoneAccess(this)) {
             ContactNameSyncManager.requestSyncAll(this);
         }
+        if (AuthSessionStore.hasSession(this)) {
+            PageroLeadSyncManager.requestSync(this, true);
+        }
     }
 
     @Override
@@ -58,6 +61,7 @@ public final class CallTagApplication extends Application implements Application
         if (!isProtectedActivity(activity) || routingToSetup) return;
         if (!AuthSessionStore.hasSession(activity)) return;
 
+        PageroLeadSyncManager.requestSync(activity);
         if (SetupRequirements.isReady(activity)) {
             if (FeatureEntitlementStore.hasPhoneAccess(activity)) {
                 ContactNameSyncManager.requestSyncAll(activity);
