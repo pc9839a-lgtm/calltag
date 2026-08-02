@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-/** 기간별 핵심 지표를 2×2 카드 규격으로 표시한다. */
+/** 핵심 요약, 일별 추이, 통화 유형과 페이지로 성과를 기간별로 표시한다. */
 public final class CustomerStatsView extends LinearLayout {
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
     private static final int MAX_CUSTOM_DAYS = 365;
@@ -80,9 +80,9 @@ public final class CustomerStatsView extends LinearLayout {
         try {
             long start = rangeStart();
             long end = rangeEnd();
+            int spanDays = rangeDays(start, end);
             List<Customer> customers = db.listCustomers(null);
             List<InteractionRecord> interactions = db.listRecentInteractions(5000);
-            List<FollowUpTask> pendingTasks = db.listPendingTasks();
 
             Set<Long> contacted = new HashSet<>();
             int calls = 0;
@@ -91,6 +91,10 @@ public final class CustomerStatsView extends LinearLayout {
             int missed = 0;
             int rejected = 0;
             int completedTasks = 0;
+
+            int[] dailyCalls = spanDays >= 2 && spanDays <= 30 ? new int[spanDays] : null;
+            int[] dailyPagero = dailyCalls == null ? null : new int[spanDays];
+            String[] dailyLabels = dailyCalls == null ? null : dateLabels(start, spanDays);
 
             for (InteractionRecord row : interactions) {
                 if (row.startedAt < start || row.startedAt > end) continue;
@@ -101,6 +105,10 @@ public final class CustomerStatsView extends LinearLayout {
                     else if ("OUTGOING_CALL".equals(row.type)) outgoing++;
                     else if ("MISSED_CALL".equals(row.type)) missed++;
                     else if ("REJECTED_CALL".equals(row.type)) rejected++;
+                    if (dailyCalls != null) {
+                        int index = dayIndex(row.startedAt, start, spanDays);
+                        if (index >= 0) dailyCalls[index]++;
+                    }
                 } else if ("TASK_COMPLETE".equals(row.type)
                         || "TASK_AUTO_COMPLETE".equals(row.type)) {
                     completedTasks++;
@@ -117,6 +125,10 @@ public final class CustomerStatsView extends LinearLayout {
                 if (createdInRange && CustomerSourceResolver.isPagero(customer)) {
                     pageroLeads++;
                     if (contacted.contains(customer.id)) pageroContacted++;
+                    if (dailyPagero != null) {
+                        int index = dayIndex(customer.firstContactAt, start, spanDays);
+                        if (index >= 0) dailyPagero[index]++;
+                    }
                 }
             }
 
@@ -125,12 +137,14 @@ public final class CustomerStatsView extends LinearLayout {
                     ? 0 : Math.round(pageroContacted * 100f / pageroLeads);
 
             addFilterRow();
-            addGrid(new Metric[] {
-                    metric("연락 고객", String.valueOf(contacted.size()), "명", false),
-                    metric("전체 통화", String.valueOf(calls), "건", true),
-                    metric("신규 고객", String.valueOf(newCustomers), "명", false),
-                    metric("완료한 일", String.valueOf(completedTasks), "건", false)
-            }, 14);
+            addHeroCard(calls, contacted.size(), newCustomers, completedTasks);
+
+            if (dailyCalls != null) {
+                addSection("일별 추이");
+                StatsTrendChartView chart = new StatsTrendChartView(getContext());
+                chart.setData(dailyLabels, dailyCalls, dailyPagero);
+                super.addView(chart, topMarginHeight(9, 205));
+            }
 
             addSection("통화 유형");
             addGrid(new Metric[] {
@@ -142,19 +156,18 @@ public final class CustomerStatsView extends LinearLayout {
 
             addSection("페이지로 유입");
             addGrid(new Metric[] {
-                    metric("유입 고객", String.valueOf(pageroLeads), "명", false),
-                    metric("연락 완료", String.valueOf(pageroContacted), "명", true),
-                    metric("미연락", String.valueOf(pageroUncontacted), "명", false),
-                    metric("연락률", String.valueOf(pageroRate), "%", true)
+                    metric("유입 고객", String.valueOf(pageroLeads), "명", true),
+                    metric("연락률", String.valueOf(pageroRate), "%", true),
+                    metric("연락 완료", String.valueOf(pageroContacted), "명", false),
+                    metric("미연락", String.valueOf(pageroUncontacted), "명", false)
             }, 9);
 
             addSection("지금 처리할 일");
-            addGrid(new Metric[] {
+            addThreeGrid(new Metric[] {
                     metric("오늘 할 일", String.valueOf(db.countDueTodayTasks()), "건", true),
                     metric("기한 지남", String.valueOf(db.countOverdueTasks()), "건", false),
-                    metric("예정된 할 일", String.valueOf(pendingTasks.size()), "건", false),
                     metric("확인할 통화", String.valueOf(pendingCalls.countPending()), "건", false)
-            }, 9);
+            });
         } finally {
             pendingCalls.close();
             db.close();
@@ -183,7 +196,7 @@ public final class CustomerStatsView extends LinearLayout {
             chip.setClickable(true);
             chip.setFocusable(true);
             chip.setOnClickListener(v -> {
-                if (days == -1) showCustomDatePicker();
+                if (days == -1) showDateRangeDialog();
                 else {
                     selectedDays = days;
                     customStart = 0L;
@@ -203,40 +216,97 @@ public final class CustomerStatsView extends LinearLayout {
         super.addView(range, topMargin(7));
     }
 
-    private void showCustomDatePicker() {
+    private void showDateRangeDialog() {
         Activity activity = getContext() instanceof Activity ? (Activity) getContext() : null;
         if (activity == null) return;
-        Calendar initial = Calendar.getInstance();
-        initial.add(Calendar.DAY_OF_MONTH, -6);
-        new DatePickerDialog(activity, (view, year, month, day) -> {
-            Calendar start = Calendar.getInstance();
-            start.set(year, month, day, 0, 0, 0);
-            start.set(Calendar.MILLISECOND, 0);
 
-            Calendar endInitial = Calendar.getInstance();
-            new DatePickerDialog(activity, (endView, endYear, endMonth, endDay) -> {
-                Calendar end = Calendar.getInstance();
-                end.set(endYear, endMonth, endDay, 23, 59, 59);
-                end.set(Calendar.MILLISECOND, 999);
-                if (end.before(start)) {
-                    showRangeWarning("종료일은 시작일보다 빠를 수 없습니다.");
-                    return;
-                }
-                long days = ((startOfDay(end.getTimeInMillis())
-                        - startOfDay(start.getTimeInMillis())) / DAY_MS) + 1L;
-                if (days > MAX_CUSTOM_DAYS) {
-                    showRangeWarning("직접 선택은 최대 " + MAX_CUSTOM_DAYS
-                            + "일까지 조회할 수 있습니다. 기간을 줄여주세요.");
-                    return;
-                }
-                customStart = start.getTimeInMillis();
-                customEnd = end.getTimeInMillis();
-                selectedDays = -1;
-                renderDashboard();
-            }, endInitial.get(Calendar.YEAR), endInitial.get(Calendar.MONTH),
-                    endInitial.get(Calendar.DAY_OF_MONTH)).show();
-        }, initial.get(Calendar.YEAR), initial.get(Calendar.MONTH),
-                initial.get(Calendar.DAY_OF_MONTH)).show();
+        Calendar start = Calendar.getInstance();
+        Calendar end = Calendar.getInstance();
+        if (selectedDays == -1 && customStart > 0L && customEnd > 0L) {
+            start.setTimeInMillis(customStart);
+            end.setTimeInMillis(customEnd);
+        } else {
+            start.add(Calendar.DAY_OF_MONTH, -6);
+        }
+        setStartOfDay(start);
+        setEndOfDay(end);
+
+        LinearLayout panel = new LinearLayout(activity);
+        panel.setOrientation(VERTICAL);
+        panel.setPadding(dp(20), dp(6), dp(20), dp(2));
+
+        TextView guide = body("시작일과 종료일을 확인한 뒤 적용하세요. 최대 365일까지 조회됩니다.");
+        guide.setLineSpacing(0f, 1.15f);
+        panel.addView(guide, matchWrap());
+
+        TextView startButton = dateRow("시작일", start.getTimeInMillis());
+        TextView endButton = dateRow("종료일", end.getTimeInMillis());
+        panel.addView(startButton, topMargin(14));
+        panel.addView(endButton, topMargin(8));
+
+        startButton.setOnClickListener(v -> openDatePicker(activity, start, selected -> {
+            start.setTimeInMillis(selected);
+            setStartOfDay(start);
+            startButton.setText(dateRowText("시작일", start.getTimeInMillis()));
+        }));
+        endButton.setOnClickListener(v -> openDatePicker(activity, end, selected -> {
+            end.setTimeInMillis(selected);
+            setEndOfDay(end);
+            endButton.setText(dateRowText("종료일", end.getTimeInMillis()));
+        }));
+
+        AlertDialog dialog = new AlertDialog.Builder(activity)
+                .setTitle("조회 기간 선택")
+                .setView(panel)
+                .setNegativeButton("취소", null)
+                .setPositiveButton("적용", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    if (end.before(start)) {
+                        showRangeWarning("종료일은 시작일보다 빠를 수 없습니다.");
+                        return;
+                    }
+                    int days = rangeDays(start.getTimeInMillis(), end.getTimeInMillis());
+                    if (days > MAX_CUSTOM_DAYS) {
+                        showRangeWarning("직접 선택은 최대 " + MAX_CUSTOM_DAYS
+                                + "일까지 조회할 수 있습니다. 기간을 줄여주세요.");
+                        return;
+                    }
+                    customStart = start.getTimeInMillis();
+                    customEnd = end.getTimeInMillis();
+                    selectedDays = -1;
+                    dialog.dismiss();
+                    renderDashboard();
+                }));
+        dialog.show();
+    }
+
+    private TextView dateRow(String label, long time) {
+        TextView row = title(dateRowText(label, time), 15f);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(15), 0, dp(15), 0);
+        row.setBackgroundResource(R.drawable.bg_clickable_row);
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setMinHeight(dp(52));
+        return row;
+    }
+
+    private String dateRowText(String label, long time) {
+        SimpleDateFormat format = new SimpleDateFormat("yyyy년 M월 d일 EEEE", Locale.KOREA);
+        return label + "    " + format.format(time) + "  ›";
+    }
+
+    private void openDatePicker(Activity activity, Calendar initial, DateSelected listener) {
+        DatePickerDialog picker = new DatePickerDialog(activity, (view, year, month, day) -> {
+            Calendar selected = Calendar.getInstance();
+            selected.set(year, month, day, 0, 0, 0);
+            selected.set(Calendar.MILLISECOND, 0);
+            listener.onSelected(selected.getTimeInMillis());
+        }, initial.get(Calendar.YEAR), initial.get(Calendar.MONTH), initial.get(Calendar.DAY_OF_MONTH));
+        picker.getDatePicker().setMaxDate(System.currentTimeMillis());
+        picker.show();
     }
 
     private void showRangeWarning(String message) {
@@ -245,6 +315,38 @@ public final class CustomerStatsView extends LinearLayout {
                 .setMessage(message)
                 .setPositiveButton("확인", null)
                 .show();
+    }
+
+    private void addHeroCard(int calls, int contacted, int newCustomers, int completed) {
+        LinearLayout card = new LinearLayout(getContext());
+        card.setOrientation(VERTICAL);
+        card.setPadding(dp(17), dp(15), dp(17), dp(15));
+        card.setBackgroundResource(R.drawable.bg_card);
+
+        TextView label = body("선택 기간 전체 통화");
+        label.setTextSize(12.5f);
+        card.addView(label, matchWrap());
+
+        LinearLayout value = new LinearLayout(getContext());
+        value.setGravity(Gravity.BOTTOM);
+        TextView number = title(String.valueOf(calls), 30f);
+        number.setTextColor(getContext().getColor(R.color.primary));
+        value.addView(number);
+        TextView suffix = body("건");
+        suffix.setTextSize(13f);
+        LayoutParams suffixParams = new LayoutParams(
+                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        suffixParams.leftMargin = dp(4);
+        suffixParams.bottomMargin = dp(4);
+        value.addView(suffix, suffixParams);
+        card.addView(value, topMargin(5));
+
+        TextView summary = body("연락 고객 " + contacted + "명   ·   신규 "
+                + newCustomers + "명   ·   완료 " + completed + "건");
+        summary.setTextColor(getContext().getColor(R.color.text_primary));
+        summary.setTextSize(13f);
+        card.addView(summary, topMargin(8));
+        super.addView(card, topMargin(14));
     }
 
     private void addSection(String label) {
@@ -263,32 +365,59 @@ public final class CustomerStatsView extends LinearLayout {
         }
     }
 
+    private void addThreeGrid(Metric[] values) {
+        LinearLayout row = new LinearLayout(getContext());
+        row.setOrientation(HORIZONTAL);
+        for (int i = 0; i < values.length; i++) {
+            LayoutParams params = new LayoutParams(0, dp(78), 1f);
+            if (i > 0) params.leftMargin = dp(7);
+            row.addView(compactMetricCard(values[i]), params);
+        }
+        super.addView(row, topMargin(9));
+    }
+
     private View metricCard(Metric metric) {
         LinearLayout card = new LinearLayout(getContext());
         card.setOrientation(VERTICAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
         card.setPadding(dp(14), dp(10), dp(14), dp(10));
         card.setBackgroundResource(R.drawable.bg_card);
+        card.addView(valueRow(metric, 23f), matchWrap());
+        TextView label = body(metric.label);
+        label.setTextSize(12.5f);
+        card.addView(label, topMargin(4));
+        return card;
+    }
 
+    private View compactMetricCard(Metric metric) {
+        LinearLayout card = new LinearLayout(getContext());
+        card.setOrientation(VERTICAL);
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(dp(7), dp(8), dp(7), dp(8));
+        card.setBackgroundResource(R.drawable.bg_card);
+        card.addView(valueRow(metric, 20f), matchWrap());
+        TextView label = body(metric.label);
+        label.setTextSize(11f);
+        label.setGravity(Gravity.CENTER);
+        card.addView(label, topMargin(4));
+        return card;
+    }
+
+    private View valueRow(Metric metric, float size) {
         LinearLayout valueRow = new LinearLayout(getContext());
-        valueRow.setGravity(Gravity.BOTTOM);
-        TextView number = title(metric.value, 23f);
+        valueRow.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        TextView number = title(metric.value, size);
         number.setTextColor(getContext().getColor(metric.primary
                 ? R.color.primary : R.color.text_primary));
         valueRow.addView(number);
         TextView suffix = body(metric.suffix);
-        suffix.setTextSize(12f);
+        suffix.setTextSize(11f);
         LayoutParams suffixParams = new LayoutParams(
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
         suffixParams.leftMargin = dp(3);
         suffixParams.bottomMargin = dp(2);
         valueRow.addView(suffix, suffixParams);
-        card.addView(valueRow, matchWrap());
-
-        TextView label = body(metric.label);
-        label.setTextSize(12.5f);
-        card.addView(label, topMargin(4));
-        return card;
+        return valueRow;
     }
 
     private Metric callMetric(String label, int count, int total) {
@@ -298,6 +427,27 @@ public final class CustomerStatsView extends LinearLayout {
 
     private Metric metric(String label, String value, String suffix, boolean primary) {
         return new Metric(label, value, suffix, primary);
+    }
+
+    private String[] dateLabels(long start, int days) {
+        String[] labels = new String[days];
+        SimpleDateFormat format = new SimpleDateFormat("M/d", Locale.KOREA);
+        Calendar date = Calendar.getInstance();
+        date.setTimeInMillis(start);
+        for (int i = 0; i < days; i++) {
+            labels[i] = format.format(date.getTime());
+            date.add(Calendar.DAY_OF_MONTH, 1);
+        }
+        return labels;
+    }
+
+    private int dayIndex(long time, long start, int days) {
+        int index = (int) ((startOfDay(time) - startOfDay(start)) / DAY_MS);
+        return index >= 0 && index < days ? index : -1;
+    }
+
+    private int rangeDays(long start, long end) {
+        return (int) (((startOfDay(end) - startOfDay(start)) / DAY_MS) + 1L);
     }
 
     private TextView title(String value, float size) {
@@ -335,10 +485,7 @@ public final class CustomerStatsView extends LinearLayout {
     private long rangeEnd() {
         if (selectedDays == -1 && customEnd > 0L) return customEnd;
         Calendar end = Calendar.getInstance();
-        end.set(Calendar.HOUR_OF_DAY, 23);
-        end.set(Calendar.MINUTE, 59);
-        end.set(Calendar.SECOND, 59);
-        end.set(Calendar.MILLISECOND, 999);
+        setEndOfDay(end);
         return end.getTimeInMillis();
     }
 
@@ -350,11 +497,22 @@ public final class CustomerStatsView extends LinearLayout {
     private long startOfDay(long value) {
         Calendar calendar = Calendar.getInstance();
         calendar.setTimeInMillis(value);
+        setStartOfDay(calendar);
+        return calendar.getTimeInMillis();
+    }
+
+    private void setStartOfDay(Calendar calendar) {
         calendar.set(Calendar.HOUR_OF_DAY, 0);
         calendar.set(Calendar.MINUTE, 0);
         calendar.set(Calendar.SECOND, 0);
         calendar.set(Calendar.MILLISECOND, 0);
-        return calendar.getTimeInMillis();
+    }
+
+    private void setEndOfDay(Calendar calendar) {
+        calendar.set(Calendar.HOUR_OF_DAY, 23);
+        calendar.set(Calendar.MINUTE, 59);
+        calendar.set(Calendar.SECOND, 59);
+        calendar.set(Calendar.MILLISECOND, 999);
     }
 
     private LayoutParams matchWrap() {
@@ -367,8 +525,18 @@ public final class CustomerStatsView extends LinearLayout {
         return params;
     }
 
+    private LayoutParams topMarginHeight(int top, int height) {
+        LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, dp(height));
+        params.topMargin = dp(top);
+        return params;
+    }
+
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private interface DateSelected {
+        void onSelected(long time);
     }
 
     private static final class Metric {
