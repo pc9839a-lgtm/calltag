@@ -106,11 +106,13 @@ public final class CallTagScreeningService extends CallScreeningService {
     }
 
     private void postFallback(ContextSnapshot snapshot, String reason) {
+        String fallbackMemo = snapshot.memo == null || snapshot.memo.trim().isEmpty()
+                ? "" : snapshot.customer.primaryPhone;
         boolean posted = CallPopupNotificationManager.showIncoming(
-                getApplicationContext(), snapshot.customer, snapshot.memo, snapshot.stageColor);
+                getApplicationContext(), snapshot.customer, fallbackMemo, snapshot.stageColor);
         SettingsStore.setCallerScreeningStatus(getApplicationContext(),
                 posted
-                        ? reason + " · 수신 알림으로 대신 표시했습니다."
+                        ? reason + " · 전화번호와 최근 메모를 수신 알림으로 대신 표시했습니다."
                         : reason + " · 수신 알림도 표시하지 못했습니다.");
     }
 
