@@ -1,6 +1,6 @@
 (()=>{
-  if(document.documentElement.dataset.ctPageroIndustriesThreeColumnFix)return;
-  document.documentElement.dataset.ctPageroIndustriesThreeColumnFix='1';
+  if(document.documentElement.dataset.ctPageroIndustriesThreeCardFix)return;
+  document.documentElement.dataset.ctPageroIndustriesThreeCardFix='1';
 
   const css=`
     #ct-pagero-intro .ct-industry-auto{display:none!important}
@@ -122,18 +122,17 @@
     const showcase=document.querySelector('#ct-pagero-intro .ct-industry-showcase');
     if(!showcase)return false;
 
-    showcase.querySelectorAll('.ct-industry-card.ct-estate').forEach(card=>card.remove());
     showcase.querySelectorAll('.ct-industry-auto').forEach(text=>text.remove());
 
-    if(!document.querySelector('style[data-ct-pagero-industries-three-column-fix]')){
+    if(!document.querySelector('style[data-ct-pagero-industries-three-card-fix]')){
       const style=document.createElement('style');
-      style.dataset.ctPageroIndustriesThreeColumnFix='1';
+      style.dataset.ctPageroIndustriesThreeCardFix='1';
       style.textContent=css;
       document.head.append(style);
     }
 
     showcase.dataset.layout='three-column';
-    return showcase.querySelectorAll('.ct-industry-card').length===2;
+    return showcase.querySelectorAll('.ct-industry-card').length===3;
   };
 
   if(!apply()){
