@@ -37,6 +37,22 @@
         <item name="android:windowLightNavigationBar">false</item>
     </style>
 
+    <style name="Theme.CallTag.PostCallPopup" parent="android:style/Theme.Material.Dialog.NoActionBar">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:buttonStyle">@style/Widget.CallTag.Button</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowDisablePreview">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.68</item>
+        <item name="android:windowCloseOnTouchOutside">false</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:alertDialogTheme">@style/Theme.CallTag.Dialog</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
+    </style>
+
     <style name="Theme.CallTag.Dialog" parent="android:style/Theme.Material.Dialog.Alert">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:buttonStyle">@style/Widget.CallTag.Button</item>
