@@ -5,13 +5,17 @@ import android.app.AlertDialog;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.util.List;
+import java.util.Locale;
 
 public final class ActionChoiceDialog {
     public interface Listener {
@@ -56,27 +60,69 @@ public final class ActionChoiceDialog {
         if (activity == null || activity.isFinishing()) return;
 
         boolean saveMode = title != null && title.trim().startsWith("연결 문자");
+        boolean searchable = options != null && options.size() > 8;
         int[] selectedIndex = {findSelectedIndex(options)};
 
         LinearLayout content = new LinearLayout(activity);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(activity, 16), dp(activity, 6), dp(activity, 16), dp(activity, 4));
+        content.setPadding(dp(activity, 16), dp(activity, 6), dp(activity, 16), dp(activity, 6));
 
         if (description != null && !description.trim().isEmpty()) {
-            TextView helper = text(activity, description.trim(), 13f, R.color.text_secondary, false);
-            helper.setSingleLine(true);
+            TextView helper = text(activity, description.trim(), 13f,
+                    R.color.text_secondary, false);
+            helper.setMaxLines(2);
             content.addView(helper, matchWrap());
+        }
+
+        TextView resultCount = null;
+        if (searchable) {
+            LinearLayout searchRow = new LinearLayout(activity);
+            searchRow.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams searchRowParams = matchWrap();
+            searchRowParams.topMargin = dp(activity, 10);
+            content.addView(searchRow, searchRowParams);
+
+            EditText search = new EditText(activity);
+            search.setHint("고객명·전화번호 검색");
+            search.setSingleLine(true);
+            search.setTextSize(14f);
+            search.setTextColor(activity.getColor(R.color.text_primary));
+            search.setHintTextColor(activity.getColor(R.color.text_muted));
+            search.setBackgroundResource(R.drawable.bg_input);
+            search.setPadding(dp(activity, 14), 0, dp(activity, 14), 0);
+            searchRow.addView(search, new LinearLayout.LayoutParams(0, dp(activity, 48), 1f));
+
+            resultCount = text(activity, options.size() + "명", 12f,
+                    R.color.text_secondary, true);
+            resultCount.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams countParams = new LinearLayout.LayoutParams(
+                    dp(activity, 54), dp(activity, 48));
+            countParams.leftMargin = dp(activity, 8);
+            searchRow.addView(resultCount, countParams);
+
+            final TextView countView = resultCount;
+            search.addTextChangedListener(new TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+                @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                    int visible = filterOptions(optionListRef[0], s == null ? "" : s.toString());
+                    countView.setText(visible + "명");
+                }
+                @Override public void afterTextChanged(Editable s) {}
+            });
         }
 
         LinearLayout optionList = new LinearLayout(activity);
         optionList.setOrientation(LinearLayout.VERTICAL);
+        optionListRef[0] = optionList;
         if (options != null) {
             for (int i = 0; i < options.size(); i++) {
                 Option option = options.get(i);
                 View row = optionRow(activity, option, saveMode);
                 row.setTag(R.id.customerListTab, i);
+                row.setContentDescription((option.title + " " + option.subtitle)
+                        .toLowerCase(Locale.KOREA));
                 LinearLayout.LayoutParams rowParams = matchWrap();
-                rowParams.topMargin = dp(activity, saveMode ? 6 : 8);
+                rowParams.topMargin = dp(activity, saveMode ? 6 : 7);
                 optionList.addView(row, rowParams);
                 if (saveMode) {
                     row.setOnClickListener(v -> {
@@ -93,7 +139,19 @@ public final class ActionChoiceDialog {
                 }
             }
         }
-        content.addView(optionList, matchWrap());
+
+        ScrollView listScroll = new ScrollView(activity);
+        listScroll.setFillViewport(false);
+        listScroll.addView(optionList, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT));
+        int maxListHeight = Math.min(dp(activity, 430),
+                Math.round(activity.getResources().getDisplayMetrics().heightPixels * 0.52f));
+        LinearLayout.LayoutParams listParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                searchable ? maxListHeight : LinearLayout.LayoutParams.WRAP_CONTENT);
+        listParams.topMargin = dp(activity, description == null || description.trim().isEmpty() ? 0 : 4);
+        content.addView(listScroll, listParams);
 
         if (footerTitle != null && !footerTitle.trim().isEmpty()) {
             TextView footer = text(activity, footerTitle.trim(), 14f, R.color.primary, true);
@@ -112,14 +170,9 @@ public final class ActionChoiceDialog {
             });
         }
 
-        ScrollView scroll = new ScrollView(activity);
-        scroll.setFillViewport(false);
-        scroll.addView(content, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
-
         AlertDialog.Builder builder = new AlertDialog.Builder(activity)
                 .setTitle(title)
-                .setView(scroll);
+                .setView(content);
         if (saveMode) {
             builder.setNegativeButton("취소", null)
                     .setPositiveButton("저장", null);
@@ -150,6 +203,26 @@ public final class ActionChoiceDialog {
         dialog.show();
     }
 
+    private static final LinearLayout[] optionListRef = new LinearLayout[1];
+
+    private static int filterOptions(LinearLayout list, String rawQuery) {
+        if (list == null) return 0;
+        String query = rawQuery == null ? "" : rawQuery.trim().toLowerCase(Locale.KOREA);
+        String digits = PhoneNumberNormalizer.normalize(rawQuery);
+        int visible = 0;
+        for (int i = 0; i < list.getChildCount(); i++) {
+            View row = list.getChildAt(i);
+            String searchable = String.valueOf(row.getContentDescription());
+            String rowDigits = PhoneNumberNormalizer.normalize(searchable);
+            boolean match = query.isEmpty()
+                    || searchable.contains(query)
+                    || (!digits.isEmpty() && rowDigits.contains(digits));
+            row.setVisibility(match ? View.VISIBLE : View.GONE);
+            if (match) visible++;
+        }
+        return visible;
+    }
+
     private static int findSelectedIndex(List<Option> options) {
         if (options == null || options.isEmpty()) return 0;
         for (int i = 0; i < options.size(); i++) {
@@ -162,7 +235,8 @@ public final class ActionChoiceDialog {
     private static void renderSelection(Activity activity, LinearLayout list, int selectedIndex) {
         for (int i = 0; i < list.getChildCount(); i++) {
             View child = list.getChildAt(i);
-            boolean selected = i == selectedIndex;
+            Object rawIndex = child.getTag(R.id.customerListTab);
+            boolean selected = rawIndex instanceof Integer && (Integer) rawIndex == selectedIndex;
             child.setBackgroundResource(selected
                     ? R.drawable.bg_selected_row
                     : R.drawable.bg_clickable_row);
@@ -190,9 +264,9 @@ public final class ActionChoiceDialog {
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(activity, 14), compact ? dp(activity, 9) : dp(activity, 11),
-                dp(activity, 11), compact ? dp(activity, 9) : dp(activity, 11));
-        row.setMinimumHeight(dp(activity, compact ? 54 : 62));
+        row.setPadding(dp(activity, 14), compact ? dp(activity, 9) : dp(activity, 10),
+                dp(activity, 11), compact ? dp(activity, 9) : dp(activity, 10));
+        row.setMinimumHeight(dp(activity, compact ? 54 : 58));
         row.setBackgroundResource(R.drawable.bg_clickable_row);
         row.setClickable(true);
         row.setFocusable(true);
@@ -201,22 +275,22 @@ public final class ActionChoiceDialog {
         if (showColor) {
             View swatch = new View(activity);
             swatch.setBackground(swatch(option.color));
-            row.addView(swatch, new LinearLayout.LayoutParams(dp(activity, 12), dp(activity, 32)));
+            row.addView(swatch, new LinearLayout.LayoutParams(dp(activity, 10), dp(activity, 30)));
         }
 
         LinearLayout labels = new LinearLayout(activity);
         labels.setOrientation(LinearLayout.VERTICAL);
-        TextView title = text(activity, option.title, compact ? 15f : 16f,
+        TextView title = text(activity, option.title, compact ? 15f : 15f,
                 R.color.text_primary, true);
+        title.setSingleLine(true);
         labels.addView(title, matchWrap());
         if (!option.subtitle.trim().isEmpty()) {
             String subtitleText = compact
                     ? option.subtitle.replace("현재 설정 · ", "")
                     : option.subtitle;
-            TextView subtitle = text(activity, subtitleText, compact ? 12.5f : 13f,
+            TextView subtitle = text(activity, subtitleText, compact ? 12.5f : 12.5f,
                     R.color.text_secondary, false);
-            subtitle.setSingleLine(compact);
-            subtitle.setMaxLines(compact ? 1 : 2);
+            subtitle.setSingleLine(true);
             LinearLayout.LayoutParams subtitleParams = matchWrap();
             subtitleParams.topMargin = dp(activity, 3);
             labels.addView(subtitle, subtitleParams);
