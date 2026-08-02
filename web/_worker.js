@@ -1,5 +1,10 @@
+import { handlePageroIntegration } from './worker/pagero-integration.js';
+
 export default {
   async fetch(request, env) {
+    const integrationResponse = await handlePageroIntegration(request, env);
+    if (integrationResponse) return integrationResponse;
+
     const response = await env.ASSETS.fetch(request);
     const type = response.headers.get('content-type') || '';
 
@@ -20,7 +25,7 @@ export default {
 
     const headers = new Headers(response.headers);
     headers.delete('content-encoding');headers.delete('content-length');headers.delete('etag');headers.delete('last-modified');headers.delete('content-md5');headers.delete('digest');
-    headers.set('content-type','text/html; charset=UTF-8');headers.set('cache-control','no-cache, no-store, must-revalidate');headers.set('x-calltag-worker','v37-safe-html-industries2');
+    headers.set('content-type','text/html; charset=UTF-8');headers.set('cache-control','no-cache, no-store, must-revalidate');headers.set('x-calltag-worker','v37-safe-html-pagero-api1');
     return new Response(body,{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
   }
 };
