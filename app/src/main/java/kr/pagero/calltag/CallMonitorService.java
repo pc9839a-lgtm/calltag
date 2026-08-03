@@ -25,6 +25,7 @@ public final class CallMonitorService extends Service {
     private static final String MONITOR_CHANNEL = "calltag_monitor";
     private static final int MONITOR_NOTIFICATION_ID = 4101;
     private static final long[] LOOKUP_DELAYS = {1500L, 3500L, 7000L};
+    private static final long POST_CALL_SETTLE_DELAY_MS = 1200L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private TelephonyManager telephonyManager;
@@ -129,8 +130,6 @@ public final class CallMonitorService extends Service {
         }
 
         if (state == TelephonyManager.CALL_STATE_IDLE) {
-            // The incoming overlay stays visible throughout ringing and the call. Only the
-            // authoritative telephony IDLE transition closes it; Telecom polling is not used.
             CallerOverlayManager.hide(this);
             CallerOverlayCallStateWatcher.stop(this);
 
@@ -216,21 +215,28 @@ public final class CallMonitorService extends Service {
                         .putExtra(PostCallActivity.EXTRA_DURATION_SEC,
                                 Math.max(0L, record.durationSec))
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                                | Intent.FLAG_ACTIVITY_CLEAR_TOP
-                                | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                                | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+                                | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
 
-                boolean launched = PostCallActivityLauncher.launch(this, review);
                 String memo = customer == null
                         ? "" : CustomerInsightResolver.latestMemo(db, customer);
-                if (!launched) {
-                    CallPopupNotificationManager.showPostCall(
-                            this, record, customer, review, memo);
-                }
+                openPostCallAfterPhoneUiSettles(record, customer, review, memo);
             }
         } finally {
             if (pendingStore != null) pendingStore.close();
             db.close();
         }
+    }
+
+    private void openPostCallAfterPhoneUiSettles(CallRecord record, Customer customer,
+                                                  Intent review, String memo) {
+        handler.postDelayed(() -> {
+            boolean launched = PostCallActivityLauncher.launch(this, review);
+            if (!launched) {
+                CallPopupNotificationManager.showPostCall(
+                        this, record, customer, review, memo);
+            }
+        }, POST_CALL_SETTLE_DELAY_MS);
     }
 
     private boolean needsDeferredHandling(CallRecord record) {
