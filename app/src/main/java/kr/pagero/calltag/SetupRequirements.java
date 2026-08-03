@@ -20,7 +20,6 @@ public final class SetupRequirements {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
-    /** Legacy cleanup only. It is never required for the caller memo feature. */
     public static boolean hasContactWrite(Context context) {
         return context.checkSelfPermission(Manifest.permission.WRITE_CONTACTS)
                 == PackageManager.PERMISSION_GRANTED;
@@ -70,7 +69,6 @@ public final class SetupRequirements {
                 context, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
     }
 
-    /** Required state for showing CallTag memo over the incoming phone screen. */
     public static boolean baseReady(Context context) {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                 && hasRequiredRuntimePermissions(context)
@@ -117,12 +115,11 @@ public final class SetupRequirements {
         if (!hasOverlay(context) || !hasScreeningRole(context)) clearOverlayTest(context);
     }
 
-    /**
-     * Runtime permission revocation still returns the user to setup. Screening role and overlay
-     * are checked on the caller display setup screen and while receiving a call.
-     */
     public static boolean isReady(Context context) {
-        return initialFlowCompleted(context) && hasRequiredRuntimePermissions(context);
+        if (!initialFlowCompleted(context) || !hasRequiredRuntimePermissions(context)) {
+            return false;
+        }
+        return !FeatureEntitlementStore.hasPhoneAccess(context) || baseReady(context);
     }
 
     public static Intent requiredSetupIntent(Context context) {
