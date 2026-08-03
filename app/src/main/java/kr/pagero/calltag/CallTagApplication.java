@@ -53,6 +53,13 @@ public final class CallTagApplication extends Application implements Application
 
     @Override
     public void onActivityResumed(Activity activity) {
+        if (activity instanceof PostCallActivity) {
+            // OEM phone apps can briefly reclaim the foreground after CALL_STATE_IDLE.
+            // Re-apply the compact dialog bounds whenever the popup resumes.
+            PostCallPopupWindowInstaller.install(activity);
+            routingToSetup = false;
+            return;
+        }
         if (activity instanceof MainActivity) {
             MainExitGuard.install(activity);
             if (AuthSessionStore.hasSession(activity)) {
@@ -67,8 +74,7 @@ public final class CallTagApplication extends Application implements Application
         if (activity instanceof CallerIdSetupActivity
                 || activity instanceof InitialPermissionActivity
                 || activity instanceof AuthGateActivity
-                || activity instanceof LoginActivity
-                || activity instanceof PostCallActivity) {
+                || activity instanceof LoginActivity) {
             routingToSetup = false;
             return;
         }
@@ -91,6 +97,9 @@ public final class CallTagApplication extends Application implements Application
     @Override
     public void onActivityStarted(Activity activity) {
         startedActivities++;
+        if (activity instanceof PostCallActivity) {
+            PostCallPopupWindowInstaller.install(activity);
+        }
         if (startedActivities == 1) {
             handler.removeCallbacks(periodicContactSync);
             handler.post(periodicContactSync);
