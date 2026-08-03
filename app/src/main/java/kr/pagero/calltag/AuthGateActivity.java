@@ -3,44 +3,58 @@ package kr.pagero.calltag;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.widget.TextView;
+import android.os.Handler;
+import android.os.Looper;
 
 import org.json.JSONObject;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/** 앱 시작 시 로그인과 필수 설정을 확인하는 사용자용 로딩 화면이다. */
 public final class AuthGateActivity extends Activity {
+    private static final long MIN_LOADING_MS = 750L;
+
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private TextView status;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private long loadingStartedAt;
+    private boolean routed;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        loadingStartedAt = System.currentTimeMillis();
         setContentView(R.layout.activity_auth_gate);
-        status = findViewById(R.id.txtAuthGateStatus);
         checkAccount();
     }
 
     private void checkAccount() {
         String session = AuthSessionStore.session(this);
         if (session.isEmpty()) {
-            openLogin();
+            routeAfterLoading(this::openLogin);
             return;
         }
-        status.setText("로그인 상태를 확인하고 있습니다.");
         executor.execute(() -> {
             try {
                 JSONObject response = AuthApiClient.refresh(session);
                 AuthSessionStore.save(this, response);
-                runOnUiThread(this::openDestination);
+                runOnUiThread(() -> routeAfterLoading(this::openDestination));
             } catch (Exception error) {
-                runOnUiThread(() -> {
-                    if (AuthSessionStore.hasSession(this)) openDestination();
-                    else openLogin();
-                });
+                runOnUiThread(() -> routeAfterLoading(
+                        AuthSessionStore.hasSession(this) ? this::openDestination : this::openLogin));
             }
         });
+    }
+
+    private void routeAfterLoading(Runnable action) {
+        if (routed || isFinishing()) return;
+        long elapsed = System.currentTimeMillis() - loadingStartedAt;
+        long delay = Math.max(0L, MIN_LOADING_MS - elapsed);
+        handler.postDelayed(() -> {
+            if (routed || isFinishing()) return;
+            routed = true;
+            action.run();
+        }, delay);
     }
 
     private void openDestination() {
@@ -63,6 +77,7 @@ public final class AuthGateActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        handler.removeCallbacksAndMessages(null);
         executor.shutdownNow();
         super.onDestroy();
     }
