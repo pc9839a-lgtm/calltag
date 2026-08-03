@@ -24,7 +24,8 @@ public final class CallTagScreeningService extends CallScreeningService {
         }
 
         if (!incoming) {
-            SettingsStore.setCallerScreeningStatus(this, "발신 통화라 수신 고객정보를 표시하지 않았습니다.");
+            SettingsStore.setCallerScreeningStatus(this,
+                    "발신 통화라 수신 고객정보를 표시하지 않았습니다.");
             return;
         }
 
@@ -42,37 +43,31 @@ public final class CallTagScreeningService extends CallScreeningService {
         CallTagDbHelper db = new CallTagDbHelper(this);
         try {
             if (db.isExcluded(phone)) {
-                SettingsStore.setCallerScreeningStatus(this, "제외번호라 고객정보를 표시하지 않았습니다.");
+                SettingsStore.setCallerScreeningStatus(this,
+                        "제외번호라 고객정보를 표시하지 않았습니다.");
                 return;
             }
             Customer customer = db.findByPhone(phone);
             if (customer == null) {
                 SettingsStore.setCallerScreeningStatus(this,
-                        "콜태그에 등록되지 않은 번호라 메모를 표시하지 않았습니다: " + phone);
+                        "수신 서비스는 정상 호출됐지만 콜태그에 등록되지 않은 번호입니다: "
+                                + phone);
                 return;
             }
 
             String memo = CustomerInsightResolver.latestMemo(db, customer);
             String stageColor = db.stageColor(customer.relationStatus);
-            String savedContactName = SystemContactLookup.displayName(this, phone);
-            boolean savedContact = !savedContactName.isEmpty();
+            ContextSnapshot snapshot = new ContextSnapshot(customer, memo, stageColor);
             SettingsStore.setCallerScreeningStatus(this,
-                    savedContact
-                            ? "저장된 연락처를 찾았습니다. 기존 이름은 유지하고 메모 오버레이를 표시합니다: "
-                                    + savedContactName
-                            : "미저장 번호를 찾았습니다. 고객명 없이 메모만 표시합니다.");
+                    "등록 고객을 찾았습니다. 고객명과 최근 메모 표시를 시도합니다: "
+                            + customer.displayName);
 
-            ContextSnapshot snapshot = new ContextSnapshot(
-                    customer, memo, stageColor, savedContactName, savedContact);
             boolean requested = CallerOverlayManager.show(
                     getApplicationContext(), customer, memo, stageColor, shown -> {
                         if (shown) {
-                            CallerOverlayCallStateWatcher.start(getApplicationContext());
                             SettingsStore.setCallerScreeningStatus(getApplicationContext(),
-                                    snapshot.savedContact
-                                            ? "전화 화면 위 표시 성공 · 기존 연락처 이름 + 콜태그 메모: "
-                                                    + snapshot.savedContactName
-                                            : "전화 화면 위 표시 성공 · 미저장 번호는 콜태그 메모만 표시");
+                                    "전화 화면 위 고객명·최근 메모 표시 성공: "
+                                            + snapshot.customer.displayName);
                             return;
                         }
                         postFallback(snapshot, "오버레이 창 추가 실패");
@@ -81,43 +76,20 @@ public final class CallTagScreeningService extends CallScreeningService {
             if (!requested) {
                 postFallback(snapshot, "다른 앱 위 표시 권한 없음");
             }
+        } catch (RuntimeException error) {
+            SettingsStore.setCallerScreeningStatus(this,
+                    "수신 고객정보 처리 중 오류가 발생했습니다.");
         } finally {
             db.close();
         }
     }
 
     private void postFallback(ContextSnapshot snapshot, String reason) {
-        Customer notificationCustomer;
-        if (snapshot.savedContact) {
-            notificationCustomer = new Customer(
-                    snapshot.customer.id,
-                    snapshot.savedContactName,
-                    snapshot.customer.primaryPhone,
-                    snapshot.customer.normalizedPhone,
-                    snapshot.customer.relationStatus,
-                    snapshot.customer.source,
-                    snapshot.customer.memo,
-                    snapshot.customer.firstContactAt,
-                    snapshot.customer.lastContactAt,
-                    snapshot.customer.firstTransactionAt);
-        } else {
-            notificationCustomer = new Customer(
-                    snapshot.customer.id,
-                    "콜태그 메모",
-                    "",
-                    snapshot.customer.normalizedPhone,
-                    "",
-                    snapshot.customer.source,
-                    snapshot.customer.memo,
-                    snapshot.customer.firstContactAt,
-                    snapshot.customer.lastContactAt,
-                    snapshot.customer.firstTransactionAt);
-        }
         boolean posted = CallPopupNotificationManager.showIncoming(
-                getApplicationContext(), notificationCustomer, snapshot.memo, snapshot.stageColor);
+                getApplicationContext(), snapshot.customer, snapshot.memo, snapshot.stageColor);
         SettingsStore.setCallerScreeningStatus(getApplicationContext(),
                 posted
-                        ? reason + " · 수신 알림으로 대신 표시했습니다."
+                        ? reason + " · 수신 알림으로 고객명과 메모를 대신 표시했습니다."
                         : reason + " · 수신 알림도 표시하지 못했습니다.");
     }
 
@@ -125,16 +97,11 @@ public final class CallTagScreeningService extends CallScreeningService {
         final Customer customer;
         final String memo;
         final String stageColor;
-        final String savedContactName;
-        final boolean savedContact;
 
-        ContextSnapshot(Customer customer, String memo, String stageColor,
-                        String savedContactName, boolean savedContact) {
+        ContextSnapshot(Customer customer, String memo, String stageColor) {
             this.customer = customer;
             this.memo = memo;
             this.stageColor = stageColor;
-            this.savedContactName = savedContactName;
-            this.savedContact = savedContact;
         }
     }
 }
