@@ -8,9 +8,11 @@ import android.os.Looper;
 
 public final class CallTagApplication extends Application implements Application.ActivityLifecycleCallbacks {
     private static final long CONTACT_SYNC_INTERVAL_MS = 5_000L;
+    private static final long PAGERO_FALLBACK_SYNC_INTERVAL_MS = 30_000L;
+    private static final long PAGERO_REALTIME_SAFETY_INTERVAL_MS = 5L * 60L * 1000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final Runnable periodicContactSync = new Runnable() {
+    private final Runnable periodicForegroundWork = new Runnable() {
         @Override
         public void run() {
             if (startedActivities <= 0) return;
@@ -18,18 +20,21 @@ public final class CallTagApplication extends Application implements Application
                     && SettingsStore.isContactNameSyncEnabled(CallTagApplication.this)) {
                 ContactNameSyncManager.requestSyncAll(CallTagApplication.this);
             }
+            maybeSyncPageroLeads();
             handler.postDelayed(this, CONTACT_SYNC_INTERVAL_MS);
         }
     };
 
     private boolean routingToSetup;
     private int startedActivities;
+    private long lastPageroForegroundSyncAt;
 
     @Override
     public void onCreate() {
         super.onCreate();
         registerActivityLifecycleCallbacks(this);
         MessageAutomationStore.ensureDefaults(this);
+        PageroLeadNotificationManager.ensureChannel(this);
 
         new Thread(() -> {
             MessageRecoveryManager.recoverNow(this,
@@ -49,6 +54,18 @@ public final class CallTagApplication extends Application implements Application
                 SetupRequirements.startCallMonitoring(this);
             }
         }
+    }
+
+    private void maybeSyncPageroLeads() {
+        if (!AuthSessionStore.hasSession(this)) return;
+        CallTagPushStatusStore.Snapshot push = CallTagPushStatusStore.read(this);
+        long interval = push.realtime
+                ? PAGERO_REALTIME_SAFETY_INTERVAL_MS
+                : PAGERO_FALLBACK_SYNC_INTERVAL_MS;
+        long now = System.currentTimeMillis();
+        if (now - lastPageroForegroundSyncAt < interval) return;
+        lastPageroForegroundSyncAt = now;
+        PageroLeadSyncManager.requestSyncAndNotify(this, false);
     }
 
     @Override
@@ -99,8 +116,8 @@ public final class CallTagApplication extends Application implements Application
             PostCallPopupWindowInstaller.install(activity);
         }
         if (startedActivities == 1) {
-            handler.removeCallbacks(periodicContactSync);
-            handler.post(periodicContactSync);
+            handler.removeCallbacks(periodicForegroundWork);
+            handler.post(periodicForegroundWork);
         }
     }
 
@@ -115,7 +132,7 @@ public final class CallTagApplication extends Application implements Application
     public void onActivityStopped(Activity activity) {
         startedActivities = Math.max(0, startedActivities - 1);
         if (startedActivities == 0) {
-            handler.removeCallbacks(periodicContactSync);
+            handler.removeCallbacks(periodicForegroundWork);
             if (FeatureEntitlementStore.hasPhoneAccess(this)) {
                 ContactNameSyncManager.requestSyncAll(this);
             }

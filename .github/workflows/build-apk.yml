@@ -18,6 +18,11 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      CALLTAG_FIREBASE_APPLICATION_ID: ${{ secrets.CALLTAG_FIREBASE_APPLICATION_ID }}
+      CALLTAG_FIREBASE_API_KEY: ${{ secrets.CALLTAG_FIREBASE_API_KEY }}
+      CALLTAG_FIREBASE_PROJECT_ID: ${{ secrets.CALLTAG_FIREBASE_PROJECT_ID }}
+      CALLTAG_FIREBASE_SENDER_ID: ${{ secrets.CALLTAG_FIREBASE_SENDER_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,5 +44,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.40.8-stability-cleanup-debug-apk
+          name: calltag-v0.40.9-pagero-realtime-alert-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
