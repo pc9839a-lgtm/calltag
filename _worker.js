@@ -19,7 +19,6 @@ export default {
 
     if (!body.includes('/assets/calltag-enhance.js')) {
       const scripts = [
-        'calltag-final-cta-motion.js?v=20260803-cta2',
         'calltag-enhance.js?v=20260801-37',
         'calltag-copy-fix.js?v=20260801-37',
         'calltag-section-split.js?v=20260801-37',
@@ -39,7 +38,6 @@ export default {
         'calltag-pagero-industries.js?v=20260802-industries2',
         'calltag-pagero-industries-two-column.js?v=20260802-three-card1',
         'calltag-product-switcher.js?v=20260801-37',
-        'calltag-mobile-system.js?v=20260802-mobile1',
         'calltag-cta-system.js?v=20260802-cta1',
         'calltag-stability-fix.js?v=20260802-stability1',
         'calltag-horizontal-clean.js?v=20260803-compact1',
@@ -50,8 +48,7 @@ export default {
         'calltag-section-motion.js?v=20260803-motion2',
         'calltag-site-final-cleanup.js?v=20260803-final1',
         'calltag-horizontal-live-fix.js?v=20260803-live1',
-        'calltag-mobile-final.js?v=20260803-mobile3',
-        'calltag-mobile-overhaul-v4.js?v=20260803-mobile4'
+        'calltag-mobile-clean-v1.js?v=20260804-clean1'
       ];
       body = body.replace('</body>', scripts.map(src => `<script src="/assets/${src}"></script>`).join('') + '</body>');
     }
@@ -64,7 +61,7 @@ export default {
     ['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));
     headers.set('content-type','text/html; charset=UTF-8');
     headers.set('cache-control','no-cache, no-store, must-revalidate');
-    headers.set('x-calltag-worker','v66-mobile-overhaul');
+    headers.set('x-calltag-worker','v67-mobile-clean');
 
     return new Response(body, {
       status: response.status,
