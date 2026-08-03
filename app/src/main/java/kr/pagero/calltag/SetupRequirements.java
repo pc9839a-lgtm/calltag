@@ -69,15 +69,16 @@ public final class SetupRequirements {
                 context, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
     }
 
+    /** 연락처 이름 동기화가 주 기능이며 상세 오버레이는 선택 기능이다. */
     public static boolean baseReady(Context context) {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                 && hasRequiredRuntimePermissions(context)
-                && hasScreeningRole(context)
-                && hasOverlay(context);
+                && SettingsStore.isContactNameSyncEnabled(context);
     }
 
     public static boolean hasRequiredRuntimePermissions(Context context) {
         if (!hasContacts(context)
+                || !hasContactWrite(context)
                 || !hasPhoneState(context)
                 || !hasPhoneNumbers(context)
                 || !hasCallLog(context)
@@ -116,10 +117,9 @@ public final class SetupRequirements {
     }
 
     public static boolean isReady(Context context) {
-        if (!initialFlowCompleted(context) || !hasRequiredRuntimePermissions(context)) {
-            return false;
-        }
-        return !FeatureEntitlementStore.hasPhoneAccess(context) || baseReady(context);
+        return initialFlowCompleted(context)
+                && hasRequiredRuntimePermissions(context)
+                && SettingsStore.isContactNameSyncEnabled(context);
     }
 
     public static Intent requiredSetupIntent(Context context) {
