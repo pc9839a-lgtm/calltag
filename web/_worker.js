@@ -28,11 +28,10 @@ export default {
         'calltag-message-simple.js?v=20260801-37',
         'calltag-final-fix.js?v=20260801-37',
         'calltag-suite-pricing.js?v=20260801-37',
-        'calltag-feature-copy-exact.js?v=20260803-copy2',
         'calltag-steady-slider.js?v=20260801-37',
         'calltag-strength-animation.js?v=20260801-37',
         'calltag-pricing-redesign.js?v=20260801-37',
-        'calltag-pagero-intro-loader.js?v=20260801-37',
+        'calltag-pagero-intro-loader.js?v=20260803-intro9',
         'calltag-pagero-reveal-fix.js?v=20260802-reveal3',
         'calltag-pagero-connect-visual.js?v=20260802-connect1',
         'calltag-pagero-industries.js?v=20260802-industries2',
@@ -45,7 +44,8 @@ export default {
         'calltag-horizontal-guard.js?v=20260803-pin4',
         'calltag-industry-examples-only.js?v=20260803-examples1',
         'calltag-horizontal-impact.js?v=20260803-impact2',
-        'calltag-section-motion.js?v=20260803-motion1'
+        'calltag-feature-copy-exact.js?v=20260803-copy3',
+        'calltag-section-motion.js?v=20260803-motion2'
       ];
       body = body.replace('</body>', scripts.map(src => `<script src="/assets/${src}"></script>`).join('') + '</body>');
     }
@@ -54,7 +54,7 @@ export default {
     ['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name => headers.delete(name));
     headers.set('content-type', 'text/html; charset=UTF-8');
     headers.set('cache-control', 'no-cache, no-store, must-revalidate');
-    headers.set('x-calltag-worker', 'v52-industry-examples-only');
+    headers.set('x-calltag-worker', 'v53-motion-spacing-copy');
 
     return new Response(body, {
       status: response.status,
