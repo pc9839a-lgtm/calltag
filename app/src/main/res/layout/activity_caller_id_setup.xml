@@ -29,7 +29,7 @@
             android:layout_height="wrap_content"
             android:layout_marginLeft="12dp"
             android:layout_weight="1"
-            android:text="전화 고객정보 표시"
+            android:text="전화 화면 메모"
             android:textColor="@color/text_primary"
             android:textSize="20sp"
             android:textStyle="bold" />
@@ -59,7 +59,7 @@
                 android:id="@+id/callerIdSetupIntro"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="어떤 전화 앱을 쓰더라도\n고객명 옆에 최근 메모를 표시합니다."
+                android:text="저장된 번호는 기존 연락처 이름과 메모를,\n미저장 번호는 메모만 표시합니다."
                 android:textColor="@color/text_primary"
                 android:textSize="27sp"
                 android:textStyle="bold" />
@@ -75,7 +75,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="전화 화면 표시 방식"
+                    android:text="연락처는 건드리지 않습니다"
                     android:textColor="@color/text_primary"
                     android:textSize="17sp"
                     android:textStyle="bold" />
@@ -85,7 +85,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
                     android:lineSpacingExtra="5dp"
-                    android:text="예: 김민수 · 견적서 재발송\n콜태그가 만든 연락처 이름만 추가하며, 기능을 끄면 원래 이름으로 복원합니다."
+                    android:text="휴대전화에 저장된 번호는 기존 이름을 그대로 읽습니다. 저장되지 않은 번호는 고객명이나 새 연락처를 만들지 않고 콜태그 메모만 전화 화면 위에 표시합니다."
                     android:textColor="@color/text_secondary"
                     android:textSize="15sp" />
             </LinearLayout>
@@ -94,7 +94,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
-                android:text="상세 오버레이 표시 범위 · 선택 기능"
+                android:text="잠금화면 알림 표시 범위"
                 android:textColor="@color/text_primary"
                 android:textSize="17sp"
                 android:textStyle="bold" />
@@ -115,7 +115,7 @@
                     android:gravity="center_vertical"
                     android:paddingLeft="16dp"
                     android:paddingRight="16dp"
-                    android:text="고객명만 표시"
+                    android:text="연락처 이름만 표시"
                     android:textColor="@color/choice_text"
                     android:textSize="15sp"
                     android:textStyle="bold" />
@@ -130,7 +130,7 @@
                     android:gravity="center_vertical"
                     android:paddingLeft="16dp"
                     android:paddingRight="16dp"
-                    android:text="고객명 + 상태 표시"
+                    android:text="연락처 이름 + 상태 표시"
                     android:textColor="@color/choice_text"
                     android:textSize="15sp"
                     android:textStyle="bold" />
@@ -145,7 +145,7 @@
                     android:gravity="center_vertical"
                     android:paddingLeft="16dp"
                     android:paddingRight="16dp"
-                    android:text="고객명 + 상태 + 메모 표시"
+                    android:text="연락처 이름 + 상태 + 메모 표시"
                     android:textColor="@color/choice_text"
                     android:textSize="15sp"
                     android:textStyle="bold" />
@@ -177,14 +177,8 @@
             <Button
                 android:id="@+id/contactNameSyncToggle"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="10dp"
-                android:background="@drawable/bg_secondary_button"
-                android:text="연락처 이름에 최근 메모 표시 켜기"
-                android:textAllCaps="false"
-                android:textColor="@color/text_primary"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:layout_height="0dp"
+                android:visibility="gone" />
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -198,7 +192,7 @@
                     android:layout_height="52dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_secondary_button"
-                    android:text="상세 오버레이 테스트"
+                    android:text="등록 고객 수신 테스트"
                     android:textAllCaps="false"
                     android:textColor="@color/primary"
                     android:textSize="13sp"
@@ -247,7 +241,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="18dp"
                 android:lineSpacingExtra="4dp"
-                android:text="연락처 이름 수정은 전화가 울리기 전에 미리 반영됩니다. Google·삼성 계정의 원본 이름은 직접 덮어쓰지 않으며 콜태그 전용 이름 레이어만 추가합니다."
+                android:text="콜태그는 시스템 연락처를 생성하거나 이름을 바꾸지 않습니다. 수신 순간 번호를 읽어 콜태그 DB의 최근 메모를 화면 위 카드로 표시합니다."
                 android:textColor="@color/text_muted"
                 android:textSize="13sp" />
         </LinearLayout>
