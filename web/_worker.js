@@ -19,6 +19,7 @@ export default {
 
     if (!body.includes('/assets/calltag-enhance.js')) {
       const scripts = [
+        'calltag-final-cta-motion.js?v=20260803-cta2',
         'calltag-enhance.js?v=20260801-37',
         'calltag-copy-fix.js?v=20260801-37',
         'calltag-section-split.js?v=20260801-37',
@@ -43,13 +44,13 @@ export default {
         'calltag-stability-fix.js?v=20260802-stability1',
         'calltag-horizontal-clean.js?v=20260803-compact1',
         'calltag-horizontal-guard.js?v=20260803-pin4',
-        'calltag-industry-examples-only.js?v=20260803-examples4',
+        'calltag-industry-visual-v5.js?v=20260803-v5',
         'calltag-horizontal-impact.js?v=20260803-impact2',
         'calltag-feature-copy-exact.js?v=20260803-copy3',
         'calltag-section-motion.js?v=20260803-motion2',
         'calltag-site-final-cleanup.js?v=20260803-final1',
         'calltag-horizontal-live-fix.js?v=20260803-live1',
-        'calltag-final-cta-motion.js?v=20260803-cta1'
+        'calltag-mobile-final.js?v=20260803-mobile3'
       ];
       body = body.replace('</body>', scripts.map(src => `<script src="/assets/${src}"></script>`).join('') + '</body>');
     }
@@ -62,7 +63,7 @@ export default {
     ['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));
     headers.set('content-type','text/html; charset=UTF-8');
     headers.set('cache-control','no-cache, no-store, must-revalidate');
-    headers.set('x-calltag-worker','v64-final-cta-motion');
+    headers.set('x-calltag-worker','v65-mobile-order-v5');
 
     return new Response(body, {
       status: response.status,
