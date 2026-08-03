@@ -1,0 +1,93 @@
+name: Fix Pagero Copy
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix-copy:
+    if: ${{ !contains(github.event.head_commit.message, '[skip pagero copy fix]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Replace copy in source files
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+
+          desired = '페이지로에서 문의를 받으면<br>관리는 <em>콜태그 앱에서!</em>'
+          replacements = {
+              '페이지로에서 문의를 받고, 콜태그가 바로 <em>알림·등록·후속관리</em>합니다.': desired,
+              '페이지로에서 문의를 받고, 콜태그가 바로 알림·등록·후속관리합니다.': desired,
+              '페이지로에서 문의를 받으면<br>관리는 콜태그 앱에서!': desired,
+          }
+
+          candidates = []
+          for pattern in ('*.html', '*.js'):
+              candidates.extend(Path('.').rglob(pattern))
+          candidates.extend([Path('_worker.js'), Path('web/_worker.js')])
+
+          changed = []
+          for path in sorted(set(candidates)):
+              if not path.exists() or '.git' in path.parts:
+                  continue
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except UnicodeDecodeError:
+                  continue
+              updated = text
+              for old, new in replacements.items():
+                  updated = updated.replace(old, new)
+              updated = updated.replace('20260803-intro9', '20260803-intro10')
+              updated = updated.replace('20260802-8', '20260803-intro10')
+              updated = updated.replace('v55-hard-copy', 'v56-source-copy')
+              if updated != text:
+                  path.write_text(updated, encoding='utf-8')
+                  changed.append(str(path))
+
+          root_intro = Path('assets/calltag-pagero-intro.js')
+          web_intro = Path('web/assets/calltag-pagero-intro.js')
+          if root_intro.exists():
+              web_intro.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(root_intro, web_intro)
+              changed.append(str(web_intro))
+
+          loader = Path('web/assets/calltag-pagero-intro-loader.js')
+          if loader.exists():
+              loader.write_text("(()=>{if(document.documentElement.dataset.ctPageroIntroLoader)return;document.documentElement.dataset.ctPageroIntroLoader='1';const s=document.createElement('script');s.src='/assets/calltag-pagero-intro.js?v=20260803-intro10';s.defer=true;document.head.append(s);})();\n", encoding='utf-8')
+              changed.append(str(loader))
+
+          print('Changed files:')
+          for item in sorted(set(changed)):
+              print('-', item)
+          PY
+
+      - name: Verify old copy is gone
+        shell: bash
+        run: |
+          if grep -R --exclude-dir=.git -n "페이지로에서 문의를 받고, 콜태그가 바로" .; then
+            echo "Old copy still exists"
+            exit 1
+          fi
+          grep -R --exclude-dir=.git -n "페이지로에서 문의를 받으면" assets web/assets | head -20
+
+      - name: Commit source fix
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No changes required"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets web/assets _worker.js web/_worker.js index.html web/index.html 2>/dev/null || true
+          git commit -m "Fix Pagero hero copy at source [skip pagero copy fix]"
+          git push
