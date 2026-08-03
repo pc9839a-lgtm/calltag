@@ -13,29 +13,25 @@ public final class CallTagApplication extends Application implements Application
         registerActivityLifecycleCallbacks(this);
         MessageAutomationStore.ensureDefaults(this);
 
-        // v0.40.3: stop contact alias synchronization permanently and remove rows created
-        // by the previous implementation. No new contact is created or renamed.
-        SettingsStore.setContactNameSyncEnabled(this, false);
-        ContactNameSyncManager.disableAndRestore(this);
-
         new Thread(() -> {
             MessageRecoveryManager.recoverNow(this,
                     MessageRecoveryManager.TRIGGER_APP_START);
             DataIntegrityManager.recoverNow(this,
                     DataIntegrityManager.TRIGGER_APP_START);
         }, "calltag-startup-recovery").start();
+
         if (AuthSessionStore.hasSession(this)) {
             PageroLeadSyncManager.requestSync(this, true);
             PageroAccountConnectionManager.refresh(this, false);
             CallTagPushManager.registerIfAvailable(this);
+            if (SetupRequirements.isReady(this)) {
+                SetupRequirements.startCallMonitoring(this);
+            }
         }
     }
 
     @Override
     public void onActivityResumed(Activity activity) {
-        if (activity instanceof PostCallActivity) {
-            PostCallPopupWindowInstaller.install(activity);
-        }
         if (activity instanceof MainActivity) {
             MainExitGuard.install(activity);
             if (AuthSessionStore.hasSession(activity)) {
@@ -50,7 +46,8 @@ public final class CallTagApplication extends Application implements Application
         if (activity instanceof CallerIdSetupActivity
                 || activity instanceof InitialPermissionActivity
                 || activity instanceof AuthGateActivity
-                || activity instanceof LoginActivity) {
+                || activity instanceof LoginActivity
+                || activity instanceof PostCallActivity) {
             routingToSetup = false;
             return;
         }
@@ -58,7 +55,10 @@ public final class CallTagApplication extends Application implements Application
         if (!AuthSessionStore.hasSession(activity)) return;
 
         PageroLeadSyncManager.requestSync(activity);
-        if (SetupRequirements.isReady(activity)) return;
+        if (SetupRequirements.isReady(activity)) {
+            SetupRequirements.startCallMonitoring(activity);
+            return;
+        }
 
         routingToSetup = true;
         activity.startActivity(SetupRequirements.requiredSetupIntent(activity));
@@ -73,7 +73,6 @@ public final class CallTagApplication extends Application implements Application
                 || activity instanceof CustomerAddActivity
                 || activity instanceof CustomerDetailActivity
                 || activity instanceof CustomerMessagePickerActivity
-                || activity instanceof PostCallActivity
                 || activity instanceof StageSettingsActivity
                 || activity instanceof TaskTypeSettingsActivity
                 || activity instanceof MessageAutomationSettingsActivity
