@@ -51,11 +51,15 @@ export default {
       body = body.replace('</body>', scripts.map(src => `<script src="/assets/${src}"></script>`).join('') + '</body>');
     }
 
+    if (!body.includes('calltag-copy-hard-fix.js')) {
+      body = body.replace('</body>', '<script src="/assets/calltag-copy-hard-fix.js?v=20260803-hard1"></script></body>');
+    }
+
     const headers = new Headers(response.headers);
     ['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));
     headers.set('content-type','text/html; charset=UTF-8');
     headers.set('cache-control','no-cache, no-store, must-revalidate');
-    headers.set('x-calltag-worker','v54-final-cleanup');
+    headers.set('x-calltag-worker','v55-hard-copy');
 
     return new Response(body, {
       status: response.status,
