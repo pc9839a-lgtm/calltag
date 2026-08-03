@@ -6,18 +6,29 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 
-/** 통화 종료 후 큰 정리 화면을 foreground service에서 가능한 강한 방식으로 연다. */
+/** Opens the compact post-call popup once in its own task. */
 public final class PostCallActivityLauncher {
+    private static final long DUPLICATE_WINDOW_MS = 8_000L;
+
+    private static long lastCallId = Long.MIN_VALUE;
+    private static long lastLaunchAt;
+
     private PostCallActivityLauncher() {}
 
-    public static boolean launch(Context context, Intent source) {
+    public static synchronized boolean launch(Context context, Intent source) {
         if (context == null || source == null) return false;
+
+        long callId = source.getLongExtra(PostCallActivity.EXTRA_CALL_LOG_ID,
+                System.currentTimeMillis());
+        long now = System.currentTimeMillis();
+        if (callId == lastCallId && now - lastLaunchAt < DUPLICATE_WINDOW_MS) {
+            return true;
+        }
+
         Intent target = new Intent(source)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                        | Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        long callId = target.getLongExtra(PostCallActivity.EXTRA_CALL_LOG_ID,
-                System.currentTimeMillis());
+                        | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
+                        | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
         int requestCode = (int) (callId & 0x7fffffff);
         PendingIntent pending = PendingIntent.getActivity(
                 context,
@@ -33,10 +44,14 @@ public final class PostCallActivityLauncher {
             } else {
                 pending.send();
             }
+            lastCallId = callId;
+            lastLaunchAt = now;
             return true;
         } catch (PendingIntent.CanceledException | RuntimeException ignored) {
             try {
                 context.startActivity(target);
+                lastCallId = callId;
+                lastLaunchAt = now;
                 return true;
             } catch (RuntimeException ignoredAgain) {
                 return false;
