@@ -48,7 +48,8 @@ export default {
         'calltag-feature-copy-exact.js?v=20260803-copy3',
         'calltag-section-motion.js?v=20260803-motion2',
         'calltag-site-final-cleanup.js?v=20260803-final1',
-        'calltag-horizontal-live-fix.js?v=20260803-live1'
+        'calltag-horizontal-live-fix.js?v=20260803-live1',
+        'calltag-final-cta-motion.js?v=20260803-cta1'
       ];
       body = body.replace('</body>', scripts.map(src => `<script src="/assets/${src}"></script>`).join('') + '</body>');
     }
@@ -61,7 +62,7 @@ export default {
     ['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));
     headers.set('content-type','text/html; charset=UTF-8');
     headers.set('cache-control','no-cache, no-store, must-revalidate');
-    headers.set('x-calltag-worker','v63-industry-visual');
+    headers.set('x-calltag-worker','v64-final-cta-motion');
 
     return new Response(body, {
       status: response.status,
