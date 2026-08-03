@@ -23,7 +23,7 @@ public final class PageroLeadSyncManager {
     public static final String EXTRA_ERROR_CODE = "error_code";
 
     private static final String TAG = "PageroLeadSync";
-    private static final long MIN_SYNC_INTERVAL_MS = 60_000L;
+    private static final long MIN_SYNC_INTERVAL_MS = 30_000L;
     private static final int PAGE_SIZE = 50;
     private static final int MAX_PAGES_PER_RUN = 4;
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
@@ -32,6 +32,8 @@ public final class PageroLeadSyncManager {
         return thread;
     });
     private static final AtomicBoolean RUNNING = new AtomicBoolean(false);
+    private static final AtomicBoolean PENDING_FORCE = new AtomicBoolean(false);
+    private static final AtomicBoolean NOTIFY_WHEN_CHANGED = new AtomicBoolean(false);
     private static final AtomicLong LAST_ATTEMPT_AT = new AtomicLong(0L);
 
     private PageroLeadSyncManager() {}
@@ -41,14 +43,34 @@ public final class PageroLeadSyncManager {
     }
 
     public static boolean requestSync(Context context, boolean force) {
+        return requestSyncInternal(context, force, false);
+    }
+
+    /** FCM 또는 안전 보조 동기화에서 사용한다. 실제 문의가 반영된 뒤에만 알림을 표시한다. */
+    public static boolean requestRealtimeSync(Context context) {
+        return requestSyncInternal(context, true, true);
+    }
+
+    /** 앱이 열린 동안 놓친 푸시를 보완한다. 변경이 있을 때만 사용자에게 알린다. */
+    public static boolean requestSyncAndNotify(Context context, boolean force) {
+        return requestSyncInternal(context, force, true);
+    }
+
+    private static boolean requestSyncInternal(
+            Context context,
+            boolean force,
+            boolean notifyWhenChanged) {
         if (context == null) return false;
         Context appContext = context.getApplicationContext();
         if (!AuthSessionStore.hasSession(appContext)) {
+            if (notifyWhenChanged) NOTIFY_WHEN_CHANGED.set(false);
             String message = "콜태그 로그인이 필요합니다.";
             PageroConnectionStatusStore.markFailure(appContext, message, "SESSION_REQUIRED");
             sendResult(appContext, false, new SyncResult(), message, "SESSION_REQUIRED");
             return false;
         }
+
+        if (notifyWhenChanged) NOTIFY_WHEN_CHANGED.set(true);
 
         long now = System.currentTimeMillis();
         long previous = LAST_ATTEMPT_AT.get();
@@ -58,14 +80,27 @@ public final class PageroLeadSyncManager {
         } else if (!LAST_ATTEMPT_AT.compareAndSet(previous, now)) {
             return false;
         }
-        if (!RUNNING.compareAndSet(false, true)) return false;
+
+        if (!RUNNING.compareAndSet(false, true)) {
+            if (force) PENDING_FORCE.set(true);
+            return true;
+        }
 
         PageroConnectionStatusStore.markRunning(appContext);
         EXECUTOR.execute(() -> {
+            boolean changed = false;
             try {
                 SyncResult result = syncNow(appContext);
+                changed = result.imported > 0 || result.updated > 0;
                 PageroConnectionStatusStore.markSuccess(
                         appContext, result.imported, result.updated, result.rejected);
+                if (changed) {
+                    ContactNameSyncManager.requestSyncAll(appContext);
+                    if (NOTIFY_WHEN_CHANGED.getAndSet(false)) {
+                        PageroLeadNotificationManager.showImported(
+                                appContext, result.imported, result.updated);
+                    }
+                }
                 sendResult(appContext, true, result, successMessage(result), "");
             } catch (PageroLeadApiClient.ApiException error) {
                 String message = safeMessage(error);
@@ -80,7 +115,13 @@ public final class PageroLeadSyncManager {
                 sendResult(appContext, false, new SyncResult(), message,
                         error.getClass().getSimpleName());
             } finally {
+                boolean rerun = PENDING_FORCE.getAndSet(false);
                 RUNNING.set(false);
+                if (rerun) {
+                    requestSyncInternal(appContext, true, NOTIFY_WHEN_CHANGED.get());
+                } else if (!changed) {
+                    NOTIFY_WHEN_CHANGED.set(false);
+                }
             }
         });
         return true;
