@@ -38,7 +38,6 @@ export default {
         'calltag-pagero-industries.js?v=20260802-industries2',
         'calltag-pagero-industries-two-column.js?v=20260802-three-card1',
         'calltag-product-switcher.js?v=20260801-37',
-        'calltag-immersive-motion.js?v=20260802-immersive2',
         'calltag-mobile-system.js?v=20260802-mobile1',
         'calltag-cta-system.js?v=20260802-cta1',
         'calltag-stability-fix.js?v=20260802-stability1'
@@ -50,7 +49,7 @@ export default {
     ['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name => headers.delete(name));
     headers.set('content-type', 'text/html; charset=UTF-8');
     headers.set('cache-control', 'no-cache, no-store, must-revalidate');
-    headers.set('x-calltag-worker', 'v42-no-horizontal');
+    headers.set('x-calltag-worker', 'v43-static-performance');
 
     return new Response(body, {
       status: response.status,
