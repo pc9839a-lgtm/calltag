@@ -1,0 +1,1 @@
+(()=>{if(document.documentElement.dataset.ctSectionMotionLoader)return;document.documentElement.dataset.ctSectionMotionLoader='1';const script=document.createElement('script');script.src='/web/assets/calltag-section-motion.js?v=20260803-motion1';script.defer=true;document.head.append(script)})();
