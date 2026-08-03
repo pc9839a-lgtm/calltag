@@ -41,8 +41,9 @@ export default {
         'calltag-mobile-system.js?v=20260802-mobile1',
         'calltag-cta-system.js?v=20260802-cta1',
         'calltag-stability-fix.js?v=20260802-stability1',
-        'calltag-horizontal-clean.js?v=20260803-clean1',
-        'calltag-horizontal-guard.js?v=20260803-pin2'
+        'calltag-horizontal-clean.js?v=20260803-compact1',
+        'calltag-horizontal-guard.js?v=20260803-pin3',
+        'calltag-section-motion.js?v=20260803-motion1'
       ];
       body = body.replace('</body>', scripts.map(src => `<script src="/assets/${src}"></script>`).join('') + '</body>');
     }
@@ -51,7 +52,7 @@ export default {
     ['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name => headers.delete(name));
     headers.set('content-type', 'text/html; charset=UTF-8');
     headers.set('cache-control', 'no-cache, no-store, must-revalidate');
-    headers.set('x-calltag-worker', 'v46-horizontal-position');
+    headers.set('x-calltag-worker', 'v47-compact-motion');
 
     return new Response(body, {
       status: response.status,
