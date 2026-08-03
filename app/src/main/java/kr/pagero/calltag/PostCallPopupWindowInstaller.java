@@ -68,9 +68,11 @@ public final class PostCallPopupWindowInstaller {
         if (window == null) return;
 
         DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
-        int horizontalMargin = dp(activity, metrics.widthPixels < dp(activity, 360) ? 16 : 24);
+        int totalHorizontalMargin = dp(activity,
+                metrics.widthPixels < dp(activity, 360) ? 24 : 40);
         int verticalReserved = dp(activity, 88);
-        int availableWidth = Math.max(dp(activity, 260), metrics.widthPixels - horizontalMargin);
+        int availableWidth = Math.max(dp(activity, 260),
+                metrics.widthPixels - totalHorizontalMargin);
         int availableHeight = Math.max(dp(activity, 220),
                 metrics.heightPixels - verticalReserved - Math.max(0, keyboardHeight));
 
