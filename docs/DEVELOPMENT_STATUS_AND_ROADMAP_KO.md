@@ -184,7 +184,28 @@ versionCode: **56**
 
 ---
 
-## 6. 절대 지켜야 할 규칙
+## 6. v0.40.8 빌드 검증
+
+- Workflow: `Build CallTag APK`
+- Run ID: `30819783389`
+- Job ID: `91706487070`
+- Android 리소스 처리: 성공
+- Java 컴파일: 성공
+- Manifest 병합: 성공
+- Debug APK 패키징: 성공
+- APK 아티팩트 업로드: 성공
+- Artifact ID: `8858364593`
+- Artifact ZIP digest: `sha256:d2cf6c10e22fcac2b32527460850c79a3076adc14cde79ac76eec2c5303ea215`
+- 실제 APK SHA-256: `556ee38defd1cad76aa4304ade55d28d34ae468f5a9cca50a229b22dc63e75fa`
+- 실제 APK 크기: `4,461,827 bytes`
+- 검증 PR `#35` 개발 브랜치 병합 완료
+- 병합 SHA: `2ceafb575bfc70d9f589423e453c273b919f7532`
+
+빌드 성공은 통화 종료 팝업 유지, 키보드 UX, 오프라인 진입의 실기기 성공을 의미하지 않는다.
+
+---
+
+## 7. 절대 지켜야 할 규칙
 
 - `pc9839a-lgtm/calltag` 저장소만 작업한다.
 - 개발 기준 브랜치는 `agent/calltag-foundation`이다.
