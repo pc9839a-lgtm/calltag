@@ -54,7 +54,7 @@ public final class InitialPermissionActivity extends Activity {
         root.setBackgroundColor(getColor(R.color.background));
 
         TextView title = new TextView(this);
-        title.setText("콜태그 필수 권한 설정");
+        title.setText("전화 화면 표시 설정");
         title.setTextColor(getColor(R.color.text_primary));
         title.setTextSize(23f);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -62,14 +62,14 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(title, wrap());
 
         detail = new TextView(this);
-        detail.setText("전화 수신 고객 메모와 통화 종료 팝업을 위해 필요한 Android 권한을 요청합니다.");
+        detail.setText("전화가 올 때 기본 전화 화면에 고객명과 최근 메모를 표시하기 위해 필요한 Android 권한을 요청합니다.");
         detail.setTextColor(getColor(R.color.text_secondary));
         detail.setTextSize(14f);
         detail.setGravity(Gravity.CENTER);
         detail.setLineSpacing(0f, 1.25f);
         root.addView(detail, top(12));
 
-        requestButton = action("권한 허용하기", true);
+        requestButton = action("전화 화면 표시 권한 허용", true);
         requestButton.setOnClickListener(v -> startPermissionFlow());
         root.addView(requestButton, fixedTop(52, 24));
 
@@ -158,7 +158,7 @@ public final class InitialPermissionActivity extends Activity {
         requestButton.setAlpha(1f);
         requestButton.setText("권한 다시 요청");
         settingsButton.setVisibility(View.VISIBLE);
-        detail.setText("아직 허용되지 않은 권한이 있습니다. 다시 요청해도 창이 뜨지 않으면 앱 설정에서 직접 허용해주세요.\n\n미허용: "
+        detail.setText("아직 허용되지 않은 권한이 있어 전화 화면 표시를 시작할 수 없습니다. 다시 요청해도 창이 뜨지 않으면 앱 설정에서 직접 허용해주세요.\n\n미허용: "
                 + missingPermissionLabels());
     }
 
@@ -189,16 +189,36 @@ public final class InitialPermissionActivity extends Activity {
     private void complete() {
         if (completing || !SetupRequirements.hasRequiredRuntimePermissions(this)) return;
         completing = true;
-        SetupRequirements.markInitialFlowCompleted(this);
-        if (FeatureEntitlementStore.hasPhoneAccess(this)) {
-            ContactNameSyncManager.enable(this);
-        }
-        SetupRequirements.startCallMonitoring(this);
-        MessageAutomationStore.ensureDefaults(this);
-        MessageScheduler.rescheduleAll(this);
-        startActivity(new Intent(this, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
-        finish();
+        requestButton.setEnabled(false);
+        requestButton.setAlpha(0.6f);
+        requestButton.setText("전화 화면 표시 준비 중…");
+        detail.setText("콜태그 전용 연락처 계정을 만들고 고객명과 최근 메모를 동기화하고 있습니다.");
+
+        new Thread(() -> {
+            boolean accountReady = CallTagContactsAccount.ensure(this);
+            if (accountReady && FeatureEntitlementStore.hasPhoneAccess(this)) {
+                ContactNameSyncManager.enable(this);
+            }
+            runOnUiThread(() -> {
+                if (!accountReady) {
+                    completing = false;
+                    requestButton.setEnabled(true);
+                    requestButton.setAlpha(1f);
+                    requestButton.setText("전화 화면 표시 다시 준비");
+                    settingsButton.setVisibility(View.VISIBLE);
+                    detail.setText("콜태그 연락처 계정을 만들지 못해 전화 화면에 메모를 표시할 수 없습니다. 앱 설정의 연락처 권한을 확인한 뒤 다시 시도해주세요.");
+                    return;
+                }
+
+                SetupRequirements.startCallMonitoring(this);
+                MessageAutomationStore.ensureDefaults(this);
+                MessageScheduler.rescheduleAll(this);
+                startActivity(new Intent(this, CallerIdSetupActivity.class)
+                        .putExtra(CallerIdSetupActivity.EXTRA_REQUIRED_SETUP, true)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+                finish();
+            });
+        }, "calltag-phone-display-setup").start();
     }
 
     @Override
