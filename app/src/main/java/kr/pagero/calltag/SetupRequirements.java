@@ -20,6 +20,7 @@ public final class SetupRequirements {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
+    /** Legacy cleanup only. It is never required for the caller memo feature. */
     public static boolean hasContactWrite(Context context) {
         return context.checkSelfPermission(Manifest.permission.WRITE_CONTACTS)
                 == PackageManager.PERMISSION_GRANTED;
@@ -69,17 +70,16 @@ public final class SetupRequirements {
                 context, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
     }
 
-    /** 상세 오버레이 설정 화면에서만 사용하는 선택 기능 준비 상태다. */
+    /** Required state for showing CallTag memo over the incoming phone screen. */
     public static boolean baseReady(Context context) {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                 && hasRequiredRuntimePermissions(context)
-                && SettingsStore.isContactNameSyncEnabled(context)
-                && hasPostCallPopup(context);
+                && hasScreeningRole(context)
+                && hasOverlay(context);
     }
 
     public static boolean hasRequiredRuntimePermissions(Context context) {
         if (!hasContacts(context)
-                || !hasContactWrite(context)
                 || !hasPhoneState(context)
                 || !hasPhoneNumbers(context)
                 || !hasCallLog(context)
@@ -118,8 +118,8 @@ public final class SetupRequirements {
     }
 
     /**
-     * 최초 흐름 완료 플래그만 믿지 않는다. 업데이트 후 새 권한이 추가되거나
-     * 사용자가 설정에서 권한을 회수한 경우에도 다시 권한 화면으로 보낸다.
+     * Runtime permission revocation still returns the user to setup. Screening role and overlay
+     * are checked on the caller display setup screen and while receiving a call.
      */
     public static boolean isReady(Context context) {
         return initialFlowCompleted(context) && hasRequiredRuntimePermissions(context);
