@@ -31,7 +31,7 @@ export default {
         'calltag-steady-slider.js?v=20260801-37',
         'calltag-strength-animation.js?v=20260801-37',
         'calltag-pricing-redesign.js?v=20260801-37',
-        'calltag-pagero-intro-loader.js?v=20260803-intro9',
+        'calltag-pagero-intro-loader.js?v=20260803-intro11',
         'calltag-pagero-reveal-fix.js?v=20260802-reveal3',
         'calltag-pagero-connect-visual.js?v=20260802-connect1',
         'calltag-pagero-industries.js?v=20260802-industries2',
@@ -56,10 +56,10 @@ export default {
     }
 
     const headers = new Headers(response.headers);
-    ['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name =>headers.delete(name));
+    ['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));
     headers.set('content-type','text/html; charset=UTF-8');
     headers.set('cache-control','no-cache, no-store, must-revalidate');
-    headers.set('x-calltag-worker','v55-hard-copy');
+    headers.set('x-calltag-worker','v57-intro-wrapper');
 
     return new Response(body, {
       status: response.status,
