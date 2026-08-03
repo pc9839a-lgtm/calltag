@@ -1,0 +1,1 @@
+(()=>{if(document.documentElement.dataset.ctHorizontalCleanLoader)return;document.documentElement.dataset.ctHorizontalCleanLoader='1';const script=document.createElement('script');script.src='/web/assets/calltag-horizontal-clean.js?v=20260803-clean1';script.defer=true;document.head.append(script)})();
