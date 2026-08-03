@@ -1,12 +1,13 @@
 (()=>{
-  if(document.documentElement.dataset.ctHorizontalPinFix)return;
-  document.documentElement.dataset.ctHorizontalPinFix='1';
+  if(document.documentElement.dataset.ctHorizontalPinFixV2)return;
+  document.documentElement.dataset.ctHorizontalPinFixV2='1';
 
   const style=document.createElement('style');
-  style.dataset.ctHorizontalPinFix='1';
+  style.dataset.ctHorizontalPinFixV2='1';
   style.textContent=`
     :root{--ct-horizontal-header:68px}
     @media(min-width:901px){
+      #ct-pagero-intro{overflow:visible!important;transform:none!important;filter:none!important;perspective:none!important;contain:none!important}
       .ct-horizontal-clean{position:relative!important;overflow:visible!important;transform:none!important;filter:none!important;opacity:1!important;contain:layout style!important}
       .ct-horizontal-clean__sticky{position:sticky!important;top:var(--ct-horizontal-header)!important;height:calc(100svh - var(--ct-horizontal-header))!important;min-height:560px!important;padding-top:0!important;overflow:hidden!important;transform:none!important}
       .ct-horizontal-clean__track{height:100%!important;align-items:stretch!important}
@@ -17,15 +18,28 @@
   `;
   document.head.append(style);
 
+  const clearStickyBlockers=(section)=>{
+    let node=section.parentElement;
+    while(node&&node!==document.body){
+      node.classList.remove('ct-motion-section','ct-motion-enter','is-inview');
+      node.style.setProperty('transform','none','important');
+      node.style.setProperty('filter','none','important');
+      node.style.setProperty('perspective','none','important');
+      node.style.setProperty('contain','none','important');
+      node.style.setProperty('overflow','visible','important');
+      node.style.setProperty('will-change','auto','important');
+      node=node.parentElement;
+    }
+  };
+
   const mount=()=>{
     const industry=document.querySelector('.ct-horizontal-industries-clean');
     const journey=document.querySelector('.ct-journey-clean');
-    const intro=document.querySelector('#ct-pagero-intro');
-    if(!industry||!journey||!intro)return false;
+    if(!industry||!journey)return false;
 
-    const topLevel=[...document.body.children].find(node=>node===intro||node.contains(intro))||intro;
-    if(industry.parentElement!==document.body)topLevel.insertAdjacentElement('afterend',industry);
     if(journey.previousElementSibling!==industry)industry.insertAdjacentElement('afterend',journey);
+    clearStickyBlockers(industry);
+    clearStickyBlockers(journey);
 
     const header=document.querySelector('.header,.site-header,body>header,header');
     const headerHeight=Math.max(0,Math.min(96,Math.ceil(header?.getBoundingClientRect().height||68)));
@@ -38,9 +52,9 @@
 
     [industry,journey].forEach(section=>{
       section.classList.remove('ct-motion-section','ct-motion-enter','is-inview');
-      section.style.transform='none';
-      section.style.filter='none';
-      section.style.opacity='1';
+      section.style.setProperty('transform','none','important');
+      section.style.setProperty('filter','none','important');
+      section.style.setProperty('opacity','1','important');
     });
 
     requestAnimationFrame(()=>{
