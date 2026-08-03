@@ -7,7 +7,9 @@ on:
       - main
       - agent/**
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
+      - agent/calltag-foundation
 
 concurrency:
   group: calltag-${{ github.ref }}
