@@ -2,7 +2,6 @@ package kr.pagero.calltag;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.role.RoleManager;
 import android.content.Intent;
 import android.os.Build;
@@ -34,7 +33,6 @@ public final class CallerIdSetupActivity extends Activity {
     private TextView title;
     private TextView intro;
     private Button action;
-    private Button contactSyncToggle;
     private Button overlayTest;
     private RadioGroup privacyGroup;
     private boolean requiredSetup;
@@ -50,15 +48,16 @@ public final class CallerIdSetupActivity extends Activity {
         title = findViewById(R.id.callerIdSetupTitle);
         intro = findViewById(R.id.callerIdSetupIntro);
         action = findViewById(R.id.callerIdSetupAction);
-        contactSyncToggle = findViewById(R.id.contactNameSyncToggle);
         overlayTest = findViewById(R.id.callerIdTestPopup);
         privacyGroup = findViewById(R.id.callerIdPrivacyGroup);
+
+        View legacySync = findViewById(R.id.contactNameSyncToggle);
+        if (legacySync != null) legacySync.setVisibility(View.GONE);
 
         View back = findViewById(R.id.callerIdSetupBack);
         back.setVisibility(requiredSetup ? View.GONE : View.VISIBLE);
         back.setOnClickListener(v -> finish());
         action.setOnClickListener(v -> beginSetup());
-        contactSyncToggle.setOnClickListener(v -> toggleContactNameSync());
         overlayTest.setOnClickListener(v -> showIncomingOverlayTest());
         findViewById(R.id.postCallTestPopup).setOnClickListener(v -> showPostCallTestPopup());
         findViewById(R.id.callerIdNotificationSettings).setOnClickListener(v ->
@@ -68,9 +67,10 @@ public final class CallerIdSetupActivity extends Activity {
                 CallPopupNotificationManager.openChannelSettings(
                         this, CallPopupNotificationManager.POST_CALL_CHANNEL_ID));
 
+        SettingsStore.setContactNameSyncEnabled(this, false);
         if (requiredSetup) {
-            title.setText("필수 초기 설정");
-            intro.setText("어떤 전화 앱을 쓰더라도\n고객명 옆에 최근 메모가 보이게 설정합니다.");
+            title.setText("필수 전화 화면 설정");
+            intro.setText("저장된 번호는 기존 연락처 이름과 메모를,\n미저장 번호는 메모만 표시합니다.");
         }
         bindPrivacyOptions();
         render();
@@ -113,16 +113,15 @@ public final class CallerIdSetupActivity extends Activity {
             requestPermissions(missing.toArray(new String[0]), REQUEST_RUNTIME_PERMISSIONS);
             return;
         }
-        if (!SettingsStore.isContactNameSyncEnabled(this)) {
-            ContactNameSyncManager.enable(this);
-            Toast.makeText(this,
-                    "연락처 이름에 최근 메모 표시를 켰습니다.", Toast.LENGTH_LONG).show();
+        if (!SetupRequirements.hasScreeningRole(this)) {
+            requestScreeningRole();
+            return;
         }
-        if (!postCallPopupReady()) {
+        if (!SetupRequirements.hasOverlay(this)) {
             Toast.makeText(this,
-                    "통화 종료 정리 알림을 허용해주세요.", Toast.LENGTH_LONG).show();
-            CallPopupNotificationManager.openChannelSettings(
-                    this, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
+                    "전화 화면 위에 메모를 표시하도록 다른 앱 위 표시를 허용해주세요.",
+                    Toast.LENGTH_LONG).show();
+            CallerOverlayManager.openPermissionSettings(this);
             return;
         }
         finishSetup();
@@ -131,7 +130,6 @@ public final class CallerIdSetupActivity extends Activity {
     private List<String> missingRuntimePermissions() {
         List<String> missing = new ArrayList<>();
         if (!SetupRequirements.hasContacts(this)) missing.add(Manifest.permission.READ_CONTACTS);
-        if (!SetupRequirements.hasContactWrite(this)) missing.add(Manifest.permission.WRITE_CONTACTS);
         if (!SetupRequirements.hasPhoneState(this)) missing.add(Manifest.permission.READ_PHONE_STATE);
         if (!SetupRequirements.hasCallLog(this)) missing.add(Manifest.permission.READ_CALL_LOG);
         if (!SetupRequirements.hasNotifications(this)
@@ -145,12 +143,12 @@ public final class CallerIdSetupActivity extends Activity {
         RoleManager roleManager = (RoleManager) getSystemService(ROLE_SERVICE);
         if (roleManager == null || !roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)) {
             Toast.makeText(this,
-                    "이 휴대전화에서는 상세 수신 오버레이를 사용할 수 없습니다.",
+                    "이 휴대전화에서는 수신 번호 확인 기능을 사용할 수 없습니다.",
                     Toast.LENGTH_LONG).show();
             return;
         }
         if (roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)) {
-            showIncomingOverlayTest();
+            beginSetup();
             return;
         }
         startActivityForResult(
@@ -166,7 +164,7 @@ public final class CallerIdSetupActivity extends Activity {
             beginSetup();
         } else {
             Toast.makeText(this,
-                    "연락처 이름 표시와 통화 관리에 필요한 권한을 모두 허용해야 합니다.",
+                    "전화번호 조회와 메모 표시에 필요한 권한을 모두 허용해야 합니다.",
                     Toast.LENGTH_LONG).show();
             render();
         }
@@ -178,40 +176,14 @@ public final class CallerIdSetupActivity extends Activity {
         if (requestCode != REQUEST_SCREENING_ROLE) return;
         if (resultCode == RESULT_OK) {
             Toast.makeText(this,
-                    "수신정보 앱 설정을 완료했습니다. 오버레이 테스트를 다시 눌러주세요.",
-                    Toast.LENGTH_SHORT).show();
+                    "수신정보 앱 설정을 완료했습니다.", Toast.LENGTH_SHORT).show();
+            beginSetup();
         } else {
             Toast.makeText(this,
-                    "상세 오버레이는 선택 기능입니다. 연락처 메모 표시는 그대로 사용됩니다.",
+                    "수신정보 앱 권한이 있어야 전화가 올 때 콜태그 메모를 찾을 수 있습니다.",
                     Toast.LENGTH_LONG).show();
         }
         render();
-    }
-
-    private void toggleContactNameSync() {
-        if (!ContactNameSyncManager.hasPermissions(this)) {
-            beginSetup();
-            return;
-        }
-        if (!SettingsStore.isContactNameSyncEnabled(this)) {
-            ContactNameSyncManager.enable(this);
-            Toast.makeText(this,
-                    "고객명 옆에 최근 메모를 표시합니다.", Toast.LENGTH_LONG).show();
-            render();
-            return;
-        }
-
-        new AlertDialog.Builder(this)
-                .setTitle("연락처 메모 표시 끄기")
-                .setMessage("콜태그가 만든 연락처 이름만 삭제합니다. 기존 연락처 이름은 원래대로 돌아갑니다.")
-                .setNegativeButton("취소", null)
-                .setPositiveButton("끄고 복원", (dialog, which) -> {
-                    ContactNameSyncManager.disableAndRestore(this);
-                    Toast.makeText(this,
-                            "연락처 이름을 원래대로 복원하고 있습니다.", Toast.LENGTH_LONG).show();
-                    render();
-                })
-                .show();
     }
 
     private void render() {
@@ -225,14 +197,12 @@ public final class CallerIdSetupActivity extends Activity {
         }
 
         boolean contacts = SetupRequirements.hasContacts(this);
-        boolean contactWrite = SetupRequirements.hasContactWrite(this);
         boolean phoneState = SetupRequirements.hasPhoneState(this);
         boolean callLog = SetupRequirements.hasCallLog(this);
         boolean notifications = SetupRequirements.hasNotifications(this);
-        boolean nameSync = SettingsStore.isContactNameSyncEnabled(this);
-        boolean postCallPopup = postCallPopupReady();
         boolean roleHeld = SetupRequirements.hasScreeningRole(this);
         boolean overlay = SetupRequirements.hasOverlay(this);
+        boolean postCallPopup = SetupRequirements.hasPostCallPopup(this);
         long checkedAt = SettingsStore.lastCallerScreeningAt(this);
         String diagnostic = SettingsStore.lastCallerScreeningStatus(this);
         String diagnosticAt = checkedAt <= 0L ? ""
@@ -240,30 +210,23 @@ public final class CallerIdSetupActivity extends Activity {
                 .format(new Date(checkedAt));
 
         status.setText("연락처 읽기  " + state(contacts)
-                + "\n연락처 이름 수정  " + state(contactWrite)
                 + "\n전화 상태  " + state(phoneState)
                 + "\n통화기록  " + state(callLog)
                 + "\n알림  " + state(notifications)
-                + "\n연락처에 최근 메모 표시  " + state(nameSync)
-                + "\n통화 종료 알림  " + state(postCallPopup)
-                + "\n\n선택 기능"
-                + "\n상세 수신정보 앱  " + optionalState(roleHeld)
-                + "\n전화 화면 위 오버레이  " + optionalState(overlay)
-                + "\n\n연락처 동기화"
-                + "\n" + SettingsStore.contactNameSyncStatus(this)
+                + "\n수신 번호 확인  " + state(roleHeld)
+                + "\n전화 화면 위 메모  " + state(overlay)
+                + "\n\n연락처 처리"
+                + "\n생성 안 함 · 이름 수정 안 함 · 동기화 안 함"
+                + "\n\n후순위 기능"
+                + "\n통화 종료 알림  " + optionalState(postCallPopup)
                 + "\n\n최근 수신 확인" + diagnosticAt
                 + "\n" + diagnostic);
 
-        boolean runtimeReady = contacts && contactWrite && phoneState && callLog && notifications;
-        boolean complete = runtimeReady && nameSync && postCallPopup;
+        boolean runtimeReady = contacts && phoneState && callLog && notifications;
+        boolean complete = runtimeReady && roleHeld && overlay;
 
         action.setEnabled(true);
         action.setAlpha(1f);
-        contactSyncToggle.setEnabled(contacts && contactWrite);
-        contactSyncToggle.setAlpha(contacts && contactWrite ? 1f : 0.45f);
-        contactSyncToggle.setText(nameSync
-                ? "연락처 메모 표시 끄기 · 원본 복원"
-                : "연락처 이름에 최근 메모 표시 켜기");
         overlayTest.setEnabled(complete);
         overlayTest.setAlpha(complete ? 1f : 0.45f);
 
@@ -271,46 +234,35 @@ public final class CallerIdSetupActivity extends Activity {
             action.setText("설정 완료 · 앱 시작");
         } else if (!runtimeReady) {
             action.setText("필수 권한 모두 허용");
-        } else if (!nameSync) {
-            action.setText("연락처에 최근 메모 표시 켜기");
+        } else if (!roleHeld) {
+            action.setText("수신정보 앱으로 설정");
         } else {
-            action.setText("통화 종료 알림 허용");
+            action.setText("다른 앱 위 표시 허용");
         }
     }
 
     private void showIncomingOverlayTest() {
-        if (!SetupRequirements.isReady(this)) {
+        if (!SetupRequirements.baseReady(this)) {
             beginSetup();
-            return;
-        }
-        if (!SetupRequirements.hasScreeningRole(this)) {
-            requestScreeningRole();
-            return;
-        }
-        if (!SetupRequirements.hasOverlay(this)) {
-            Toast.makeText(this,
-                    "상세 오버레이를 시험하려면 다른 앱 위 표시를 허용해주세요.",
-                    Toast.LENGTH_LONG).show();
-            CallerOverlayManager.openPermissionSettings(this);
             return;
         }
         SetupRequirements.clearOverlayTest(this);
         Toast.makeText(this,
-                "선택 기능입니다. 앱을 뒤로 보내고 상세 오버레이를 표시합니다.",
+                "실제 등록 고객 한 명을 불러와 수신 화면 표시를 시험합니다.",
                 Toast.LENGTH_LONG).show();
         moveTaskToBack(true);
         handler.postDelayed(() -> {
             boolean requested = CallerOverlayManager.showSetupTest(this);
             if (!requested) {
                 runOnUiThread(() -> Toast.makeText(this,
-                        "상세 오버레이를 표시하지 못했습니다. 연락처 메모 표시는 정상 사용됩니다.",
+                        "등록 고객이 없거나 메모 오버레이를 표시하지 못했습니다.",
                         Toast.LENGTH_LONG).show());
             }
         }, 1200L);
     }
 
     private void showPostCallTestPopup() {
-        if (!postCallPopupReady()) {
+        if (!SetupRequirements.hasPostCallPopup(this)) {
             CallPopupNotificationManager.openChannelSettings(
                     this, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
             return;
@@ -330,13 +282,9 @@ public final class CallerIdSetupActivity extends Activity {
                 this, record, demo, detail, demo.memo), 1200L);
     }
 
-    private boolean postCallPopupReady() {
-        return CallPopupNotificationManager.isPopupReady(
-                this, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
-    }
-
     private void finishSetup() {
-        ContactNameSyncManager.requestSyncAll(this);
+        SettingsStore.setContactNameSyncEnabled(this, false);
+        SetupRequirements.markInitialFlowCompleted(this);
         SetupRequirements.startCallMonitoring(this);
         startActivity(new Intent(this, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -353,7 +301,7 @@ public final class CallerIdSetupActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (requiredSetup && !SetupRequirements.isReady(this)) {
+        if (requiredSetup && !SetupRequirements.baseReady(this)) {
             moveTaskToBack(true);
             return;
         }
