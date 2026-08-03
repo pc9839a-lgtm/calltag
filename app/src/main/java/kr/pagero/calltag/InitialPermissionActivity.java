@@ -194,7 +194,6 @@ public final class InitialPermissionActivity extends Activity {
 
         SettingsStore.setContactNameSyncEnabled(this, false);
         ContactNameSyncManager.disableAndRestore(this);
-        SetupRequirements.markInitialFlowCompleted(this);
         SetupRequirements.startCallMonitoring(this);
         MessageAutomationStore.ensureDefaults(this);
         MessageScheduler.rescheduleAll(this);
