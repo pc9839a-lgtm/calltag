@@ -27,21 +27,21 @@ public final class CallTagPushManager {
         if (!AuthSessionStore.hasSession(app)) return;
         if (!CallTagFirebaseInitializer.ensureInitialized(app)) {
             CallTagPushStatusStore.save(app, false, false,
-                    "Firebase 운영 설정이 필요합니다. 기존 앱 실행·재진입 동기화는 계속 작동합니다.");
+                    "실시간 문의 알림을 준비하고 있습니다. 앱을 열면 문의를 자동으로 확인합니다.");
             return;
         }
         try {
             FirebaseMessaging.getInstance().getToken().addOnCompleteListener(task -> {
                 if (!task.isSuccessful() || task.getResult() == null || task.getResult().trim().isEmpty()) {
                     CallTagPushStatusStore.save(app, false, false,
-                            "실시간 알림 토큰을 발급하지 못했습니다. 기존 동기화는 계속 작동합니다.");
+                            "실시간 문의 알림을 준비하지 못했습니다. 앱을 열면 문의를 자동으로 확인합니다.");
                     return;
                 }
                 registerToken(app, task.getResult());
             });
         } catch (RuntimeException error) {
             CallTagPushStatusStore.save(app, false, false,
-                    "실시간 알림을 초기화하지 못했습니다. 기존 동기화는 계속 작동합니다.");
+                    "실시간 문의 알림을 준비하지 못했습니다. 앱을 열면 문의를 자동으로 확인합니다.");
         }
     }
 
@@ -59,7 +59,7 @@ public final class CallTagPushManager {
                 CallTagPushStatusStore.save(app, response);
             } catch (Exception error) {
                 CallTagPushStatusStore.save(app, false, false,
-                        "실시간 알림 서버 연결을 확인하지 못했습니다. 기존 동기화는 계속 작동합니다.");
+                        "실시간 문의 알림 연결을 확인하지 못했습니다. 앱을 열면 문의를 자동으로 확인합니다.");
             }
         });
     }
@@ -75,7 +75,7 @@ public final class CallTagPushManager {
             } catch (Exception error) {
                 if (!CallTagFirebaseInitializer.configured()) {
                     CallTagPushStatusStore.save(app, false, false,
-                            "Firebase 운영 설정이 필요합니다. 기존 앱 실행·재진입 동기화는 계속 작동합니다.");
+                            "실시간 문의 알림을 준비하고 있습니다. 앱을 열면 문의를 자동으로 확인합니다.");
                 }
             }
         });
