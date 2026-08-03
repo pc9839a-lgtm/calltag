@@ -49,9 +49,26 @@
 - Google·삼성 원본 연락처 직접 수정 없음
 - 앱 삭제 없이 덮어 설치
 
-## 5. 검증 구분
+## 5. 빌드 검증
 
-빌드 성공으로 확인 가능한 범위:
+- Workflow: `Build CallTag APK`
+- Run ID: `30819783389`
+- Job ID: `91706487070`
+- Android 리소스 처리: 성공
+- Java 컴파일: 성공
+- Manifest 병합: 성공
+- Debug APK 패키징: 성공
+- APK 아티팩트 업로드: 성공
+- Artifact ID: `8858364593`
+- Artifact ZIP digest: `sha256:d2cf6c10e22fcac2b32527460850c79a3076adc14cde79ac76eec2c5303ea215`
+- 실제 APK SHA-256: `556ee38defd1cad76aa4304ade55d28d34ae468f5a9cca50a229b22dc63e75fa`
+- 실제 APK 크기: `4,461,827 bytes`
+- 검증 PR: `#35`
+- 개발 브랜치 병합 SHA: `2ceafb575bfc70d9f589423e453c273b919f7532`
+
+## 6. 검증 구분
+
+빌드 성공으로 확인한 범위:
 
 - Android 리소스 처리
 - Java 컴파일
