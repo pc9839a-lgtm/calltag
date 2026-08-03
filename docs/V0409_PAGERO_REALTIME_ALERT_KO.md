@@ -1,5 +1,7 @@
 # 콜태그 v0.40.9 페이지로 실시간 문의 알림
 
+기준일: **2026-08-03**
+
 ## 목적
 
 페이지로 랜딩페이지에서 문의가 접수되면 콜태그가 문의를 가져와 고객으로 등록하고 사용자에게 알림을 표시한다.
@@ -12,11 +14,11 @@
 - 병합 SHA: `ec37673e76e0145fb2db0665b1a83562d2ee5092`
 - versionName: `0.40.9`
 - versionCode: `57`
-- `main`에는 병합하지 않았다.
+- CallTag `main`에는 병합하지 않았다.
 
 ### 페이지로 서버
 
-Google 로그인 변경과 분리한 실시간 문의 푸시 전용 PR `pc9839a-lgtm/inlet#56`을 `main`에 병합했다.
+실시간 문의 푸시 전용 PR `pc9839a-lgtm/inlet#56`을 `main`에 병합했다.
 
 - 서버 병합 SHA: `2f016e152f4fb589fb948db6c5a92488591843f2`
 - 문의 큐 등록
@@ -27,14 +29,68 @@ Google 로그인 변경과 분리한 실시간 문의 푸시 전용 PR `pc9839a-
 - 문의 응답과 푸시 실패 분리
 - D1 migration `0008_calltag_realtime_push.sql`
 
-기존 Google 로그인 통합 PR `inlet#48`은 Draft로 유지하며 이번 운영 서버 병합에 포함하지 않았다.
+Google 로그인 변경이 함께 있는 `inlet#48`은 Draft로 유지하며 이번 운영 서버 병합에 포함하지 않았다.
+
+## Firebase 등록이 반드시 필요한 이유
+
+코드와 서버가 병합되어 있어도 Firebase 프로젝트에 콜태그 Android 앱이 등록되지 않으면 앱 종료·백그라운드·잠금화면 즉시 알림은 작동하지 않는다.
+
+필수 등록 대상:
+
+- Firebase 프로젝트
+- Android 앱 패키지 `kr.pagero.calltag`
+- Android 앱 설정 4개
+- 서버 서비스 계정 3개
+- 운영 D1 migration
+
+상세 등록 절차는 다음 문서를 따른다.
+
+- `docs/FIREBASE_REGISTRATION_GUIDE_KO.md`
+
+## Firebase Console 등록 요약
+
+1. Firebase Console에서 프로젝트를 생성하거나 운영 프로젝트를 선택한다.
+2. `앱 추가 > Android`를 선택한다.
+3. Android 패키지명에 정확히 `kr.pagero.calltag`를 입력한다.
+4. 앱 닉네임은 `콜태그`로 입력할 수 있다.
+5. FCM만 사용할 때 SHA-1은 생략 가능하다.
+6. 앱 등록 후 `google-services.json`을 다운로드한다.
+7. 프로젝트 설정의 `클라우드 메시징`에서 FCM HTTP v1 API 사용 상태를 확인한다.
+8. 프로젝트 설정의 `서비스 계정`에서 서버용 비공개 키 JSON을 발급한다.
+
+## Android GitHub Secret 대응
+
+`google-services.json`에서 다음 값을 확인한다.
+
+| GitHub Secret | 설정 파일 값 |
+|---|---|
+| `CALLTAG_FIREBASE_APPLICATION_ID` | `client[].client_info.mobilesdk_app_id` |
+| `CALLTAG_FIREBASE_API_KEY` | `client[].api_key[].current_key` |
+| `CALLTAG_FIREBASE_PROJECT_ID` | `project_info.project_id` |
+| `CALLTAG_FIREBASE_SENDER_ID` | `project_info.project_number` |
+
+GitHub 저장소 `pc9839a-lgtm/calltag`의 `Settings > Secrets and variables > Actions`에 4개 값을 등록한다.
+
+현재 빌드 방식은 `google-services.json`을 저장소에 직접 커밋하지 않고 GitHub Actions Secret을 BuildConfig에 주입한다.
+
+## 페이지로 서버 환경변수 대응
+
+Firebase 서비스 계정 JSON에서 다음 값을 확인한다.
+
+| Cloudflare 환경변수 | 서비스 계정 JSON 값 |
+|---|---|
+| `FIREBASE_PROJECT_ID` | `project_id` |
+| `FIREBASE_CLIENT_EMAIL` | `client_email` |
+| `FIREBASE_PRIVATE_KEY` | `private_key` 전체 값 |
+
+서비스 계정 JSON과 비공개 키는 APK·GitHub 코드·문서에 포함하지 않는다. Cloudflare Pages **Production** 환경변수로만 등록한다.
 
 ## 처리 흐름
 
 1. 페이지로 `/api/leads`가 문의를 저장한다.
 2. 서버가 `eventId` 기준으로 콜태그 문의 큐에 중복 없이 등록한다.
 3. 프로젝트 소유자의 등록 Android 기기로 개인정보 없는 FCM 신호를 보낸다.
-4. 콜태그는 신호를 받으면 로그인 세션으로 미처리 문의를 다시 조회한다.
+4. 콜태그는 신호를 받으면 로그인 세션으로 미처리 문의를 조회한다.
 5. 전화번호 기준으로 신규 고객 생성 또는 기존 고객 갱신을 수행한다.
 6. 문의 내용은 고객 메모와 `PAGERO_INQUIRY` 상담이력으로 저장한다.
 7. 서버 ACK가 성공한 건만 처리 완료로 기록한다.
@@ -65,16 +121,26 @@ Google 로그인 변경과 분리한 실시간 문의 푸시 전용 PR `pc9839a-
 - 앱 백그라운드 무한 폴링 없음
 - 앱 종료·잠금화면 즉시 처리는 FCM 데이터 메시지가 담당
 
-## 개인정보
+## 개인정보와 키 관리
 
-FCM payload에는 다음 값만 포함한다.
+FCM payload 포함:
 
 - 이벤트 종류
 - 비식별 이벤트 ID
 - 큐 ID
 - 발송 시각
 
-고객명, 전화번호, 이메일, 문의 내용, 고객 메모는 FCM payload에 포함하지 않는다. 실제 고객정보는 콜태그 로그인 세션으로 서버에서 다시 조회한다.
+FCM payload 포함 금지:
+
+- 고객명
+- 전화번호
+- 이메일
+- 문의 내용
+- 고객 메모
+
+Firebase Android API 키는 Firebase 프로젝트 식별용 값이지만 운영 환경 분리를 위해 GitHub Secret으로 관리한다.
+
+Firebase 서비스 계정의 `private_key`는 서버 인증용 비밀키다. 절대 APK 또는 공개 저장소에 포함하지 않는다.
 
 ## 빌드 검증
 
@@ -104,62 +170,47 @@ FCM payload에는 다음 값만 포함한다.
 - Full offline QA: 성공
 - form·editor·landing·template mobile 브라우저 회귀: 성공
 
-## 현재 운영 제한 — 반드시 확인
+## 현재 운영 제한
 
-이번 APK의 `BuildConfig` 정적 확인 결과 다음 값은 모두 빈 문자열이다.
+이번 APK의 BuildConfig 정적 확인 결과 다음 값은 모두 빈 문자열이다.
 
 - `FIREBASE_APPLICATION_ID`
 - `FIREBASE_API_KEY`
 - `FIREBASE_PROJECT_ID`
 - `FIREBASE_SENDER_ID`
 
-따라서 이번 APK에서 확정할 수 있는 범위는 다음과 같다.
+따라서 현재 확정된 범위:
 
 - 앱 실행·재진입 시 문의 동기화
-- 앱을 열어둔 동안 실시간 연결 전 30초 보조 동기화
+- 앱을 열어둔 동안 30초 보조 동기화
 - 실제 고객 DB 반영 후 알림 표시 로직
 - 중복 문의 방지 로직
 
-아직 확정할 수 없는 범위:
+아직 확정되지 않은 범위:
 
-- 앱이 완전히 종료된 상태의 즉시 알림
+- 앱 완전 종료 상태 즉시 알림
 - 잠금화면 즉시 알림
 - Firebase 기기 토큰 서버 등록
 - 운영 서버 FCM 실제 발송
 
-## 운영 설정 필요
+## 운영 설정 후 검증 순서
 
-### CallTag GitHub Actions Secret
-
-- `CALLTAG_FIREBASE_APPLICATION_ID`
-- `CALLTAG_FIREBASE_API_KEY`
-- `CALLTAG_FIREBASE_PROJECT_ID`
-- `CALLTAG_FIREBASE_SENDER_ID`
-
-Secret 등록 후 APK를 다시 빌드해야 한다.
-
-### 페이지로 Cloudflare 환경 변수
-
-- `FIREBASE_PROJECT_ID`
-- `FIREBASE_CLIENT_EMAIL`
-- `FIREBASE_PRIVATE_KEY`
-
-### D1
-
-- `migrations/0008_calltag_realtime_push.sql` 운영 적용 확인
-
-서버 코드가 `inlet/main`에 병합된 것은 확인했지만 Cloudflare 운영 배포 완료, 환경 변수 등록, migration 적용은 별도 운영 확인이 필요하다.
-
-## 다음 P0 검증
-
-1. Android Firebase Secret 4개 등록 후 APK 재빌드
-2. Cloudflare Firebase 서비스 계정 3개 등록
-3. D1 migration 운영 적용
-4. 페이지로 실제 문의 1건 제출
-5. 앱 종료 상태에서 즉시 알림 도착 확인
-6. 알림 터치 후 고객목록과 `PAGERO_INQUIRY` 상담이력 확인
-7. 같은 문의 재전송 시 중복 생성 없음 확인
-8. 빠른 연속 문의 3건이 모두 반영되는지 확인
+1. Firebase 프로젝트 생성 또는 운영 프로젝트 선택
+2. Android 앱 `kr.pagero.calltag` 등록
+3. GitHub Actions Secret 4개 등록
+4. Firebase 서비스 계정 발급
+5. Cloudflare Production 환경변수 3개 등록
+6. D1 `0008_calltag_realtime_push.sql` 운영 적용
+7. 페이지로 재배포
+8. 콜태그 APK 재빌드
+9. APK 내부 Firebase 값 비어 있지 않음 확인
+10. 기존 앱 위에 덮어 설치
+11. 로그인 후 알림 권한 허용
+12. 실제 페이지로 문의 1건 접수
+13. 앱 종료·잠금화면 알림 확인
+14. 알림 터치 후 고객·메모·`PAGERO_INQUIRY` 확인
+15. 동일 문의 재처리 시 중복 없음 확인
+16. 빠른 연속 문의 3건 모두 반영 확인
 
 ## 데이터 안전
 
