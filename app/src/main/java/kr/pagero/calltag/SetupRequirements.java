@@ -72,13 +72,21 @@ public final class SetupRequirements {
     /** 상세 오버레이 설정 화면에서만 사용하는 선택 기능 준비 상태다. */
     public static boolean baseReady(Context context) {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                && hasContacts(context)
-                && hasContactWrite(context)
-                && hasPhoneState(context)
-                && hasCallLog(context)
-                && hasNotifications(context)
+                && hasRequiredRuntimePermissions(context)
                 && SettingsStore.isContactNameSyncEnabled(context)
                 && hasPostCallPopup(context);
+    }
+
+    public static boolean hasRequiredRuntimePermissions(Context context) {
+        if (!hasContacts(context)
+                || !hasContactWrite(context)
+                || !hasPhoneState(context)
+                || !hasPhoneNumbers(context)
+                || !hasCallLog(context)
+                || !hasNotifications(context)) {
+            return false;
+        }
+        return !FeatureEntitlementStore.hasMessageAccess(context) || hasSms(context);
     }
 
     public static boolean initialFlowCompleted(Context context) {
@@ -110,20 +118,23 @@ public final class SetupRequirements {
     }
 
     /**
-     * 앱 진입을 별도 설정 페이지로 막지 않는다. 필요한 권한과 역할은 사용자가
-     * 해당 기능을 누른 시점에 Android 시스템 창으로 직접 요청한다.
+     * 최초 흐름 완료 플래그만 믿지 않는다. 업데이트 후 새 권한이 추가되거나
+     * 사용자가 설정에서 권한을 회수한 경우에도 다시 권한 화면으로 보낸다.
      */
     public static boolean isReady(Context context) {
-        return true;
+        return initialFlowCompleted(context) && hasRequiredRuntimePermissions(context);
     }
 
-    /** 이전 호출부 호환용이며 강제 설정 화면 대신 메인으로 이동한다. */
     public static Intent requiredSetupIntent(Context context) {
-        return new Intent(context, MainActivity.class)
+        return new Intent(context, InitialPermissionActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     }
 
     public static void startCallMonitoring(Context context) {
+        if (!hasPhoneState(context) || !hasCallLog(context)) {
+            SettingsStore.setMonitorEnabled(context, false);
+            return;
+        }
         SettingsStore.setMonitorEnabled(context, true);
         Intent service = new Intent(context, CallMonitorService.class)
                 .setAction(CallMonitorService.ACTION_START);
