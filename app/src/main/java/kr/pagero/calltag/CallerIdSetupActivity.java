@@ -131,7 +131,14 @@ public final class CallerIdSetupActivity extends Activity {
         List<String> missing = new ArrayList<>();
         if (!SetupRequirements.hasContacts(this)) missing.add(Manifest.permission.READ_CONTACTS);
         if (!SetupRequirements.hasPhoneState(this)) missing.add(Manifest.permission.READ_PHONE_STATE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                && !SetupRequirements.hasPhoneNumbers(this)) {
+            missing.add(Manifest.permission.READ_PHONE_NUMBERS);
+        }
         if (!SetupRequirements.hasCallLog(this)) missing.add(Manifest.permission.READ_CALL_LOG);
+        if (FeatureEntitlementStore.hasMessageAccess(this) && !SetupRequirements.hasSms(this)) {
+            missing.add(Manifest.permission.SEND_SMS);
+        }
         if (!SetupRequirements.hasNotifications(this)
                 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             missing.add(Manifest.permission.POST_NOTIFICATIONS);
@@ -198,8 +205,11 @@ public final class CallerIdSetupActivity extends Activity {
 
         boolean contacts = SetupRequirements.hasContacts(this);
         boolean phoneState = SetupRequirements.hasPhoneState(this);
+        boolean phoneNumbers = SetupRequirements.hasPhoneNumbers(this);
         boolean callLog = SetupRequirements.hasCallLog(this);
         boolean notifications = SetupRequirements.hasNotifications(this);
+        boolean smsReady = !FeatureEntitlementStore.hasMessageAccess(this)
+                || SetupRequirements.hasSms(this);
         boolean roleHeld = SetupRequirements.hasScreeningRole(this);
         boolean overlay = SetupRequirements.hasOverlay(this);
         boolean postCallPopup = SetupRequirements.hasPostCallPopup(this);
@@ -209,10 +219,14 @@ public final class CallerIdSetupActivity extends Activity {
                 : " · " + new SimpleDateFormat("M/d a h:mm", Locale.KOREA)
                 .format(new Date(checkedAt));
 
+        String smsStatus = FeatureEntitlementStore.hasMessageAccess(this)
+                ? "\nSMS  " + state(smsReady) : "";
         status.setText("연락처 읽기  " + state(contacts)
                 + "\n전화 상태  " + state(phoneState)
+                + "\n전화번호  " + state(phoneNumbers)
                 + "\n통화기록  " + state(callLog)
                 + "\n알림  " + state(notifications)
+                + smsStatus
                 + "\n수신 번호 확인  " + state(roleHeld)
                 + "\n전화 화면 위 메모  " + state(overlay)
                 + "\n\n연락처 처리"
@@ -222,7 +236,8 @@ public final class CallerIdSetupActivity extends Activity {
                 + "\n\n최근 수신 확인" + diagnosticAt
                 + "\n" + diagnostic);
 
-        boolean runtimeReady = contacts && phoneState && callLog && notifications;
+        boolean runtimeReady = contacts && phoneState && phoneNumbers
+                && callLog && notifications && smsReady;
         boolean complete = runtimeReady && roleHeld && overlay;
 
         action.setEnabled(true);
