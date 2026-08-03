@@ -54,7 +54,7 @@ public final class InitialPermissionActivity extends Activity {
         root.setBackgroundColor(getColor(R.color.background));
 
         TextView title = new TextView(this);
-        title.setText("전화 화면 표시 설정");
+        title.setText("전화 화면 메모 설정");
         title.setTextColor(getColor(R.color.text_primary));
         title.setTextSize(23f);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -62,7 +62,7 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(title, wrap());
 
         detail = new TextView(this);
-        detail.setText("전화가 올 때 기본 전화 화면에 고객명과 최근 메모를 표시하기 위해 필요한 Android 권한을 요청합니다.");
+        detail.setText("전화가 올 때 번호를 콜태그 고객과 대조해 최근 메모를 표시합니다. 휴대전화 연락처를 만들거나 이름을 수정하지 않습니다.");
         detail.setTextColor(getColor(R.color.text_secondary));
         detail.setTextSize(14f);
         detail.setGravity(Gravity.CENTER);
@@ -79,7 +79,7 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(settingsButton, fixedTop(50, 9));
 
         TextView note = new TextView(this);
-        note.setText("연락처 읽기·수정, 전화 상태, 전화번호, 통화기록, 알림 권한이 필요합니다. 문자 기능 사용자는 SMS 권한도 요청됩니다.");
+        note.setText("연락처 읽기, 전화 상태, 전화번호, 통화기록, 알림 권한이 필요합니다. 연락처 수정 권한은 요청하지 않습니다.");
         note.setTextColor(getColor(R.color.text_muted));
         note.setTextSize(12f);
         note.setGravity(Gravity.CENTER);
@@ -120,7 +120,6 @@ public final class InitialPermissionActivity extends Activity {
     private List<String> missingPermissions() {
         List<String> missing = new ArrayList<>();
         addIfMissing(missing, Manifest.permission.READ_CONTACTS);
-        addIfMissing(missing, Manifest.permission.WRITE_CONTACTS);
         addIfMissing(missing, Manifest.permission.READ_PHONE_STATE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             addIfMissing(missing, Manifest.permission.READ_PHONE_NUMBERS);
@@ -158,14 +157,13 @@ public final class InitialPermissionActivity extends Activity {
         requestButton.setAlpha(1f);
         requestButton.setText("권한 다시 요청");
         settingsButton.setVisibility(View.VISIBLE);
-        detail.setText("아직 허용되지 않은 권한이 있어 전화 화면 표시를 시작할 수 없습니다. 다시 요청해도 창이 뜨지 않으면 앱 설정에서 직접 허용해주세요.\n\n미허용: "
+        detail.setText("아직 허용되지 않은 권한이 있어 전화 화면 메모를 시작할 수 없습니다. 다시 요청해도 창이 뜨지 않으면 앱 설정에서 직접 허용해주세요.\n\n미허용: "
                 + missingPermissionLabels());
     }
 
     private String missingPermissionLabels() {
         List<String> labels = new ArrayList<>();
         if (!SetupRequirements.hasContacts(this)) labels.add("연락처 읽기");
-        if (!SetupRequirements.hasContactWrite(this)) labels.add("연락처 수정");
         if (!SetupRequirements.hasPhoneState(this)) labels.add("전화 상태");
         if (!SetupRequirements.hasPhoneNumbers(this)) labels.add("전화번호");
         if (!SetupRequirements.hasCallLog(this)) labels.add("통화기록");
@@ -191,34 +189,18 @@ public final class InitialPermissionActivity extends Activity {
         completing = true;
         requestButton.setEnabled(false);
         requestButton.setAlpha(0.6f);
-        requestButton.setText("전화 화면 표시 준비 중…");
-        detail.setText("콜태그 전용 연락처 계정을 만들고 고객명과 최근 메모를 동기화하고 있습니다.");
+        requestButton.setText("전화 화면 메모 준비 중…");
+        detail.setText("연락처 동기화를 끄고 수신 번호 조회 방식으로 전환하고 있습니다.");
 
-        new Thread(() -> {
-            boolean accountReady = CallTagContactsAccount.ensure(this);
-            if (accountReady && FeatureEntitlementStore.hasPhoneAccess(this)) {
-                ContactNameSyncManager.enable(this);
-            }
-            runOnUiThread(() -> {
-                if (!accountReady) {
-                    completing = false;
-                    requestButton.setEnabled(true);
-                    requestButton.setAlpha(1f);
-                    requestButton.setText("전화 화면 표시 다시 준비");
-                    settingsButton.setVisibility(View.VISIBLE);
-                    detail.setText("콜태그 연락처 계정을 만들지 못해 전화 화면에 메모를 표시할 수 없습니다. 앱 설정의 연락처 권한을 확인한 뒤 다시 시도해주세요.");
-                    return;
-                }
-
-                SetupRequirements.startCallMonitoring(this);
-                MessageAutomationStore.ensureDefaults(this);
-                MessageScheduler.rescheduleAll(this);
-                startActivity(new Intent(this, CallerIdSetupActivity.class)
-                        .putExtra(CallerIdSetupActivity.EXTRA_REQUIRED_SETUP, true)
-                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
-                finish();
-            });
-        }, "calltag-phone-display-setup").start();
+        SettingsStore.setContactNameSyncEnabled(this, false);
+        ContactNameSyncManager.disableAndRestore(this);
+        SetupRequirements.startCallMonitoring(this);
+        MessageAutomationStore.ensureDefaults(this);
+        MessageScheduler.rescheduleAll(this);
+        startActivity(new Intent(this, CallerIdSetupActivity.class)
+                .putExtra(CallerIdSetupActivity.EXTRA_REQUIRED_SETUP, true)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+        finish();
     }
 
     @Override

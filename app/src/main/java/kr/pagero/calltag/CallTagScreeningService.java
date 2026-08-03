@@ -48,25 +48,31 @@ public final class CallTagScreeningService extends CallScreeningService {
             Customer customer = db.findByPhone(phone);
             if (customer == null) {
                 SettingsStore.setCallerScreeningStatus(this,
-                        "수신 서비스는 정상 호출됐지만 콜태그에 등록되지 않은 번호입니다: " + phone);
+                        "콜태그에 등록되지 않은 번호라 메모를 표시하지 않았습니다: " + phone);
                 return;
             }
 
             String memo = CustomerInsightResolver.latestMemo(db, customer);
             String stageColor = db.stageColor(customer.relationStatus);
-            Customer displayCustomer = withInlineMemo(customer, memo);
+            String savedContactName = SystemContactLookup.displayName(this, phone);
+            boolean savedContact = !savedContactName.isEmpty();
             SettingsStore.setCallerScreeningStatus(this,
-                    "등록 고객을 찾았습니다. 전화번호 옆 최근 메모 표시를 시도합니다: "
-                            + customer.displayName);
+                    savedContact
+                            ? "저장된 연락처를 찾았습니다. 기존 이름은 유지하고 메모 오버레이를 표시합니다: "
+                                    + savedContactName
+                            : "미저장 번호를 찾았습니다. 고객명 없이 메모만 표시합니다.");
 
-            ContextSnapshot snapshot = new ContextSnapshot(displayCustomer, memo, stageColor);
+            ContextSnapshot snapshot = new ContextSnapshot(
+                    customer, memo, stageColor, savedContactName, savedContact);
             boolean requested = CallerOverlayManager.show(
-                    getApplicationContext(), displayCustomer, memo, stageColor, shown -> {
+                    getApplicationContext(), customer, memo, stageColor, shown -> {
                         if (shown) {
                             CallerOverlayCallStateWatcher.start(getApplicationContext());
                             SettingsStore.setCallerScreeningStatus(getApplicationContext(),
-                                    "오버레이 창 추가 성공 · 전화번호 옆 최근 메모 표시 · 통화 종료 감시 시작: "
-                                            + snapshot.customer.displayName);
+                                    snapshot.savedContact
+                                            ? "전화 화면 위 표시 성공 · 기존 연락처 이름 + 콜태그 메모: "
+                                                    + snapshot.savedContactName
+                                            : "전화 화면 위 표시 성공 · 미저장 번호는 콜태그 메모만 표시");
                             return;
                         }
                         postFallback(snapshot, "오버레이 창 추가 실패");
@@ -80,39 +86,38 @@ public final class CallTagScreeningService extends CallScreeningService {
         }
     }
 
-    private Customer withInlineMemo(Customer customer, String memo) {
-        String compactMemo = compactMemo(memo);
-        String phoneAndMemo = compactMemo.isEmpty()
-                ? customer.primaryPhone
-                : customer.primaryPhone + " · " + compactMemo;
-        return new Customer(
-                customer.id,
-                customer.displayName,
-                phoneAndMemo,
-                customer.normalizedPhone,
-                customer.relationStatus,
-                customer.source,
-                customer.memo,
-                customer.firstContactAt,
-                customer.lastContactAt,
-                customer.firstTransactionAt);
-    }
-
-    private String compactMemo(String value) {
-        if (value == null) return "";
-        String compact = value.trim().replaceAll("\\s+", " ");
-        if (compact.isEmpty()) return "";
-        return compact.length() <= 24 ? compact : compact.substring(0, 23) + "…";
-    }
-
     private void postFallback(ContextSnapshot snapshot, String reason) {
-        String fallbackMemo = snapshot.memo == null || snapshot.memo.trim().isEmpty()
-                ? "" : snapshot.customer.primaryPhone;
+        Customer notificationCustomer;
+        if (snapshot.savedContact) {
+            notificationCustomer = new Customer(
+                    snapshot.customer.id,
+                    snapshot.savedContactName,
+                    snapshot.customer.primaryPhone,
+                    snapshot.customer.normalizedPhone,
+                    snapshot.customer.relationStatus,
+                    snapshot.customer.source,
+                    snapshot.customer.memo,
+                    snapshot.customer.firstContactAt,
+                    snapshot.customer.lastContactAt,
+                    snapshot.customer.firstTransactionAt);
+        } else {
+            notificationCustomer = new Customer(
+                    snapshot.customer.id,
+                    "콜태그 메모",
+                    "",
+                    snapshot.customer.normalizedPhone,
+                    "",
+                    snapshot.customer.source,
+                    snapshot.customer.memo,
+                    snapshot.customer.firstContactAt,
+                    snapshot.customer.lastContactAt,
+                    snapshot.customer.firstTransactionAt);
+        }
         boolean posted = CallPopupNotificationManager.showIncoming(
-                getApplicationContext(), snapshot.customer, fallbackMemo, snapshot.stageColor);
+                getApplicationContext(), notificationCustomer, snapshot.memo, snapshot.stageColor);
         SettingsStore.setCallerScreeningStatus(getApplicationContext(),
                 posted
-                        ? reason + " · 전화번호와 최근 메모를 수신 알림으로 대신 표시했습니다."
+                        ? reason + " · 수신 알림으로 대신 표시했습니다."
                         : reason + " · 수신 알림도 표시하지 못했습니다.");
     }
 
@@ -120,11 +125,16 @@ public final class CallTagScreeningService extends CallScreeningService {
         final Customer customer;
         final String memo;
         final String stageColor;
+        final String savedContactName;
+        final boolean savedContact;
 
-        ContextSnapshot(Customer customer, String memo, String stageColor) {
+        ContextSnapshot(Customer customer, String memo, String stageColor,
+                        String savedContactName, boolean savedContact) {
             this.customer = customer;
             this.memo = memo;
             this.stageColor = stageColor;
+            this.savedContactName = savedContactName;
+            this.savedContact = savedContact;
         }
     }
 }

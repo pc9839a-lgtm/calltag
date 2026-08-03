@@ -44,7 +44,7 @@ public final class CallPopupNotificationManager {
                 INCOMING_CHANNEL_ID,
                 "전화 수신 고객정보 팝업",
                 NotificationManager.IMPORTANCE_HIGH);
-        incoming.setDescription("전화가 올 때 고객 상태와 최근 메모를 상단 팝업으로 표시합니다.");
+        incoming.setDescription("전화가 올 때 저장된 연락처 이름과 콜태그 메모를 표시합니다.");
         incoming.enableVibration(true);
         incoming.setVibrationPattern(new long[]{0L, 120L, 80L, 120L});
         incoming.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), audio);
@@ -112,6 +112,7 @@ public final class CallPopupNotificationManager {
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager == null) return false;
 
+        boolean memoOnly = empty(customer.primaryPhone) && empty(customer.relationStatus);
         String stage = safe(customer.relationStatus, "상태 미지정");
         String compactMemo = compactFirstLine(memo);
         int notificationId = 6400 + Math.abs(customer.normalizedPhone.hashCode() % 1000);
@@ -127,14 +128,24 @@ public final class CallPopupNotificationManager {
                 open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        String content = compactMemo.isEmpty() ? stage : "최근 메모 · " + compactMemo;
-        String expanded = stage + "\n" + (compactMemo.isEmpty()
-                ? customer.primaryPhone
-                : "최근 메모 · " + safe(memo, compactMemo));
+        String title;
+        String content;
+        String expanded;
+        if (memoOnly) {
+            title = "콜태그 메모";
+            content = compactMemo.isEmpty() ? "저장된 메모가 없습니다." : compactMemo;
+            expanded = safe(memo, content);
+        } else {
+            title = customer.displayName + " · " + stage;
+            content = compactMemo.isEmpty() ? stage : "최근 메모 · " + compactMemo;
+            expanded = stage + "\n" + (compactMemo.isEmpty()
+                    ? customer.primaryPhone
+                    : "최근 메모 · " + safe(memo, compactMemo));
+        }
 
         Notification notification = new Notification.Builder(context, INCOMING_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.sym_action_call)
-                .setContentTitle(customer.displayName + " · " + stage)
+                .setContentTitle(title)
                 .setContentText(content)
                 .setStyle(new Notification.BigTextStyle().bigText(expanded))
                 .setContentIntent(pending)
@@ -143,7 +154,9 @@ public final class CallPopupNotificationManager {
                 .setCategory(Notification.CATEGORY_CALL)
                 .setPriority(Notification.PRIORITY_MAX)
                 .setVisibility(Notification.VISIBILITY_PRIVATE)
-                .setPublicVersion(buildIncomingPublic(context, customer.displayName, stage, compactMemo))
+                .setPublicVersion(memoOnly
+                        ? buildMemoOnlyPublic(context, compactMemo)
+                        : buildIncomingPublic(context, customer.displayName, stage, compactMemo))
                 .setOnlyAlertOnce(false)
                 .setDefaults(Notification.DEFAULT_ALL)
                 .setWhen(System.currentTimeMillis())
@@ -248,6 +261,14 @@ public final class CallPopupNotificationManager {
                 .build();
     }
 
+    private static Notification buildMemoOnlyPublic(Context context, String memo) {
+        return new Notification.Builder(context, INCOMING_CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.sym_action_call)
+                .setContentTitle("콜태그 메모")
+                .setContentText(memo.isEmpty() ? "저장된 메모가 없습니다." : memo)
+                .build();
+    }
+
     private static boolean needsDeferredHandling(CallRecord record) {
         return record.type == CallLog.Calls.MISSED_TYPE
                 || record.type == CallLog.Calls.REJECTED_TYPE
@@ -273,6 +294,10 @@ public final class CallPopupNotificationManager {
     private static String safe(String value, String fallback) {
         String safe = value == null ? "" : value.trim();
         return safe.isEmpty() ? fallback : safe;
+    }
+
+    private static boolean empty(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     private static int parseColor(String value) {
