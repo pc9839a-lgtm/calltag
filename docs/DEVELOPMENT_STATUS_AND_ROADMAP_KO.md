@@ -23,7 +23,7 @@ versionCode: **57**
 - 에이닷 전화 화면 표시
 - 삼성 전화 화면 표시
 
-아직 남은 경계 조건:
+남은 경계 조건:
 
 - 미저장 번호
 - 이름없는고객
@@ -75,7 +75,49 @@ versionCode: **57**
 
 ---
 
-## 3. 페이지로 서버 반영 상태
+## 3. Firebase 등록 기준
+
+백그라운드·잠금화면 즉시 알림을 사용하려면 Firebase Console 등록이 필수다.
+
+### Firebase Android 앱
+
+- Firebase 프로젝트 생성 또는 운영 프로젝트 선택
+- Android 앱 추가
+- 패키지명: `kr.pagero.calltag`
+- `google-services.json` 다운로드
+- FCM HTTP v1 API 사용 상태 확인
+
+### CallTag GitHub Actions Secret
+
+`google-services.json` 기준:
+
+| Secret | 값 |
+|---|---|
+| `CALLTAG_FIREBASE_APPLICATION_ID` | `client[].client_info.mobilesdk_app_id` |
+| `CALLTAG_FIREBASE_API_KEY` | `client[].api_key[].current_key` |
+| `CALLTAG_FIREBASE_PROJECT_ID` | `project_info.project_id` |
+| `CALLTAG_FIREBASE_SENDER_ID` | `project_info.project_number` |
+
+### 페이지로 Cloudflare Production 환경변수
+
+Firebase 서비스 계정 JSON 기준:
+
+| 환경변수 | 값 |
+|---|---|
+| `FIREBASE_PROJECT_ID` | `project_id` |
+| `FIREBASE_CLIENT_EMAIL` | `client_email` |
+| `FIREBASE_PRIVATE_KEY` | `private_key` 전체 값 |
+
+서비스 계정 비공개 키는 APK·GitHub 코드·문서에 넣지 않는다.
+
+상세 절차:
+
+- `docs/FIREBASE_REGISTRATION_GUIDE_KO.md`
+- `docs/V0409_PAGERO_REALTIME_ALERT_KO.md`
+
+---
+
+## 4. 페이지로 서버 반영 상태
 
 실시간 푸시 전용 서버 PR `pc9839a-lgtm/inlet#56`을 `main`에 병합했다.
 
@@ -98,7 +140,7 @@ Google 로그인 변경이 함께 있는 서버 PR `#48`은 Draft로 유지했�
 
 ---
 
-## 4. v0.40.9 검증
+## 5. v0.40.9 검증
 
 ### Android
 
@@ -128,7 +170,7 @@ Google 로그인 변경이 함께 있는 서버 PR `#48`은 Draft로 유지했�
 
 ---
 
-## 5. 현재 운영 제한
+## 6. 현재 운영 제한
 
 v0.40.9 APK의 BuildConfig 정적 확인 결과 Firebase Android 값은 모두 빈 문자열이다.
 
@@ -152,40 +194,28 @@ v0.40.9 APK의 BuildConfig 정적 확인 결과 Firebase Android 값은 모두 �
 - 운영 서버 FCM 실제 발송
 - 알림 터치 후 고객·상담이력 E2E
 
-운영에 필요한 값:
-
-CallTag GitHub Actions Secret:
-
-- `CALLTAG_FIREBASE_APPLICATION_ID`
-- `CALLTAG_FIREBASE_API_KEY`
-- `CALLTAG_FIREBASE_PROJECT_ID`
-- `CALLTAG_FIREBASE_SENDER_ID`
-
-페이지로 Cloudflare 환경 변수:
-
-- `FIREBASE_PROJECT_ID`
-- `FIREBASE_CLIENT_EMAIL`
-- `FIREBASE_PRIVATE_KEY`
-
-D1:
-
-- `migrations/0008_calltag_realtime_push.sql` 운영 적용 확인
-
 ---
 
-## 6. 남은 패치 우선순위
+## 7. 남은 패치 우선순위
 
-### P0 — 페이지로 운영 실시간 E2E
+### P0 — Firebase 등록·운영 실시간 E2E
 
-1. Android Firebase Secret 4개 등록
-2. Firebase 값이 포함된 APK 재빌드
-3. Cloudflare Firebase 서비스 계정 3개 등록
-4. D1 migration 운영 적용 확인
-5. 실제 페이지로 문의 제출
-6. 앱 종료·백그라운드·잠금화면 알림 확인
-7. 알림 터치 후 신규 고객·메모·`PAGERO_INQUIRY` 확인
-8. 동일 문의 재전송 중복 미생성 확인
-9. 빠른 연속 문의 3건 전부 반영 확인
+1. Firebase 프로젝트 생성 또는 운영 프로젝트 선택
+2. Android 앱 패키지 `kr.pagero.calltag` 등록
+3. `google-services.json` 다운로드
+4. CallTag GitHub Actions Secret 4개 등록
+5. Firebase 서비스 계정 비공개 키 JSON 발급
+6. Cloudflare Production 환경변수 3개 등록
+7. D1 migration `0008_calltag_realtime_push.sql` 운영 적용 확인
+8. 페이지로 운영 재배포
+9. Firebase 값이 포함된 APK 재빌드
+10. APK 내부 Firebase 값 비어 있지 않음 확인
+11. 기존 앱에 덮어 설치 후 로그인·알림 권한 허용
+12. 실제 페이지로 문의 제출
+13. 앱 종료·백그라운드·잠금화면 알림 확인
+14. 알림 터치 후 신규 고객·메모·`PAGERO_INQUIRY` 확인
+15. 동일 문의 재전송 중복 미생성 확인
+16. 빠른 연속 문의 3건 전부 반영 확인
 
 ### P0 — 통화 종료 팝업 실기기 회귀
 
@@ -230,7 +260,7 @@ D1:
 
 ---
 
-## 7. 사용자 화면 노출 기준
+## 8. 사용자 화면 노출 기준
 
 사용자 화면에 노출하지 않는다.
 
@@ -244,7 +274,7 @@ D1:
 
 ---
 
-## 8. 절대 지켜야 할 규칙
+## 9. 절대 지켜야 할 규칙
 
 - CallTag 앱은 `pc9839a-lgtm/calltag`에서 작업한다.
 - 앱 개발 정본은 `agent/calltag-foundation`이다.
@@ -253,6 +283,7 @@ D1:
 - 기존 고객·메모·문자·일정·캠페인 데이터를 초기화하지 않는다.
 - 원본 Google·삼성 연락처를 직접 수정하거나 삭제하지 않는다.
 - FCM payload에 고객명·전화번호·이메일·문의 내용·메모를 넣지 않는다.
+- Firebase 서비스 계정 비공개 키를 APK·GitHub 코드·문서에 넣지 않는다.
 - 푸시 실패가 페이지로 문의 접수를 실패시키지 않게 한다.
 - 알림은 실제 고객 DB 반영 후에만 표시한다.
 - 빌드 성공을 운영 실시간 알림 E2E 성공으로 표현하지 않는다.
