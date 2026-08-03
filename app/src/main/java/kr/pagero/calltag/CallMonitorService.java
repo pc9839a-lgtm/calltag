@@ -85,8 +85,10 @@ public final class CallMonitorService extends Service {
     }
 
     private boolean hasRequiredPermissions() {
-        return checkSelfPermission(Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED
-                && checkSelfPermission(Manifest.permission.READ_CALL_LOG) == PackageManager.PERMISSION_GRANTED;
+        return checkSelfPermission(Manifest.permission.READ_PHONE_STATE)
+                == PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(Manifest.permission.READ_CALL_LOG)
+                == PackageManager.PERMISSION_GRANTED;
     }
 
     private void registerCallListener() {
@@ -119,15 +121,23 @@ public final class CallMonitorService extends Service {
     }
 
     private void handleCallState(int state) {
-        if (state == TelephonyManager.CALL_STATE_RINGING || state == TelephonyManager.CALL_STATE_OFFHOOK) {
+        if (state == TelephonyManager.CALL_STATE_RINGING
+                || state == TelephonyManager.CALL_STATE_OFFHOOK) {
             if (!sawCall) callEventStartedAt = System.currentTimeMillis();
             sawCall = true;
             return;
         }
 
-        if (state == TelephonyManager.CALL_STATE_IDLE && sawCall && !lookupRunning) {
-            lookupRunning = true;
-            lookupCall(0);
+        if (state == TelephonyManager.CALL_STATE_IDLE) {
+            // The incoming overlay stays visible throughout ringing and the call. Only the
+            // authoritative telephony IDLE transition closes it; Telecom polling is not used.
+            CallerOverlayManager.hide(this);
+            CallerOverlayCallStateWatcher.stop(this);
+
+            if (sawCall && !lookupRunning) {
+                lookupRunning = true;
+                lookupCall(0);
+            }
         }
     }
 
@@ -203,14 +213,19 @@ public final class CallMonitorService extends Service {
                         .putExtra(PostCallActivity.EXTRA_STARTED_AT, record.startedAt)
                         .putExtra(PostCallActivity.EXTRA_ENDED_AT,
                                 Math.max(record.endedAt(), System.currentTimeMillis()))
-                        .putExtra(PostCallActivity.EXTRA_DURATION_SEC, Math.max(0L, record.durationSec))
+                        .putExtra(PostCallActivity.EXTRA_DURATION_SEC,
+                                Math.max(0L, record.durationSec))
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                                 | Intent.FLAG_ACTIVITY_CLEAR_TOP
                                 | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
-                PostCallActivityLauncher.launch(this, review);
-                String memo = customer == null ? "" : CustomerInsightResolver.latestMemo(db, customer);
-                CallPopupNotificationManager.showPostCall(this, record, customer, review, memo);
+                boolean launched = PostCallActivityLauncher.launch(this, review);
+                String memo = customer == null
+                        ? "" : CustomerInsightResolver.latestMemo(db, customer);
+                if (!launched) {
+                    CallPopupNotificationManager.showPostCall(
+                            this, record, customer, review, memo);
+                }
             }
         } finally {
             if (pendingStore != null) pendingStore.close();
@@ -225,11 +240,13 @@ public final class CallMonitorService extends Service {
     }
 
     private void sendPendingChanged() {
-        sendBroadcast(new Intent(PendingCallSectionView.ACTION_CHANGED).setPackage(getPackageName()));
+        sendBroadcast(new Intent(PendingCallSectionView.ACTION_CHANGED)
+                .setPackage(getPackageName()));
     }
 
     private void createChannels() {
-        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        NotificationManager manager =
+                (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (manager == null) return;
         NotificationChannel monitor = new NotificationChannel(
                 MONITOR_CHANNEL, "통화·문자 자동화", NotificationManager.IMPORTANCE_LOW);
@@ -242,7 +259,8 @@ public final class CallMonitorService extends Service {
         Intent open = new Intent(this, AuthGateActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pending = PendingIntent.getActivity(
-                this, 1, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                this, 1, open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, MONITOR_CHANNEL)
                 .setSmallIcon(android.R.drawable.sym_action_call)
                 .setContentTitle("콜태그 실행 중")
@@ -256,6 +274,7 @@ public final class CallMonitorService extends Service {
     @Override
     public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
+        CallerOverlayCallStateWatcher.stop(this);
         if (telephonyManager != null && listenerRegistered) {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && callback31 != null) {
