@@ -48,6 +48,24 @@
 
 사용자에게는 현재 상태, 필요한 조치, 재시도 방법, 데이터 보존 여부만 표시한다.
 
+## 빌드 검증
+
+- Workflow: `Build CallTag APK`
+- Run ID: `30817772792`
+- Job ID: `91699681442`
+- Android 리소스 처리: 성공
+- Java 컴파일: 성공
+- Debug APK 패키징: 성공
+- APK 아티팩트 업로드: 성공
+- Artifact ID: `8857510587`
+- Artifact ZIP digest: `sha256:179275ac6a61b4fca6bb847133a92574c2da017fc314691ac58424101d42903d`
+- 실제 APK SHA-256: `3c54e4279817b53451ed2f9eb4cc2c2cb508a7d76a5879d53b6a53d649b34c5d`
+- APK 크기: `4,461,895 bytes`
+- 검증 PR: `#34`
+- 개발 브랜치 병합 커밋: `2a42a31e3ccc8e5a152e4ec3c5bed1e86341dc8b`
+
+빌드 성공은 Android 8~15 실기기에서 로딩·뒤로가기 동작이 모두 동일하다는 의미가 아니다. 버튼 뒤로가기와 제스처 뒤로가기를 별도로 확인한다.
+
 ## 버전
 
 - versionName: `0.40.7`
