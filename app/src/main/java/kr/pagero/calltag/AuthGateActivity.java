@@ -14,6 +14,7 @@ import java.util.concurrent.Executors;
 /** 앱 시작 시 로그인과 필수 설정을 확인하는 사용자용 로딩 화면이다. */
 public final class AuthGateActivity extends Activity {
     private static final long MIN_LOADING_MS = 750L;
+    private static final long MAX_LOADING_MS = 8_000L;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -25,6 +26,7 @@ public final class AuthGateActivity extends Activity {
         super.onCreate(savedInstanceState);
         loadingStartedAt = System.currentTimeMillis();
         setContentView(R.layout.activity_auth_gate);
+        handler.postDelayed(this::routeFromCachedState, MAX_LOADING_MS);
         checkAccount();
     }
 
@@ -40,10 +42,15 @@ public final class AuthGateActivity extends Activity {
                 AuthSessionStore.save(this, response);
                 runOnUiThread(() -> routeAfterLoading(this::openDestination));
             } catch (Exception error) {
-                runOnUiThread(() -> routeAfterLoading(
-                        AuthSessionStore.hasSession(this) ? this::openDestination : this::openLogin));
+                runOnUiThread(this::routeFromCachedState);
             }
         });
+    }
+
+    private void routeFromCachedState() {
+        if (routed || isFinishing()) return;
+        routeAfterLoading(AuthSessionStore.hasSession(this)
+                ? this::openDestination : this::openLogin);
     }
 
     private void routeAfterLoading(Runnable action) {
@@ -53,6 +60,7 @@ public final class AuthGateActivity extends Activity {
         handler.postDelayed(() -> {
             if (routed || isFinishing()) return;
             routed = true;
+            handler.removeCallbacksAndMessages(null);
             action.run();
         }, delay);
     }

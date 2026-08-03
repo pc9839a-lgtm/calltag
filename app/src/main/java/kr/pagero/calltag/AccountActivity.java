@@ -32,8 +32,6 @@ public final class AccountActivity extends Activity {
                 openWeb("https://call.pagero.kr/privacy/"));
         findViewById(R.id.accountTerms).setOnClickListener(v ->
                 openWeb("https://call.pagero.kr/terms/"));
-        findViewById(R.id.accountDiagnostics).setOnClickListener(v ->
-                startActivity(new Intent(this, DiagnosticActivity.class)));
         findViewById(R.id.accountBackupRestore).setOnClickListener(v ->
                 startActivity(new Intent(this, BackupRestoreActivity.class)));
         findViewById(R.id.accountLogout).setOnClickListener(v -> confirmLogout());

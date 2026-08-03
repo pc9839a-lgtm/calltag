@@ -120,24 +120,6 @@
                     android:textStyle="bold" />
 
                 <TextView
-                    android:id="@+id/accountDiagnostics"
-                    android:layout_width="match_parent"
-                    android:layout_height="54dp"
-                    android:layout_marginTop="2dp"
-                    android:background="@drawable/bg_clickable_row"
-                    android:drawableEnd="@drawable/ic_chevron_right"
-                    android:drawablePadding="8dp"
-                    android:ellipsize="end"
-                    android:gravity="center_vertical"
-                    android:maxLines="1"
-                    android:paddingLeft="14dp"
-                    android:paddingRight="10dp"
-                    android:text="앱 상태 진단"
-                    android:textColor="@color/text_primary"
-                    android:textSize="15sp"
-                    android:textStyle="bold" />
-
-                <TextView
                     android:id="@+id/accountBackupRestore"
                     android:layout_width="match_parent"
                     android:layout_height="54dp"
