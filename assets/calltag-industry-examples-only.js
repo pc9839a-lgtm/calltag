@@ -187,7 +187,6 @@
   const markup=`<h2 class="ct-industry-float__title">업종별 활용 예시</h2><div class="ct-industry-float__stage">${cards.map((card,index)=>`<article class="ct-industry-float__card is-${card.size}" style="--x:${card.x}%;--y:${card.y}%;--alpha:${card.alpha};--rise:${card.rise}px;--z:${card.size==='xl'?4:card.size==='md'?3:2};--float-duration:${5.4+(index%4)*.55}s;--float-delay:${(index%5)*-.7}s" data-alpha="${card.alpha}" data-delay="${card.delay}" data-rise="${card.rise}" data-lift="${card.lift}"><div class="ct-industry-float__inner"><span>${card.industry}</span><strong>${card.use}</strong></div></article>`).join('')}</div>`;
 
   let section=null;
-  let stage=null;
   let cardNodes=[];
   let maxProgress=0;
   let ticking=false;
@@ -205,7 +204,6 @@
     target.innerHTML=markup;
     target.dataset.ctIndustryFloatMounted='1';
     section=target;
-    stage=target.querySelector('.ct-industry-float__stage');
     cardNodes=[...target.querySelectorAll('.ct-industry-float__card')];
 
     if(reduce){
@@ -233,6 +231,7 @@
     const progress=getProgress();
     maxProgress=Math.max(maxProgress,progress);
     const isMobile=mobile.matches;
+    const startScale=isMobile ? .97 : .91;
 
     cardNodes.forEach((card,index)=>{
       const alpha=parseFloat(card.dataset.alpha||'.8');
@@ -241,7 +240,7 @@
       const lift=isMobile?12:parseFloat(card.dataset.lift||'30');
       const local=clamp((maxProgress-delay)/(1-delay));
       const eased=1-Math.pow(1-local,3);
-      const scale=(isMobile?.97:.91)+(1-(isMobile?.97:.91))*eased;
+      const scale=startScale+(1-startScale)*eased;
       const y=(1-eased)*rise-progress*lift;
       const x=isMobile?'0':'-50%';
 
