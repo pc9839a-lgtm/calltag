@@ -10,12 +10,25 @@ versionCode: **57**
 
 > CallTag `main`에는 사용자 명시 지시 전 병합하지 않는다. 코드 구현·빌드·운영 설정·실기기 E2E를 구분한다.
 
-## 1. 완료 확인
+## 1. 사용자 실기기 확인 완료
 
-2026-08-03 사용자 실기기 확인:
+2026-08-03 전화 수신:
 
 - 에이닷 실제 전화 수신에서 고객명·최근 메모 표시
 - 삼성 전화 실제 전화 수신에서 고객명·최근 메모 표시
+
+2026-08-04 페이지로 문의 알림:
+
+- 실제 페이지로 문의 접수 후 콜태그 알림 수신
+- 앱 완전 종료 상태에서 알림 수신
+- 휴대전화 잠금화면에서 알림 수신
+- 위 결과로 FCM 기기 토큰 등록, 페이지로 서버 발송, Android 앱 수신 경로가 기능적으로 동작함을 확인
+
+아직 별도 확인이 필요한 항목:
+
+- 알림 터치 후 해당 고객·메모·`PAGERO_INQUIRY` 상담이력 이동·표시
+- 동일 eventId 중복 미생성
+- 빠른 연속 문의 3건 전부 반영
 
 남은 전화 수신 경계 조건:
 
@@ -90,14 +103,8 @@ Android v0.40.9:
 
 - Workflow Run ID: `30872373416`
 - Job ID: `91876823885`
-- `CALLTAG_FIREBASE_APPLICATION_ID`: configured
-- `CALLTAG_FIREBASE_API_KEY`: configured
-- `CALLTAG_FIREBASE_PROJECT_ID`: configured
-- `CALLTAG_FIREBASE_SENDER_ID`: configured
-- 생성된 `BuildConfig.FIREBASE_APPLICATION_ID`: configured
-- 생성된 `BuildConfig.FIREBASE_API_KEY`: configured
-- 생성된 `BuildConfig.FIREBASE_PROJECT_ID`: configured
-- 생성된 `BuildConfig.FIREBASE_SENDER_ID`: configured
+- Android Firebase Secret 4개: configured
+- 생성된 BuildConfig Firebase 필드 4개: configured
 - Java·리소스·Manifest·Debug APK 빌드 성공
 
 검증 APK:
@@ -116,36 +123,30 @@ Android v0.40.9:
 - 페이지로 서버 Firebase HTTP v1 발송 준비
 - 운영 D1 기기 토큰 저장 테이블
 - Firebase 설정이 포함된 CallTag v0.40.9 APK 빌드
+- 실제 운영 FCM 발송·Android 수신
+- 앱 완전 종료 상태 알림
+- 잠금화면 알림
 - 문의 저장과 푸시 실패 분리
 - 개인정보 없는 신호 payload
 - 앱 실행·재진입 문의 동기화
 - 앱 전면 30초 보조 동기화
 - 실제 고객 DB 반영 후 알림 로직
-- 동일 문의 중복방지
+- 동일 문의 중복방지 코드
 
 실기기 미확정:
 
-- Firebase 기기 토큰 운영 서버 등록
-- 앱 완전 종료 상태 즉시 알림
-- 백그라운드·잠금화면 즉시 알림
-- 실제 운영 FCM 발송·수신 E2E
-- 알림 터치 후 고객·상담이력 E2E
+- 알림 터치 후 해당 고객·메모·상담이력 이동·표시
+- 동일 eventId 재전송 중복 미생성
+- 빠른 연속 문의 3건 전부 반영
 
-## 6. P0 — 실기기 페이지로 문의 알림 E2E
+## 6. P0 — 페이지로 문의 후처리 E2E
 
-1. 새 Firebase 설정 포함 APK를 기존 앱 위에 덮어 설치
-2. 콜태그 로그인
-3. Android 알림 권한 허용
-4. 앱을 한 번 실행해 FCM 토큰 발급·서버 등록
-5. `calltag_push_devices`에 활성 기기 등록 확인
-6. 실제 페이지로 문의 1건 제출
-7. 앱 실행 중 즉시 알림 확인
-8. 앱 백그라운드 상태 알림 확인
-9. 앱 완전 종료 상태 알림 확인
-10. 잠금화면 알림 확인
-11. 알림 터치 후 고객·메모·`PAGERO_INQUIRY` 확인
-12. 동일 eventId 중복 미생성 확인
-13. 빠른 연속 문의 3건 전부 반영 확인
+1. 알림 터치 후 해당 고객 화면 또는 고객목록 이동 확인
+2. 고객 자동 생성 또는 기존 고객 갱신 확인
+3. 문의 내용이 고객 메모에 반영되는지 확인
+4. `PAGERO_INQUIRY` 상담이력 생성 확인
+5. 동일 eventId 재전송 중복 미생성 확인
+6. 빠른 연속 문의 3건 전부 반영 확인
 
 ## 7. P0 — 통화 종료 팝업 실기기 회귀
 
@@ -202,4 +203,4 @@ P3:
 - Firebase 서비스 계정 비공개 키 공개 금지
 - 푸시 실패가 페이지로 문의 접수를 실패시키지 않게 유지
 - 알림은 실제 고객 DB 반영 후 표시
-- 빌드 성공과 실기기 E2E 완료를 구분
+- 사용자 확인 범위보다 넓게 E2E 완료를 주장하지 않음
