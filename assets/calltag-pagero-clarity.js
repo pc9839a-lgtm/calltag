@@ -3,6 +3,8 @@
   document.documentElement.dataset.ctPageroClarity='1';
 
   const APP_URL='https://pagero.kr/app';
+  const setText=(el,value)=>{if(el&&el.textContent!==value)el.textContent=value;};
+  const setHtml=(el,value)=>{if(el&&el.innerHTML!==value)el.innerHTML=value;};
 
   const installStyle=()=>{
     if(document.querySelector('style[data-ct-pagero-clarity]'))return;
@@ -31,8 +33,7 @@
     if(!section||!wrap||!heading)return false;
 
     section.classList.remove('ct-has-start-cta');
-    const desired='랜딩페이지에서 받은 문의,<br><span>콜태그에서 바로 관리하세요.</span>';
-    if(heading.innerHTML!==desired)heading.innerHTML=desired;
+    setHtml(heading,'랜딩페이지에서 받은 문의,<br><span>콜태그에서 바로 관리하세요.</span>');
 
     let copy=wrap.querySelector('.ct-pagero-connect-copy');
     if(!copy){
@@ -40,7 +41,7 @@
       copy.className='ct-pagero-connect-copy';
       heading.insertAdjacentElement('afterend',copy);
     }
-    copy.innerHTML='페이지로에 접수된 고객정보가 콜태그에 등록되고,<br>전화·문자·태그·후속관리까지 바로 이어집니다.';
+    setHtml(copy,'페이지로에 접수된 고객정보가 콜태그에 등록되고,<br>전화·문자·태그·후속관리까지 바로 이어집니다.');
 
     wrap.querySelectorAll(':scope > .ct-pagero-bottom-cta,:scope > .ct-pagero-start-cta').forEach(el=>el.remove());
     return true;
@@ -51,12 +52,11 @@
     if(!demo)return false;
 
     const captions=[...demo.querySelectorAll('.ct-connect-cap span')];
-    if(captions[0])captions[0].textContent='페이지로 문의 접수';
-    if(captions[1])captions[1].textContent='콜태그 고객관리';
+    setText(captions[0],'페이지로 문의 접수');
+    setText(captions[1],'콜태그 고객관리');
 
     const arrow=demo.querySelector('.ct-connect-arrow');
-    const arrowCopy=arrow?.querySelector('small');
-    if(arrowCopy)arrowCopy.textContent='고객정보 자동 전달';
+    setText(arrow?.querySelector('small'),'고객정보 자동 전달');
     if(arrow&&!arrow.querySelector('.ct-connect-data-chip')){
       const chip=document.createElement('span');
       chip.className='ct-connect-data-chip';
@@ -65,15 +65,10 @@
     }
 
     demo.querySelector('.ct-connect-sticky')?.remove();
-    const submit=demo.querySelector('.ct-connect-submit');
-    if(submit)submit.textContent='무료 상담 신청하기';
-
-    const appHead=demo.querySelector('.ct-connect-apphead span');
-    if(appHead)appHead.textContent='알림';
-    const appSource=demo.querySelector('.ct-connect-title small');
-    if(appSource)appSource.textContent='페이지로 유입';
-    const doneCopy=demo.querySelector('.ct-connect-done small');
-    if(doneCopy)doneCopy.textContent='바로 연락하고 후속관리할 수 있습니다.';
+    setText(demo.querySelector('.ct-connect-submit'),'무료 상담 신청하기');
+    setText(demo.querySelector('.ct-connect-apphead span'),'알림');
+    setText(demo.querySelector('.ct-connect-title small'),'페이지로 유입');
+    setText(demo.querySelector('.ct-connect-done small'),'바로 연락하고 후속관리할 수 있습니다.');
     return true;
   };
 
@@ -84,8 +79,8 @@
 
     const kicker=copy.querySelector(':scope > p');
     const heading=copy.querySelector(':scope > h2');
-    if(kicker)kicker.textContent='노코드 랜딩페이지';
-    if(heading)heading.innerHTML='고객 문의를 받을 페이지가 필요하다면,<br><span>페이지로에서 바로 만드세요.</span>';
+    setText(kicker,'노코드 랜딩페이지');
+    setHtml(heading,'고객 문의를 받을 페이지가 필요하다면,<br><span>페이지로에서 바로 만드세요.</span>');
 
     let description=copy.querySelector('.ct-pagero-nocode-description');
     if(!description){
@@ -93,7 +88,7 @@
       description.className='ct-pagero-nocode-description';
       heading?.insertAdjacentElement('afterend',description);
     }
-    description.innerHTML='문구와 이미지만 바꾸면<br>모바일 랜딩페이지와 고객 문의 폼이 완성됩니다.';
+    setHtml(description,'문구와 이미지만 바꾸면<br>모바일 랜딩페이지와 고객 문의 폼이 완성됩니다.');
 
     let benefits=copy.querySelector('.ct-pagero-nocode-benefits');
     if(!benefits){
@@ -115,18 +110,16 @@
 
   const apply=()=>{
     installStyle();
-    const a=updateIntegrationCopy();
-    const b=updateFlowVisual();
-    const c=updatePageroSection();
-    return a&&b&&c;
+    return updateIntegrationCopy()&&updateFlowVisual()&&updatePageroSection();
   };
 
   const boot=()=>{
-    apply();
-    const observer=new MutationObserver(()=>requestAnimationFrame(apply));
-    observer.observe(document.documentElement,{childList:true,subtree:true,characterData:true});
-    [0,80,180,400,800,1500,3000,6000,10000].forEach(delay=>setTimeout(apply,delay));
-    setTimeout(()=>observer.disconnect(),15000);
+    if(apply())return;
+    const observer=new MutationObserver(()=>{
+      if(apply())observer.disconnect();
+    });
+    observer.observe(document.documentElement,{childList:true,subtree:true});
+    setTimeout(()=>observer.disconnect(),12000);
   };
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
