@@ -92,6 +92,8 @@ jobs:
           auth_gate = Path('app/src/main/java/kr/pagero/calltag/AuthGateActivity.java').read_text(encoding='utf-8')
           play = Path('app/src/main/java/kr/pagero/calltag/PlayBillingManager.java').read_text(encoding='utf-8')
           api = Path('app/src/main/java/kr/pagero/calltag/AuthApiClient.java').read_text(encoding='utf-8')
+          automation = Path('app/src/main/java/kr/pagero/calltag/MessageAutomationSettingsActivity.java').read_text(encoding='utf-8')
+          template_editor = Path('app/src/main/java/kr/pagero/calltag/MessageTemplateEditorActivity.java').read_text(encoding='utf-8')
           manifest = Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
           gradle = Path('app/build.gradle').read_text(encoding='utf-8')
 
@@ -123,7 +125,11 @@ jobs:
               'referral auto apply': 'AuthApiClient.applyReferral' in auto_referral,
               'referral app links registered': 'android:host="referral"' in manifest and 'android:pathPrefix="/r/"' in manifest,
               'partner center excluded': '파트너센터 열기' not in referral_screen,
-              'version 0.42.3': "versionName '0.42.3'" in gradle and 'versionCode 63' in gradle,
+              'automation template button is visible': '템플릿 선택' in automation and 'template.setOnClickListener' in automation,
+              'follow-up period is user selectable': all(value in automation for value in ('showDelayPicker', '1일 후', '3일 후', '5일 후', '7일 후', '1~30일 사이')),
+              'follow-up period is outside common settings': '후속 예약 시점' not in automation and '발송 시점 · ' in automation,
+              'template variable example is removed': 'supportedVariablesLabel' not in template_editor and '변수 ·' not in template_editor,
+              'version 0.42.4': "versionName '0.42.4'" in gradle and 'versionCode 64' in gradle,
           }
           failed = [name for name, passed in checks.items() if not passed]
           for name, passed in checks.items():
@@ -234,5 +240,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.42.3-post-call-reliability-debug-apk
+          name: calltag-v0.42.4-automation-template-delay-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
