@@ -27,7 +27,7 @@ import java.util.Map;
 
 /**
  * Google Play Billing 연결, 상품 조회, 구매, 복원을 담당한다.
- * 구매 성공만으로 이용권을 열지 않고 서버 검증 성공 후에만 완료 콜백을 보낸다.
+ * 서버가 결제 가능 상태를 내려주기 전에는 BillingClient 연결 자체를 시작하지 않는다.
  */
 public final class PlayBillingManager implements PurchasesUpdatedListener {
     public interface Listener {
@@ -56,6 +56,13 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
     }
 
     public void connectAndLoad() {
+        if (!billingReleaseAvailable()) {
+            connecting = false;
+            ready = false;
+            products.clear();
+            listener.onBillingReady(Collections.emptyMap());
+            return;
+        }
         if (ready) {
             queryProducts();
             return;
@@ -82,9 +89,13 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
     }
 
     public void purchase(String productId) {
+        if (!billingReleaseAvailable()) {
+            listener.onBillingMessage(playPreparationMessage());
+            return;
+        }
         ProductDetails details = products.get(productId);
         if (!ready || details == null) {
-            listener.onBillingMessage("상품 정보를 확인 중이에요. 잠시 후 다시 눌러주세요.");
+            listener.onBillingMessage("결제 상품을 확인 중이에요. 잠시 후 다시 눌러주세요.");
             connectAndLoad();
             return;
         }
@@ -109,6 +120,10 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
     }
 
     public void restore() {
+        if (!billingReleaseAvailable()) {
+            listener.onBillingMessage(playPreparationMessage());
+            return;
+        }
         if (!ready) {
             listener.onBillingMessage("Google Play 연결을 확인하고 있어요.");
             connectAndLoad();
@@ -138,6 +153,10 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
 
     @Override
     public void onPurchasesUpdated(BillingResult billingResult, List<Purchase> purchases) {
+        if (!billingReleaseAvailable()) {
+            listener.onBillingMessage(playPreparationMessage());
+            return;
+        }
         if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.USER_CANCELED) {
             listener.onBillingMessage("결제가 취소되었습니다.");
             return;
@@ -151,6 +170,7 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
     }
 
     private void queryProducts() {
+        if (!billingReleaseAvailable()) return;
         List<QueryProductDetailsParams.Product> request = new ArrayList<>();
         request.add(subscription(FeatureEntitlementStore.PLAN_BUNDLE));
         request.add(subscription(FeatureEntitlementStore.PLAN_PHONE));
@@ -172,8 +192,8 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
             }
         }
         listener.onBillingReady(Collections.unmodifiableMap(new HashMap<>(products)));
-        if (products.isEmpty()) {
-            listener.onBillingMessage("Google Play 상품 등록을 확인해주세요.");
+        if (billingReleaseAvailable() && products.isEmpty()) {
+            listener.onBillingMessage("결제 상품을 불러오지 못했어요. 잠시 후 다시 시도해주세요.");
         }
     }
 
@@ -208,7 +228,7 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                 activity.runOnUiThread(listener::onServerVerified);
             } catch (Exception error) {
                 activity.runOnUiThread(() -> listener.onBillingMessage(
-                        "결제는 확인됐지만 이용권 반영을 완료하지 못했어요. 구매 복원을 눌러주세요."));
+                        "결제 확인을 완료하지 못했어요. 구매 복원을 눌러주세요."));
             }
         }, "calltag-play-verify").start();
     }
@@ -246,6 +266,17 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                         "구매 내역을 복원하지 못했어요. 잠시 후 다시 시도해주세요."));
             }
         }, "calltag-play-restore").start();
+    }
+
+    private boolean billingReleaseAvailable() {
+        return FeatureEntitlementStore.isPlayBillingAvailable(activity);
+    }
+
+    private String playPreparationMessage() {
+        FeatureEntitlementStore.Snapshot snapshot = FeatureEntitlementStore.snapshot(activity);
+        String message = snapshot.playBillingMessage == null
+                ? "앱 결제 기능을 준비하고 있습니다." : snapshot.playBillingMessage.trim();
+        return message.isEmpty() ? "앱 결제 기능을 준비하고 있습니다." : message;
     }
 
     private String obfuscatedAccountId() {
