@@ -79,102 +79,103 @@ Android:
 
 - Bridge Run ID `30822112193`
 - JavaScript syntax·Bridge contract·Pages Functions regression·Production build 성공
-- 전체 QA Run ID `30822112885`
+- 전체 QA Run ID `30871387085`
 - Full offline QA와 브라우저 회귀 성공
 
-## 6. 2026-08-04 운영 준비상태 실측
+## 6. 2026-08-04 운영 서버 준비 완료
 
 최신 Cloudflare Production 배포의 `/api/call/push/readiness`를 GitHub Actions에서 직접 조회했다.
 
+- 확인 배포 `https://89a7a596.inlet-8mr.pages.dev`
 - Workflow `Verify CallTag Push Readiness`
-- Run ID `30870665532`
-- Job ID `91871834819`
-- 확인 시각 `2026-08-04T02:04:19.406Z`
+- Run ID `30871387043`
+- Job ID `91875065527`
+- 확인 시각 `2026-08-04T02:26:12.061Z`
 
 결과:
 
 ```json
 {
-  "ready": false,
+  "ready": true,
   "firebase": {
-    "configured": false,
-    "projectId": false,
-    "clientEmail": false,
-    "privateKey": false
+    "configured": true,
+    "projectId": true,
+    "clientEmail": true,
+    "privateKey": true
   },
   "d1": {
     "bound": true,
-    "pushDevicesTable": false
+    "pushDevicesTable": true
   }
 }
 ```
 
 판정:
 
-- Firebase 서비스 계정 변수 3개는 현재 `inlet` Production 런타임에서 인식되지 않는다.
-- D1 바인딩은 정상이다.
-- `calltag_push_devices` 테이블은 아직 없다.
-- 운영 백그라운드 즉시 알림은 미완료다.
-
-가능성이 높은 원인:
-
-- 다른 Cloudflare 프로젝트에 등록
-- Preview에만 등록
-- 변수 이름 오타·앞뒤 공백
-- 저장 후 Production 재배포 누락
+- Cloudflare `inlet` Production의 Firebase 서비스 계정 변수 3개 정상
+- 운영 D1 `inlet-prod` 연결 정상
+- `calltag_push_devices` 테이블 생성 완료
+- 페이지로 서버의 FCM 발송 준비 완료
+- 비공개 키 원문은 확인·출력하지 않고 존재 여부만 검사
 
 ## 7. 현재 가능한 범위
+
+서버:
+
+- FCM HTTP v1 발송 인증 준비
+- 사용자별 Android 기기 토큰 저장
+- 잘못된·만료 토큰 비활성화
+- 문의 저장 성공과 푸시 실패 분리
+- 개인정보 없는 신호 전송
+
+앱에서 확정된 범위:
 
 - 앱 실행·재진입 문의 동기화
 - 앱을 열어둔 동안 최대 약 30초 보조 동기화
 - 고객 DB 반영 후 알림 로직
 - 동일 문의 중복방지
 
-현재 불가능하거나 미확인:
+아직 미확인:
 
 - 앱 완전 종료 상태 즉시 알림
 - 잠금화면 즉시 알림
 - FCM 기기 토큰 운영 등록
-- 운영 FCM 실제 발송
+- 실제 운영 FCM 발송
 
-현재 v0.40.9 APK도 Android Firebase BuildConfig 값 4개가 빈 상태다.
+현재 v0.40.9 APK는 Android Firebase BuildConfig 값 4개가 빈 상태다.
 
 ## 8. 다음 조치
 
-Cloudflare:
+CallTag GitHub 저장소 `pc9839a-lgtm/calltag`의 Actions Secrets에 다음 4개를 등록한다.
 
-1. `Workers & Pages > inlet`
-2. `Settings > Variables and Secrets`
-3. Environment를 **Production**으로 선택
-4. `FIREBASE_PROJECT_ID`
-5. `FIREBASE_CLIENT_EMAIL`
-6. `FIREBASE_PRIVATE_KEY`
-7. 저장 후 Production 재배포
-8. readiness 재검사
+- `CALLTAG_FIREBASE_APPLICATION_ID`
+- `CALLTAG_FIREBASE_API_KEY`
+- `CALLTAG_FIREBASE_PROJECT_ID`
+- `CALLTAG_FIREBASE_SENDER_ID`
 
-D1:
+등록 후:
 
-- database `inlet-prod`
-- migration `migrations/0008_calltag_realtime_push.sql`
-- `calltag_push_devices` 존재 확인
-
-Android:
-
-- CallTag GitHub Secret 4개 등록
-- APK 재빌드
-- APK 내부 값 정적 확인
-- 덮어 설치 후 로그인·알림 권한 허용
+1. Firebase 값 포함 APK 재빌드
+2. APK 내부 값 비어 있지 않음 확인
+3. 기존 앱 위에 덮어 설치
+4. 로그인 후 알림 권한 허용
+5. FCM 기기 토큰 서버 등록 확인
+6. 실제 페이지로 문의 1건 접수
+7. 앱 종료·백그라운드·잠금화면 알림 확인
+8. 고객·메모·`PAGERO_INQUIRY` 정상 반영 확인
+9. 동일 eventId 중복 미생성 확인
+10. 빠른 연속 문의 3건 전부 반영 확인
 
 ## 9. 운영 완료 기준
 
-- readiness `ready=true`
-- Firebase Android 값이 포함된 APK
-- 기기 토큰 서버 등록
-- 실제 페이지로 문의 후 종료·잠금화면 알림
-- 고객·메모·상담이력 정상 반영
-- 동일 eventId 중복 미생성
+- 서버 readiness `ready=true` — 완료
+- Firebase Android 값이 포함된 APK — 미완료
+- 기기 토큰 서버 등록 — 미확인
+- 실제 페이지로 문의 후 종료·잠금화면 알림 — 미확인
+- 고객·메모·상담이력 정상 반영 — 미확인
+- 동일 eventId 중복 미생성 — 미확인
 
-상세 등록·복구 절차:
+상세 등록·운영 절차:
 
 - `docs/FIREBASE_REGISTRATION_GUIDE_KO.md`
 - `docs/DEVELOPMENT_STATUS_AND_ROADMAP_KO.md`
