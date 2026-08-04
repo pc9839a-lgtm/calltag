@@ -103,6 +103,16 @@ public final class AuthApiClient {
         return get("/api/billing/subscriptions", session);
     }
 
+    public static JSONObject billingReadiness(String session) throws Exception {
+        return get("/api/billing/readiness", session);
+    }
+
+    public static JSONObject webCheckoutPrecheck(String session, String productCode)
+            throws Exception {
+        return post("/api/billing/web/precheck", new JSONObject()
+                .put("productCode", clean(productCode)), session);
+    }
+
     public static JSONObject referralMe(String session) throws Exception {
         return get("/api/referrals/me", session);
     }
@@ -232,6 +242,7 @@ public final class AuthApiClient {
             if (status < 200 || status >= 300 || !response.optBoolean("ok", true)) {
                 JSONObject details = response.optJSONObject("details");
                 String code = details == null ? "" : details.optString("code", "");
+                if (code.isEmpty()) code = response.optString("code", "");
                 throw new ApiException(
                         response.optString("error", "요청을 처리하지 못했습니다."),
                         status,
