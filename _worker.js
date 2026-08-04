@@ -1,29 +1,8 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const legalRoutes = {
-      '/terms': '/terms.html',
-      '/privacy': '/privacy.html',
-      '/refund': '/refund.html',
-      '/support': '/support.html'
-    };
-    const legalPaths = new Set([
-      '/terms','/privacy','/refund','/support',
-      '/terms.html','/privacy.html','/refund.html','/support.html'
-    ]);
-    const isLegal = legalPaths.has(url.pathname);
-
-    let assetRequest = request;
-    if (legalRoutes[url.pathname]) {
-      const assetUrl = new URL(legalRoutes[url.pathname], url.origin);
-      assetRequest = new Request(assetUrl.toString(), {
-        method: 'GET',
-        headers: request.headers,
-        redirect: 'follow'
-      });
-    }
-
-    const response = await env.ASSETS.fetch(assetRequest);
+    const isLegal = /^\/(terms|privacy|refund|support)(\/|$)/.test(url.pathname);
+    const response = await env.ASSETS.fetch(request);
     const type = response.headers.get('content-type') || '';
     if (!type.includes('text/html')) return response;
 
@@ -34,17 +13,7 @@ export default {
     headers.set('cache-control','no-cache, no-store, must-revalidate');
 
     if (isLegal) {
-      body = body
-        .replace(/href="\/terms"/g, 'href="/terms.html"')
-        .replace(/href="\/privacy"/g, 'href="/privacy.html"')
-        .replace(/href="\/refund"/g, 'href="/refund.html"')
-        .replace(/href="mailto:roadfor@kakao\.com">고객센터/g, 'href="/support.html">고객센터')
-        .replace(/<a[^>]*href="tel:01057669839"[^>]*>[^<]*<\/a>/gi, '')
-        .replace(/고객센터:\s*010-5766-9839\s*\/\s*roadfor@kakao\.com/g, '고객센터: roadfor@kakao.com')
-        .replace(/전화:\s*010-5766-9839<br>/g, '')
-        .replace(/전화:\s*010-5766-9839/g, '')
-        .replace(/010[-\s]?5766[-\s]?9839/g, '');
-      headers.set('x-calltag-worker','v70-static-legal-links');
+      headers.set('x-calltag-worker','v71-legal-directories');
       return new Response(body, {
         status: response.status,
         statusText: response.statusText,
@@ -96,7 +65,7 @@ export default {
         'calltag-site-final-cleanup.js?v=20260804-footer2',
         'calltag-horizontal-live-fix.js?v=20260803-live1',
         'calltag-mobile-clean-v2.js?v=20260804-clean2',
-        'calltag-footer-links-v3.js?v=20260804-links3'
+        'calltag-footer-links-v3.js?v=20260804-links4'
       ];
       body = body.replace('</body>', scripts.map(src => `<script src="/assets/${src}"></script>`).join('') + '</body>');
     }
@@ -105,7 +74,7 @@ export default {
       body = body.replace('</body>', '<script src="/assets/calltag-copy-hard-fix.js?v=20260803-hard1"></script></body>');
     }
 
-    headers.set('x-calltag-worker','v70-static-legal-links');
+    headers.set('x-calltag-worker','v71-legal-directories');
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
