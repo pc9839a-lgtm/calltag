@@ -55,6 +55,7 @@
         <activity android:name=".CampaignDetailActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".CalendarSharePickerActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".PageroConnectionActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".PageroLeadNotificationActivity" android:exported="false" android:screenOrientation="portrait" />
 
         <activity
             android:name=".CallerInfoActivity"
