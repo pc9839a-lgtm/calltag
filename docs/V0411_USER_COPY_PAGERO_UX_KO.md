@@ -74,17 +74,37 @@
 
 ## 재발 방지
 
-GitHub Actions에 사용자 문구 검사를 추가한다.
+GitHub Actions에 사용자 문구 검사를 추가했다.
 
 - 페이지로 화면에 `지금 동기화`, `동기화 중`, Firebase, 토큰, 실시간 서버, errorCode가 다시 들어오면 빌드 실패
 - 더보기 화면에 `앱 진단` 또는 `DiagnosticActivity` 진입이 다시 들어오면 빌드 실패
 - 권한 화면에 Android 권한창·미허용 표현이 다시 들어오면 빌드 실패
 - 계정 화면에서 예외 원문을 직접 노출하면 빌드 실패
 
+## 병합·빌드 결과
+
+- PR: `#39`
+- 개발 정본 병합 SHA: `0e7059fefee09f71260038ffc1c9bc3421f97829`
+- Workflow Run ID: `30885474095`
+- Job ID: `91915611094`
+- Artifact ID: `8882921194`
+- Artifact ZIP digest: `sha256:96861356be9cbe9da02d5f3c56513a2695d498253489e0433a859910ecd83aa4`
+- APK SHA-256: `586e49fc25f9b64e24c05b61eedfc1eade2e9855852a5cf9fe236a0438e53e10`
+- APK 크기: `4,461,863 bytes`
+
+통과 항목:
+
+- Firebase 빌드 설정 확인
+- 사용자 문구 검사
+- 페이지로 알림 이동·중복방지 회귀검사
+- Android Java·리소스·Manifest·APK 패키징
+- 생성된 Firebase BuildConfig 확인
+- APK 업로드
+
 ## 버전
 
 - versionName: `0.41.1`
 - versionCode: `59`
 - 패치 브랜치: `agent/calltag-v0411-user-copy-pagero-ux`
-- 통합 대상: `agent/calltag-foundation`
+- 개발 정본: `agent/calltag-foundation`
 - 사용자 명시 지시 전 CallTag `main` 미병합
