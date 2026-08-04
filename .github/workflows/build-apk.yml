@@ -90,6 +90,8 @@ jobs:
           manifest = Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
           gradle = Path('app/build.gradle').read_text(encoding='utf-8')
 
+          gate_index = play.find('if (!billingReleaseAvailable())')
+          connect_index = play.find('billingClient.startConnection')
           checks = {
               'More billing entry': 'BillingEntitlementActivity.class' in more and '이용권·결제' in more,
               'More referral entry': 'ReferralPartnerActivity.class' in more and '친구 초대·파트너' in more,
@@ -103,6 +105,11 @@ jobs:
               'billing endpoint': '/api/billing/entitlements' in api,
               'activities registered': '.BillingEntitlementActivity' in manifest and '.ReferralPartnerActivity' in manifest,
               'Play Billing 9.1': 'com.android.billingclient:billing:9.1.0' in gradle,
+              'Play readiness cached': 'playBillingAvailable' in entitlement and 'billingAvailability' in entitlement,
+              'preregistration button copy': '출시 준비 중' in billing_screen and 'Google Play 결제 준비 중' in billing_screen,
+              'BillingClient is gated before connection': gate_index >= 0 and connect_index >= 0 and gate_index < connect_index,
+              'Play purchase requires release readiness': 'playBillingAvailable' in billing_screen and 'billingReleaseAvailable()' in play,
+              'version 0.42.1': "versionName '0.42.1'" in gradle and 'versionCode 61' in gradle,
           }
           failed = [name for name, passed in checks.items() if not passed]
           for name, passed in checks.items():
@@ -182,5 +189,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.42.0-billing-referral-p0-debug-apk
+          name: calltag-v0.42.1-play-preregistration-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
