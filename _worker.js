@@ -13,7 +13,7 @@ export default {
     headers.set('cache-control','no-cache, no-store, must-revalidate');
 
     if (isLegal) {
-      headers.set('x-calltag-worker','v71-legal-directories');
+      headers.set('x-calltag-worker','v72-footer-click-fix');
       return new Response(body, {
         status: response.status,
         statusText: response.statusText,
@@ -65,7 +65,7 @@ export default {
         'calltag-site-final-cleanup.js?v=20260804-footer2',
         'calltag-horizontal-live-fix.js?v=20260803-live1',
         'calltag-mobile-clean-v2.js?v=20260804-clean2',
-        'calltag-footer-links-v3.js?v=20260804-links4'
+        'calltag-footer-links-v3.js?v=20260804-links5'
       ];
       body = body.replace('</body>', scripts.map(src => `<script src="/assets/${src}"></script>`).join('') + '</body>');
     }
@@ -74,7 +74,7 @@ export default {
       body = body.replace('</body>', '<script src="/assets/calltag-copy-hard-fix.js?v=20260803-hard1"></script></body>');
     }
 
-    headers.set('x-calltag-worker','v71-legal-directories');
+    headers.set('x-calltag-worker','v72-footer-click-fix');
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
