@@ -22,7 +22,7 @@ import android.widget.Toast;
 import java.text.DateFormat;
 import java.util.Date;
 
-/** 일반 사용자가 PageRo 연결 계정과 문의 동기화 결과를 확인하는 화면. */
+/** 페이지로 문의 연결 상태를 일반 사용자가 쉽게 확인하는 화면. */
 public final class PageroConnectionActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable delayedRender = this::renderState;
@@ -30,10 +30,10 @@ public final class PageroConnectionActivity extends Activity {
     private TextView accountValue;
     private TextView connectionTitle;
     private TextView connectionBody;
-    private TextView realtimeTitle;
-    private TextView realtimeBody;
-    private TextView syncResult;
-    private Button syncButton;
+    private TextView alertTitle;
+    private TextView alertBody;
+    private TextView lastCheck;
+    private Button checkButton;
     private boolean receiverRegistered;
 
     private final BroadcastReceiver syncReceiver = new BroadcastReceiver() {
@@ -41,10 +41,24 @@ public final class PageroConnectionActivity extends Activity {
         public void onReceive(Context context, Intent intent) {
             if (!PageroLeadSyncManager.ACTION_LEADS_UPDATED.equals(intent.getAction())) return;
             renderState();
+
             boolean success = intent.getBooleanExtra(PageroLeadSyncManager.EXTRA_SUCCESS, false);
-            String message = intent.getStringExtra(PageroLeadSyncManager.EXTRA_MESSAGE);
-            if (message == null || message.trim().isEmpty()) {
-                message = success ? "동기화를 완료했습니다." : "동기화하지 못했습니다.";
+            int imported = Math.max(0,
+                    intent.getIntExtra(PageroLeadSyncManager.EXTRA_IMPORTED, 0));
+            int updated = Math.max(0,
+                    intent.getIntExtra(PageroLeadSyncManager.EXTRA_UPDATED, 0));
+            int rejected = Math.max(0,
+                    intent.getIntExtra(PageroLeadSyncManager.EXTRA_REJECTED, 0));
+
+            String message;
+            if (!success) {
+                message = "문의를 확인하지 못했어요. 잠시 후 다시 시도해주세요.";
+            } else if (imported + updated == 0 && rejected == 0) {
+                message = "새로 들어온 문의가 없어요.";
+            } else if (rejected > 0) {
+                message = "문의 확인을 마쳤어요. 확인이 필요한 문의가 " + rejected + "건 있어요.";
+            } else {
+                message = "새 문의 " + (imported + updated) + "건을 콜태그에 반영했어요.";
             }
             Toast.makeText(PageroConnectionActivity.this, message, Toast.LENGTH_SHORT).show();
         }
@@ -111,14 +125,11 @@ public final class PageroConnectionActivity extends Activity {
         back.setTextSize(34f);
         back.setTextColor(getColor(R.color.text_primary));
         back.setGravity(Gravity.CENTER);
+        back.setContentDescription("뒤로가기");
         back.setOnClickListener(v -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(42), dp(56)));
 
-        TextView title = new TextView(this);
-        title.setText("페이지로 연결");
-        title.setTextSize(20f);
-        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        title.setTextColor(getColor(R.color.text_primary));
+        TextView title = text("페이지로 문의 연결", 20f, true, R.color.text_primary);
         title.setGravity(Gravity.CENTER_VERTICAL);
         header.addView(title, new LinearLayout.LayoutParams(0, dp(56), 1f));
         screen.addView(header, new LinearLayout.LayoutParams(
@@ -128,20 +139,18 @@ public final class PageroConnectionActivity extends Activity {
         scroll.setFillViewport(true);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(16), dp(16), dp(16), dp(30));
+        content.setPadding(dp(16), dp(18), dp(16), dp(32));
         scroll.addView(content, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
 
-        TextView intro = text("페이지로 문의를 콜태그 고객으로 자동 등록합니다.", 22f, true,
-                R.color.text_primary);
-        content.addView(intro, wrap());
-
-        TextView introSub = text("두 서비스가 같은 계정이면 별도 키 입력 없이 연결됩니다.",
-                14f, false, R.color.text_secondary);
-        content.addView(introSub, top(8));
+        content.addView(text("문의가 들어오면\n콜태그에 바로 등록됩니다.",
+                23f, true, R.color.text_primary), wrap());
+        content.addView(text(
+                "고객 이름·연락처·문의 내용을 자동으로 정리하고 바로 알려드려요.",
+                14f, false, R.color.text_secondary), top(9));
 
         LinearLayout accountCard = card();
-        accountCard.addView(label("현재 콜태그 계정"), wrap());
+        accountCard.addView(label("연결 계정"), wrap());
         accountValue = text("", 17f, true, R.color.text_primary);
         accountCard.addView(accountValue, top(8));
         content.addView(accountCard, top(20));
@@ -151,44 +160,42 @@ public final class PageroConnectionActivity extends Activity {
         stateCard.addView(connectionTitle, wrap());
         connectionBody = text("", 14f, false, R.color.text_secondary);
         stateCard.addView(connectionBody, top(7));
-        syncResult = text("", 13f, false, R.color.text_muted);
-        stateCard.addView(syncResult, top(12));
         content.addView(stateCard, top(10));
 
-        LinearLayout realtimeCard = card();
-        realtimeTitle = text("", 17f, true, R.color.text_primary);
-        realtimeCard.addView(realtimeTitle, wrap());
-        realtimeBody = text("", 14f, false, R.color.text_secondary);
-        realtimeCard.addView(realtimeBody, top(7));
-        content.addView(realtimeCard, top(10));
+        LinearLayout alertCard = card();
+        alertTitle = text("", 17f, true, R.color.text_primary);
+        alertCard.addView(alertTitle, wrap());
+        alertBody = text("", 14f, false, R.color.text_secondary);
+        alertCard.addView(alertBody, top(7));
+        lastCheck = text("", 13f, false, R.color.text_muted);
+        alertCard.addView(lastCheck, top(12));
+        content.addView(alertCard, top(10));
 
-        syncButton = button("지금 동기화", true);
-        syncButton.setOnClickListener(v -> startSync());
-        content.addView(syncButton, fixedTop(50, 14));
+        checkButton = button("새 문의 확인", true);
+        checkButton.setOnClickListener(v -> checkNewLeads());
+        content.addView(checkButton, fixedTop(50, 14));
 
-        Button openPagero = button("페이지로 열기", false);
+        Button openPagero = button("페이지로 관리화면 열기", false);
         openPagero.setOnClickListener(v -> openPagero());
         content.addView(openPagero, fixedTop(48, 8));
 
-        TextView guideTitle = text("연결 방법", 16f, true, R.color.text_primary);
-        content.addView(guideTitle, top(26));
+        content.addView(text("이렇게 사용하세요", 16f, true, R.color.text_primary), top(26));
 
         LinearLayout guide = card();
-        guide.addView(step("1", "페이지로와 콜태그에 같은 이메일 또는 Google 계정으로 로그인"), wrap());
+        guide.addView(step("1", "페이지로에서 랜딩페이지를 만들고 공개합니다."), wrap());
         guide.addView(divider(), new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(1)));
-        guide.addView(step("2", "페이지로에서 랜딩페이지를 만들고 공개"), wrap());
+        guide.addView(step("2", "고객이 랜딩페이지에서 문의를 남깁니다."), wrap());
         guide.addView(divider(), new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(1)));
-        guide.addView(step("3", "새 문의는 실시간 반영하고, 실패하면 앱 실행·지금 동기화로 보완"), wrap());
+        guide.addView(step("3", "콜태그가 고객을 등록하고 새 문의를 알려드립니다."), wrap());
         content.addView(guide, top(10));
 
-        TextView note = text(
-                "페이지로 계정이 확인되지 않아도 콜태그 로그인과 전화·문자 기능은 사용할 수 있습니다. 나중에 이 화면에서 같은 계정으로 연결 상태를 다시 확인하세요.",
-                13f, false, R.color.text_muted);
-        content.addView(note, top(14));
+        content.addView(text(
+                "페이지로를 아직 사용하지 않아도 콜태그의 전화·문자 기능은 그대로 사용할 수 있어요.",
+                13f, false, R.color.text_muted), top(14));
 
-        Button done = button("고객목록에서 확인", false);
+        Button done = button("완료", false);
         done.setOnClickListener(v -> finish());
         content.addView(done, fixedTop(48, 18));
 
@@ -197,20 +204,19 @@ public final class PageroConnectionActivity extends Activity {
         return screen;
     }
 
-    private void startSync() {
+    private void checkNewLeads() {
         if (!AuthSessionStore.hasSession(this)) {
-            Toast.makeText(this, "콜태그에 먼저 로그인하세요.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "콜태그에 먼저 로그인해주세요.", Toast.LENGTH_SHORT).show();
             renderState();
             return;
         }
         if (PageroLeadSyncManager.isRunning()) {
-            Toast.makeText(this, "이미 동기화 중입니다.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "지금 새 문의를 확인하고 있어요.", Toast.LENGTH_SHORT).show();
             renderState();
             return;
         }
-        boolean started = PageroLeadSyncManager.requestSync(this, true);
-        if (!started) {
-            Toast.makeText(this, "동기화를 시작하지 못했습니다.", Toast.LENGTH_SHORT).show();
+        if (!PageroLeadSyncManager.requestSync(this, true)) {
+            Toast.makeText(this, "잠시 후 다시 시도해주세요.", Toast.LENGTH_SHORT).show();
         }
         renderState();
     }
@@ -219,73 +225,77 @@ public final class PageroConnectionActivity extends Activity {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://pagero.kr/app")));
         } catch (Exception error) {
-            Toast.makeText(this, "페이지로를 열 수 없습니다.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "페이지로 관리화면을 열지 못했어요.", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void renderState() {
         if (accountValue == null) return;
+
         boolean hasSession = AuthSessionStore.hasSession(this);
         String email = AuthSessionStore.email(this).trim().toLowerCase();
-        accountValue.setText(email.isEmpty() ? "로그인 계정 확인 필요" : email);
+        accountValue.setText(email.isEmpty() ? "로그인 후 확인할 수 있어요" : email);
 
         PageroAccountStatusStore.Snapshot account = PageroAccountStatusStore.read(this);
         if (!hasSession) {
-            connectionTitle.setText("로그인이 필요합니다");
-            connectionBody.setText("콜태그에 로그인한 뒤 페이지로 연결을 확인하세요.");
+            connectionTitle.setText("로그인이 필요해요");
+            connectionBody.setText("콜태그에 로그인하면 페이지로 연결을 자동으로 확인합니다.");
         } else if (email.isEmpty()) {
-            connectionTitle.setText("계정 이메일을 확인할 수 없습니다");
-            connectionBody.setText("로그아웃 후 페이지로와 같은 계정으로 다시 로그인하세요.");
+            connectionTitle.setText("계정을 다시 확인해주세요");
+            connectionBody.setText("로그아웃한 뒤 페이지로와 같은 계정으로 다시 로그인해주세요.");
         } else if (account.connected()) {
-            connectionTitle.setText("페이지로 계정 연결됨");
+            connectionTitle.setText("페이지로 연결 완료");
             connectionBody.setText(account.projectCount > 0
-                    ? "이 계정의 페이지 " + account.projectCount + "개에서 접수된 문의를 가져옵니다."
-                    : "이 계정의 페이지로 문의를 가져옵니다.");
+                    ? "공개한 페이지 " + account.projectCount + "개에서 들어오는 문의를 받고 있어요."
+                    : "페이지로에서 들어오는 문의를 콜태그에 자동으로 등록해요.");
         } else if (PageroAccountStatusStore.NOT_CONNECTED.equals(account.status)) {
-            connectionTitle.setText("페이지로 계정 확인 필요");
-            connectionBody.setText(account.message);
+            connectionTitle.setText("아직 연결된 페이지가 없어요");
+            connectionBody.setText("페이지로에서 같은 이메일로 로그인해 랜딩페이지를 만들면 자동으로 연결됩니다.");
         } else {
-            connectionTitle.setText("페이지로 연결 상태 확인 중");
-            connectionBody.setText(account.message);
+            connectionTitle.setText("연결 상태를 확인하고 있어요");
+            connectionBody.setText("잠시 후 자동으로 다시 확인합니다.");
         }
 
         CallTagPushStatusStore.Snapshot realtime = CallTagPushStatusStore.read(this);
         if (realtime.realtime) {
-            realtimeTitle.setText("실시간 문의 연결됨");
-            realtimeBody.setText("페이지로에 새 문의가 접수되면 콜태그가 즉시 동기화를 시작합니다.");
-        } else if (!CallTagFirebaseInitializer.configured()) {
-            realtimeTitle.setText("실시간 설정 필요");
-            realtimeBody.setText("Firebase 운영 설정 전에는 앱 실행·화면 재진입·지금 동기화로 문의를 가져옵니다.");
-        } else if (realtime.registered) {
-            realtimeTitle.setText("실시간 서버 확인 중");
-            realtimeBody.setText(realtime.message);
+            alertTitle.setText("새 문의 알림 켜짐");
+            alertBody.setText("앱을 닫거나 화면을 잠가도 새 문의가 들어오면 바로 알려드려요.");
+        } else if (hasSession) {
+            alertTitle.setText("새 문의 알림 준비 중");
+            alertBody.setText("앱을 열면 새 문의를 자동으로 확인합니다. 잠시 후 다시 확인해주세요.");
         } else {
-            realtimeTitle.setText("이 기기 실시간 등록 필요");
-            realtimeBody.setText(realtime.message);
+            alertTitle.setText("로그인 후 알림을 받을 수 있어요");
+            alertBody.setText("콜태그에 로그인하면 새 문의 알림이 자동으로 준비됩니다.");
         }
 
         PageroConnectionStatusStore.Snapshot status = PageroConnectionStatusStore.read(this);
         boolean running = PageroLeadSyncManager.isRunning() || status.running;
-        syncButton.setEnabled(!running && hasSession);
-        syncButton.setText(running ? "동기화 중..." : "지금 동기화");
+        checkButton.setEnabled(!running && hasSession);
+        checkButton.setText(running ? "문의 확인 중…" : "새 문의 확인");
 
         if (running) {
-            syncResult.setText("페이지로의 새 문의를 확인하고 있습니다.");
+            lastCheck.setText("페이지로에서 새 문의를 찾고 있어요.");
             return;
         }
         if (!status.error.isEmpty()) {
-            String code = status.errorCode.isEmpty() ? "" : " (" + status.errorCode + ")";
-            syncResult.setText("마지막 동기화 실패: " + status.error + code);
+            lastCheck.setText("마지막 확인을 마치지 못했어요. 잠시 후 다시 시도해주세요.");
             return;
         }
         if (status.lastSuccessAt <= 0L) {
-            syncResult.setText("아직 동기화한 기록이 없습니다.");
+            lastCheck.setText("연결되면 새 문의가 자동으로 여기에 표시됩니다.");
             return;
         }
+
         String when = DateFormat.getDateTimeInstance(
                 DateFormat.SHORT, DateFormat.SHORT).format(new Date(status.lastSuccessAt));
-        syncResult.setText(when + " · 신규 " + status.imported + "건 · 갱신 "
-                + status.updated + "건 · 확인 필요 " + status.rejected + "건");
+        StringBuilder summary = new StringBuilder(when).append(" 확인");
+        if (status.imported > 0) summary.append(" · 새 고객 ").append(status.imported).append("명");
+        if (status.updated > 0) summary.append(" · 기존 고객 문의 ").append(status.updated).append("건");
+        if (status.rejected > 0) summary.append(" · 확인 필요 ").append(status.rejected).append("건");
+        if (status.imported == 0 && status.updated == 0 && status.rejected == 0) {
+            summary.append(" · 새 문의 없음");
+        }
+        lastCheck.setText(summary.toString());
     }
 
     private LinearLayout card() {
