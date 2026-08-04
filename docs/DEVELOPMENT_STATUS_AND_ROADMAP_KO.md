@@ -1,6 +1,6 @@
 # 콜태그 개발 현황·로드맵
 
-기준일: **2026-08-03**  
+기준일: **2026-08-04**  
 저장소: `pc9839a-lgtm/calltag`  
 개발 브랜치: `agent/calltag-foundation`  
 개발 PR: Draft PR `#1`  
@@ -8,249 +8,153 @@
 versionCode: **57**  
 패키지명: `kr.pagero.calltag`
 
-> CallTag `main`에는 사용자 명시 지시 전 병합하지 않는다. 코드 구현, 빌드 성공, 운영 설정, 실기기 E2E 성공을 반드시 구분한다.
-
----
+> CallTag `main`에는 사용자 명시 지시 전 병합하지 않는다. 코드 구현·빌드·운영 설정·실기기 E2E를 구분한다.
 
 ## 1. 완료 확인
 
-### 에이닷·삼성 전화 실제 수신 메모
+2026-08-03 사용자 실기기 확인:
 
-2026-08-03 사용자 실기기에서 확인 완료:
+- 에이닷 실제 전화 수신에서 고객명·최근 메모 표시
+- 삼성 전화 실제 전화 수신에서 고객명·최근 메모 표시
 
-- 실제 전화 수신 시 고객명 표시
-- 실제 전화 수신 시 최근 메모 표시
-- 에이닷 전화 화면 표시
-- 삼성 전화 화면 표시
-
-남은 경계 조건:
+남은 전화 수신 경계 조건:
 
 - 미저장 번호
 - 이름없는고객
 - Google·삼성 동일 번호 결합
-- 기능 해제 후 콜태그 연락처만 제거
-- 메모 수정 후 5초 이내 다음 수신 반영
+- 기능 해제 시 콜태그 연락처만 제거
+- 메모 수정 후 5초 이내 반영
 
----
+## 2. 페이지로 문의 연동 구현 상태
 
-## 2. 현재 핵심 기능
+Android v0.40.9:
 
-### 전화 수신 메모
+- 미처리 문의 큐 조회
+- 전화번호 기준 신규 고객 생성·기존 고객 갱신
+- 고객 메모와 `PAGERO_INQUIRY` 상담이력 저장
+- eventId receipt + ACK 중복방지
+- FCM 신호 수신 즉시 강제 동기화
+- 고객 DB 반영 완료 후에만 알림
+- 동기화 중 추가 신호 재동기화 1회 예약
+- 앱 전면 30초 보조 동기화
 
-- 콜태그 전용 RawContact를 동일 번호의 원본 연락처와 결합
-- Google·삼성 원본 연락처 직접 수정·삭제 없음
-- `고객명 · 최근 메모` 표시
-- 최근 메모 최대 16자
-- 앱 사용 중 5초 동기화
+페이지로 서버:
 
-### 통화 종료 정리
+- `pc9839a-lgtm/inlet#56` main 병합 완료
+- `/api/call/push/register`
+- `/api/call/push/status`
+- `/api/call/push/unregister`
+- `/api/leads` 저장 후 FCM HTTP v1 신호
+- 개인정보 없는 payload
+- 만료 토큰 자동 비활성화
+- 푸시 실패와 문의 접수 성공 분리
 
-- 통화 종료 후 중앙 소형 팝업
-- 가로 최대 420dp, 세로 최대 560dp, 최소 높이 300dp
-- 내부 스크롤과 하단 저장 버튼 고정
-- 바깥 터치 종료 차단
-- 동일 통화 중복 실행 차단
-- 사용자 선택 전 자동 종료 없음
-- Android 11 이상 키보드 높이 대응
+## 3. Firebase 운영 확인 결과
 
-### 페이지로 문의 자동등록
+2026-08-04 최신 Cloudflare Production 배포를 실제 조회했다.
 
-- 콜태그 로그인 세션으로 미처리 문의 큐 조회
-- 전화번호 기준 신규 고객 생성 또는 기존 고객 갱신
-- 문의를 고객 메모와 `PAGERO_INQUIRY` 상담이력으로 저장
-- eventId receipt + 서버 ACK 중복방지
-- 문의 반영 후 연락처 고객명·최근 메모 즉시 동기화
+- Readiness endpoint: `/api/call/push/readiness`
+- Workflow Run ID: `30870665532`
+- Job ID: `91871834819`
+- 확인 시각: `2026-08-04T02:04:19.406Z`
 
-### v0.40.9 실시간 문의 알림
-
-- 개인정보 없는 `pagero_lead_available` FCM 신호 수신
-- 신호 수신 직후 문의 강제 동기화
-- 실제 고객 DB 반영 후에만 `페이지로 문의 접수` 알림
-- 신규·기존 고객 반영 건수 안내
-- 동기화 중 추가 푸시가 오면 강제 재동기화 1회 예약
-- 실시간 연결 전 앱 전면 30초 보조 동기화
-- 실시간 연결 후 앱 전면 5분 누락 안전 확인
-- 백그라운드 무한 폴링 없음
-- 사용자 화면에 Firebase·토큰·서버 내부 용어 미노출
-
----
-
-## 3. Firebase 등록 기준
-
-백그라운드·잠금화면 즉시 알림을 사용하려면 Firebase Console 등록이 필수다.
-
-### Firebase Android 앱
-
-- Firebase 프로젝트 생성 또는 운영 프로젝트 선택
-- Android 앱 추가
-- 패키지명: `kr.pagero.calltag`
-- `google-services.json` 다운로드
-- FCM HTTP v1 API 사용 상태 확인
-
-### CallTag GitHub Actions Secret
-
-`google-services.json` 기준:
-
-| Secret | 값 |
+| 항목 | 결과 |
 |---|---|
-| `CALLTAG_FIREBASE_APPLICATION_ID` | `client[].client_info.mobilesdk_app_id` |
-| `CALLTAG_FIREBASE_API_KEY` | `client[].api_key[].current_key` |
-| `CALLTAG_FIREBASE_PROJECT_ID` | `project_info.project_id` |
-| `CALLTAG_FIREBASE_SENDER_ID` | `project_info.project_number` |
+| `FIREBASE_PROJECT_ID` | false |
+| `FIREBASE_CLIENT_EMAIL` | false |
+| `FIREBASE_PRIVATE_KEY` | false |
+| Firebase configured | false |
+| D1 `DB` 바인딩 | true |
+| `calltag_push_devices` 테이블 | false |
+| 최종 ready | false |
 
-### 페이지로 Cloudflare Production 환경변수
+판정:
 
-Firebase 서비스 계정 JSON 기준:
+- Cloudflare 화면 입력 완료 주장과 실제 Production 런타임 상태가 일치하지 않는다.
+- 다른 프로젝트 또는 Preview에 등록했거나, 저장 후 Production 재배포가 빠졌을 가능성이 높다.
+- 운영 실시간 푸시는 아직 완료가 아니다.
 
-| 환경변수 | 값 |
-|---|---|
-| `FIREBASE_PROJECT_ID` | `project_id` |
-| `FIREBASE_CLIENT_EMAIL` | `client_email` |
-| `FIREBASE_PRIVATE_KEY` | `private_key` 전체 값 |
-
-서비스 계정 비공개 키는 APK·GitHub 코드·문서에 넣지 않는다.
-
-상세 절차:
+상세 조치:
 
 - `docs/FIREBASE_REGISTRATION_GUIDE_KO.md`
 - `docs/V0409_PAGERO_REALTIME_ALERT_KO.md`
 
----
+## 4. 현재 동작 가능한 범위
 
-## 4. 페이지로 서버 반영 상태
-
-실시간 푸시 전용 서버 PR `pc9839a-lgtm/inlet#56`을 `main`에 병합했다.
-
-- 서버 병합 SHA: `2f016e152f4fb589fb948db6c5a92488591843f2`
-- `/api/call/push/register`
-- `/api/call/push/status`
-- `/api/call/push/unregister`
-- `/api/leads` 저장 후 FCM HTTP v1 데이터 신호
-- 프로젝트 ownerId 호환 조회
-- 만료·잘못된 토큰 자동 비활성화
-- 푸시 실패와 문의 저장 성공 분리
-- D1 migration `0008_calltag_realtime_push.sql`
-- 고객 개인정보는 FCM payload에 포함하지 않음
-
-Google 로그인 변경이 함께 있는 서버 PR `#48`은 Draft로 유지했다.
-
-서버 정본 문서:
-
-- `pc9839a-lgtm/inlet/docs/CALLTAG_PAGERO_REALTIME_PUSH_KO.md`
-
----
-
-## 5. v0.40.9 검증
-
-### Android
-
-- PR `#36`을 `agent/calltag-foundation`에 병합
-- 앱 병합 SHA: `ec37673e76e0145fb2db0665b1a83562d2ee5092`
-- Workflow Run ID: `30821634434`
-- Job ID: `91712722719`
-- Android 리소스 처리: 성공
-- Java 컴파일: 성공
-- Manifest 병합: 성공
-- Debug APK 패키징: 성공
-- Artifact ID: `8859117965`
-- Artifact ZIP digest: `sha256:448d3f52c0bfb5dc50ab5abc481ca2e260832bd94fd45657025bcd7d957efa04`
-- APK SHA-256: `003a6e1ed3ab704de050fff30f35b47b187f34011acb9ed1c064ebf339b8f4e9`
-- APK 크기: `4,461,827 bytes`
-
-### 페이지로 서버
-
-- Validate Pagero CallTag Bridge Run ID: `30822112193`
-- JavaScript syntax: 성공
-- Bridge contract: 성공
-- Pages Functions regression: 성공
-- Production build: 성공
-- 전체 QA Run ID: `30822112885`
-- Full offline QA: 성공
-- form·editor·landing·template mobile 브라우저 회귀: 성공
-
----
-
-## 6. 현재 운영 제한
-
-v0.40.9 APK의 BuildConfig 정적 확인 결과 Firebase Android 값은 모두 빈 문자열이다.
-
-- `FIREBASE_APPLICATION_ID`
-- `FIREBASE_API_KEY`
-- `FIREBASE_PROJECT_ID`
-- `FIREBASE_SENDER_ID`
-
-현재 확정된 범위:
+확정:
 
 - 앱 실행·재진입 문의 동기화
-- 앱을 열어둔 동안 30초 보조 동기화
-- 실제 DB 반영 후 알림 로직
+- 앱을 열어둔 동안 최대 약 30초 보조 동기화
+- 실제 고객 DB 반영 후 알림 로직
 - 동일 문의 중복방지
 
-아직 확정되지 않은 범위:
+미확정:
 
-- 앱 종료 상태 즉시 알림
+- 앱 완전 종료 상태 즉시 알림
 - 잠금화면 즉시 알림
-- Firebase 기기 토큰 서버 등록
-- 운영 서버 FCM 실제 발송
+- Firebase 기기 토큰 운영 등록
+- 운영 FCM 실제 발송
 - 알림 터치 후 고객·상담이력 E2E
 
----
+현재 v0.40.9 APK도 Firebase Android BuildConfig 4개가 빈 값이다.
 
-## 7. 남은 패치 우선순위
+## 5. P0 — Firebase 운영 복구
 
-### P0 — Firebase 등록·운영 실시간 E2E
+1. Cloudflare `Workers & Pages > inlet` 확인
+2. `Settings > Variables and Secrets`
+3. Environment를 **Production**으로 선택
+4. 아래 세 변수 이름·값 재확인
+   - `FIREBASE_PROJECT_ID`
+   - `FIREBASE_CLIENT_EMAIL`
+   - `FIREBASE_PRIVATE_KEY`
+5. 저장 후 Production 재배포
+6. readiness 재검사에서 Firebase 항목 모두 true 확인
+7. D1 `inlet-prod`에 `0008_calltag_realtime_push.sql` 적용
+8. `d1.pushDevicesTable=true` 확인
+9. 최종 `ready=true` 확인
+10. CallTag GitHub Firebase Secret 4개 등록
+11. Firebase 값 포함 APK 재빌드
+12. APK 정적 확인 후 덮어 설치
+13. 실제 문의 → 종료·잠금화면 알림 E2E
+14. 고객·메모·상담이력·중복방지 확인
 
-1. Firebase 프로젝트 생성 또는 운영 프로젝트 선택
-2. Android 앱 패키지 `kr.pagero.calltag` 등록
-3. `google-services.json` 다운로드
-4. CallTag GitHub Actions Secret 4개 등록
-5. Firebase 서비스 계정 비공개 키 JSON 발급
-6. Cloudflare Production 환경변수 3개 등록
-7. D1 migration `0008_calltag_realtime_push.sql` 운영 적용 확인
-8. 페이지로 운영 재배포
-9. Firebase 값이 포함된 APK 재빌드
-10. APK 내부 Firebase 값 비어 있지 않음 확인
-11. 기존 앱에 덮어 설치 후 로그인·알림 권한 허용
-12. 실제 페이지로 문의 제출
-13. 앱 종료·백그라운드·잠금화면 알림 확인
-14. 알림 터치 후 신규 고객·메모·`PAGERO_INQUIRY` 확인
-15. 동일 문의 재전송 중복 미생성 확인
-16. 빠른 연속 문의 3건 전부 반영 확인
+## 6. P0 — 통화 종료 팝업 실기기 회귀
 
-### P0 — 통화 종료 팝업 실기기 회귀
+- 통화 종료 후 자동 실행
+- 30초 이상 유지
+- 에이닷·삼성 종료 화면에 밀리지 않음
+- 잠금·홈·다른 앱 사용 중 실행
+- 저장·닫기·제외 전 자동 종료 없음
 
-1. 통화 종료 후 자동 실행
-2. 손대지 않고 30초 이상 유지
-3. 에이닷·삼성 종료 화면에 다시 밀리지 않음
-4. 잠금·홈·다른 앱 사용 중 실행
-5. 저장·닫기·제외 전 자동 종료 없음
+## 7. P1
 
-### P1 — 페이지로 연결 UX
+페이지로 UX:
 
-1. 로그인 직후 페이지로 연결 상태 확인
-2. 미연결 계정의 더보기 연결 안내
-3. 알림 터치 시 고객 탭 또는 해당 고객 바로 이동
-4. 문의 유입 통계와 실제 고객 등록 수 비교
-5. 문의 접수 후속 문자 자동화 정책 확정
+- 로그인 직후 연결 상태 확인
+- 미연결 계정 더보기 안내
+- 알림 터치 시 고객 탭 또는 해당 고객 바로 이동
+- 유입 통계와 실제 등록 수 비교
+- 문의 후속 문자 자동화 정책
 
-### P1 — 전화·앱 UX 경계 조건
+앱 경계 조건:
 
-1. 미저장 번호·이름없는고객·동일 번호 결합
-2. 기능 해제 원본 복원
-3. 오프라인 8초 이내 앱 진입
-4. 작은 화면·큰 글자·키보드 팝업
-5. 사용자 화면 테스트·진단·임시 UI 추가 점검
+- 미저장 번호·이름없는고객·동일 번호 결합
+- 기능 해제 원본 보존
+- 오프라인 8초 이내 진입
+- 작은 화면·큰 글자·키보드 팝업
+- 사용자 화면의 테스트·진단·임시 UI 추가 점검
 
-### P2 — 문자·캠페인 실기기 검증
+## 8. P2·P3
 
-- SIM 1개·2개
-- 단문·장문·분할 문자
-- 이미지 문자
+P2:
+
+- SIM 1개·2개 문자 발송
+- 단문·장문·분할·이미지 문자
 - 발송 제외·중복방지
 - 예약 발송·재부팅 복구
 - 캠페인 일시정지·재개·취소·실패 안전장치
 
-### P3 — 결제·출시
+P3:
 
 - Play Billing·영수증 검증·환불·복원
 - 일반 계정 프로젝트 1개 제한·운영자 무제한
@@ -258,32 +162,15 @@ v0.40.9 APK의 BuildConfig 정적 확인 결과 Firebase Android 값은 모두 �
 - Play Console 권한·개인정보 문서 일치
 - Crash·ANR·500명 고객 성능
 
----
-
-## 8. 사용자 화면 노출 기준
-
-사용자 화면에 노출하지 않는다.
-
-- 테스트·데모·디버그·진단 원문
-- Firebase·FCM 토큰·서비스 계정
-- RawContact·Provider·CallScreeningService
-- 브랜치·커밋·빌드 상태
-- 서버 응답 원문·개발 예외명
-
-사용자에게는 현재 기능 상태, 필요한 조치, 처리된 문의 건수, 데이터 보존 여부만 표시한다.
-
----
-
 ## 9. 절대 지켜야 할 규칙
 
-- CallTag 앱은 `pc9839a-lgtm/calltag`에서 작업한다.
-- 앱 개발 정본은 `agent/calltag-foundation`이다.
-- 사용자 지시 전 CallTag `main`에 병합하지 않는다.
-- CallTag PR `#1`은 Draft 상태를 유지한다.
-- 기존 고객·메모·문자·일정·캠페인 데이터를 초기화하지 않는다.
-- 원본 Google·삼성 연락처를 직접 수정하거나 삭제하지 않는다.
-- FCM payload에 고객명·전화번호·이메일·문의 내용·메모를 넣지 않는다.
-- Firebase 서비스 계정 비공개 키를 APK·GitHub 코드·문서에 넣지 않는다.
-- 푸시 실패가 페이지로 문의 접수를 실패시키지 않게 한다.
-- 알림은 실제 고객 DB 반영 후에만 표시한다.
-- 빌드 성공을 운영 실시간 알림 E2E 성공으로 표현하지 않는다.
+- CallTag 앱 개발 정본은 `agent/calltag-foundation`
+- 사용자 지시 전 CallTag `main` 미병합
+- PR `#1` Draft 유지
+- 기존 고객·메모·문자·일정·캠페인 데이터 초기화 금지
+- 원본 Google·삼성 연락처 직접 수정·삭제 금지
+- FCM payload에 고객 개인정보 포함 금지
+- Firebase 서비스 계정 비공개 키 공개 금지
+- 푸시 실패가 페이지로 문의 접수를 실패시키지 않게 유지
+- 알림은 실제 고객 DB 반영 후 표시
+- 화면 입력·빌드 성공을 운영 E2E 완료로 표현하지 않음
