@@ -68,10 +68,10 @@ public final class MoreMenuListView extends LinearLayout {
     }
 
     private String subtitleFor(String title) {
-        if (title.contains("통화 후 처리")) return "실제 통화 없이 정리 화면 확인";
-        if (title.contains("통화 감지 끄기")) return "현재 켜짐 · 누르면 통화 감지 중지";
-        if (title.contains("통화 감지 켜기")) return "현재 꺼짐 · 누르면 통화 감지 시작";
-        if (title.contains("제외번호")) return "고객 분류에서 제외할 번호 관리";
+        if (title.contains("통화 후 처리")) return "통화가 끝난 뒤 고객 정보 남기기";
+        if (title.contains("통화 감지 끄기")) return "현재 켜짐 · 누르면 통화 확인 중지";
+        if (title.contains("통화 감지 켜기")) return "현재 꺼짐 · 누르면 통화 확인 시작";
+        if (title.contains("제외번호")) return "고객으로 등록하지 않을 번호 관리";
         return "눌러서 설정";
     }
 
