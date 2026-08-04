@@ -2,6 +2,7 @@ package kr.pagero.calltag;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -47,6 +48,8 @@ public final class CallTagApplication extends Application implements Application
             ContactNameSyncManager.requestSyncAll(this);
         }
         if (AuthSessionStore.hasSession(this)) {
+            ReferralAutoApplyManager.applyIfNeeded(this);
+            EntitlementRefreshManager.request(this, true);
             PageroLeadSyncManager.requestSync(this, true);
             PageroAccountConnectionManager.refresh(this, false);
             CallTagPushManager.registerIfAvailable(this);
@@ -78,9 +81,14 @@ public final class CallTagApplication extends Application implements Application
         if (activity instanceof MainActivity) {
             MainExitGuard.install(activity);
             if (AuthSessionStore.hasSession(activity)) {
+                ReferralAutoApplyManager.applyIfNeeded(activity);
+                EntitlementRefreshManager.request(activity, false);
                 PageroAccountConnectionManager.refresh(activity, false);
                 CallTagPushManager.registerIfAvailable(activity);
                 CallTagPushManager.refreshStatus(activity);
+                if (EntitlementNoticeActivity.shouldOpen(activity)) {
+                    activity.startActivity(new Intent(activity, EntitlementNoticeActivity.class));
+                }
             }
         }
         if (activity instanceof ManualMessageActivity) {
@@ -89,7 +97,8 @@ public final class CallTagApplication extends Application implements Application
         if (activity instanceof CallerIdSetupActivity
                 || activity instanceof InitialPermissionActivity
                 || activity instanceof AuthGateActivity
-                || activity instanceof LoginActivity) {
+                || activity instanceof LoginActivity
+                || activity instanceof EntitlementNoticeActivity) {
             routingToSetup = false;
             return;
         }
@@ -156,6 +165,8 @@ public final class CallTagApplication extends Application implements Application
                 || activity instanceof MessageSafetyHubActivity
                 || activity instanceof CampaignListActivity
                 || activity instanceof PageroConnectionActivity
+                || activity instanceof BillingEntitlementActivity
+                || activity instanceof ReferralPartnerActivity
                 || activity instanceof AccountActivity
                 || activity instanceof BackupRestoreActivity;
     }
