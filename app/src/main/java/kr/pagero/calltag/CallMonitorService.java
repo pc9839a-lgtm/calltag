@@ -9,6 +9,7 @@ import android.app.Service;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
+import android.database.ContentObserver;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -24,17 +25,31 @@ public final class CallMonitorService extends Service {
 
     private static final String MONITOR_CHANNEL = "calltag_monitor";
     private static final int MONITOR_NOTIFICATION_ID = 4101;
-    private static final long[] LOOKUP_DELAYS = {1500L, 3500L, 7000L};
-    private static final long POST_CALL_SETTLE_DELAY_MS = 1200L;
+    private static final long[] LOOKUP_DELAYS = {
+            800L, 1_200L, 2_000L, 3_500L, 5_500L, 8_000L, 12_000L, 16_000L
+    };
+    private static final long POST_CALL_SETTLE_DELAY_MS = 1_800L;
+    private static final long CALL_MATCH_TOLERANCE_MS = 20_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final ContentObserver callLogObserver = new ContentObserver(handler) {
+        @Override
+        public void onChange(boolean selfChange) {
+            if (!lookupRunning) return;
+            int generation = lookupGeneration;
+            handler.postDelayed(() -> lookupImmediately(generation), 250L);
+        }
+    };
+
     private TelephonyManager telephonyManager;
     private TelephonyCallback callback31;
     private PhoneStateListener legacyListener;
     private boolean sawCall;
     private boolean lookupRunning;
     private boolean listenerRegistered;
+    private boolean observerRegistered;
     private long callEventStartedAt;
+    private int lookupGeneration;
 
     @Override
     public void onCreate() {
@@ -48,6 +63,7 @@ public final class CallMonitorService extends Service {
         }
         startForegroundSafely();
         registerCallListener();
+        registerCallLogObserver();
     }
 
     @Override
@@ -64,6 +80,7 @@ public final class CallMonitorService extends Service {
         }
         SettingsStore.setMonitorEnabled(this, true);
         if (!listenerRegistered) registerCallListener();
+        if (!observerRegistered) registerCallLogObserver();
         return START_STICKY;
     }
 
@@ -121,6 +138,17 @@ public final class CallMonitorService extends Service {
         }
     }
 
+    private void registerCallLogObserver() {
+        if (observerRegistered || !hasRequiredPermissions()) return;
+        try {
+            getContentResolver().registerContentObserver(
+                    CallLog.Calls.CONTENT_URI, true, callLogObserver);
+            observerRegistered = true;
+        } catch (RuntimeException ignored) {
+            observerRegistered = false;
+        }
+    }
+
     private void handleCallState(int state) {
         if (state == TelephonyManager.CALL_STATE_RINGING
                 || state == TelephonyManager.CALL_STATE_OFFHOOK) {
@@ -135,41 +163,78 @@ public final class CallMonitorService extends Service {
 
             if (sawCall && !lookupRunning) {
                 lookupRunning = true;
-                lookupCall(0);
+                lookupGeneration++;
+                lookupCall(0, lookupGeneration);
             }
         }
     }
 
-    private void lookupCall(int attempt) {
+    private void lookupCall(int attempt, int generation) {
+        if (!lookupRunning || generation != lookupGeneration) return;
         if (attempt < 0 || attempt >= LOOKUP_DELAYS.length) {
-            resetLookupState();
+            resetLookupState(generation);
             return;
         }
         handler.postDelayed(() -> {
+            if (!lookupRunning || generation != lookupGeneration) return;
             if (!canMonitor()) {
                 SettingsStore.setMonitorEnabled(this, false);
-                resetLookupState();
+                resetLookupState(generation);
                 stopSelf();
                 return;
             }
 
-            CallRecord record = CallLogRepository.findLatest(this, callEventStartedAt - 120_000L);
-            if (record == null && attempt + 1 < LOOKUP_DELAYS.length) {
-                lookupCall(attempt + 1);
+            CallRecord record = findCurrentCallRecord();
+            if (!matchesCurrentCall(record)) {
+                if (attempt + 1 < LOOKUP_DELAYS.length) {
+                    lookupCall(attempt + 1, generation);
+                } else {
+                    resetLookupState(generation);
+                }
                 return;
             }
-            if (record != null && record.id != SettingsStore.lastCallId(this)) {
-                SettingsStore.setLastCallId(this, record.id);
-                onCallResolved(record);
-            }
-            resetLookupState();
+            completeLookup(record, generation);
         }, LOOKUP_DELAYS[attempt]);
+    }
+
+    private void lookupImmediately(int generation) {
+        if (!lookupRunning || generation != lookupGeneration || !canMonitor()) return;
+        CallRecord record = findCurrentCallRecord();
+        if (matchesCurrentCall(record)) completeLookup(record, generation);
+    }
+
+    private CallRecord findCurrentCallRecord() {
+        return CallLogRepository.findLatest(this, callEventStartedAt - 120_000L);
+    }
+
+    private boolean matchesCurrentCall(CallRecord record) {
+        if (record == null) return false;
+        if (record.id == SettingsStore.lastCallId(this)) return false;
+        long earliest = callEventStartedAt - CALL_MATCH_TOLERANCE_MS;
+        long recordEndedAt = record.startedAt + Math.max(0L, record.durationSec) * 1000L;
+        return record.startedAt >= earliest || recordEndedAt >= earliest;
+    }
+
+    private void completeLookup(CallRecord record, int generation) {
+        if (!lookupRunning || generation != lookupGeneration || record == null) return;
+        SettingsStore.setLastCallId(this, record.id);
+        onCallResolved(record);
+        resetLookupState(generation);
+    }
+
+    private void resetLookupState(int generation) {
+        if (generation != lookupGeneration) return;
+        sawCall = false;
+        lookupRunning = false;
+        callEventStartedAt = 0L;
+        lookupGeneration++;
     }
 
     private void resetLookupState() {
         sawCall = false;
         lookupRunning = false;
         callEventStartedAt = 0L;
+        lookupGeneration++;
     }
 
     private void onCallResolved(CallRecord record) {
@@ -281,6 +346,14 @@ public final class CallMonitorService extends Service {
     public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
         CallerOverlayCallStateWatcher.stop(this);
+        if (observerRegistered) {
+            try {
+                getContentResolver().unregisterContentObserver(callLogObserver);
+            } catch (RuntimeException ignored) {
+                // Observer may already be gone during process shutdown.
+            }
+            observerRegistered = false;
+        }
         if (telephonyManager != null && listenerRegistered) {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && callback31 != null) {
