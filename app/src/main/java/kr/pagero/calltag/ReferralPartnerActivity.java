@@ -50,6 +50,8 @@ public final class ReferralPartnerActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(buildScreen());
+        String pending = PendingReferralStore.peek(this);
+        if (!pending.isEmpty()) referralInput.setText(pending);
         render();
         refresh(false);
     }
@@ -199,6 +201,7 @@ public final class ReferralPartnerActivity extends Activity {
             try {
                 JSONObject response = AuthApiClient.applyReferral(session, code);
                 ReferralStateStore.saveMe(this, response);
+                PendingReferralStore.clear(this);
                 JSONObject entitlement = response.optJSONObject("entitlement");
                 if (entitlement != null) {
                     FeatureEntitlementStore.saveServerEntitlement(this, response);
@@ -244,7 +247,13 @@ public final class ReferralPartnerActivity extends Activity {
             referralInput.setVisibility(View.GONE);
             applyButton.setVisibility(View.GONE);
         } else {
-            benefitView.setText("등록하면 무료 이용기간이 5일 더 늘어납니다.");
+            String pending = PendingReferralStore.peek(this);
+            benefitView.setText(pending.isEmpty()
+                    ? "등록하면 무료 이용기간이 5일 더 늘어납니다."
+                    : "추천 링크의 코드가 입력되었습니다. 등록하면 5일이 추가됩니다.");
+            if (!pending.isEmpty() && referralInput.getText().toString().trim().isEmpty()) {
+                referralInput.setText(pending);
+            }
             referralInput.setVisibility(View.VISIBLE);
             applyButton.setVisibility(View.VISIBLE);
         }
