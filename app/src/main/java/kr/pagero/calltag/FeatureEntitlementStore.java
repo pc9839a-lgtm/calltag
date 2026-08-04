@@ -6,8 +6,8 @@ import android.content.SharedPreferences;
 import org.json.JSONObject;
 
 /**
- * 콜태그 기능 이용권의 로컬 표시 캐시다.
- * 최종 권한 판정은 서버 응답을 우선하며, 서버 확인 전에는 기존 개발 이용권을 유지한다.
+ * 콜태그 기능 이용권과 결제 준비 상태의 로컬 표시 캐시다.
+ * 최종 권한과 결제 가능 여부는 서버 응답을 우선한다.
  */
 public final class FeatureEntitlementStore {
     public static final String PLAN_PHONE = "call_monthly";
@@ -33,6 +33,9 @@ public final class FeatureEntitlementStore {
     private static final String KEY_REMAINING_DAYS = "remaining_days";
     private static final String KEY_PURCHASE_BLOCKED = "purchase_blocked";
     private static final String KEY_BLOCK_REASON = "block_reason";
+    private static final String KEY_PLAY_AVAILABLE = "play_billing_available";
+    private static final String KEY_PLAY_STAGE = "play_billing_stage";
+    private static final String KEY_PLAY_MESSAGE = "play_billing_message";
     private static final String KEY_LAST_CHECKED_AT = "last_checked_at";
 
     private FeatureEntitlementStore() {}
@@ -61,6 +64,8 @@ public final class FeatureEntitlementStore {
         if (entitlement == null) entitlement = response == null ? new JSONObject() : response;
         JSONObject trial = entitlement.optJSONObject("trial");
         JSONObject purchase = entitlement.optJSONObject("purchase");
+        JSONObject availability = entitlement.optJSONObject("billingAvailability");
+        JSONObject googlePlay = availability == null ? null : availability.optJSONObject("googlePlay");
 
         String plan = firstNonEmpty(
                 entitlement.optString("productCode", ""),
@@ -72,8 +77,10 @@ public final class FeatureEntitlementStore {
         boolean active = entitlement.has("active")
                 ? entitlement.optBoolean("active", false)
                 : trial != null && trial.optBoolean("active", false);
-        if (status.isEmpty()) status = trial != null && trial.optBoolean("active", false)
-                ? "trial" : active ? "active" : "inactive";
+        if (status.isEmpty()) {
+            status = trial != null && trial.optBoolean("active", false)
+                    ? "trial" : active ? "active" : "inactive";
+        }
 
         String channel = firstNonEmpty(
                 entitlement.optString("channel", ""),
@@ -105,6 +112,14 @@ public final class FeatureEntitlementStore {
             purchaseBlocked = true;
         }
 
+        boolean playAvailable = googlePlay != null
+                && googlePlay.optBoolean("available", false);
+        String playStage = googlePlay == null
+                ? "pre_registration" : googlePlay.optString("stage", "pre_registration");
+        String playMessage = googlePlay == null
+                ? "앱 결제 기능을 준비하고 있습니다."
+                : googlePlay.optString("message", "앱 결제 기능을 준비하고 있습니다.");
+
         prefs(context).edit()
                 .putBoolean(KEY_SERVER_CHECKED, true)
                 .putBoolean(KEY_ACTIVE, active)
@@ -116,6 +131,9 @@ public final class FeatureEntitlementStore {
                 .putInt(KEY_REMAINING_DAYS, remainingDays)
                 .putBoolean(KEY_PURCHASE_BLOCKED, purchaseBlocked)
                 .putString(KEY_BLOCK_REASON, blockReason)
+                .putBoolean(KEY_PLAY_AVAILABLE, playAvailable)
+                .putString(KEY_PLAY_STAGE, playStage)
+                .putString(KEY_PLAY_MESSAGE, playMessage)
                 .putLong(KEY_LAST_CHECKED_AT, System.currentTimeMillis())
                 .apply();
     }
@@ -134,7 +152,14 @@ public final class FeatureEntitlementStore {
                 value.getInt(KEY_REMAINING_DAYS, -1),
                 value.getBoolean(KEY_PURCHASE_BLOCKED, false),
                 value.getString(KEY_BLOCK_REASON, ""),
+                value.getBoolean(KEY_PLAY_AVAILABLE, false),
+                value.getString(KEY_PLAY_STAGE, "pre_registration"),
+                value.getString(KEY_PLAY_MESSAGE, "앱 결제 기능을 준비하고 있습니다."),
                 value.getLong(KEY_LAST_CHECKED_AT, 0L));
+    }
+
+    public static boolean isPlayBillingAvailable(Context context) {
+        return snapshot(context).playBillingAvailable;
     }
 
     public static boolean hasPhoneAccess(Context context) {
@@ -196,6 +221,9 @@ public final class FeatureEntitlementStore {
         public final int remainingDays;
         public final boolean purchaseBlocked;
         public final String blockReason;
+        public final boolean playBillingAvailable;
+        public final String playBillingStage;
+        public final String playBillingMessage;
         public final long lastCheckedAt;
 
         Snapshot(
@@ -209,6 +237,9 @@ public final class FeatureEntitlementStore {
                 int remainingDays,
                 boolean purchaseBlocked,
                 String blockReason,
+                boolean playBillingAvailable,
+                String playBillingStage,
+                String playBillingMessage,
                 long lastCheckedAt) {
             this.serverChecked = serverChecked;
             this.active = active;
@@ -220,6 +251,10 @@ public final class FeatureEntitlementStore {
             this.remainingDays = remainingDays;
             this.purchaseBlocked = purchaseBlocked;
             this.blockReason = blockReason == null ? "" : blockReason;
+            this.playBillingAvailable = playBillingAvailable;
+            this.playBillingStage = playBillingStage == null ? "pre_registration" : playBillingStage;
+            this.playBillingMessage = playBillingMessage == null
+                    ? "앱 결제 기능을 준비하고 있습니다." : playBillingMessage;
             this.lastCheckedAt = lastCheckedAt;
         }
 
@@ -232,7 +267,10 @@ public final class FeatureEntitlementStore {
         }
 
         public boolean canStartPlayPurchase() {
-            return serverChecked && !purchaseBlocked && !isWebSubscription();
+            return serverChecked
+                    && playBillingAvailable
+                    && !purchaseBlocked
+                    && !isWebSubscription();
         }
     }
 }
