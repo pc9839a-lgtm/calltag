@@ -1,12 +1,12 @@
 (()=>{
-  if(document.documentElement.dataset.ctFooterLinksV3)return;
-  document.documentElement.dataset.ctFooterLinksV3='1';
+  if(document.documentElement.dataset.ctFooterLinksV4)return;
+  document.documentElement.dataset.ctFooterLinksV4='1';
 
   const destinations={
-    '이용약관':'/terms.html',
-    '개인정보처리방침':'/privacy.html',
-    '환불정책':'/refund.html',
-    '고객센터':'/support.html'
+    '이용약관':'/terms/',
+    '개인정보처리방침':'/privacy/',
+    '환불정책':'/refund/',
+    '고객센터':'/support/'
   };
 
   const apply=()=>{
@@ -19,17 +19,8 @@
       if((anchor.getAttribute('href')||'').startsWith('tel:'))anchor.remove();
     });
 
-    footer.querySelectorAll('.ct-wayzi-footer__support').forEach(section=>{
-      section.querySelectorAll('a').forEach(anchor=>{
-        if((anchor.getAttribute('href')||'').startsWith('tel:'))anchor.remove();
-      });
-      section.childNodes.forEach(node=>{
-        if(node.nodeType===Node.TEXT_NODE&&/010[-\s]?5766[-\s]?9839/.test(node.textContent||''))node.remove();
-      });
-    });
-
     footer.innerHTML=footer.innerHTML
-      .replace(/<a[^>]*href="tel:01057669839"[^>]*>[^<]*<\/a>/gi,'')
+      .replace(/<a[^>]*href="tel:[^"]*"[^>]*>[\s\S]*?<\/a>/gi,'')
       .replace(/010[-\s]?5766[-\s]?9839/g,'');
   };
 
