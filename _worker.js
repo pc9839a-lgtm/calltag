@@ -13,7 +13,7 @@ export default {
     headers.set('cache-control','no-cache, no-store, must-revalidate');
 
     if (isLegal) {
-      headers.set('x-calltag-worker','v81-pagero-section-stable');
+      headers.set('x-calltag-worker','v78-google-play-cta');
       return new Response(body, {
         status: response.status,
         statusText: response.statusText,
@@ -49,10 +49,9 @@ export default {
         'calltag-pricing-redesign.js?v=20260801-37',
         'calltag-pagero-intro.js?v=20260803-intro11',
         'calltag-pagero-reveal-fix.js?v=20260802-reveal3',
-        'calltag-pagero-heading-fix.js?v=20260805-heading2',
+        'calltag-pagero-heading-fix.js?v=20260803-heading1',
         'calltag-pagero-connect-visual.js?v=20260802-connect1',
         'calltag-pagero-start-cta.js?v=20260804-cta2',
-        'calltag-pagero-clarity.js?v=20260805-clarity3',
         'calltag-pagero-industries.js?v=20260802-industries2',
         'calltag-pagero-industries-two-column.js?v=20260802-three-card1',
         'calltag-product-switcher.js?v=20260801-37',
@@ -77,7 +76,7 @@ export default {
       body = body.replace('</body>', '<script src="/assets/calltag-copy-hard-fix.js?v=20260803-hard1"></script></body>');
     }
 
-    headers.set('x-calltag-worker','v81-pagero-section-stable');
+    headers.set('x-calltag-worker','v78-google-play-cta');
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
