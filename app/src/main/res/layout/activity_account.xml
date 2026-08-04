@@ -80,7 +80,7 @@
                 android:maxLines="5"
                 android:minHeight="82dp"
                 android:padding="16dp"
-                android:text="회원정보를 확인하는 중입니다"
+                android:text="회원정보를 확인하고 있어요"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
@@ -114,7 +114,7 @@
                     android:maxLines="1"
                     android:paddingLeft="14dp"
                     android:paddingRight="10dp"
-                    android:text="회원정보 새로고침"
+                    android:text="회원정보 다시 불러오기"
                     android:textColor="@color/text_primary"
                     android:textSize="15sp"
                     android:textStyle="bold" />
