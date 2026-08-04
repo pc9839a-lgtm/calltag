@@ -45,13 +45,11 @@ versionCode: **58**
 
 Secret 또는 생성된 BuildConfig 값이 하나라도 비면 APK 빌드를 실패시키도록 CI에서 차단한다.
 
-## 4. v0.41.0 페이지로 알림 이동·배치 처리
+## 4. v0.41.0 페이지로 알림 이동·배치 처리 완료
 
-패치 브랜치:
-
-- `agent/calltag-v0410-pagero-integrity-routing`
-- PR `#38`
-- 통합 대상 `agent/calltag-foundation`
+- PR `#38`을 `agent/calltag-foundation`에 병합
+- 병합 SHA: `16eaa88035c5ad9e5ca6167b9bdda3f14749a3e8`
+- CallTag `main`: 미병합
 
 변경:
 
@@ -73,6 +71,15 @@ CI 회귀검사:
 - 여러 고객 목록 이동
 - Manifest 등록
 
+빌드:
+
+- Run ID: `30878263366`
+- Job ID: `91894045986`
+- Artifact ID: `8880329516`
+- Artifact ZIP digest: `sha256:a7c5247437d9631e5dc51f9d7367c90b49560d46f01655eaf78ba37b5bdc53db`
+- APK SHA-256: `9e01e02f99e873bb613bf6dfcb8efb25593ac189484075b67e57979a562b85f2`
+- APK 크기: `4,461,859 bytes`
+
 상세 문서:
 
 - `docs/V0410_PAGERO_NOTIFICATION_ROUTING_INTEGRITY_KO.md`
@@ -85,11 +92,17 @@ CI 회귀검사:
 - 운영 D1 기기 토큰 저장
 - 실제 운영 FCM 발송·Android 수신
 - 앱 완전 종료·잠금화면 알림
-- 전화번호 기준 고객 생성·갱신
+- 전화번호 기준 고객 생성·갱신 코드
 - 고객 메모와 `PAGERO_INQUIRY` 상담이력 저장 코드
 - eventId receipt·ACK 중복방지 코드
 - 동기화 중 추가 문의 재실행
-- Firebase 설정 포함 APK 빌드
+- 알림 단일 고객·여러 고객 이동 코드
+- Firebase 설정 포함 v0.41.0 APK 빌드
+
+주의:
+
+- receipt DB와 고객 DB가 별도이므로 두 저장 사이에서 앱 프로세스가 강제 종료되는 극단적인 구간까지 원자적 exactly-once를 보장했다고 표현하지 않는다.
+- 동일 eventId 재전송 결과는 운영 실기기 검증으로 최종 확인한다.
 
 ## 6. 남은 P0 실기기 확인
 
@@ -98,7 +111,7 @@ v0.41.0 설치 후:
 1. 문의 1건 접수 후 알림 터치 시 해당 고객 상세 이동
 2. 고객 자동 생성 또는 기존 고객 갱신 확인
 3. 문의 내용이 고객 메모에 반영되는지 확인
-4. `PAGERO_INQUIRY` 상담이력 생성 확인
+4. 고객 상세에서 페이지로 문의 상담이력 생성 확인
 5. 서로 다른 번호 문의 3건을 빠르게 접수
 6. 알림 터치 시 세 고객이 `방금 접수된 문의` 목록에 표시되는지 확인
 7. 동일 eventId 재전송 시 고객·메모·상담이력 중복 미생성 확인
