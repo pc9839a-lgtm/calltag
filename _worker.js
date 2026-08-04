@@ -13,7 +13,7 @@ export default {
     headers.set('cache-control','no-cache, no-store, must-revalidate');
 
     if (isLegal) {
-      headers.set('x-calltag-worker','v82-full-section-order');
+      headers.set('x-calltag-worker','v83-full-section-order-fix');
       return new Response(body, {
         status: response.status,
         statusText: response.statusText,
@@ -68,7 +68,7 @@ export default {
         'calltag-mobile-clean-v2.js?v=20260804-clean3',
         'calltag-mobile-history-fix.js?v=20260804-history1',
         'calltag-footer-links-v3.js?v=20260804-links5',
-        'calltag-section-order.js?v=20260805-order2'
+        'calltag-section-order.js?v=20260805-order3'
       ];
       body = body.replace('</body>', scripts.map(src => `<script src="/assets/${src}"></script>`).join('') + '</body>');
     }
@@ -77,7 +77,7 @@ export default {
       body = body.replace('</body>', '<script src="/assets/calltag-copy-hard-fix.js?v=20260803-hard1"></script></body>');
     }
 
-    headers.set('x-calltag-worker','v82-full-section-order');
+    headers.set('x-calltag-worker','v83-full-section-order-fix');
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
