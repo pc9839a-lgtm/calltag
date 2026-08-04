@@ -13,7 +13,7 @@ export default {
     headers.set('cache-control','no-cache, no-store, must-revalidate');
 
     if (isLegal) {
-      headers.set('x-calltag-worker','v78-google-play-cta');
+      headers.set('x-calltag-worker','v82-full-section-order');
       return new Response(body, {
         status: response.status,
         statusText: response.statusText,
@@ -52,7 +52,6 @@ export default {
         'calltag-pagero-heading-fix.js?v=20260803-heading1',
         'calltag-pagero-connect-visual.js?v=20260802-connect1',
         'calltag-pagero-start-cta.js?v=20260805-cta3',
-        'calltag-section-order.js?v=20260805-order1',
         'calltag-pagero-industries.js?v=20260802-industries2',
         'calltag-pagero-industries-two-column.js?v=20260802-three-card1',
         'calltag-product-switcher.js?v=20260801-37',
@@ -68,7 +67,8 @@ export default {
         'calltag-horizontal-live-fix.js?v=20260803-live1',
         'calltag-mobile-clean-v2.js?v=20260804-clean3',
         'calltag-mobile-history-fix.js?v=20260804-history1',
-        'calltag-footer-links-v3.js?v=20260804-links5'
+        'calltag-footer-links-v3.js?v=20260804-links5',
+        'calltag-section-order.js?v=20260805-order2'
       ];
       body = body.replace('</body>', scripts.map(src => `<script src="/assets/${src}"></script>`).join('') + '</body>');
     }
@@ -77,7 +77,7 @@ export default {
       body = body.replace('</body>', '<script src="/assets/calltag-copy-hard-fix.js?v=20260803-hard1"></script></body>');
     }
 
-    headers.set('x-calltag-worker','v78-google-play-cta');
+    headers.set('x-calltag-worker','v82-full-section-order');
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
