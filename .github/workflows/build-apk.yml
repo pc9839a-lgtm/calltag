@@ -74,6 +74,43 @@ jobs:
               raise SystemExit('User-facing copy regression: ' + ', '.join(failed))
           PY
 
+      - name: Verify billing and referral contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          more = Path('app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java').read_text(encoding='utf-8')
+          entitlement = Path('app/src/main/java/kr/pagero/calltag/FeatureEntitlementStore.java').read_text(encoding='utf-8')
+          billing_screen = Path('app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java').read_text(encoding='utf-8')
+          referral_screen = Path('app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java').read_text(encoding='utf-8')
+          play = Path('app/src/main/java/kr/pagero/calltag/PlayBillingManager.java').read_text(encoding='utf-8')
+          api = Path('app/src/main/java/kr/pagero/calltag/AuthApiClient.java').read_text(encoding='utf-8')
+          manifest = Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
+          gradle = Path('app/build.gradle').read_text(encoding='utf-8')
+
+          checks = {
+              'More billing entry': 'BillingEntitlementActivity.class' in more and '이용권·결제' in more,
+              'More referral entry': 'ReferralPartnerActivity.class' in more and '친구 초대·파트너' in more,
+              'bundle price 6000': 'BUNDLE_PRICE_KRW = 6000' in entitlement and '월 6,000원' in billing_screen,
+              'trial copy 3 plus 5': '기본 3일' in billing_screen and '5일' in referral_screen,
+              'server pre-purchase gate': 'verifyThenPurchase' in billing_screen and 'canStartPlayPurchase' in billing_screen,
+              'web duplicate prevention': 'isWebSubscription' in billing_screen and 'CHANNEL_WEB' in entitlement,
+              'server purchase verification': 'verifyGooglePurchase' in play and 'onServerVerified' in play,
+              'server restore verification': 'restoreGooglePurchases' in play,
+              'referral apply endpoint': '/api/referrals/apply' in api,
+              'billing endpoint': '/api/billing/entitlements' in api,
+              'activities registered': '.BillingEntitlementActivity' in manifest and '.ReferralPartnerActivity' in manifest,
+              'Play Billing 9.1': 'com.android.billingclient:billing:9.1.0' in gradle,
+          }
+          failed = [name for name, passed in checks.items() if not passed]
+          for name, passed in checks.items():
+              print(f'{name}={"ok" if passed else "missing"}')
+          if failed:
+              raise SystemExit('Billing/referral contract failed: ' + ', '.join(failed))
+          PY
+
       - name: Verify PageRo routing contract
         shell: bash
         run: |
@@ -145,5 +182,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.41.1-user-copy-pagero-ux-debug-apk
+          name: calltag-v0.42.0-billing-referral-p0-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
