@@ -50,13 +50,11 @@ versionCode: **59**
 - 고객 메모와 페이지로 문의 상담이력 저장
 - 같은 문의 반복 처리 방지
 
-## 4. v0.41.1 사용자 문구·페이지로 연결 화면 개선
+## 4. v0.41.1 사용자 문구·페이지로 연결 화면 개선 완료
 
-패치 브랜치:
-
-- `agent/calltag-v0411-user-copy-pagero-ux`
-- 통합 대상 `agent/calltag-foundation`
-- CallTag `main` 미병합
+- PR `#39`을 `agent/calltag-foundation`에 병합
+- 병합 SHA: `0e7059fefee09f71260038ffc1c9bc3421f97829`
+- CallTag `main`: 미병합
 
 페이지로 화면:
 
@@ -86,6 +84,23 @@ versionCode: **59**
 - 페이지로 화면에 개발 용어가 다시 들어오면 빌드 실패
 - 앱 진단 메뉴가 다시 연결되면 빌드 실패
 - 권한·계정 화면에서 내부 표현이나 예외 원문이 다시 노출되면 빌드 실패
+
+빌드:
+
+- Run ID: `30885474095`
+- Job ID: `91915611094`
+- Artifact ID: `8882921194`
+- Artifact ZIP digest: `sha256:96861356be9cbe9da02d5f3c56513a2695d498253489e0433a859910ecd83aa4`
+- APK SHA-256: `586e49fc25f9b64e24c05b61eedfc1eade2e9855852a5cf9fe236a0438e53e10`
+- APK 크기: `4,461,863 bytes`
+
+통과:
+
+- Firebase 빌드 설정
+- 사용자 문구 검사
+- 페이지로 기존 기능 회귀검사
+- Java·리소스·Manifest·APK 패키징
+- Firebase BuildConfig 확인
 
 상세 문서:
 
