@@ -19,6 +19,8 @@ import com.android.billingclient.api.ProductDetails;
 
 import org.json.JSONObject;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 /** 더보기 > 이용권·결제. */
@@ -35,12 +37,18 @@ public final class BillingEntitlementActivity extends Activity
     private TextView stateTitle;
     private TextView stateDetail;
     private TextView stateMeta;
+    private TextView billingNoticeTitle;
+    private TextView billingNoticeDetail;
     private TextView refreshButton;
     private TextView bundleButton;
     private TextView phoneButton;
     private TextView messageButton;
+    private TextView restoreButton;
+    private TextView manageButton;
     private PlayBillingManager billing;
+    private Map<String, ProductDetails> playProducts = Collections.emptyMap();
     private boolean working;
+    private boolean productQueryCompleted;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,7 +57,6 @@ public final class BillingEntitlementActivity extends Activity
         billing = new PlayBillingManager(this, this);
         render();
         refreshEntitlement(false);
-        billing.connectAndLoad();
     }
 
     @Override
@@ -95,6 +102,13 @@ public final class BillingEntitlementActivity extends Activity
         statusCard.addView(stateMeta, top(8));
         root.addView(statusCard, top(22));
 
+        LinearLayout billingNotice = card();
+        billingNoticeTitle = text("앱 결제 준비 상태", 16f, TEXT, true);
+        billingNoticeDetail = text("결제 가능 여부를 확인하고 있어요.", 14f, SUBTEXT, false);
+        billingNotice.addView(billingNoticeTitle, full());
+        billingNotice.addView(billingNoticeDetail, top(8));
+        root.addView(billingNotice, top(12));
+
         root.addView(sectionTitle("이용할 상품"), top(28));
         LinearLayout bundle = productCard(
                 "통합권",
@@ -123,13 +137,20 @@ public final class BillingEntitlementActivity extends Activity
         message.addView(messageButton, fixedTop(48, 16));
         root.addView(message, top(12));
 
-        TextView restore = button("Google Play 구매 복원", false);
-        restore.setOnClickListener(v -> billing.restore());
-        root.addView(restore, fixedTop(50, 18));
+        restoreButton = button("Google Play 구매 복원", false);
+        restoreButton.setOnClickListener(v -> {
+            FeatureEntitlementStore.Snapshot snapshot = FeatureEntitlementStore.snapshot(this);
+            if (!snapshot.playBillingAvailable) {
+                showPlayPreparing(snapshot);
+                return;
+            }
+            billing.restore();
+        });
+        root.addView(restoreButton, fixedTop(50, 18));
 
-        TextView manage = button("Google Play 구독 관리", false);
-        manage.setOnClickListener(v -> openPlaySubscriptions());
-        root.addView(manage, fixedTop(50, 10));
+        manageButton = button("Google Play 구독 관리", false);
+        manageButton.setOnClickListener(v -> openPlaySubscriptions());
+        root.addView(manageButton, fixedTop(50, 10));
 
         LinearLayout pagero = card();
         pagero.addView(text("랜딩페이지만 필요하신가요?", 16f, TEXT, true), full());
@@ -163,18 +184,34 @@ public final class BillingEntitlementActivity extends Activity
                 runOnUiThread(() -> {
                     setWorking(false);
                     render();
-                    if (notify) Toast.makeText(this, "최신 이용권을 확인했어요.", Toast.LENGTH_SHORT).show();
+                    maybeLoadPlayProducts();
+                    if (notify) {
+                        Toast.makeText(this, "최신 이용권을 확인했어요.", Toast.LENGTH_SHORT).show();
+                    }
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
                     setWorking(false);
                     render();
-                    if (notify) Toast.makeText(this,
-                            "이용권을 확인하지 못했어요. 인터넷 연결을 확인해주세요.",
-                            Toast.LENGTH_LONG).show();
+                    if (notify) {
+                        Toast.makeText(this,
+                                "이용권을 확인하지 못했어요. 인터넷 연결을 확인해주세요.",
+                                Toast.LENGTH_LONG).show();
+                    }
                 });
             }
         }, "calltag-entitlement-refresh").start();
+    }
+
+    private void maybeLoadPlayProducts() {
+        FeatureEntitlementStore.Snapshot snapshot = FeatureEntitlementStore.snapshot(this);
+        if (!snapshot.playBillingAvailable) {
+            productQueryCompleted = false;
+            playProducts = Collections.emptyMap();
+            render();
+            return;
+        }
+        billing.connectAndLoad();
     }
 
     private void verifyThenPurchase(String productId) {
@@ -189,12 +226,13 @@ public final class BillingEntitlementActivity extends Activity
             try {
                 JSONObject response = AuthApiClient.billingEntitlements(session);
                 FeatureEntitlementStore.saveServerEntitlement(this, response);
-                FeatureEntitlementStore.Snapshot snapshot =
-                        FeatureEntitlementStore.snapshot(this);
+                FeatureEntitlementStore.Snapshot snapshot = FeatureEntitlementStore.snapshot(this);
                 runOnUiThread(() -> {
                     setWorking(false);
                     render();
-                    if (snapshot.isWebSubscription()) {
+                    if (!snapshot.playBillingAvailable) {
+                        showPlayPreparing(snapshot);
+                    } else if (snapshot.isWebSubscription()) {
                         showBlocked("페이지로에서 구독 중입니다.",
                                 "현재 앱에서 다시 결제하지 않아도 됩니다.");
                     } else if (!snapshot.canStartPlayPurchase()) {
@@ -219,8 +257,8 @@ public final class BillingEntitlementActivity extends Activity
         FeatureEntitlementStore.Snapshot value = FeatureEntitlementStore.snapshot(this);
         if (!value.serverChecked) {
             stateTitle.setText("이용권 확인 필요");
-            stateDetail.setText("결제 전 서버에서 현재 구독을 확인합니다.");
-            stateMeta.setText("중복 결제를 막기 위해 확인 전에는 결제를 시작하지 않습니다.");
+            stateDetail.setText("현재 이용권을 확인하고 있습니다.");
+            stateMeta.setText("확인 전에는 결제를 시작하지 않습니다.");
         } else if (value.isTrial() && value.active) {
             stateTitle.setText("무료 이용 중");
             stateDetail.setText(value.remainingDays >= 0
@@ -246,15 +284,69 @@ public final class BillingEntitlementActivity extends Activity
             stateDetail.setText("원하는 상품을 선택해 이용할 수 있어요.");
             stateMeta.setText("무료 이용 종료 후 자동 결제되지 않습니다.");
         }
-        boolean enabled = value.serverChecked && !working && !value.purchaseBlocked;
-        setProductEnabled(bundleButton, enabled);
-        setProductEnabled(phoneButton, enabled);
-        setProductEnabled(messageButton, enabled);
+
+        if (!value.serverChecked) {
+            billingNoticeTitle.setText("결제 가능 여부 확인 중");
+            billingNoticeDetail.setText("확인이 끝나기 전에는 결제되지 않습니다.");
+        } else if (!value.playBillingAvailable) {
+            billingNoticeTitle.setText("Google Play 결제 준비 중");
+            billingNoticeDetail.setText(value.playBillingMessage);
+        } else if (!productQueryCompleted) {
+            billingNoticeTitle.setText("Google Play 상품 확인 중");
+            billingNoticeDetail.setText("등록된 결제 상품을 불러오고 있습니다.");
+        } else if (playProducts.isEmpty()) {
+            billingNoticeTitle.setText("Google Play 상품 확인 필요");
+            billingNoticeDetail.setText("결제 상품을 불러오지 못했습니다. 잠시 후 다시 확인해주세요.");
+        } else {
+            billingNoticeTitle.setText("Google Play 결제 사용 가능");
+            billingNoticeDetail.setText("결제 직전 기존 구독을 다시 확인해 중복 결제를 막습니다.");
+        }
+
+        updateProductButton(bundleButton, "통합권 결제", FeatureEntitlementStore.PLAN_BUNDLE, value);
+        updateProductButton(phoneButton, "전화관리 결제", FeatureEntitlementStore.PLAN_PHONE, value);
+        updateProductButton(messageButton, "문자자동화 결제", FeatureEntitlementStore.PLAN_MESSAGE, value);
+
+        boolean playEnabled = value.serverChecked && value.playBillingAvailable && !working;
+        setEnabled(restoreButton, playEnabled);
+        boolean showManage = value.playBillingAvailable
+                || FeatureEntitlementStore.CHANNEL_GOOGLE_PLAY.equals(value.channel);
+        manageButton.setVisibility(showManage ? View.VISIBLE : View.GONE);
+        setEnabled(manageButton, showManage && !working);
+    }
+
+    private void updateProductButton(
+            TextView view,
+            String normalLabel,
+            String productId,
+            FeatureEntitlementStore.Snapshot snapshot) {
+        if (!snapshot.serverChecked || working) {
+            view.setText("확인 중…");
+            setEnabled(view, false);
+            return;
+        }
+        if (!snapshot.playBillingAvailable) {
+            view.setText("출시 준비 중");
+            setEnabled(view, false);
+            return;
+        }
+        if (!productQueryCompleted || !playProducts.containsKey(productId)) {
+            view.setText("상품 확인 중");
+            setEnabled(view, false);
+            return;
+        }
+        view.setText(normalLabel);
+        setEnabled(view, snapshot.canStartPlayPurchase());
     }
 
     @Override
     public void onBillingReady(Map<String, ProductDetails> products) {
-        // Play Console에 등록된 상품만 실제 결제 단계에서 사용한다.
+        runOnUiThread(() -> {
+            productQueryCompleted = FeatureEntitlementStore.isPlayBillingAvailable(this);
+            playProducts = products == null
+                    ? Collections.emptyMap()
+                    : Collections.unmodifiableMap(new HashMap<>(products));
+            render();
+        });
     }
 
     @Override
@@ -284,10 +376,18 @@ public final class BillingEntitlementActivity extends Activity
         render();
     }
 
-    private void setProductEnabled(TextView view, boolean enabled) {
+    private void setEnabled(TextView view, boolean enabled) {
         if (view == null) return;
         view.setEnabled(enabled);
         view.setAlpha(enabled ? 1f : 0.52f);
+    }
+
+    private void showPlayPreparing(FeatureEntitlementStore.Snapshot snapshot) {
+        String message = snapshot.playBillingMessage == null
+                ? "앱 결제 기능을 준비하고 있습니다."
+                : snapshot.playBillingMessage;
+        showBlocked("Google Play 결제 준비 중",
+                message + " 준비가 끝나기 전에는 결제가 진행되지 않습니다.");
     }
 
     private void showBlocked(String title, String message) {
@@ -412,9 +512,7 @@ public final class BillingEntitlementActivity extends Activity
     private String displayDate(String raw) {
         if (raw == null) return "";
         String value = raw.trim();
-        if (value.length() >= 10) {
-            return value.substring(0, 10).replace('-', '.');
-        }
+        if (value.length() >= 10) return value.substring(0, 10).replace('-', '.');
         return value;
     }
 }
