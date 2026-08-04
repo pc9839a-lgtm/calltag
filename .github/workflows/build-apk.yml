@@ -123,13 +123,44 @@ jobs:
               'referral auto apply': 'AuthApiClient.applyReferral' in auto_referral,
               'referral app links registered': 'android:host="referral"' in manifest and 'android:pathPrefix="/r/"' in manifest,
               'partner center excluded': '파트너센터 열기' not in referral_screen,
-              'version 0.42.2': "versionName '0.42.2'" in gradle and 'versionCode 62' in gradle,
+              'version 0.42.3': "versionName '0.42.3'" in gradle and 'versionCode 63' in gradle,
           }
           failed = [name for name, passed in checks.items() if not passed]
           for name, passed in checks.items():
               print(f'{name}={"ok" if passed else "missing"}')
           if failed:
               raise SystemExit('Billing/referral contract failed: ' + ', '.join(failed))
+          PY
+
+      - name: Verify post-call popup reliability contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          monitor = Path('app/src/main/java/kr/pagero/calltag/CallMonitorService.java').read_text(encoding='utf-8')
+          launcher = Path('app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java').read_text(encoding='utf-8')
+          receipt = Path('app/src/main/java/kr/pagero/calltag/PostCallLaunchReceipt.java').read_text(encoding='utf-8')
+          guard = Path('app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java').read_text(encoding='utf-8')
+          application = Path('app/src/main/java/kr/pagero/calltag/CallTagApplication.java').read_text(encoding='utf-8')
+
+          checks = {
+              'already processed call log keeps retrying': 'record.id == SettingsStore.lastCallId(this)' in monitor and 'lookupCall(attempt + 1, generation)' in monitor,
+              'call log observer accelerates delayed insertion': 'registerContentObserver' in monitor and 'lookupImmediately' in monitor,
+              'lookup retry window is extended': '16_000L' in monitor and '12_000L' in monitor,
+              'pending intent success is verified': 'PostCallDeliveryGuard.schedule' in launcher and 'PostCallLaunchReceipt.arm' in launcher,
+              'activity lifecycle acknowledges visibility': 'PostCallLaunchReceipt.markVisible' in application,
+              'suppressed activity has second attempt': 'app.startActivity(new Intent(review))' in guard,
+              'suppressed activity leaves notification fallback': 'CallPopupNotificationManager.showPostCall' in guard,
+              'duplicate gate only accepts visible popup': 'PostCallLaunchReceipt.wasVisible' in launcher,
+              'stale popup is closed before next call': 'closeStaleActivity' in launcher and 'WeakReference<Activity>' in receipt,
+          }
+          failed = [name for name, passed in checks.items() if not passed]
+          for name, passed in checks.items():
+              print(f'{name}={"ok" if passed else "missing"}')
+          if failed:
+              raise SystemExit('Post-call reliability contract failed: ' + ', '.join(failed))
           PY
 
       - name: Verify PageRo routing contract
@@ -203,5 +234,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.42.2-entitlement-lifecycle-debug-apk
+          name: calltag-v0.42.3-post-call-reliability-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
