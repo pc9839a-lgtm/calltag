@@ -1,5 +1,6 @@
 package kr.pagero.calltag;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -92,6 +93,47 @@ public final class AuthApiClient {
         return post("/api/call/delete-account", new JSONObject()
                 .put("session", session)
                 .put("confirm", "DELETE"), session);
+    }
+
+    public static JSONObject billingEntitlements(String session) throws Exception {
+        return get("/api/billing/entitlements", session);
+    }
+
+    public static JSONObject billingSubscriptions(String session) throws Exception {
+        return get("/api/billing/subscriptions", session);
+    }
+
+    public static JSONObject referralMe(String session) throws Exception {
+        return get("/api/referrals/me", session);
+    }
+
+    public static JSONObject referralSummary(String session) throws Exception {
+        return get("/api/referrals/summary", session);
+    }
+
+    public static JSONObject applyReferral(String session, String code) throws Exception {
+        return post("/api/referrals/apply", new JSONObject()
+                .put("code", clean(code).toUpperCase()), session);
+    }
+
+    public static JSONObject verifyGooglePurchase(
+            String session,
+            String productId,
+            String purchaseToken,
+            String orderId) throws Exception {
+        return post("/api/billing/google/verify", new JSONObject()
+                .put("packageName", "kr.pagero.calltag")
+                .put("productId", clean(productId))
+                .put("purchaseToken", clean(purchaseToken))
+                .put("orderId", clean(orderId)), session);
+    }
+
+    public static JSONObject restoreGooglePurchases(
+            String session,
+            JSONArray purchases) throws Exception {
+        return post("/api/billing/google/restore", new JSONObject()
+                .put("packageName", "kr.pagero.calltag")
+                .put("purchases", purchases == null ? new JSONArray() : purchases), session);
     }
 
     private static String clean(String value) {
