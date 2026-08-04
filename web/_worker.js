@@ -1,11 +1,41 @@
 export default {
   async fetch(request, env) {
-    const response = await env.ASSETS.fetch(request);
-    const type = response.headers.get('content-type') || '';
+    const url = new URL(request.url);
+    const legalRoutes = {
+      '/terms': '/terms.html',
+      '/privacy': '/privacy.html',
+      '/refund': '/refund.html'
+    };
+    const legalPaths = new Set(['/terms','/privacy','/refund','/terms.html','/privacy.html','/refund.html']);
+    const isLegal = legalPaths.has(url.pathname);
 
+    let assetRequest = request;
+    if (legalRoutes[url.pathname]) {
+      const assetUrl = new URL(request.url);
+      assetUrl.pathname = legalRoutes[url.pathname];
+      assetRequest = new Request(assetUrl.toString(), request);
+    }
+
+    const response = await env.ASSETS.fetch(assetRequest);
+    const type = response.headers.get('content-type') || '';
     if (!type.includes('text/html')) return response;
 
     let body = await response.text();
+    const headers = new Headers(response.headers);
+    ['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));
+    headers.set('content-type','text/html; charset=UTF-8');
+    headers.set('cache-control','no-cache, no-store, must-revalidate');
+
+    if (isLegal) {
+      headers.set('x-calltag-worker','v69-legal-pages');
+      return new Response(body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+        encodeBody: 'automatic'
+      });
+    }
+
     body = body
       .replace(/<title>[\s\S]*?<\/title>/i, '<title>페이지로와 콜태그 | 고객 접수부터 후속관리까지</title>')
       .replace(/<meta name="description" content="[^"]*"\s*\/?>/i, '<meta name="description" content="페이지로 랜딩페이지에서 받은 고객 문의를 콜태그 앱에 자동 등록하고, 통화·문자·일정·후속관리까지 한 번에 관리합니다." />')
@@ -46,7 +76,7 @@ export default {
         'calltag-horizontal-impact.js?v=20260803-impact2',
         'calltag-feature-copy-exact.js?v=20260803-copy3',
         'calltag-section-motion.js?v=20260803-motion2',
-        'calltag-site-final-cleanup.js?v=20260803-final1',
+        'calltag-site-final-cleanup.js?v=20260804-footer2',
         'calltag-horizontal-live-fix.js?v=20260803-live1',
         'calltag-mobile-clean-v2.js?v=20260804-clean2'
       ];
@@ -57,12 +87,7 @@ export default {
       body = body.replace('</body>', '<script src="/assets/calltag-copy-hard-fix.js?v=20260803-hard1"></script></body>');
     }
 
-    const headers = new Headers(response.headers);
-    ['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));
-    headers.set('content-type','text/html; charset=UTF-8');
-    headers.set('cache-control','no-cache, no-store, must-revalidate');
-    headers.set('x-calltag-worker','v68-mobile-vertical');
-
+    headers.set('x-calltag-worker','v69-legal-footer');
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
