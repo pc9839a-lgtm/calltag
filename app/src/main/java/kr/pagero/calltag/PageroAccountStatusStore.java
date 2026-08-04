@@ -22,13 +22,13 @@ public final class PageroAccountStatusStore {
         JSONObject value = response == null ? null : response.optJSONObject("connection");
         if (value == null && response != null) value = response.optJSONObject("pageroConnection");
         if (value == null) {
-            saveUnknown(context, "페이지로 계정 연결 여부를 확인하지 못했습니다. 더보기 > 페이지로 연결에서 나중에 확인할 수 있습니다.");
+            saveUnknown(context, defaultMessage(UNKNOWN));
             return;
         }
         String status = normalize(value.optString("status", UNKNOWN));
         prefs(context).edit()
                 .putString(KEY_STATUS, status)
-                .putString(KEY_MESSAGE, value.optString("message", defaultMessage(status)))
+                .putString(KEY_MESSAGE, defaultMessage(status))
                 .putInt(KEY_PROJECT_COUNT, Math.max(0, value.optInt("projectCount", 0)))
                 .putLong(KEY_CHECKED_AT, System.currentTimeMillis())
                 .apply();
@@ -37,7 +37,7 @@ public final class PageroAccountStatusStore {
     public static void saveUnknown(Context context, String message) {
         prefs(context).edit()
                 .putString(KEY_STATUS, UNKNOWN)
-                .putString(KEY_MESSAGE, message == null ? defaultMessage(UNKNOWN) : message.trim())
+                .putString(KEY_MESSAGE, friendly(message, UNKNOWN))
                 .putInt(KEY_PROJECT_COUNT, 0)
                 .putLong(KEY_CHECKED_AT, System.currentTimeMillis())
                 .apply();
@@ -48,7 +48,7 @@ public final class PageroAccountStatusStore {
         String status = normalize(value.getString(KEY_STATUS, UNKNOWN));
         return new Snapshot(
                 status,
-                value.getString(KEY_MESSAGE, defaultMessage(status)),
+                friendly(value.getString(KEY_MESSAGE, ""), status),
                 value.getInt(KEY_PROJECT_COUNT, 0),
                 value.getLong(KEY_CHECKED_AT, 0L));
     }
@@ -67,11 +67,24 @@ public final class PageroAccountStatusStore {
     }
 
     private static String defaultMessage(String status) {
-        if (CONNECTED.equals(status)) return "페이지로 계정이 확인되었습니다.";
+        if (CONNECTED.equals(status)) return "페이지로 문의 연결이 완료됐어요.";
         if (NOT_CONNECTED.equals(status)) {
-            return "페이지로 계정이 확인되지 않았습니다. 콜태그는 계속 사용할 수 있으며 더보기 > 페이지로 연결에서 나중에 설정할 수 있습니다.";
+            return "페이지로에서 같은 이메일로 로그인하면 자동으로 연결돼요.";
         }
-        return "페이지로 계정 연결 여부를 확인하지 못했습니다. 콜태그는 계속 사용할 수 있으며 더보기 > 페이지로 연결에서 나중에 확인할 수 있습니다.";
+        return "연결 상태를 확인하고 있어요. 잠시 후 다시 확인해주세요.";
+    }
+
+    private static String friendly(String raw, String status) {
+        String value = raw == null ? "" : raw.trim();
+        if (value.isEmpty()
+                || value.contains("서버")
+                || value.contains("API")
+                || value.contains("status")
+                || value.contains("error")
+                || value.contains("code")) {
+            return defaultMessage(status);
+        }
+        return value;
     }
 
     public static final class Snapshot {
