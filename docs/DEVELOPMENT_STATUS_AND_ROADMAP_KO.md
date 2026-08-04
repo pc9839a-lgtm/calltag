@@ -49,74 +49,84 @@ Android v0.40.9:
 - 만료 토큰 자동 비활성화
 - 푸시 실패와 문의 접수 성공 분리
 
-## 3. Firebase 운영 확인 결과
+## 3. Firebase·D1 운영 서버 준비 완료
 
-2026-08-04 최신 Cloudflare Production 배포를 실제 조회했다.
+2026-08-04 최신 Cloudflare Production 배포와 운영 D1 `inlet-prod`를 실제 조회했다.
 
+- 확인 배포: `https://89a7a596.inlet-8mr.pages.dev`
 - Readiness endpoint: `/api/call/push/readiness`
-- Workflow Run ID: `30870665532`
-- Job ID: `91871834819`
-- 확인 시각: `2026-08-04T02:04:19.406Z`
+- Workflow Run ID: `30871387043`
+- Job ID: `91875065527`
+- 확인 시각: `2026-08-04T02:26:12.061Z`
 
 | 항목 | 결과 |
 |---|---|
-| `FIREBASE_PROJECT_ID` | false |
-| `FIREBASE_CLIENT_EMAIL` | false |
-| `FIREBASE_PRIVATE_KEY` | false |
-| Firebase configured | false |
+| `FIREBASE_PROJECT_ID` | true |
+| `FIREBASE_CLIENT_EMAIL` | true |
+| `FIREBASE_PRIVATE_KEY` | true |
+| Firebase configured | true |
 | D1 `DB` 바인딩 | true |
-| `calltag_push_devices` 테이블 | false |
-| 최종 ready | false |
+| `calltag_push_devices` 테이블 | true |
+| 최종 ready | true |
 
 판정:
 
-- Cloudflare 화면 입력 완료 주장과 실제 Production 런타임 상태가 일치하지 않는다.
-- 다른 프로젝트 또는 Preview에 등록했거나, 저장 후 Production 재배포가 빠졌을 가능성이 높다.
-- 운영 실시간 푸시는 아직 완료가 아니다.
+- Cloudflare `inlet` Production 서버용 Firebase 변수 3개 등록 완료
+- D1 `migrations/0008_calltag_realtime_push.sql` 적용 완료
+- `calltag_push_devices` 테이블과 조회 인덱스 생성 완료
+- 페이지로 서버는 FCM 발송 준비 완료
+- 비공개 키 원문은 로그·문서·응답에 노출하지 않음
 
-상세 조치:
+상세 문서:
 
 - `docs/FIREBASE_REGISTRATION_GUIDE_KO.md`
 - `docs/V0409_PAGERO_REALTIME_ALERT_KO.md`
+- 서버 `pc9839a-lgtm/inlet/docs/CALLTAG_PAGERO_REALTIME_PUSH_KO.md`
 
 ## 4. 현재 동작 가능한 범위
 
-확정:
+서버 확정:
+
+- Firebase HTTP v1 발송 설정
+- 운영 D1 기기 토큰 저장 테이블
+- 문의 저장과 푸시 실패 분리
+- 개인정보 없는 신호 payload
+- 잘못된·만료 토큰 비활성화
+
+앱에서 이미 확정된 범위:
 
 - 앱 실행·재진입 문의 동기화
 - 앱을 열어둔 동안 최대 약 30초 보조 동기화
 - 실제 고객 DB 반영 후 알림 로직
 - 동일 문의 중복방지
 
-미확정:
+아직 미확정:
 
 - 앱 완전 종료 상태 즉시 알림
 - 잠금화면 즉시 알림
 - Firebase 기기 토큰 운영 등록
-- 운영 FCM 실제 발송
+- 운영 FCM 실제 발송 E2E
 - 알림 터치 후 고객·상담이력 E2E
 
-현재 v0.40.9 APK도 Firebase Android BuildConfig 4개가 빈 값이다.
+현재 v0.40.9 APK는 Firebase Android BuildConfig 4개가 빈 값이다.
 
-## 5. P0 — Firebase 운영 복구
+## 5. P0 — Android Firebase 빌드·실기기 E2E
 
-1. Cloudflare `Workers & Pages > inlet` 확인
-2. `Settings > Variables and Secrets`
-3. Environment를 **Production**으로 선택
-4. 아래 세 변수 이름·값 재확인
-   - `FIREBASE_PROJECT_ID`
-   - `FIREBASE_CLIENT_EMAIL`
-   - `FIREBASE_PRIVATE_KEY`
-5. 저장 후 Production 재배포
-6. readiness 재검사에서 Firebase 항목 모두 true 확인
-7. D1 `inlet-prod`에 `0008_calltag_realtime_push.sql` 적용
-8. `d1.pushDevicesTable=true` 확인
-9. 최종 `ready=true` 확인
-10. CallTag GitHub Firebase Secret 4개 등록
-11. Firebase 값 포함 APK 재빌드
-12. APK 정적 확인 후 덮어 설치
-13. 실제 문의 → 종료·잠금화면 알림 E2E
-14. 고객·메모·상담이력·중복방지 확인
+1. CallTag GitHub Actions Secret 4개 등록
+   - `CALLTAG_FIREBASE_APPLICATION_ID`
+   - `CALLTAG_FIREBASE_API_KEY`
+   - `CALLTAG_FIREBASE_PROJECT_ID`
+   - `CALLTAG_FIREBASE_SENDER_ID`
+2. Firebase 값 포함 APK 재빌드
+3. APK 내부 BuildConfig 4개 값 비어 있지 않음 확인
+4. 기존 앱에 덮어 설치
+5. 로그인 후 알림 권한 허용
+6. FCM 기기 토큰이 `calltag_push_devices`에 등록되는지 확인
+7. 실제 페이지로 문의 1건 제출
+8. 앱 종료·백그라운드·잠금화면 알림 확인
+9. 알림 터치 후 고객·메모·`PAGERO_INQUIRY` 확인
+10. 동일 eventId 중복 미생성 확인
+11. 빠른 연속 문의 3건 전부 반영 확인
 
 ## 6. P0 — 통화 종료 팝업 실기기 회귀
 
@@ -173,4 +183,4 @@ P3:
 - Firebase 서비스 계정 비공개 키 공개 금지
 - 푸시 실패가 페이지로 문의 접수를 실패시키지 않게 유지
 - 알림은 실제 고객 DB 반영 후 표시
-- 화면 입력·빌드 성공을 운영 E2E 완료로 표현하지 않음
+- 서버 `ready=true`와 앱 실기기 E2E 완료를 구분
