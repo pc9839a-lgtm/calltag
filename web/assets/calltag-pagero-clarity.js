@@ -1,1 +1,0 @@
-(()=>{if(document.documentElement.dataset.ctPageroClarityLoader)return;document.documentElement.dataset.ctPageroClarityLoader='1';const s=document.createElement('script');s.src='https://calltag.pagero.kr/assets/calltag-pagero-clarity.js?v=20260805-clarity3';s.defer=true;document.head.append(s)})();
