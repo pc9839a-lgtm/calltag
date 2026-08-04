@@ -77,58 +77,77 @@ Android v0.40.9:
 - 페이지로 서버는 FCM 발송 준비 완료
 - 비공개 키 원문은 로그·문서·응답에 노출하지 않음
 
-상세 문서:
+## 4. CallTag Android Firebase 설정·빌드 완료
 
-- `docs/FIREBASE_REGISTRATION_GUIDE_KO.md`
-- `docs/V0409_PAGERO_REALTIME_ALERT_KO.md`
-- 서버 `pc9839a-lgtm/inlet/docs/CALLTAG_PAGERO_REALTIME_PUSH_KO.md`
+사용자가 CallTag GitHub Actions Secrets에 Android용 Firebase 값 4개를 이미 등록한 상태임을 실제 빌드로 확인했다.
 
-## 4. 현재 동작 가능한 범위
+검증 PR:
 
-서버 확정:
+- PR `#37`을 `agent/calltag-foundation`에 병합
+- 병합 SHA: `9b8318c606f08674aca9cbd20ac9f0cacf52e202`
 
-- Firebase HTTP v1 발송 설정
+검증 Build:
+
+- Workflow Run ID: `30872373416`
+- Job ID: `91876823885`
+- `CALLTAG_FIREBASE_APPLICATION_ID`: configured
+- `CALLTAG_FIREBASE_API_KEY`: configured
+- `CALLTAG_FIREBASE_PROJECT_ID`: configured
+- `CALLTAG_FIREBASE_SENDER_ID`: configured
+- 생성된 `BuildConfig.FIREBASE_APPLICATION_ID`: configured
+- 생성된 `BuildConfig.FIREBASE_API_KEY`: configured
+- 생성된 `BuildConfig.FIREBASE_PROJECT_ID`: configured
+- 생성된 `BuildConfig.FIREBASE_SENDER_ID`: configured
+- Java·리소스·Manifest·Debug APK 빌드 성공
+
+검증 APK:
+
+- Artifact ID: `8878338508`
+- Artifact ZIP digest: `sha256:41f23f1e483308ed7f3c02af8571ccba1a95d388494936df5624f9197f6796dd`
+- APK SHA-256: `2fb039d9782dedc01abefa02507dd2b5a7401867e5fd0862804c12cd6c101719`
+- APK 크기: `4,461,827 bytes`
+
+앞으로 Firebase Secret 4개 중 하나라도 비어 있거나 생성된 BuildConfig에 값이 들어가지 않으면 APK 빌드가 실패하도록 CI 검증을 추가했다.
+
+## 5. 현재 확정·미확정 범위
+
+확정:
+
+- 페이지로 서버 Firebase HTTP v1 발송 준비
 - 운영 D1 기기 토큰 저장 테이블
+- Firebase 설정이 포함된 CallTag v0.40.9 APK 빌드
 - 문의 저장과 푸시 실패 분리
 - 개인정보 없는 신호 payload
-- 잘못된·만료 토큰 비활성화
-
-앱에서 이미 확정된 범위:
-
 - 앱 실행·재진입 문의 동기화
-- 앱을 열어둔 동안 최대 약 30초 보조 동기화
+- 앱 전면 30초 보조 동기화
 - 실제 고객 DB 반영 후 알림 로직
 - 동일 문의 중복방지
 
-아직 미확정:
+실기기 미확정:
 
+- Firebase 기기 토큰 운영 서버 등록
 - 앱 완전 종료 상태 즉시 알림
-- 잠금화면 즉시 알림
-- Firebase 기기 토큰 운영 등록
-- 운영 FCM 실제 발송 E2E
+- 백그라운드·잠금화면 즉시 알림
+- 실제 운영 FCM 발송·수신 E2E
 - 알림 터치 후 고객·상담이력 E2E
 
-현재 v0.40.9 APK는 Firebase Android BuildConfig 4개가 빈 값이다.
+## 6. P0 — 실기기 페이지로 문의 알림 E2E
 
-## 5. P0 — Android Firebase 빌드·실기기 E2E
+1. 새 Firebase 설정 포함 APK를 기존 앱 위에 덮어 설치
+2. 콜태그 로그인
+3. Android 알림 권한 허용
+4. 앱을 한 번 실행해 FCM 토큰 발급·서버 등록
+5. `calltag_push_devices`에 활성 기기 등록 확인
+6. 실제 페이지로 문의 1건 제출
+7. 앱 실행 중 즉시 알림 확인
+8. 앱 백그라운드 상태 알림 확인
+9. 앱 완전 종료 상태 알림 확인
+10. 잠금화면 알림 확인
+11. 알림 터치 후 고객·메모·`PAGERO_INQUIRY` 확인
+12. 동일 eventId 중복 미생성 확인
+13. 빠른 연속 문의 3건 전부 반영 확인
 
-1. CallTag GitHub Actions Secret 4개 등록
-   - `CALLTAG_FIREBASE_APPLICATION_ID`
-   - `CALLTAG_FIREBASE_API_KEY`
-   - `CALLTAG_FIREBASE_PROJECT_ID`
-   - `CALLTAG_FIREBASE_SENDER_ID`
-2. Firebase 값 포함 APK 재빌드
-3. APK 내부 BuildConfig 4개 값 비어 있지 않음 확인
-4. 기존 앱에 덮어 설치
-5. 로그인 후 알림 권한 허용
-6. FCM 기기 토큰이 `calltag_push_devices`에 등록되는지 확인
-7. 실제 페이지로 문의 1건 제출
-8. 앱 종료·백그라운드·잠금화면 알림 확인
-9. 알림 터치 후 고객·메모·`PAGERO_INQUIRY` 확인
-10. 동일 eventId 중복 미생성 확인
-11. 빠른 연속 문의 3건 전부 반영 확인
-
-## 6. P0 — 통화 종료 팝업 실기기 회귀
+## 7. P0 — 통화 종료 팝업 실기기 회귀
 
 - 통화 종료 후 자동 실행
 - 30초 이상 유지
@@ -136,7 +155,7 @@ Android v0.40.9:
 - 잠금·홈·다른 앱 사용 중 실행
 - 저장·닫기·제외 전 자동 종료 없음
 
-## 7. P1
+## 8. P1
 
 페이지로 UX:
 
@@ -154,7 +173,7 @@ Android v0.40.9:
 - 작은 화면·큰 글자·키보드 팝업
 - 사용자 화면의 테스트·진단·임시 UI 추가 점검
 
-## 8. P2·P3
+## 9. P2·P3
 
 P2:
 
@@ -172,7 +191,7 @@ P3:
 - Play Console 권한·개인정보 문서 일치
 - Crash·ANR·500명 고객 성능
 
-## 9. 절대 지켜야 할 규칙
+## 10. 절대 지켜야 할 규칙
 
 - CallTag 앱 개발 정본은 `agent/calltag-foundation`
 - 사용자 지시 전 CallTag `main` 미병합
@@ -183,4 +202,4 @@ P3:
 - Firebase 서비스 계정 비공개 키 공개 금지
 - 푸시 실패가 페이지로 문의 접수를 실패시키지 않게 유지
 - 알림은 실제 고객 DB 반영 후 표시
-- 서버 `ready=true`와 앱 실기기 E2E 완료를 구분
+- 빌드 성공과 실기기 E2E 완료를 구분
