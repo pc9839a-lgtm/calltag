@@ -17,14 +17,14 @@ public final class CallTagPushStatusStore {
     public static void save(Context context, JSONObject response) {
         JSONObject push = response == null ? null : response.optJSONObject("push");
         if (push == null) {
-            save(context, false, false, "실시간 문의 알림 상태를 확인하지 못했습니다.");
+            save(context, false, false, defaultMessage());
             return;
         }
+        boolean realtime = push.optBoolean("realtime", false);
         save(context,
                 push.optBoolean("registered", false),
-                push.optBoolean("realtime", false),
-                userMessage(push.optBoolean("realtime", false),
-                        push.optString("message", "")));
+                realtime,
+                realtime ? "페이지로 문의가 들어오면 바로 알려드려요." : defaultMessage());
     }
 
     public static void save(Context context, boolean registered, boolean realtime, String message) {
@@ -54,19 +54,31 @@ public final class CallTagPushStatusStore {
     }
 
     private static String defaultMessage() {
-        return "실시간 문의 알림을 준비하고 있습니다. 앱을 열면 문의를 자동으로 확인합니다.";
+        return "새 문의 알림을 준비하고 있어요. 앱을 열면 문의를 자동으로 확인합니다.";
     }
 
     private static String userMessage(boolean realtime, String raw) {
-        if (realtime) return "페이지로 문의가 접수되면 바로 알려드립니다.";
+        if (realtime) return "페이지로 문의가 들어오면 바로 알려드려요.";
         String value = raw == null ? "" : raw.trim();
         if (value.isEmpty()
-                || value.contains("Firebase")
-                || value.contains("토큰")
-                || value.contains("서버")) {
+                || containsDeveloperWord(value)) {
             return defaultMessage();
         }
         return value;
+    }
+
+    private static boolean containsDeveloperWord(String value) {
+        String lower = value.toLowerCase();
+        return lower.contains("firebase")
+                || lower.contains("token")
+                || lower.contains("server")
+                || lower.contains("api")
+                || lower.contains("http")
+                || lower.contains("registered")
+                || lower.contains("realtime")
+                || value.contains("토큰")
+                || value.contains("서버")
+                || value.contains("등록 상태");
     }
 
     public static final class Snapshot {
