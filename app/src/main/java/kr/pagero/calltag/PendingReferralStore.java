@@ -66,9 +66,10 @@ public final class PendingReferralStore {
     }
 
     private static String normalize(String value) {
-        return value == null ? "" : value.trim().toUpperCase(Locale.KOREA)
-                .replaceAll("[^A-Z0-9]", "").substring(0,
-                        Math.min(20, value.trim().replaceAll("[^A-Za-z0-9]", "").length()));
+        if (value == null) return "";
+        String cleaned = value.trim().toUpperCase(Locale.KOREA)
+                .replaceAll("[^A-Z0-9]", "");
+        return cleaned.substring(0, Math.min(20, cleaned.length()));
     }
 
     private static String lower(String value) {
