@@ -6,7 +6,7 @@ Android 패키지명: **`kr.pagero.calltag`**
 
 ## 1. 현재 운영 상태
 
-2026-08-04 기준 서버와 Android 빌드 설정까지 완료됐다.
+2026-08-04 기준 서버, Android 빌드 설정, 실제 종료·잠금화면 알림까지 확인됐다.
 
 서버:
 
@@ -25,11 +25,15 @@ Android:
 - 확인 Run ID: `30872373416`
 - 확인 Job ID: `91876823885`
 
-남은 작업은 새 APK를 실제 기기에 덮어 설치하고 페이지로 문의 알림 E2E를 검증하는 것이다.
+실기기:
+
+- 실제 페이지로 문의 후 콜태그 알림 수신
+- 앱 완전 종료 상태 알림 수신
+- 휴대전화 잠금화면 알림 수신
 
 ## 2. 비용
 
-콜태그가 사용하는 Firebase Cloud Messaging은 무료 제품이다. Firebase 프로젝트는 결제수단 없이 Spark 요제로 생성할 수 있다.
+콜태그가 사용하는 Firebase Cloud Messaging은 무료 제품이다. Firebase 프로젝트는 결제수단 없이 Spark 요금제로 생성할 수 있다.
 
 콜태그는 고객 DB를 Firebase에 저장하지 않는다. Firebase는 `새 문의가 있음`이라는 개인정보 없는 신호 전달에만 사용한다.
 
@@ -60,20 +64,9 @@ FCM만 사용할 때 SHA-1은 생략 가능하다.
 - `CALLTAG_FIREBASE_PROJECT_ID`
 - `CALLTAG_FIREBASE_SENDER_ID`
 
-`google-services.json` 대응:
-
-| GitHub Secret | `google-services.json` 위치 |
-|---|---|
-| `CALLTAG_FIREBASE_APPLICATION_ID` | `client[].client_info.mobilesdk_app_id` |
-| `CALLTAG_FIREBASE_API_KEY` | `client[].api_key[].current_key` |
-| `CALLTAG_FIREBASE_PROJECT_ID` | `project_info.project_id` |
-| `CALLTAG_FIREBASE_SENDER_ID` | `project_info.project_number` |
-
 2026-08-04 실제 GitHub Actions 빌드에서 4개가 모두 `configured`로 확인됐다. 비밀값 원문은 출력하지 않았다.
 
 ## 5. Android BuildConfig 검증
-
-콜태그는 GitHub Actions Secret을 `app/build.gradle`에서 BuildConfig로 주입한다.
 
 확인 필드:
 
@@ -99,12 +92,7 @@ FCM만 사용할 때 SHA-1은 생략 가능하다.
 - `FIREBASE_CLIENT_EMAIL`
 - `FIREBASE_PRIVATE_KEY`
 
-서비스 계정 비공개 키는 다음 위치에 넣지 않는다.
-
-- Android APK
-- Android BuildConfig
-- GitHub 공개 코드
-- 문서·이슈·스크린샷
+서비스 계정 비공개 키는 Android APK·BuildConfig·GitHub 공개 코드·문서·스크린샷에 넣지 않는다.
 
 ## 7. 운영 D1
 
@@ -128,46 +116,30 @@ FCM만 사용할 때 SHA-1은 생략 가능하다.
 - APK SHA-256: `2fb039d9782dedc01abefa02507dd2b5a7401867e5fd0862804c12cd6c101719`
 - APK 크기: `4,461,827 bytes`
 
-이전 v0.40.9 APK의 Firebase 값이 비어 있었다는 기록은 이전 빌드에 대한 것이다. 위 검증 APK에는 Firebase Android 설정 4개가 정상 주입됐다.
+## 9. 실기기 확인 결과
 
-## 9. 실기기 검증 순서
+2026-08-04 사용자 확인:
 
-1. 새 Firebase 설정 포함 APK를 기존 앱 위에 덮어 설치
-2. 콜태그 로그인
-3. Android 알림 권한 허용
-4. 앱을 한 번 실행해 FCM 토큰 발급
-5. 서버의 `calltag_push_devices`에 활성 기기 등록 확인
-6. 페이지로 랜딩에서 실제 문의 1건 접수
-7. 앱 실행 상태 알림 확인
-8. 앱 백그라운드 상태 알림 확인
-9. 앱 완전 종료 상태 알림 확인
-10. 잠금화면 알림 확인
-11. 알림 터치 후 고객목록 확인
-12. 고객 메모와 `PAGERO_INQUIRY` 상담이력 확인
-13. 동일 eventId 재처리 시 중복 없음 확인
-14. 빠른 연속 문의 3건 모두 반영 확인
+- 실제 페이지로 문의 접수 후 알림 수신
+- 앱 완전 종료 상태에서 알림 수신
+- 잠금화면에서 알림 수신
 
-## 10. 정상 판단 기준
+이 결과로 다음 경로가 기능적으로 확인됐다.
 
-정상:
+- Android Firebase 초기화
+- FCM 기기 토큰 발급·운영 서버 등록
+- 페이지로 서버 FCM HTTP v1 발송
+- Android 종료·잠금 상태 수신
+- 사용자 알림 표시
 
-- 서버 readiness `ready=true`
-- Firebase 설정이 포함된 APK 설치
-- FCM 기기 토큰 서버 등록
-- 문의 접수 후 백그라운드·잠금화면 알림 도착
-- 알림 내용에 고객 개인정보가 포함되지 않음
-- 고객 자동 생성 또는 기존 고객 갱신
-- 문의 내용이 메모와 상담이력에 저장
+다만 알림 도착만으로 아래 항목까지 완료로 간주하지 않는다.
+
+- 알림 터치 후 해당 고객 이동
+- 고객 메모·`PAGERO_INQUIRY` 상담이력 표시
 - 동일 eventId 중복 미생성
+- 빠른 연속 문의 3건 전부 반영
 
-비정상:
-
-- 기기 토큰이 서버에 등록되지 않음
-- 문의는 저장되지만 알림이 오지 않음
-- 앱을 열어야만 문의가 들어옴
-- 동일 문의가 두 번 생성됨
-
-## 11. 현재 완료·미완료 구분
+## 10. 현재 완료·미완료 구분
 
 완료:
 
@@ -177,13 +149,14 @@ FCM만 사용할 때 SHA-1은 생략 가능하다.
 - Cloudflare 서버 변수 3개
 - 운영 D1 migration
 - 서버 readiness `ready=true`
-- Android 실시간 문의 처리 코드
+- 실제 운영 FCM 발송·수신
+- 앱 완전 종료·잠금화면 알림
 
-실기기 확인 필요:
+추가 확인 필요:
 
-- FCM 기기 토큰 운영 등록
-- 앱 종료·백그라운드·잠금화면 알림 E2E
-- 고객·메모·상담이력 반영 E2E
-- 중복방지·연속 문의 E2E
+- 알림 터치 후 고객 화면 이동
+- 고객·메모·상담이력 반영
+- 동일 문의 중복방지 실기기 확인
+- 빠른 연속 문의 처리 실기기 확인
 
-빌드 성공과 실기기 E2E 성공을 같은 상태로 표현하지 않는다.
+빌드 성공, 알림 도착, 고객 데이터 반영 검증을 각각 구분한다.
