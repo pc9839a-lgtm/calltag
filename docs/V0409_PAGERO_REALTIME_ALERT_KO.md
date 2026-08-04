@@ -17,7 +17,7 @@
 ### 페이지로 서버
 
 - 실시간 푸시 전용 PR `pc9839a-lgtm/inlet#56` main 병합
-- 병합 SHA: `2f016e152f4fb589423e453c273b919f7532`
+- 병합 SHA: `2f016e152f4fb589fb948db6c5a92488591843f2`
 - 문의 큐 등록
 - ownerId별 Android 기기 등록
 - FCM HTTP v1 데이터 신호
