@@ -5,9 +5,12 @@ import android.content.SharedPreferences;
 
 import org.json.JSONObject;
 
+import java.time.Instant;
+
 /**
  * 콜태그 기능 이용권과 결제 준비 상태의 로컬 표시 캐시다.
- * 최종 권한과 결제 가능 여부는 서버 응답을 우선한다.
+ * 서버 시각을 기준으로 만료를 계산해 기기 시각 변경이나 오프라인 상태에서도
+ * 무료기간이 무기한 연장되지 않도록 한다.
  */
 public final class FeatureEntitlementStore {
     public static final String PLAN_PHONE = "call_monthly";
@@ -22,6 +25,7 @@ public final class FeatureEntitlementStore {
     public static final String CHANNEL_GOOGLE_PLAY = "google_play";
     public static final String CHANNEL_WEB = "web";
 
+    private static final long DAY_MS = 24L * 60L * 60L * 1000L;
     private static final String PREFS = "calltag_entitlements";
     private static final String KEY_PLAN = "active_plan";
     private static final String KEY_SERVER_CHECKED = "server_checked";
@@ -36,6 +40,11 @@ public final class FeatureEntitlementStore {
     private static final String KEY_PLAY_AVAILABLE = "play_billing_available";
     private static final String KEY_PLAY_STAGE = "play_billing_stage";
     private static final String KEY_PLAY_MESSAGE = "play_billing_message";
+    private static final String KEY_SERVER_NOW_AT_CHECK = "server_now_at_check";
+    private static final String KEY_DEVICE_NOW_AT_CHECK = "device_now_at_check";
+    private static final String KEY_NOTICE_CODE = "notice_code";
+    private static final String KEY_NOTICE_TITLE = "notice_title";
+    private static final String KEY_NOTICE_MESSAGE = "notice_message";
     private static final String KEY_LAST_CHECKED_AT = "last_checked_at";
 
     private FeatureEntitlementStore() {}
@@ -66,6 +75,7 @@ public final class FeatureEntitlementStore {
         JSONObject purchase = entitlement.optJSONObject("purchase");
         JSONObject availability = entitlement.optJSONObject("billingAvailability");
         JSONObject googlePlay = availability == null ? null : availability.optJSONObject("googlePlay");
+        JSONObject notice = entitlement.optJSONObject("notice");
 
         String plan = firstNonEmpty(
                 entitlement.optString("productCode", ""),
@@ -120,6 +130,13 @@ public final class FeatureEntitlementStore {
                 ? "앱 결제 기능을 준비하고 있습니다."
                 : googlePlay.optString("message", "앱 결제 기능을 준비하고 있습니다.");
 
+        long deviceNow = System.currentTimeMillis();
+        String rawServerNow = firstNonEmpty(
+                response == null ? "" : response.optString("serverNow", ""),
+                entitlement.optString("serverNow", ""));
+        long serverNow = parseInstant(rawServerNow);
+        if (serverNow <= 0L) serverNow = deviceNow;
+
         prefs(context).edit()
                 .putBoolean(KEY_SERVER_CHECKED, true)
                 .putBoolean(KEY_ACTIVE, active)
@@ -134,27 +151,53 @@ public final class FeatureEntitlementStore {
                 .putBoolean(KEY_PLAY_AVAILABLE, playAvailable)
                 .putString(KEY_PLAY_STAGE, playStage)
                 .putString(KEY_PLAY_MESSAGE, playMessage)
-                .putLong(KEY_LAST_CHECKED_AT, System.currentTimeMillis())
+                .putLong(KEY_SERVER_NOW_AT_CHECK, serverNow)
+                .putLong(KEY_DEVICE_NOW_AT_CHECK, deviceNow)
+                .putString(KEY_NOTICE_CODE, notice == null ? "" : notice.optString("code", ""))
+                .putString(KEY_NOTICE_TITLE, notice == null ? "" : notice.optString("title", ""))
+                .putString(KEY_NOTICE_MESSAGE, notice == null ? "" : notice.optString("message", ""))
+                .putLong(KEY_LAST_CHECKED_AT, deviceNow)
                 .apply();
     }
 
     public static Snapshot snapshot(Context context) {
         SharedPreferences value = prefs(context);
         boolean checked = value.getBoolean(KEY_SERVER_CHECKED, false);
+        long estimatedServerNow = estimatedServerNow(value);
+        String endsAt = value.getString(KEY_ENDS_AT, "");
+        long endsAtMillis = parseInstant(endsAt);
+        boolean active = checked ? value.getBoolean(KEY_ACTIVE, false) : true;
+        String status = value.getString(KEY_STATUS, checked ? "inactive" : "development");
+        int remainingDays = value.getInt(KEY_REMAINING_DAYS, -1);
+
+        if (checked && endsAtMillis > 0L) {
+            remainingDays = endsAtMillis <= estimatedServerNow
+                    ? 0 : (int) Math.ceil((endsAtMillis - estimatedServerNow) / (double) DAY_MS);
+            if (active && estimatedServerNow >= endsAtMillis) active = false;
+            if (!active && estimatedServerNow >= endsAtMillis
+                    && ("trial".equalsIgnoreCase(status) || "inactive".equalsIgnoreCase(status))) {
+                status = "expired";
+            }
+        }
+
         return new Snapshot(
                 checked,
-                checked ? value.getBoolean(KEY_ACTIVE, false) : true,
-                value.getString(KEY_STATUS, checked ? "inactive" : "development"),
+                active,
+                status,
                 normalizePlan(value.getString(KEY_PLAN, PLAN_BUNDLE)),
                 value.getString(KEY_CHANNEL, CHANNEL_NONE),
-                value.getString(KEY_ENDS_AT, ""),
+                endsAt,
                 value.getString(KEY_NEXT_BILLING_AT, ""),
-                value.getInt(KEY_REMAINING_DAYS, -1),
+                remainingDays,
                 value.getBoolean(KEY_PURCHASE_BLOCKED, false),
                 value.getString(KEY_BLOCK_REASON, ""),
                 value.getBoolean(KEY_PLAY_AVAILABLE, false),
                 value.getString(KEY_PLAY_STAGE, "pre_registration"),
                 value.getString(KEY_PLAY_MESSAGE, "앱 결제 기능을 준비하고 있습니다."),
+                estimatedServerNow,
+                value.getString(KEY_NOTICE_CODE, ""),
+                value.getString(KEY_NOTICE_TITLE, ""),
+                value.getString(KEY_NOTICE_MESSAGE, ""),
                 value.getLong(KEY_LAST_CHECKED_AT, 0L));
     }
 
@@ -176,7 +219,8 @@ public final class FeatureEntitlementStore {
 
     public static String planLabel(Context context) {
         Snapshot value = snapshot(context);
-        if ("trial".equals(value.status)) return "무료 이용 중";
+        if (value.isTrial()) return "무료 이용 중";
+        if (!value.active && value.serverChecked) return "이용권 필요";
         if (PLAN_PHONE.equals(value.plan)) return "전화관리 · 월 1,900원";
         if (PLAN_MESSAGE.equals(value.plan)) return "문자자동화 · 월 990원";
         return "통합권 · 월 6,000원";
@@ -184,6 +228,22 @@ public final class FeatureEntitlementStore {
 
     public static void clear(Context context) {
         prefs(context).edit().clear().apply();
+    }
+
+    private static long estimatedServerNow(SharedPreferences value) {
+        long deviceNow = System.currentTimeMillis();
+        long serverAtCheck = value.getLong(KEY_SERVER_NOW_AT_CHECK, 0L);
+        long deviceAtCheck = value.getLong(KEY_DEVICE_NOW_AT_CHECK, 0L);
+        if (serverAtCheck <= 0L || deviceAtCheck <= 0L) return deviceNow;
+        return serverAtCheck + Math.max(0L, deviceNow - deviceAtCheck);
+    }
+
+    private static long parseInstant(String raw) {
+        try {
+            return raw == null || raw.trim().isEmpty() ? 0L : Instant.parse(raw.trim()).toEpochMilli();
+        } catch (Exception ignored) {
+            return 0L;
+        }
     }
 
     private static String normalizePlan(String raw) {
@@ -224,6 +284,10 @@ public final class FeatureEntitlementStore {
         public final boolean playBillingAvailable;
         public final String playBillingStage;
         public final String playBillingMessage;
+        public final long estimatedServerNow;
+        public final String noticeCode;
+        public final String noticeTitle;
+        public final String noticeMessage;
         public final long lastCheckedAt;
 
         Snapshot(
@@ -240,6 +304,10 @@ public final class FeatureEntitlementStore {
                 boolean playBillingAvailable,
                 String playBillingStage,
                 String playBillingMessage,
+                long estimatedServerNow,
+                String noticeCode,
+                String noticeTitle,
+                String noticeMessage,
                 long lastCheckedAt) {
             this.serverChecked = serverChecked;
             this.active = active;
@@ -255,11 +323,23 @@ public final class FeatureEntitlementStore {
             this.playBillingStage = playBillingStage == null ? "pre_registration" : playBillingStage;
             this.playBillingMessage = playBillingMessage == null
                     ? "앱 결제 기능을 준비하고 있습니다." : playBillingMessage;
+            this.estimatedServerNow = estimatedServerNow;
+            this.noticeCode = noticeCode == null ? "" : noticeCode;
+            this.noticeTitle = noticeTitle == null ? "" : noticeTitle;
+            this.noticeMessage = noticeMessage == null ? "" : noticeMessage;
             this.lastCheckedAt = lastCheckedAt;
         }
 
         public boolean isTrial() {
-            return "trial".equalsIgnoreCase(status);
+            return "trial".equalsIgnoreCase(status) && active;
+        }
+
+        public boolean isExpired() {
+            return serverChecked && !active && "expired".equalsIgnoreCase(status);
+        }
+
+        public boolean isTrialEndingSoon() {
+            return isTrial() && remainingDays <= 1;
         }
 
         public boolean isWebSubscription() {
