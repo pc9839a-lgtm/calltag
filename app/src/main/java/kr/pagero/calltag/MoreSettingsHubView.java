@@ -58,8 +58,10 @@ public final class MoreSettingsHubView extends LinearLayout {
 
         Section messages = section("문자");
         messages.add("문자 문구·이미지", "자주 쓰는 안내문과 이미지", MessageTemplateLibraryActivity.class);
-        messages.add("자동문자", "통화 후 필요한 문자를 자동으로 보내기", MessageAutomationSettingsActivity.class);
-        messages.add("그룹·단체문자", "여러 고객에게 한 번에 보내기", GroupCampaignHubActivity.class);
+        messages.add("자동문자", "통화 후 필요한 문자를 자동으로 보내기",
+                MessageAutomationSettingsActivity.class, FeatureAccessGate.MESSAGE);
+        messages.add("그룹·단체문자", "여러 고객에게 한 번에 보내기",
+                GroupCampaignHubActivity.class, FeatureAccessGate.MESSAGE);
         messages.add("발송 관리", "보낸 문자와 제외 번호 확인", MessageSafetyHubActivity.class);
 
         Section customers = section("고객·일정");
@@ -119,6 +121,10 @@ public final class MoreSettingsHubView extends LinearLayout {
         }
 
         void add(String title, String keywords, Class<?> destination) {
+            add(title, keywords, destination, "");
+        }
+
+        void add(String title, String keywords, Class<?> destination, String feature) {
             LinearLayout row = new LinearLayout(getContext());
             row.setOrientation(HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
@@ -126,8 +132,13 @@ public final class MoreSettingsHubView extends LinearLayout {
             row.setBackgroundResource(R.drawable.bg_clickable_row);
             row.setClickable(true);
             row.setFocusable(true);
-            row.setOnClickListener(v -> getContext().startActivity(
-                    new Intent(getContext(), destination)));
+            row.setOnClickListener(v -> {
+                if (feature == null || feature.isEmpty()) {
+                    getContext().startActivity(new Intent(getContext(), destination));
+                } else {
+                    FeatureAccessGate.open(getContext(), destination, feature);
+                }
+            });
 
             TextView titleView = new TextView(getContext());
             titleView.setText(title);
