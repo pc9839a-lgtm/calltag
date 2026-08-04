@@ -85,6 +85,11 @@ jobs:
           entitlement = Path('app/src/main/java/kr/pagero/calltag/FeatureEntitlementStore.java').read_text(encoding='utf-8')
           billing_screen = Path('app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java').read_text(encoding='utf-8')
           referral_screen = Path('app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java').read_text(encoding='utf-8')
+          notice = Path('app/src/main/java/kr/pagero/calltag/EntitlementNoticeActivity.java').read_text(encoding='utf-8')
+          pending_referral = Path('app/src/main/java/kr/pagero/calltag/PendingReferralStore.java').read_text(encoding='utf-8')
+          auto_referral = Path('app/src/main/java/kr/pagero/calltag/ReferralAutoApplyManager.java').read_text(encoding='utf-8')
+          access_gate = Path('app/src/main/java/kr/pagero/calltag/FeatureAccessGate.java').read_text(encoding='utf-8')
+          auth_gate = Path('app/src/main/java/kr/pagero/calltag/AuthGateActivity.java').read_text(encoding='utf-8')
           play = Path('app/src/main/java/kr/pagero/calltag/PlayBillingManager.java').read_text(encoding='utf-8')
           api = Path('app/src/main/java/kr/pagero/calltag/AuthApiClient.java').read_text(encoding='utf-8')
           manifest = Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
@@ -103,13 +108,22 @@ jobs:
               'server restore verification': 'restoreGooglePurchases' in play,
               'referral apply endpoint': '/api/referrals/apply' in api,
               'billing endpoint': '/api/billing/entitlements' in api,
-              'activities registered': '.BillingEntitlementActivity' in manifest and '.ReferralPartnerActivity' in manifest,
+              'web precheck endpoint': '/api/billing/web/precheck' in api,
+              'billing readiness endpoint': '/api/billing/readiness' in api,
+              'activities registered': all(value in manifest for value in ('.BillingEntitlementActivity', '.EntitlementNoticeActivity', '.ReferralPartnerActivity')),
               'Play Billing 9.1': 'com.android.billingclient:billing:9.1.0' in gradle,
               'Play readiness cached': 'playBillingAvailable' in entitlement and 'billingAvailability' in entitlement,
               'preregistration button copy': '출시 준비 중' in billing_screen and 'Google Play 결제 준비 중' in billing_screen,
               'BillingClient is gated before connection': gate_index >= 0 and connect_index >= 0 and gate_index < connect_index,
               'Play purchase requires release readiness': 'playBillingAvailable' in billing_screen and 'billingReleaseAvailable()' in play,
-              'version 0.42.1': "versionName '0.42.1'" in gradle and 'versionCode 61' in gradle,
+              'server-time expiry enforcement': 'KEY_SERVER_NOW_AT_CHECK' in entitlement and 'estimatedServerNow' in entitlement,
+              'trial lifecycle notice': 'TRIAL_ENDING_24H' in notice and 'TRIAL_EXPIRED' in notice,
+              'records retained while automation gated': '고객·상담 기록은 그대로' in notice and 'FeatureAccessGate.MESSAGE' in more and 'hasMessageAccess' in access_gate,
+              'referral link capture': 'calltag' in pending_referral and '/r/' in pending_referral and 'PendingReferralStore.capture' in auth_gate,
+              'referral auto apply': 'AuthApiClient.applyReferral' in auto_referral,
+              'referral app links registered': 'android:host="referral"' in manifest and 'android:pathPrefix="/r/"' in manifest,
+              'partner center excluded': '파트너센터 열기' not in referral_screen,
+              'version 0.42.2': "versionName '0.42.2'" in gradle and 'versionCode 62' in gradle,
           }
           failed = [name for name, passed in checks.items() if not passed]
           for name, passed in checks.items():
@@ -189,5 +203,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.42.1-play-preregistration-debug-apk
+          name: calltag-v0.42.2-entitlement-lifecycle-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
