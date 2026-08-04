@@ -94,23 +94,7 @@ Firebase 서비스 계정 비공개 키는 Android APK·GitHub 공개 코드·�
 }
 ```
 
-판정:
-
-- Cloudflare `inlet` Production Firebase 서비스 계정 변수 3개 정상
-- 운영 D1 `inlet-prod` 연결 정상
-- `calltag_push_devices` 테이블 생성 완료
-- 페이지로 서버 FCM 발송 준비 완료
-
 ## 6. Android Firebase 설정·APK 빌드 완료
-
-사용자가 CallTag GitHub 저장소 Actions Secrets에 아래 4개 값을 이미 등록한 상태임을 실제 빌드로 확인했다.
-
-- `CALLTAG_FIREBASE_APPLICATION_ID`
-- `CALLTAG_FIREBASE_API_KEY`
-- `CALLTAG_FIREBASE_PROJECT_ID`
-- `CALLTAG_FIREBASE_SENDER_ID`
-
-검증 Build:
 
 - Workflow Run ID `30872373416`
 - Job ID `91876823885`
@@ -118,11 +102,10 @@ Firebase 서비스 계정 비공개 키는 Android APK·GitHub 공개 코드·�
 - 생성된 BuildConfig Firebase 필드 4개 모두 `configured`
 - 리소스·Java·Manifest·Debug APK 빌드 성공
 - Artifact ID `8878338508`
-- Artifact ZIP digest `sha256:41f23f1e483308ed7f3c02af8571ccba1a95d388494936df5624f9197f6796dd`
 - APK SHA-256 `2fb039d9782dedc01abefa02507dd2b5a7401867e5fd0862804c12cd6c101719`
 - APK 크기 `4,461,827 bytes`
 
-CI에는 다음 검증을 영구 추가했다.
+CI 검증:
 
 - Firebase Secret 4개 중 하나라도 비면 빌드 실패
 - 생성된 BuildConfig Firebase 필드 중 하나라도 비면 빌드 실패
@@ -140,31 +123,12 @@ CI에는 다음 검증을 영구 추가했다.
 
 기능적 판정:
 
-- Firebase Android 설정 포함 APK가 정상 초기화됨
-- FCM 기기 토큰이 운영 서버에 등록 가능한 상태로 동작함
-- 페이지로 서버 FCM HTTP v1 발송이 실제 기기로 전달됨
-- 앱이 종료·잠금 상태에서도 데이터 신호를 수신하고 사용자 알림을 표시함
+- Firebase Android 설정 포함 APK 정상 초기화
+- FCM 기기 토큰 발급·운영 서버 등록 경로 정상 동작
+- 페이지로 서버 FCM HTTP v1 발송이 실제 기기로 전달
+- 앱 종료·잠금 상태에서 사용자 알림 표시
 
-사용자 확인 범위를 넘어 다음 항목까지 완료로 간주하지 않는다.
-
-- 알림 터치 후 해당 고객 화면 이동
-- 고객 메모·`PAGERO_INQUIRY` 상담이력 표시
-- 동일 eventId 재전송 중복 미생성
-- 빠른 연속 문의 3건 전부 반영
-
-## 8. 현재 완료·미완료
-
-완료:
-
-- 서버 readiness `ready=true`
-- Firebase Android 값이 포함된 APK
-- 실제 운영 FCM 발송·수신
-- 앱 완전 종료 상태 알림
-- 잠금화면 알림
-- 개인정보 없는 푸시 payload
-- 문의 저장과 푸시 실패 분리
-
-남은 실기기 확인:
+## 8. 남은 실기기 확인
 
 1. 알림 터치 후 해당 고객 화면 또는 고객목록 이동
 2. 고객 자동 생성 또는 기존 고객 갱신
@@ -172,6 +136,8 @@ CI에는 다음 검증을 영구 추가했다.
 4. `PAGERO_INQUIRY` 상담이력 생성
 5. 동일 eventId 중복 미생성
 6. 빠른 연속 문의 3건 전부 반영
+
+사용자 확인 범위보다 넓게 완료로 처리하지 않는다.
 
 상세 등록·운영 절차:
 
