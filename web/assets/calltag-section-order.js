@@ -1,6 +1,6 @@
 (()=>{
-  if(document.documentElement.dataset.ctSectionOrderV3)return;
-  document.documentElement.dataset.ctSectionOrderV3='1';
+  if(document.documentElement.dataset.ctSectionOrderV4)return;
+  document.documentElement.dataset.ctSectionOrderV4='1';
 
   const installBrand=()=>{
     const heading=document.querySelector('#app .hero-heading');
@@ -58,6 +58,9 @@
 
     if(introCursor)moveAfter(introCursor,app);
     else intro.append(app);
+
+    const journey=document.querySelector('.ct-journey-clean');
+    if(journey)moveAfter(app,journey);
 
     const benefits=document.querySelector('.ct-benefit-section')||document.querySelector('.ad-benefits')?.closest('.ad-section');
     const ordered=[
