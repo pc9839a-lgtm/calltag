@@ -9,7 +9,6 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
-import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputFilter;
 import android.view.Gravity;
@@ -44,7 +43,6 @@ public final class ReferralPartnerActivity extends Activity {
     private TextView activePaidCount;
     private TextView estimatedRevenue;
     private TextView confirmedRevenue;
-    private TextView partnerButton;
     private TextView refreshButton;
     private boolean working;
 
@@ -138,10 +136,6 @@ public final class ReferralPartnerActivity extends Activity {
                 MUTED,
                 false), top(14));
         root.addView(summary, top(10));
-
-        partnerButton = button("파트너센터 열기", false);
-        partnerButton.setOnClickListener(v -> openPartnerCenter());
-        root.addView(partnerButton, fixedTop(50, 14));
         return scroll;
     }
 
@@ -258,8 +252,6 @@ public final class ReferralPartnerActivity extends Activity {
         activePaidCount.setText(number(value.activePaidCount) + "명");
         estimatedRevenue.setText(currency(value.estimatedRevenueKrw));
         confirmedRevenue.setText(currency(value.confirmedRevenueKrw));
-        partnerButton.setEnabled(!value.partnerUrl.isEmpty());
-        partnerButton.setAlpha(value.partnerUrl.isEmpty() ? 0.5f : 1f);
     }
 
     private void copyCode() {
@@ -289,19 +281,6 @@ public final class ReferralPartnerActivity extends Activity {
                 .setType("text/plain")
                 .putExtra(Intent.EXTRA_TEXT, message.toString());
         startActivity(Intent.createChooser(intent, "친구에게 공유"));
-    }
-
-    private void openPartnerCenter() {
-        String url = ReferralStateStore.snapshot(this).partnerUrl;
-        if (url.isEmpty()) {
-            Toast.makeText(this, "파트너센터를 준비하고 있어요.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-        } catch (Exception error) {
-            Toast.makeText(this, "파트너센터를 열지 못했어요.", Toast.LENGTH_SHORT).show();
-        }
     }
 
     private void showApplyError(String code) {
