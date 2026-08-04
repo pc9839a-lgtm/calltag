@@ -1,6 +1,6 @@
 (()=>{
-  if(document.documentElement.dataset.ctSectionOrderV2)return;
-  document.documentElement.dataset.ctSectionOrderV2='1';
+  if(document.documentElement.dataset.ctSectionOrderV3)return;
+  document.documentElement.dataset.ctSectionOrderV3='1';
 
   const installBrand=()=>{
     const heading=document.querySelector('#app .hero-heading');
@@ -36,20 +36,28 @@
   const apply=()=>{
     const main=document.querySelector('main#top');
     const intro=document.querySelector('#ct-pagero-intro');
-    const pageroHero=intro?.querySelector(':scope > .ct-v8-hero');
-    const connect=intro?.querySelector(':scope > .ct-pagero-connect');
-    const nocode=intro?.querySelector(':scope > .ct-v8-nocode');
     const app=document.querySelector('#app');
-    if(!main||!intro||!pageroHero||!connect||!nocode||!app)return false;
+    if(!main||!intro||!app)return false;
 
     installBrand();
-
     if(main.firstElementChild!==intro)main.prepend(intro);
 
-    let introCursor=pageroHero;
-    introCursor=moveAfter(introCursor,connect);
-    introCursor=moveAfter(introCursor,nocode);
-    moveAfter(introCursor,app);
+    const pageroHero=intro.querySelector('.ct-v8-hero');
+    const connect=intro.querySelector('.ct-pagero-connect');
+    const nocode=intro.querySelector('.ct-v8-nocode');
+
+    let introCursor=null;
+    [pageroHero,connect,nocode].filter(Boolean).forEach(section=>{
+      if(!introCursor){
+        if(intro.firstElementChild!==section)intro.prepend(section);
+        introCursor=section;
+      }else{
+        introCursor=moveAfter(introCursor,section);
+      }
+    });
+
+    if(introCursor)moveAfter(introCursor,app);
+    else intro.append(app);
 
     const benefits=document.querySelector('.ct-benefit-section')||document.querySelector('.ad-benefits')?.closest('.ad-section');
     const ordered=[
@@ -67,7 +75,7 @@
 
     let cursor=intro;
     ordered.forEach(section=>{cursor=moveAfter(cursor,section);});
-    return true;
+    return installBrand();
   };
 
   const boot=()=>{
@@ -81,8 +89,8 @@
     apply();
     const observer=new MutationObserver(schedule);
     observer.observe(document.documentElement,{childList:true,subtree:true});
-    [80,180,400,800,1500,3000,6000,10000].forEach(delay=>setTimeout(apply,delay));
-    setTimeout(()=>observer.disconnect(),15000);
+    [50,120,250,500,900,1500,2500,4000,6500,10000,15000].forEach(delay=>setTimeout(apply,delay));
+    setTimeout(()=>observer.disconnect(),20000);
   };
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
