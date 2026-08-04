@@ -15,8 +15,8 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 35
-        versionCode 59
-        versionName '0.41.1'
+        versionCode 60
+        versionName '0.42.0'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
         buildConfigField 'String', 'FIREBASE_API_KEY', '"' + envString('CALLTAG_FIREBASE_API_KEY') + '"'
@@ -46,5 +46,6 @@ android {
 dependencies {
     implementation 'androidx.core:core:1.15.0'
     implementation 'com.google.firebase:firebase-messaging:25.1.1'
+    implementation 'com.android.billingclient:billing:9.1.0'
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
 }
