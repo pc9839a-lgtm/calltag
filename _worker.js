@@ -52,6 +52,7 @@ export default {
         'calltag-pagero-heading-fix.js?v=20260803-heading1',
         'calltag-pagero-connect-visual.js?v=20260802-connect1',
         'calltag-pagero-start-cta.js?v=20260805-cta3',
+        'calltag-section-order.js?v=20260805-order1',
         'calltag-pagero-industries.js?v=20260802-industries2',
         'calltag-pagero-industries-two-column.js?v=20260802-three-card1',
         'calltag-product-switcher.js?v=20260801-37',
