@@ -27,7 +27,7 @@ public final class AccountActivity extends Activity {
         findViewById(R.id.accountBack).setOnClickListener(v -> {
             if (!working) finish();
         });
-        refresh.setOnClickListener(v -> refreshFromServer());
+        refresh.setOnClickListener(v -> refreshAccount());
         findViewById(R.id.accountPrivacy).setOnClickListener(v ->
                 openWeb("https://call.pagero.kr/privacy/"));
         findViewById(R.id.accountTerms).setOnClickListener(v ->
@@ -53,7 +53,7 @@ public final class AccountActivity extends Activity {
         append(value, "브랜드", AuthSessionStore.brand(this));
         append(value, "업종", AuthSessionStore.industry(this));
         append(value, "이용 상품", FeatureEntitlementStore.planLabel(this));
-        profile.setText(value.length() == 0 ? "회원정보를 불러오지 못했습니다." : value.toString());
+        profile.setText(value.length() == 0 ? "회원정보를 불러오지 못했어요." : value.toString());
     }
 
     private void append(StringBuilder target, String label, String value) {
@@ -62,7 +62,7 @@ public final class AccountActivity extends Activity {
         target.append(label).append("  ").append(value.trim());
     }
 
-    private void refreshFromServer() {
+    private void refreshAccount() {
         if (working) return;
         String session = AuthSessionStore.session(this);
         if (session.isEmpty()) {
@@ -75,16 +75,18 @@ public final class AccountActivity extends Activity {
                 JSONObject response = AuthApiClient.refresh(session);
                 AuthSessionStore.save(this, response);
                 runOnUiThread(() -> {
-                    setWorking(false, "회원정보 새로고침");
+                    setWorking(false, "회원정보 다시 불러오기");
                     render();
                     PageroAccountConnectionManager.refresh(this, false);
                     CallTagPushManager.registerIfAvailable(this);
-                    Toast.makeText(this, "회원정보를 새로고침했습니다.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "최신 회원정보를 불러왔어요.", Toast.LENGTH_SHORT).show();
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
-                    setWorking(false, "회원정보 새로고침");
-                    Toast.makeText(this, "서버 연결을 확인해주세요.", Toast.LENGTH_LONG).show();
+                    setWorking(false, "회원정보 다시 불러오기");
+                    Toast.makeText(this,
+                            "인터넷 연결을 확인한 뒤 다시 시도해주세요.",
+                            Toast.LENGTH_LONG).show();
                 });
             }
         }, "calltag-account-refresh").start();
@@ -94,7 +96,7 @@ public final class AccountActivity extends Activity {
         if (working) return;
         new AlertDialog.Builder(this)
                 .setTitle("로그아웃")
-                .setMessage("통화·문자 자동화가 중지됩니다. 이 휴대전화의 고객·일정·발송 기록은 유지됩니다.")
+                .setMessage("자동문자와 새 문의 알림이 멈춥니다. 이 휴대전화의 고객·일정·발송 기록은 그대로 유지됩니다.")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("로그아웃", (dialog, which) -> logout())
                 .show();
@@ -152,10 +154,8 @@ public final class AccountActivity extends Activity {
                     delete.setEnabled(true);
                     delete.setText("회원탈퇴");
                     refresh.setEnabled(true);
-                    String message = error.getMessage();
                     Toast.makeText(this,
-                            message == null || message.trim().isEmpty()
-                                    ? "회원탈퇴를 처리하지 못했습니다." : message,
+                            "회원탈퇴를 처리하지 못했어요. 잠시 후 다시 시도해주세요.",
                             Toast.LENGTH_LONG).show();
                 });
             }
@@ -173,7 +173,7 @@ public final class AccountActivity extends Activity {
         for (String databaseName : databaseList()) {
             deleteDatabase(databaseName);
         }
-        Toast.makeText(this, "회원탈퇴가 완료되었습니다.", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "회원탈퇴가 완료됐어요.", Toast.LENGTH_LONG).show();
         startActivity(new Intent(this, LoginActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
         finish();
@@ -191,7 +191,7 @@ public final class AccountActivity extends Activity {
         try {
             startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
         } catch (Exception error) {
-            Toast.makeText(this, "웹페이지를 열지 못했습니다.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "웹페이지를 열지 못했어요.", Toast.LENGTH_SHORT).show();
         }
     }
 

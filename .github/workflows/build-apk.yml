@@ -47,6 +47,33 @@ jobs:
           done
           exit "$missing"
 
+      - name: Verify user-facing copy
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          pagero = Path('app/src/main/java/kr/pagero/calltag/PageroConnectionActivity.java').read_text(encoding='utf-8')
+          more = Path('app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java').read_text(encoding='utf-8')
+          permission = Path('app/src/main/java/kr/pagero/calltag/InitialPermissionActivity.java').read_text(encoding='utf-8')
+          account = Path('app/src/main/java/kr/pagero/calltag/AccountActivity.java').read_text(encoding='utf-8')
+
+          checks = {
+              'PageRo primary action is user language': '새 문의 확인' in pagero,
+              'PageRo screen hides sync jargon': '지금 동기화' not in pagero and '동기화 중' not in pagero,
+              'PageRo screen hides infrastructure terms': all(word not in pagero for word in ('Firebase', '토큰', '실시간 서버', 'errorCode')),
+              'diagnostic menu removed': 'DiagnosticActivity.class' not in more and '앱 진단' not in more,
+              'permission screen hides Android internals': 'Android 권한창' not in permission and '미허용:' not in permission,
+              'account screen hides raw exception text': 'error.getMessage()' not in account,
+          }
+          failed = [name for name, passed in checks.items() if not passed]
+          for name, passed in checks.items():
+              print(f'{name}={"ok" if passed else "failed"}')
+          if failed:
+              raise SystemExit('User-facing copy regression: ' + ', '.join(failed))
+          PY
+
       - name: Verify PageRo routing contract
         shell: bash
         run: |
@@ -118,5 +145,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.41.0-pagero-integrity-routing-debug-apk
+          name: calltag-v0.41.1-user-copy-pagero-ux-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk

@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** 검색 가능한 섹션형 설정 버튼 목록. */
+/** 검색 가능한 설정 목록. */
 public final class MoreSettingsHubView extends LinearLayout {
     private final List<MenuItem> items = new ArrayList<>();
     private final List<Section> sections = new ArrayList<>();
@@ -57,23 +57,22 @@ public final class MoreSettingsHubView extends LinearLayout {
         addView(search, new LayoutParams(LayoutParams.MATCH_PARENT, dp(46)));
 
         Section messages = section("문자");
-        messages.add("문자 템플릿", "템플릿 문구 이미지", MessageTemplateLibraryActivity.class);
-        messages.add("자동문자", "통화 부재중 후속 자동", MessageAutomationSettingsActivity.class);
-        messages.add("그룹·단체문자", "고객 그룹 캠페인", GroupCampaignHubActivity.class);
-        messages.add("발송 관리", "발송 내역 제외 번호", MessageSafetyHubActivity.class);
+        messages.add("문자 문구·이미지", "자주 쓰는 안내문과 이미지", MessageTemplateLibraryActivity.class);
+        messages.add("자동문자", "통화 후 필요한 문자를 자동으로 보내기", MessageAutomationSettingsActivity.class);
+        messages.add("그룹·단체문자", "여러 고객에게 한 번에 보내기", GroupCampaignHubActivity.class);
+        messages.add("발송 관리", "보낸 문자와 제외 번호 확인", MessageSafetyHubActivity.class);
 
         Section customers = section("고객·일정");
-        customers.add("고객 상태", "단계 상태 색상", StageSettingsActivity.class);
-        customers.add("일정 종류", "할 일 종류", TaskTypeSettingsActivity.class);
+        customers.add("고객 상태", "고객 단계 이름과 색상", StageSettingsActivity.class);
+        customers.add("일정 종류", "전화·미팅 등 할 일 이름", TaskTypeSettingsActivity.class);
 
-        Section integrations = section("연동");
-        integrations.add("페이지로 연결", "랜딩 고객 문의 자동 등록 동기화",
+        Section integrations = section("페이지로");
+        integrations.add("페이지로 문의 연결", "랜딩페이지 문의를 고객으로 자동 등록",
                 PageroConnectionActivity.class);
 
         Section app = section("앱·계정");
-        app.add("계정 및 개인정보", "계정 개인정보 로그인", AccountActivity.class);
-        app.add("앱 진단", "권한 오류 상태", DiagnosticActivity.class);
-        app.add("백업 및 복원", "암호화 백업 복원", BackupRestoreActivity.class);
+        app.add("계정 및 개인정보", "로그인 정보와 개인정보 관리", AccountActivity.class);
+        app.add("백업 및 복원", "고객정보를 보관하고 되돌리기", BackupRestoreActivity.class);
     }
 
     private Section section(String title) {
