@@ -47,6 +47,34 @@ jobs:
           done
           exit "$missing"
 
+      - name: Verify PageRo routing contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          sync = Path('app/src/main/java/kr/pagero/calltag/PageroLeadSyncManager.java').read_text(encoding='utf-8')
+          notice = Path('app/src/main/java/kr/pagero/calltag/PageroLeadNotificationManager.java').read_text(encoding='utf-8')
+          route = Path('app/src/main/java/kr/pagero/calltag/PageroLeadNotificationActivity.java').read_text(encoding='utf-8')
+          manifest = Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
+
+          checks = {
+              'batched customer ids': 'LinkedHashSet' in sync and 'result.customerIds()' in sync,
+              'duplicate receipt guard': 'receipts.isImported(lead.eventId)' in sync,
+              'pending forced rerun': 'PENDING_FORCE' in sync,
+              'notification customer ids': 'EXTRA_CUSTOMER_IDS' in notice,
+              'single customer detail route': 'CustomerDetailActivity.EXTRA_CUSTOMER_ID' in route,
+              'multiple customer result list': '방금 접수된 문의' in route,
+              'router manifest registration': '.PageroLeadNotificationActivity' in manifest,
+          }
+          failed = [name for name, passed in checks.items() if not passed]
+          for name, passed in checks.items():
+              print(f'{name}={"ok" if passed else "missing"}')
+          if failed:
+              raise SystemExit('PageRo routing contract failed: ' + ', '.join(failed))
+          PY
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -90,5 +118,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.40.9-pagero-realtime-alert-debug-apk
+          name: calltag-v0.41.0-pagero-integrity-routing-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk

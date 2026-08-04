@@ -7,7 +7,9 @@ import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -19,6 +21,7 @@ public final class PageroLeadSyncManager {
     public static final String EXTRA_IMPORTED = "imported";
     public static final String EXTRA_UPDATED = "updated";
     public static final String EXTRA_REJECTED = "rejected";
+    public static final String EXTRA_CUSTOMER_IDS = "customer_ids";
     public static final String EXTRA_MESSAGE = "message";
     public static final String EXTRA_ERROR_CODE = "error_code";
 
@@ -98,7 +101,10 @@ public final class PageroLeadSyncManager {
                     ContactNameSyncManager.requestSyncAll(appContext);
                     if (NOTIFY_WHEN_CHANGED.getAndSet(false)) {
                         PageroLeadNotificationManager.showImported(
-                                appContext, result.imported, result.updated);
+                                appContext,
+                                result.imported,
+                                result.updated,
+                                result.customerIds());
                     }
                 }
                 sendResult(appContext, true, result, successMessage(result), "");
@@ -153,8 +159,7 @@ public final class PageroLeadSyncManager {
                         ImportResult imported = importLead(db, lead);
                         receipts.markImported(lead.eventId, lead.id, imported.customerId);
                         acknowledged.add(lead.id);
-                        if (imported.created) result.imported++;
-                        else result.updated++;
+                        result.record(imported);
                     } catch (IllegalArgumentException invalid) {
                         result.rejected++;
                         try {
@@ -274,6 +279,7 @@ public final class PageroLeadSyncManager {
                 .putExtra(EXTRA_IMPORTED, result.imported)
                 .putExtra(EXTRA_UPDATED, result.updated)
                 .putExtra(EXTRA_REJECTED, result.rejected)
+                .putExtra(EXTRA_CUSTOMER_IDS, result.customerIds())
                 .putExtra(EXTRA_MESSAGE, message == null ? "" : message)
                 .putExtra(EXTRA_ERROR_CODE, errorCode == null ? "" : errorCode);
         context.sendBroadcast(intent);
@@ -293,5 +299,20 @@ public final class PageroLeadSyncManager {
         int imported;
         int updated;
         int rejected;
+        final Set<Long> changedCustomerIds = new LinkedHashSet<>();
+
+        void record(ImportResult importedResult) {
+            if (importedResult == null) return;
+            if (importedResult.created) imported++;
+            else updated++;
+            if (importedResult.customerId > 0L) changedCustomerIds.add(importedResult.customerId);
+        }
+
+        long[] customerIds() {
+            long[] values = new long[changedCustomerIds.size()];
+            int index = 0;
+            for (Long customerId : changedCustomerIds) values[index++] = customerId;
+            return values;
+        }
     }
 }

@@ -12,6 +12,9 @@ import android.os.Build;
 
 import androidx.core.app.NotificationCompat;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
+
 /** 페이지로 문의가 실제 고객 데이터로 반영된 뒤에만 사용자 알림을 표시한다. */
 public final class PageroLeadNotificationManager {
     private static final String CHANNEL_ID = "pagero_realtime_leads";
@@ -32,7 +35,11 @@ public final class PageroLeadNotificationManager {
         manager.createNotificationChannel(channel);
     }
 
-    public static void showImported(Context context, int imported, int updated) {
+    public static void showImported(
+            Context context,
+            int imported,
+            int updated,
+            long[] changedCustomerIds) {
         int total = Math.max(0, imported) + Math.max(0, updated);
         if (total <= 0 || !canNotify(context)) return;
 
@@ -40,7 +47,9 @@ public final class PageroLeadNotificationManager {
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager == null) return;
 
-        Intent destination = new Intent(context, MainActivity.class)
+        long[] customerIds = sanitizeCustomerIds(changedCustomerIds);
+        Intent destination = new Intent(context, PageroLeadNotificationActivity.class)
+                .putExtra(PageroLeadNotificationActivity.EXTRA_CUSTOMER_IDS, customerIds)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent pending = PendingIntent.getActivity(
                 context,
@@ -69,6 +78,18 @@ public final class PageroLeadNotificationManager {
                 .setAutoCancel(true)
                 .setContentIntent(pending);
         manager.notify(NOTIFICATION_ID, builder.build());
+    }
+
+    static long[] sanitizeCustomerIds(long[] rawIds) {
+        if (rawIds == null || rawIds.length == 0) return new long[0];
+        Set<Long> unique = new LinkedHashSet<>();
+        for (long id : rawIds) {
+            if (id > 0L) unique.add(id);
+        }
+        long[] result = new long[unique.size()];
+        int index = 0;
+        for (Long id : unique) result[index++] = id;
+        return result;
     }
 
     private static boolean canNotify(Context context) {
