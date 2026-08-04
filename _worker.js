@@ -13,7 +13,7 @@ export default {
     headers.set('cache-control','no-cache, no-store, must-revalidate');
 
     if (isLegal) {
-      headers.set('x-calltag-worker','v74-mobile-history-fix');
+      headers.set('x-calltag-worker','v75-benefits-layout');
       return new Response(body, {
         status: response.status,
         statusText: response.statusText,
@@ -40,7 +40,7 @@ export default {
         'calltag-section-split.js?v=20260801-37',
         'calltag-final-polish.js?v=20260801-37',
         'calltag-interaction-fix.js?v=20260801-37',
-        'calltag-benefits-flow.js?v=20260801-37',
+        'calltag-benefits-flow.js?v=20260804-benefits2',
         'calltag-message-simple.js?v=20260801-37',
         'calltag-final-fix.js?v=20260801-37',
         'calltag-suite-pricing.js?v=20260801-37',
@@ -75,7 +75,7 @@ export default {
       body = body.replace('</body>', '<script src="/assets/calltag-copy-hard-fix.js?v=20260803-hard1"></script></body>');
     }
 
-    headers.set('x-calltag-worker','v74-mobile-history-fix');
+    headers.set('x-calltag-worker','v75-benefits-layout');
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
