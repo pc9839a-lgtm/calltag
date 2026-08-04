@@ -30,6 +30,7 @@
     const heading=wrap?.querySelector('h2');
     if(!section||!wrap||!heading)return false;
 
+    section.classList.remove('ct-has-start-cta');
     const desired='랜딩페이지에서 받은 문의,<br><span>콜태그에서 바로 관리하세요.</span>';
     if(heading.innerHTML!==desired)heading.innerHTML=desired;
 
