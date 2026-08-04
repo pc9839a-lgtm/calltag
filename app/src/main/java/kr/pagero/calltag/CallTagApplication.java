@@ -74,6 +74,7 @@ public final class CallTagApplication extends Application implements Application
     @Override
     public void onActivityResumed(Activity activity) {
         if (activity instanceof PostCallActivity) {
+            PostCallLaunchReceipt.markVisible(activity);
             PostCallPopupWindowInstaller.install(activity);
             routingToSetup = false;
             return;
@@ -122,6 +123,7 @@ public final class CallTagApplication extends Application implements Application
     public void onActivityStarted(Activity activity) {
         startedActivities++;
         if (activity instanceof PostCallActivity) {
+            PostCallLaunchReceipt.markVisible(activity);
             PostCallPopupWindowInstaller.install(activity);
         }
         if (startedActivities == 1) {
@@ -174,6 +176,7 @@ public final class CallTagApplication extends Application implements Application
     @Override
     public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
         if (activity instanceof PostCallActivity) {
+            PostCallLaunchReceipt.markVisible(activity);
             PostCallPopupWindowInstaller.install(activity);
         }
     }
