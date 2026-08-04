@@ -66,12 +66,14 @@ public final class MoreSettingsHubView extends LinearLayout {
         customers.add("고객 상태", "고객 단계 이름과 색상", StageSettingsActivity.class);
         customers.add("일정 종류", "전화·미팅 등 할 일 이름", TaskTypeSettingsActivity.class);
 
-        Section integrations = section("페이지로");
-        integrations.add("페이지로 문의 연결", "랜딩페이지 문의를 고객으로 자동 등록",
-                PageroConnectionActivity.class);
-
         Section app = section("앱·계정");
         app.add("계정 및 개인정보", "로그인 정보와 개인정보 관리", AccountActivity.class);
+        app.add("이용권·결제", "현재 이용권 다음 결제일 요금제 구독 무료 체험 구매 복원",
+                BillingEntitlementActivity.class);
+        app.add("친구 초대·파트너", "추천인 추천코드 친구초대 무료 혜택 수익 공유",
+                ReferralPartnerActivity.class);
+        app.add("페이지로 문의 연결", "랜딩페이지 문의를 고객으로 자동 등록",
+                PageroConnectionActivity.class);
         app.add("백업 및 복원", "고객정보를 보관하고 되돌리기", BackupRestoreActivity.class);
     }
 
