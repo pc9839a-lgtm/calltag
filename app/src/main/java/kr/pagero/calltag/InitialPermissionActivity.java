@@ -62,24 +62,24 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(title, wrap());
 
         detail = new TextView(this);
-        detail.setText("전화가 오기 전에 콜태그 전용 연락처 이름에 고객명과 최근 메모를 반영합니다. Google·삼성 원본 연락처 이름은 직접 수정하지 않습니다.");
+        detail.setText("전화가 오면 고객명과 최근 메모를 보여드리기 위해 연락처와 통화 권한이 필요합니다. 기존 Google·삼성 연락처는 그대로 유지합니다.");
         detail.setTextColor(getColor(R.color.text_secondary));
         detail.setTextSize(14f);
         detail.setGravity(Gravity.CENTER);
         detail.setLineSpacing(0f, 1.25f);
         root.addView(detail, top(12));
 
-        requestButton = action("연락처 메모 표시 권한 허용", true);
+        requestButton = action("필수 권한 허용", true);
         requestButton.setOnClickListener(v -> startPermissionFlow());
         root.addView(requestButton, fixedTop(52, 24));
 
-        settingsButton = action("앱 설정에서 권한 열기", false);
+        settingsButton = action("휴대전화 설정 열기", false);
         settingsButton.setVisibility(View.GONE);
         settingsButton.setOnClickListener(v -> openAppSettings());
         root.addView(settingsButton, fixedTop(50, 9));
 
         TextView note = new TextView(this);
-        note.setText("연락처 읽기·수정, 전화 상태, 전화번호, 통화기록, 알림 권한이 필요합니다. 연락처 수정 권한은 콜태그 전용 연락처 행 생성·삭제에만 사용합니다.");
+        note.setText("허용한 권한은 고객 확인, 통화 후 정리, 알림과 문자 기능에만 사용합니다.");
         note.setTextColor(getColor(R.color.text_muted));
         note.setTextSize(12f);
         note.setGravity(Gravity.CENTER);
@@ -111,9 +111,9 @@ public final class InitialPermissionActivity extends Activity {
         requestInFlight = true;
         requestButton.setEnabled(false);
         requestButton.setAlpha(0.6f);
-        requestButton.setText("권한 요청 중…");
+        requestButton.setText("권한 확인 중…");
         settingsButton.setVisibility(View.GONE);
-        detail.setText("Android 권한창에서 모두 허용해주세요.");
+        detail.setText("화면에 표시되는 항목을 모두 허용해주세요.");
         requestPermissions(missing.toArray(new String[0]), REQUEST_PERMISSIONS);
     }
 
@@ -156,24 +156,24 @@ public final class InitialPermissionActivity extends Activity {
     private void renderMissingPermissions() {
         requestButton.setEnabled(true);
         requestButton.setAlpha(1f);
-        requestButton.setText("권한 다시 요청");
+        requestButton.setText("다시 허용하기");
         settingsButton.setVisibility(View.VISIBLE);
-        detail.setText("아직 허용되지 않은 권한이 있어 연락처 메모 표시를 시작할 수 없습니다. 다시 요청해도 창이 뜨지 않으면 앱 설정에서 직접 허용해주세요.\n\n미허용: "
+        detail.setText("아직 필요한 권한이 모두 허용되지 않았어요. 다시 눌러도 창이 뜨지 않으면 휴대전화 설정에서 직접 허용해주세요.\n\n확인이 필요한 항목: "
                 + missingPermissionLabels());
     }
 
     private String missingPermissionLabels() {
         List<String> labels = new ArrayList<>();
-        if (!SetupRequirements.hasContacts(this)) labels.add("연락처 읽기");
-        if (!SetupRequirements.hasContactWrite(this)) labels.add("연락처 수정");
-        if (!SetupRequirements.hasPhoneState(this)) labels.add("전화 상태");
-        if (!SetupRequirements.hasPhoneNumbers(this)) labels.add("전화번호");
-        if (!SetupRequirements.hasCallLog(this)) labels.add("통화기록");
+        if (!SetupRequirements.hasContacts(this)) labels.add("연락처 보기");
+        if (!SetupRequirements.hasContactWrite(this)) labels.add("전화 화면 메모 준비");
+        if (!SetupRequirements.hasPhoneState(this)) labels.add("전화 수신 확인");
+        if (!SetupRequirements.hasPhoneNumbers(this)) labels.add("전화번호 확인");
+        if (!SetupRequirements.hasCallLog(this)) labels.add("통화기록 확인");
         if (FeatureEntitlementStore.hasMessageAccess(this) && !SetupRequirements.hasSms(this)) {
-            labels.add("SMS");
+            labels.add("문자 보내기");
         }
-        if (!SetupRequirements.hasNotifications(this)) labels.add("알림");
-        return labels.isEmpty() ? "확인 필요" : String.join(", ", labels);
+        if (!SetupRequirements.hasNotifications(this)) labels.add("알림 받기");
+        return labels.isEmpty() ? "필수 권한" : String.join(", ", labels);
     }
 
     private void openAppSettings() {
@@ -191,8 +191,8 @@ public final class InitialPermissionActivity extends Activity {
         completing = true;
         requestButton.setEnabled(false);
         requestButton.setAlpha(0.6f);
-        requestButton.setText("연락처 메모 준비 중…");
-        detail.setText("콜태그 전용 연락처 계정을 만들고 고객명과 최근 메모를 동기화하고 있습니다.");
+        requestButton.setText("전화 화면 메모 준비 중…");
+        detail.setText("고객명과 최근 메모를 전화 화면에 표시할 준비를 하고 있어요.");
 
         new Thread(() -> {
             boolean accountReady = CallTagContactsAccount.ensure(this);
@@ -204,9 +204,9 @@ public final class InitialPermissionActivity extends Activity {
                     completing = false;
                     requestButton.setEnabled(true);
                     requestButton.setAlpha(1f);
-                    requestButton.setText("연락처 메모 다시 준비");
+                    requestButton.setText("다시 준비하기");
                     settingsButton.setVisibility(View.VISIBLE);
-                    detail.setText("콜태그 연락처 계정을 만들지 못했습니다. 앱 설정의 연락처 읽기·수정 권한을 확인한 뒤 다시 시도해주세요.");
+                    detail.setText("전화 화면 메모를 준비하지 못했어요. 휴대전화 설정에서 연락처 권한을 허용한 뒤 다시 시도해주세요.");
                     return;
                 }
 
