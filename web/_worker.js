@@ -13,7 +13,7 @@ export default {
     headers.set('cache-control','no-cache, no-store, must-revalidate');
 
     if (isLegal) {
-      headers.set('x-calltag-worker','v87-story-order-hard-pin');
+      headers.set('x-calltag-worker','v88-calltag-pagero-flow');
       return new Response(body, {
         status: response.status,
         statusText: response.statusText,
@@ -30,7 +30,7 @@ export default {
       .replace(/<meta property="og:url" content="[^"]*"\s*\/?>/i, '<meta property="og:url" content="https://calltag.pagero.kr/" />');
 
     if (!body.includes('ct-initial-layout-guard')) {
-      body = body.replace('</head>', '<style id="ct-initial-layout-guard">html:not(.ct-layout-ready) body>main#top>#app{visibility:hidden!important}</style><script>setTimeout(()=>document.documentElement.classList.add("ct-layout-ready"),3000)</script></head>');
+      body = body.replace('</head>', '<style id="ct-initial-layout-guard">html:not(.ct-layout-ready) body>main#top{visibility:hidden!important}</style><script>setTimeout(()=>document.documentElement.classList.add("ct-layout-ready"),3000)</script></head>');
     }
 
     if (!body.includes('/assets/calltag-enhance.css')) {
@@ -72,7 +72,7 @@ export default {
         'calltag-mobile-clean-v2.js?v=20260804-clean3',
         'calltag-mobile-history-fix.js?v=20260804-history1',
         'calltag-footer-links-v3.js?v=20260804-links5',
-        'calltag-section-order.js?v=20260805-order6'
+        'calltag-section-order.js?v=20260805-order8'
       ];
       body = body.replace('</body>', scripts.map(src => `<script src="/assets/${src}"></script>`).join('') + '</body>');
     }
@@ -85,7 +85,7 @@ export default {
       body = body.replace('</body>', '<script src="/assets/calltag-story-order-hard-fix.js?v=20260805-pin1"></script></body>');
     }
 
-    headers.set('x-calltag-worker','v87-story-order-hard-pin');
+    headers.set('x-calltag-worker','v88-calltag-pagero-flow');
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
