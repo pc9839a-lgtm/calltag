@@ -2,6 +2,7 @@ package kr.pagero.calltag;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -16,9 +17,12 @@ import android.widget.TextView;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class CallTagSyncStatusActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Runnable refreshLoop = new Runnable() {
         @Override public void run() {
             refresh();
@@ -31,7 +35,10 @@ public final class CallTagSyncStatusActivity extends Activity {
     private TextView statusMessage;
     private TextView details;
     private Button syncButton;
+    private Button devicesButton;
+    private Button eraseButton;
     private boolean binding;
+    private boolean eraseRunning;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -99,6 +106,35 @@ public final class CallTagSyncStatusActivity extends Activity {
         });
         root.addView(syncButton, marginTopHeight(16, 50));
 
+        devicesButton = new Button(this);
+        devicesButton.setText("연결된 기기 관리");
+        devicesButton.setTextSize(15f);
+        devicesButton.setAllCaps(false);
+        devicesButton.setOnClickListener(v -> {
+            if (!AuthSessionStore.hasSession(this)) {
+                new AlertDialog.Builder(this)
+                        .setMessage("로그인 후 사용할 수 있습니다.")
+                        .setPositiveButton("확인", null)
+                        .show();
+                return;
+            }
+            startActivity(new Intent(this, CallTagSyncDevicesActivity.class));
+        });
+        root.addView(devicesButton, marginTopHeight(10, 50));
+
+        LinearLayout deleteCard = card();
+        deleteCard.addView(text("서버 복구본 관리", 16f, true, R.color.text_primary));
+        deleteCard.addView(text(
+                "데이터 보호를 끄는 것과 서버 복구본 삭제는 다릅니다. 보호를 끄면 서버 복구본은 유지되고, 아래 삭제를 실행해야 서버에서 완전히 제거됩니다.",
+                13f, false, R.color.text_secondary), marginTop(8));
+        eraseButton = new Button(this);
+        eraseButton.setText("서버 복구본 삭제");
+        eraseButton.setTextSize(14f);
+        eraseButton.setAllCaps(false);
+        eraseButton.setOnClickListener(v -> confirmErase());
+        deleteCard.addView(eraseButton, marginTopHeight(12, 48));
+        root.addView(deleteCard, marginTop(16));
+
         TextView localNote = text(
                 "서버 연결에 실패해도 기기 안의 고객정보는 삭제되지 않습니다. " +
                         "기존 암호화 백업 파일 기능도 함께 유지됩니다.",
@@ -138,12 +174,101 @@ public final class CallTagSyncStatusActivity extends Activity {
                 .show();
     }
 
+    private void confirmErase() {
+        if (eraseRunning) return;
+        if (!AuthSessionStore.hasSession(this)) {
+            new AlertDialog.Builder(this)
+                    .setMessage("로그인 후 서버 복구본을 삭제할 수 있습니다.")
+                    .setPositiveButton("확인", null)
+                    .show();
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("서버 복구본을 삭제할까요?")
+                .setMessage("서버에 보관된 고객·상담·메모·후속 일정 복구본이 삭제됩니다. 이 휴대폰 안의 고객정보는 삭제되지 않습니다.")
+                .setNegativeButton("취소", null)
+                .setPositiveButton("계속", (dialog, which) -> confirmEraseAgain())
+                .show();
+    }
+
+    private void confirmEraseAgain() {
+        new AlertDialog.Builder(this)
+                .setTitle("삭제 후 되돌릴 수 없습니다")
+                .setMessage("다른 기기에서도 복구할 수 없게 됩니다. 현재 휴대폰의 데이터는 그대로 남습니다.")
+                .setNegativeButton("취소", null)
+                .setPositiveButton("서버 복구본 삭제", (dialog, which) -> eraseServerCopy())
+                .show();
+    }
+
+    private void eraseServerCopy() {
+        eraseRunning = true;
+        eraseButton.setEnabled(false);
+        syncButton.setEnabled(false);
+        devicesButton.setEnabled(false);
+        statusTitle.setText("서버 복구본 삭제 중");
+        statusMessage.setText("현재 휴대폰의 고객정보는 건드리지 않습니다.");
+        executor.execute(() -> {
+            try {
+                CallTagSyncApiClient.eraseServerData(
+                        AuthSessionStore.session(this),
+                        CallTagSyncDeviceStore.deviceId(this));
+
+                CallTagSyncPreferenceStore.setEnabled(this, false);
+                CallTagSyncLocalStore store = new CallTagSyncLocalStore(this);
+                String accountKey = store.accountKey();
+                if (!accountKey.isEmpty()) {
+                    store.getWritableDatabase().delete("entity_map", "account_key=?",
+                            new String[]{accountKey});
+                    store.getWritableDatabase().delete("sync_meta", "account_key=?",
+                            new String[]{accountKey});
+                }
+                store.close();
+                CallTagSyncDeviceStore.rotate(this);
+
+                handler.post(() -> {
+                    eraseRunning = false;
+                    new AlertDialog.Builder(this)
+                            .setTitle("삭제 완료")
+                            .setMessage("서버 복구본을 삭제했습니다. 이 휴대폰의 고객정보는 그대로 유지됩니다. 다시 데이터 보호를 켜면 새 복구본이 생성됩니다.")
+                            .setPositiveButton("확인", null)
+                            .show();
+                    refresh();
+                });
+            } catch (Exception error) {
+                handler.post(() -> {
+                    eraseRunning = false;
+                    new AlertDialog.Builder(this)
+                            .setTitle("삭제하지 못했습니다")
+                            .setMessage(userMessage(error))
+                            .setPositiveButton("확인", null)
+                            .show();
+                    refresh();
+                });
+            }
+        });
+    }
+
+    private String userMessage(Exception error) {
+        if (error instanceof CallTagSyncApiClient.ApiException) {
+            CallTagSyncApiClient.ApiException api = (CallTagSyncApiClient.ApiException) error;
+            if ("CALLTAG_SYNC_NOT_ENABLED".equals(api.code)
+                    || api.status == 404 || api.status == 405 || api.status >= 500) {
+                return "서버 기능을 준비 중입니다. 현재 휴대폰의 데이터는 그대로 유지됩니다.";
+            }
+            if (api.status == 401 || api.status == 403) {
+                return "로그인을 다시 확인해주세요.";
+            }
+        }
+        String message = error == null ? "" : String.valueOf(error.getMessage()).trim();
+        return message.isEmpty() ? "서버 복구본을 삭제하지 못했습니다." : message;
+    }
+
     private void refresh() {
         boolean loggedIn = AuthSessionStore.hasSession(this);
         boolean enabled = CallTagSyncPreferenceStore.isEnabled(this);
         binding = true;
         enabledSwitch.setChecked(enabled);
-        enabledSwitch.setEnabled(loggedIn);
+        enabledSwitch.setEnabled(loggedIn && !eraseRunning);
         binding = false;
 
         CallTagSyncLocalStore store = new CallTagSyncLocalStore(this);
@@ -151,14 +276,20 @@ public final class CallTagSyncStatusActivity extends Activity {
         store.close();
 
         String label = statusLabel(state.status, enabled, loggedIn);
-        statusTitle.setText(label);
-        statusMessage.setText(state.message);
+        if (!eraseRunning) {
+            statusTitle.setText(label);
+            statusMessage.setText(state.message);
+        }
         details.setText("마지막 완료  " + time(state.lastSuccessAt)
                 + "\n대기 중 변경  " + state.pendingCount + "건"
                 + "\n서버 보관  " + state.serverRecords + "건");
-        syncButton.setEnabled(loggedIn && !CallTagSyncManager.isRunning());
-        syncButton.setText(CallTagSyncManager.isRunning()
+        boolean running = CallTagSyncManager.isRunning();
+        syncButton.setEnabled(loggedIn && !running && !eraseRunning);
+        devicesButton.setEnabled(loggedIn && !eraseRunning);
+        eraseButton.setEnabled(loggedIn && !eraseRunning);
+        syncButton.setText(running
                 ? "동기화 중…" : enabled ? "지금 동기화" : "데이터 보호 켜기");
+        eraseButton.setText(eraseRunning ? "삭제 중…" : "서버 복구본 삭제");
     }
 
     private String statusLabel(String status, boolean enabled, boolean loggedIn) {
@@ -224,5 +355,10 @@ public final class CallTagSyncStatusActivity extends Activity {
     @Override protected void onPause() {
         handler.removeCallbacks(refreshLoop);
         super.onPause();
+    }
+
+    @Override protected void onDestroy() {
+        executor.shutdownNow();
+        super.onDestroy();
     }
 }
