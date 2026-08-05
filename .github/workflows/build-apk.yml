@@ -76,7 +76,8 @@ jobs:
               'post-call notification fallback': 'CallPopupNotificationManager.showPostCall' in guard,
               'pagero user copy': '새 문의 확인' in pagero and '지금 동기화' not in pagero,
               'secure sync activities registered': '.CallTagSyncStatusActivity' in manifest and '.CallTagSyncDevicesActivity' in manifest,
-              'version 0.42.6': "versionName '0.42.6'" in gradle and 'versionCode 66' in gradle,
+              'version 0.42.7': "versionName '0.42.7'" in gradle and 'versionCode 67' in gradle,
+              'stable WorkManager dependency': "androidx.work:work-runtime:2.11.2" in gradle,
           }
           failed = [name for name, ok in checks.items() if not ok]
           for name, ok in checks.items(): print(f'{name}={"ok" if ok else "missing"}')
@@ -100,6 +101,9 @@ jobs:
           devices_screen = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncDevicesActivity.java').read_text(encoding='utf-8')
           auth = Path('app/src/main/java/kr/pagero/calltag/AuthSessionStore.java').read_text(encoding='utf-8')
           app = Path('app/src/main/java/kr/pagero/calltag/CallTagApplication.java').read_text(encoding='utf-8')
+          boot = Path('app/src/main/java/kr/pagero/calltag/BootReceiver.java').read_text(encoding='utf-8')
+          scheduler = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncWorkScheduler.java').read_text(encoding='utf-8')
+          worker = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncWorker.java').read_text(encoding='utf-8')
           more = Path('app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java').read_text(encoding='utf-8')
 
           status_index = manager.find('CallTagSyncApiClient.status')
@@ -126,7 +130,16 @@ jobs:
               'local customer data survives erase': 'entity_map' in screen and 'calltag.db' not in screen,
               'explicit consent copy': '통화 녹음과 전체 연락처는 전송하지 않습니다' in screen,
               'settings entry': '데이터 보호·복구' in more and 'CallTagSyncStatusActivity.class' in more,
-              'app lifecycle is gated': 'CallTagSyncManager.request' in app and 'CallTagSyncPreferenceStore.isEnabled' in manager,
+              'periodic background work': 'PeriodicWorkRequest.Builder' in scheduler and 'PERIOD_MINUTES = 15L' in scheduler,
+              'network and battery constraints': 'NetworkType.CONNECTED' in scheduler and 'setRequiresBatteryNotLow(true)' in scheduler,
+              'unique account-scoped work': 'enqueueUniquePeriodicWork' in scheduler and 'enqueueUniqueWork' in scheduler and 'SHA-256' in scheduler,
+              'worker remains opt-in gated': 'CallTagSyncPreferenceStore.isEnabled' in worker and 'AuthSessionStore.hasSession' in worker,
+              'transient failures retry': 'Result.retry()' in worker and 'WAITING' in worker and 'ERROR' in worker,
+              'maintenance blocks background work': 'isMaintenanceRunning()' in scheduler and 'isMaintenanceRunning()' in worker,
+              'consent schedules and cancels work': 'CallTagSyncWorkScheduler.reconcile' in prefs and 'CallTagSyncWorkScheduler.cancel' in prefs,
+              'login and logout reconcile work': 'CallTagSyncWorkScheduler.reconcile(context)' in auth and 'CallTagSyncWorkScheduler.cancel(context)' in auth,
+              'boot and update restore work': 'CallTagSyncWorkScheduler.reconcile(app)' in boot and 'package_replaced' in boot,
+              'app background queues final sync': 'app_background' in app and 'CallTagSyncWorkScheduler.enqueueImmediate' in app,
           }
           failed = [name for name, ok in checks.items() if not ok]
           for name, ok in checks.items(): print(f'{name}={"ok" if ok else "missing"}')
@@ -166,5 +179,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.42.6-device-management-server-erase-debug-apk
+          name: calltag-v0.42.7-background-data-protection-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
