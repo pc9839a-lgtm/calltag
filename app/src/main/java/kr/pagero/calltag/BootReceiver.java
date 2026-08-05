@@ -26,6 +26,10 @@ public final class BootReceiver extends BroadcastReceiver {
                 MessageAutomationStore.ensureDefaults(app);
                 MessageRecoveryManager.recoverNow(app, recoveryTrigger);
                 DataIntegrityManager.recoverNow(app, integrityTrigger);
+                CallTagSyncWorkScheduler.reconcile(app);
+                CallTagSyncWorkScheduler.enqueueImmediate(
+                        app,
+                        packageReplaced ? "package_replaced" : "boot");
                 startMonitorIfAllowed(app);
             } finally {
                 pendingResult.finish();
