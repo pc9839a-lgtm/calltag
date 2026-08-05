@@ -1,6 +1,6 @@
 (()=>{
-  if(document.documentElement.dataset.ctSectionOrderCalltagFirstV1)return;
-  document.documentElement.dataset.ctSectionOrderCalltagFirstV1='1';
+  if(document.documentElement.dataset.ctSectionOrderCalltagFirstV2)return;
+  document.documentElement.dataset.ctSectionOrderCalltagFirstV2='1';
 
   const installBrand=()=>{
     const heading=document.querySelector('#app .hero-heading');
@@ -49,7 +49,6 @@
 
     installBrand();
 
-    // 1. CallTag comes first.
     if(main.firstElementChild!==app)main.prepend(app);
     let cursor=app;
 
@@ -69,16 +68,16 @@
 
     calltagSections.forEach(section=>{cursor=moveAfter(cursor,section);});
 
-    // 2. PageRo standalone explanation follows all CallTag sections.
     cursor=moveAfter(cursor,intro);
 
     const pageroOnly=intro.querySelector('.ct-horizontal-industries-clean')||intro.querySelector('.ct-v8-nocode');
+    const pageroBrandIntro=intro.querySelector('.ct-pagero-brand-intro');
     const integrationHero=intro.querySelector('.ct-v8-hero');
     const connect=intro.querySelector('.ct-pagero-connect');
     const integrationJourney=intro.querySelector('.ct-journey-clean')||document.querySelector('.ct-journey-clean');
 
     let introCursor=null;
-    unique([pageroOnly,integrationHero,connect,integrationJourney]).forEach(section=>{
+    unique([pageroOnly,pageroBrandIntro,integrationHero,connect,integrationJourney]).forEach(section=>{
       if(!introCursor){
         if(intro.firstElementChild!==section)intro.prepend(section);
         introCursor=section;
@@ -87,7 +86,6 @@
       }
     });
 
-    // 3. Pricing and closing information remain after the combined-service explanation.
     const closing=unique([
       document.querySelector('#pricing'),
       document.querySelector('#faq'),
