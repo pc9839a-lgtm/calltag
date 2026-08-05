@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 
 public final class CallTagSyncPreferenceStore {
     private static final String PREFS = "calltag_secure_sync_preferences";
+    private static final String KEY_ENABLED = "enabled";
     private static final String KEY_PREFIX = "enabled_";
 
     private CallTagSyncPreferenceStore() {}
@@ -20,7 +21,9 @@ public final class CallTagSyncPreferenceStore {
 
     public static boolean isEnabled(Context context) {
         String key = key(context);
-        return !key.isEmpty() && prefs(context).getBoolean(key, false);
+        if (key.isEmpty()) return false;
+        return prefs(context).getBoolean(key,
+                prefs(context).getBoolean(KEY_ENABLED, false));
     }
 
     public static void setEnabled(Context context, boolean enabled) {
