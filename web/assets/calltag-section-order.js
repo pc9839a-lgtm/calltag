@@ -1,6 +1,6 @@
 (()=>{
-  if(document.documentElement.dataset.ctSectionOrderV4)return;
-  document.documentElement.dataset.ctSectionOrderV4='1';
+  if(document.documentElement.dataset.ctSectionOrderV5)return;
+  document.documentElement.dataset.ctSectionOrderV5='1';
 
   const installBrand=()=>{
     const heading=document.querySelector('#app .hero-heading');
@@ -37,15 +37,16 @@
     const main=document.querySelector('main#top');
     const intro=document.querySelector('#ct-pagero-intro');
     const app=document.querySelector('#app');
+    const journey=document.querySelector('.ct-journey-clean');
     if(!main||!intro||!app)return false;
 
     installBrand();
-    if(main.firstElementChild!==intro)main.prepend(intro);
 
+    // PageRo wrapper stays first and keeps only its own sections.
+    if(main.firstElementChild!==intro)main.prepend(intro);
     const pageroHero=intro.querySelector('.ct-v8-hero');
     const connect=intro.querySelector('.ct-pagero-connect');
     const nocode=intro.querySelector('.ct-v8-nocode');
-
     let introCursor=null;
     [pageroHero,connect,nocode].filter(Boolean).forEach(section=>{
       if(!introCursor){
@@ -56,11 +57,9 @@
       }
     });
 
-    if(introCursor)moveAfter(introCursor,app);
-    else intro.append(app);
-
-    const journey=document.querySelector('.ct-journey-clean');
-    if(journey)moveAfter(app,journey);
+    // CallTag sections must be siblings of the PageRo wrapper, never children of it.
+    let cursor=moveAfter(intro,app);
+    if(journey)cursor=moveAfter(cursor,journey);
 
     const benefits=document.querySelector('.ct-benefit-section')||document.querySelector('.ad-benefits')?.closest('.ad-section');
     const ordered=[
@@ -76,9 +75,9 @@
       document.querySelector('.ad-final')
     ].filter(Boolean);
 
-    let cursor=intro;
     ordered.forEach(section=>{cursor=moveAfter(cursor,section);});
-    return installBrand();
+    document.documentElement.classList.add('ct-layout-ready');
+    return true;
   };
 
   const boot=()=>{
@@ -92,7 +91,7 @@
     apply();
     const observer=new MutationObserver(schedule);
     observer.observe(document.documentElement,{childList:true,subtree:true});
-    [50,120,250,500,900,1500,2500,4000,6500,10000,15000].forEach(delay=>setTimeout(apply,delay));
+    [30,80,160,320,600,1000,1600,2500,4000,6500,10000,15000].forEach(delay=>setTimeout(apply,delay));
     setTimeout(()=>observer.disconnect(),20000);
   };
 
