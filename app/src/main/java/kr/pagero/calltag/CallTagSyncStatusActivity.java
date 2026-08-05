@@ -201,6 +201,13 @@ public final class CallTagSyncStatusActivity extends Activity {
     }
 
     private void eraseServerCopy() {
+        if (!CallTagSyncManager.beginMaintenance()) {
+            new AlertDialog.Builder(this)
+                    .setMessage("현재 데이터 보호 작업이 진행 중입니다. 완료된 뒤 다시 시도해주세요.")
+                    .setPositiveButton("확인", null)
+                    .show();
+            return;
+        }
         eraseRunning = true;
         eraseButton.setEnabled(false);
         syncButton.setEnabled(false);
@@ -244,6 +251,8 @@ public final class CallTagSyncStatusActivity extends Activity {
                             .show();
                     refresh();
                 });
+            } finally {
+                CallTagSyncManager.endMaintenance();
             }
         });
     }
@@ -266,9 +275,11 @@ public final class CallTagSyncStatusActivity extends Activity {
     private void refresh() {
         boolean loggedIn = AuthSessionStore.hasSession(this);
         boolean enabled = CallTagSyncPreferenceStore.isEnabled(this);
+        boolean running = CallTagSyncManager.isRunning();
+        boolean maintenance = CallTagSyncManager.isMaintenanceRunning();
         binding = true;
         enabledSwitch.setChecked(enabled);
-        enabledSwitch.setEnabled(loggedIn && !eraseRunning);
+        enabledSwitch.setEnabled(loggedIn && !eraseRunning && !maintenance);
         binding = false;
 
         CallTagSyncLocalStore store = new CallTagSyncLocalStore(this);
@@ -283,10 +294,9 @@ public final class CallTagSyncStatusActivity extends Activity {
         details.setText("마지막 완료  " + time(state.lastSuccessAt)
                 + "\n대기 중 변경  " + state.pendingCount + "건"
                 + "\n서버 보관  " + state.serverRecords + "건");
-        boolean running = CallTagSyncManager.isRunning();
-        syncButton.setEnabled(loggedIn && !running && !eraseRunning);
+        syncButton.setEnabled(loggedIn && !running && !maintenance && !eraseRunning);
         devicesButton.setEnabled(loggedIn && !eraseRunning);
-        eraseButton.setEnabled(loggedIn && !eraseRunning);
+        eraseButton.setEnabled(loggedIn && !running && !maintenance && !eraseRunning);
         syncButton.setText(running
                 ? "동기화 중…" : enabled ? "지금 동기화" : "데이터 보호 켜기");
         eraseButton.setText(eraseRunning ? "삭제 중…" : "서버 복구본 삭제");
