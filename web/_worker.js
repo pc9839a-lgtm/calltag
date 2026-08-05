@@ -13,7 +13,7 @@ export default {
     headers.set('cache-control','no-cache, no-store, must-revalidate');
 
     if (isLegal) {
-      headers.set('x-calltag-worker','v84-call-journey-order');
+      headers.set('x-calltag-worker','v85-first-paint-order');
       return new Response(body, {
         status: response.status,
         statusText: response.statusText,
@@ -28,6 +28,10 @@ export default {
       .replace(/<meta property="og:title" content="[^"]*"\s*\/?>/i, '<meta property="og:title" content="페이지로와 콜태그 | 고객 접수부터 후속관리까지" />')
       .replace(/<meta property="og:description" content="[^"]*"\s*\/?>/i, '<meta property="og:description" content="랜딩페이지 문의가 앱에 바로 등록되고, 통화 후 고객관리와 후속 일정까지 이어집니다." />')
       .replace(/<meta property="og:url" content="[^"]*"\s*\/?>/i, '<meta property="og:url" content="https://calltag.pagero.kr/" />');
+
+    if (!body.includes('ct-initial-layout-guard')) {
+      body = body.replace('</head>', '<style id="ct-initial-layout-guard">html:not(.ct-layout-ready) body>main#top>#app{visibility:hidden!important}</style><script>setTimeout(()=>document.documentElement.classList.add("ct-layout-ready"),3000)</script></head>');
+    }
 
     if (!body.includes('/assets/calltag-enhance.css')) {
       body = body.replace('</head>', '<link rel="stylesheet" href="/assets/calltag-enhance.css?v=20260801-37" /></head>');
@@ -68,7 +72,7 @@ export default {
         'calltag-mobile-clean-v2.js?v=20260804-clean3',
         'calltag-mobile-history-fix.js?v=20260804-history1',
         'calltag-footer-links-v3.js?v=20260804-links5',
-        'calltag-section-order.js?v=20260805-order4'
+        'calltag-section-order.js?v=20260805-order5'
       ];
       body = body.replace('</body>', scripts.map(src => `<script src="/assets/${src}"></script>`).join('') + '</body>');
     }
@@ -77,7 +81,7 @@ export default {
       body = body.replace('</body>', '<script src="/assets/calltag-copy-hard-fix.js?v=20260803-hard1"></script></body>');
     }
 
-    headers.set('x-calltag-worker','v84-call-journey-order');
+    headers.set('x-calltag-worker','v85-first-paint-order');
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
