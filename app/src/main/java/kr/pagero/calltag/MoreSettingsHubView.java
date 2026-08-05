@@ -70,6 +70,8 @@ public final class MoreSettingsHubView extends LinearLayout {
 
         Section app = section("앱·계정");
         app.add("계정 및 개인정보", "로그인 정보와 개인정보 관리", AccountActivity.class);
+        app.add("데이터 보호·복구", "앱 삭제 재설치 기기 변경 고객 메모 상담 일정 암호화 동기화",
+                CallTagSyncStatusActivity.class);
         app.add("이용권·결제", "현재 이용권 다음 결제일 요금제 구독 무료 체험 구매 복원",
                 BillingEntitlementActivity.class);
         app.add("친구 초대·파트너", "추천인 추천코드 친구초대 무료 혜택 수익 공유",
