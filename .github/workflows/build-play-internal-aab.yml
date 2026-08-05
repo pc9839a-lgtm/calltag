@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 concurrency:
   group: calltag-play-internal-${{ github.ref }}
@@ -192,7 +193,9 @@ EOF
           cp "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt" "$OUT/"
           cp docs/V0430_PLAY_INTERNAL_RELEASE_KO.md "$OUT/UPLOAD_GUIDE_KO.md"
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload Play internal AAB
+        id: upload_aab
+        uses: actions/upload-artifact@v4
         with:
           name: calltag-v0.43.0-play-internal-aab
           path: ${{ runner.temp }}/calltag-v0.43.0-play-internal
@@ -200,6 +203,7 @@ EOF
           if-no-files-found: error
 
       - name: Upload bootstrap upload-key backup
+        id: upload_key
         if: env.CALLTAG_BOOTSTRAP_UPLOAD_KEY == 'true'
         uses: actions/upload-artifact@v4
         with:
@@ -207,3 +211,24 @@ EOF
           path: ${{ env.CALLTAG_UPLOAD_KEY_BACKUP_DIR }}
           retention-days: 7
           if-no-files-found: error
+
+      - name: Report Play build to PR 40
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AAB_URL: ${{ steps.upload_aab.outputs.artifact-url }}
+          KEY_URL: ${{ steps.upload_key.outputs.artifact-url }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ "$JOB_STATUS" = 'success' ]; then
+            BODY="Play internal AAB build success.\n\n- run: ${RUN_URL}\n- AAB artifact: ${AAB_URL}"
+            if [ -n "${KEY_URL:-}" ]; then
+              BODY="${BODY}\n- upload-key backup: ${KEY_URL}\n\nAAB와 upload-key backup은 반드시 같은 run의 파일을 사용하세요."
+            fi
+          else
+            BODY="Play internal AAB build failed.\n\n- run: ${RUN_URL}\n- head: ${GITHUB_SHA}"
+          fi
+          printf '%b' "$BODY" | gh pr comment 40 --body-file -
