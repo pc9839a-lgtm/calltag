@@ -75,8 +75,8 @@ jobs:
               'post-call visibility receipt': 'PostCallDeliveryGuard.schedule' in launcher,
               'post-call notification fallback': 'CallPopupNotificationManager.showPostCall' in guard,
               'pagero user copy': '새 문의 확인' in pagero and '지금 동기화' not in pagero,
-              'secure sync activity registered': '.CallTagSyncStatusActivity' in manifest,
-              'version 0.42.5': "versionName '0.42.5'" in gradle and 'versionCode 65' in gradle,
+              'secure sync activities registered': '.CallTagSyncStatusActivity' in manifest and '.CallTagSyncDevicesActivity' in manifest,
+              'version 0.42.6': "versionName '0.42.6'" in gradle and 'versionCode 66' in gradle,
           }
           failed = [name for name, ok in checks.items() if not ok]
           for name, ok in checks.items(): print(f'{name}={"ok" if ok else "missing"}')
@@ -97,6 +97,7 @@ jobs:
           api = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncApiClient.java').read_text(encoding='utf-8')
           manager = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncManager.java').read_text(encoding='utf-8')
           screen = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncStatusActivity.java').read_text(encoding='utf-8')
+          devices_screen = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncDevicesActivity.java').read_text(encoding='utf-8')
           auth = Path('app/src/main/java/kr/pagero/calltag/AuthSessionStore.java').read_text(encoding='utf-8')
           app = Path('app/src/main/java/kr/pagero/calltag/CallTagApplication.java').read_text(encoding='utf-8')
           more = Path('app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java').read_text(encoding='utf-8')
@@ -106,6 +107,7 @@ jobs:
           checks = {
               'opt-in defaults false': 'getBoolean(KEY_ENABLED, false)' in prefs,
               'device id uses secure random': 'SecureRandom' in device and 'AndroidKeyStore' in device and 'AES/GCM/NoPadding' in device,
+              'device identity rotates after erase': 'String rotate(Context context)' in device and 'CallTagSyncDeviceStore.rotate(this)' in screen,
               'owner id is persisted': 'KEY_OWNER_ID' in auth and 'ownerId(Context context)' in auth,
               'account isolated local database': 'account_key TEXT NOT NULL' in local and 'owner:' in local,
               'outbox and cursor': 'pending INTEGER' in local and 'META_CURSOR' in local,
@@ -116,6 +118,12 @@ jobs:
               'bootstrap push pull': all(v in manager for v in ('bootstrap(', 'pushPending(', 'pullChanges(')),
               '100 item batch': 'PAGE_SIZE = 100' in manager,
               'secure headers': all(v in api for v in ('X-Inlet-Session','X-CallTag-Device','X-CallTag-App-Version')),
+              'device management api': '/api/calltag-sync/devices' in api and 'REVOKE_CALLTAG_SYNC_DEVICE' in api,
+              'server erase api': '/api/calltag-sync/erase' in api and 'DELETE_CALLTAG_SYNC_DATA' in api,
+              'device management ui': '연결된 기기' in devices_screen and '이 기기 연결 해제' in devices_screen,
+              'current device revoke is not offered': 'if (!current && active' in devices_screen,
+              'erase is separate from disabling': '서버 복구본 삭제' in screen and '데이터 보호를 끄는 것과 서버 복구본 삭제는 다릅니다' in screen,
+              'local customer data survives erase': 'entity_map' in screen and 'calltag.db' not in screen,
               'explicit consent copy': '통화 녹음과 전체 연락처는 전송하지 않습니다' in screen,
               'settings entry': '데이터 보호·복구' in more and 'CallTagSyncStatusActivity.class' in more,
               'app lifecycle is gated': 'CallTagSyncManager.request' in app and 'CallTagSyncPreferenceStore.isEnabled' in manager,
@@ -158,5 +166,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.42.5-secure-sync-client-debug-apk
+          name: calltag-v0.42.6-device-management-server-erase-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
