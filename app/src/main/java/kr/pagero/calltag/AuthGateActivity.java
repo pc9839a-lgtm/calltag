@@ -51,6 +51,7 @@ public final class AuthGateActivity extends Activity {
                 AuthSessionStore.save(this, response);
                 applyPendingReferral(session);
                 refreshEntitlement(session);
+                CallTagSyncManager.request(this, false);
                 runOnUiThread(() -> routeAfterLoading(this::openDestination));
             } catch (Exception error) {
                 runOnUiThread(this::routeFromCachedState);
