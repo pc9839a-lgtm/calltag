@@ -53,6 +53,7 @@ public final class CallTagApplication extends Application implements Application
             PageroLeadSyncManager.requestSync(this, true);
             PageroAccountConnectionManager.refresh(this, false);
             CallTagPushManager.registerIfAvailable(this);
+            CallTagSyncManager.request(this, false);
             if (SetupRequirements.isReady(this)) {
                 SetupRequirements.startCallMonitoring(this);
             }
@@ -87,6 +88,7 @@ public final class CallTagApplication extends Application implements Application
                 PageroAccountConnectionManager.refresh(activity, false);
                 CallTagPushManager.registerIfAvailable(activity);
                 CallTagPushManager.refreshStatus(activity);
+                CallTagSyncManager.request(activity, false);
                 if (EntitlementNoticeActivity.shouldOpen(activity)) {
                     activity.startActivity(new Intent(activity, EntitlementNoticeActivity.class));
                 }
@@ -169,6 +171,7 @@ public final class CallTagApplication extends Application implements Application
                 || activity instanceof PageroConnectionActivity
                 || activity instanceof BillingEntitlementActivity
                 || activity instanceof ReferralPartnerActivity
+                || activity instanceof CallTagSyncStatusActivity
                 || activity instanceof AccountActivity
                 || activity instanceof BackupRestoreActivity;
     }
