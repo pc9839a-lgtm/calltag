@@ -33,6 +33,16 @@ public final class CallTagSyncDeviceStore {
                 prefs.edit().remove(KEY_DEVICE).commit();
             }
         }
+        return createAndPersist(context, prefs);
+    }
+
+    public static synchronized String rotate(Context context) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        prefs.edit().remove(KEY_DEVICE).commit();
+        return createAndPersist(context, prefs);
+    }
+
+    private static String createAndPersist(Context context, SharedPreferences prefs) {
         byte[] random = new byte[24];
         new SecureRandom().nextBytes(random);
         String value = Base64.encodeToString(random,
