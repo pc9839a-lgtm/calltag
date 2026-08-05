@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 public final class CallTagSyncWorkScheduler {
     static final String INPUT_FORCE = "force";
     static final String INPUT_REASON = "reason";
+    static final String INPUT_ACCOUNT = "account";
 
     private static final String TAG = "calltag-secure-sync";
     private static final String PREFS = "calltag_secure_sync_work";
@@ -38,7 +39,7 @@ public final class CallTagSyncWorkScheduler {
             return;
         }
 
-        String account = workAccount(app);
+        String account = currentAccountToken(app);
         SharedPreferences prefs = prefs(app);
         String scheduled = prefs.getString(KEY_ACCOUNT, "");
         if (!account.equals(scheduled)) {
@@ -57,6 +58,7 @@ public final class CallTagSyncWorkScheduler {
                 .setInputData(new Data.Builder()
                         .putBoolean(INPUT_FORCE, false)
                         .putString(INPUT_REASON, "periodic")
+                        .putString(INPUT_ACCOUNT, account)
                         .build())
                 .build();
         manager.enqueueUniquePeriodicWork(
@@ -69,13 +71,14 @@ public final class CallTagSyncWorkScheduler {
         Context app = context.getApplicationContext();
         if (!eligible(app) || CallTagSyncManager.isMaintenanceRunning()) return;
         reconcile(app);
-        String account = workAccount(app);
+        String account = currentAccountToken(app);
         OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(CallTagSyncWorker.class)
                 .setConstraints(networkConstraints())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30L, TimeUnit.SECONDS)
                 .setInputData(new Data.Builder()
                         .putBoolean(INPUT_FORCE, true)
                         .putString(INPUT_REASON, safeReason(reason))
+                        .putString(INPUT_ACCOUNT, account)
                         .build())
                 .addTag(TAG)
                 .addTag(immediateName(account))
@@ -90,6 +93,10 @@ public final class CallTagSyncWorkScheduler {
         Context app = context.getApplicationContext();
         WorkManager.getInstance(app).cancelAllWorkByTag(TAG);
         prefs(app).edit().remove(KEY_ACCOUNT).apply();
+    }
+
+    static String currentAccountToken(Context context) {
+        return hashAccount(CallTagSyncLocalStore.accountKey(context));
     }
 
     private static boolean eligible(Context context) {
@@ -117,8 +124,7 @@ public final class CallTagSyncWorkScheduler {
         return "calltag-secure-sync-immediate-" + account;
     }
 
-    private static String workAccount(Context context) {
-        String value = CallTagSyncLocalStore.accountKey(context);
+    private static String hashAccount(String value) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] bytes = digest.digest(value.getBytes(StandardCharsets.UTF_8));
