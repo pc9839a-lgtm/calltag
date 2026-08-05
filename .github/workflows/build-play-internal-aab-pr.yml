@@ -38,10 +38,15 @@ jobs:
           gradle-version: '8.13'
 
       - name: Install Android 16 SDK
+        shell: bash
         run: |
           set -euo pipefail
-          yes | sdkmanager --licenses >/dev/null
-          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' | head -n 1)"
+          fi
+          test -x "$SDKMANAGER" || { echo '::error::sdkmanager was not found'; exit 1; }
+          "$SDKMANAGER" 'platforms;android-36' 'build-tools;36.0.0'
 
       - name: Prepare release configuration and upload key
         shell: bash
@@ -64,14 +69,12 @@ jobs:
               'release': 'debuggable false' in app and 'releaseSigningConfigured' in app,
           }
           missing = [k for k, v in required.items() if not v]
-          if missing:
-              raise SystemExit('Play contract failed: ' + ', '.join(missing))
+          if missing: raise SystemExit('Play contract failed: ' + ', '.join(missing))
           PY
 
           KEYSTORE="$RUNNER_TEMP/calltag-upload.jks"
           BACKUP="$RUNNER_TEMP/calltag-upload-key-backup"
           mkdir -p "$BACKUP"
-
           count=0
           for value in "$SECRET_UPLOAD_KEYSTORE_BASE64" "$SECRET_UPLOAD_STORE_PASSWORD" "$SECRET_UPLOAD_KEY_ALIAS" "$SECRET_UPLOAD_KEY_PASSWORD"
           do
@@ -113,10 +116,7 @@ EOF
             echo '::error::Debug key is not allowed.'
             exit 1
           fi
-          if [ "$BOOTSTRAP" = true ]; then
-            cp "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt" "$BACKUP/"
-          fi
-
+          if [ "$BOOTSTRAP" = true ]; then cp "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt" "$BACKUP/"; fi
           {
             echo "CALLTAG_UPLOAD_KEYSTORE_PATH=$KEYSTORE"
             echo "CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD"
@@ -147,8 +147,7 @@ EOF
           cp "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt" "$OUT/"
           cp docs/V0430_PLAY_INTERNAL_RELEASE_KO.md "$OUT/UPLOAD_GUIDE_KO.md"
 
-      - name: Upload signed AAB
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: calltag-v0.43.0-play-internal-aab
           path: ${{ runner.temp }}/calltag-v0.43.0-play-internal
