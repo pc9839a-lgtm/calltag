@@ -24,6 +24,14 @@ public final class CallTagSyncWorker extends Worker {
                 || !CallTagSyncPreferenceStore.isEnabled(app)) {
             return Result.success();
         }
+        String expectedAccount = getInputData().getString(
+                CallTagSyncWorkScheduler.INPUT_ACCOUNT);
+        String currentAccount = CallTagSyncWorkScheduler.currentAccountToken(app);
+        if (expectedAccount == null
+                || expectedAccount.isEmpty()
+                || !expectedAccount.equals(currentAccount)) {
+            return Result.success();
+        }
         if (CallTagSyncManager.isMaintenanceRunning()) {
             return Result.success();
         }
