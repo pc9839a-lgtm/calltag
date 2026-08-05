@@ -20,6 +20,7 @@ public final class AuthSessionStore {
     private static final String PREFS = "calltag_auth_session";
     private static final String ALIAS = "pagero_calltag_auth_v1";
     private static final String KEY_SESSION = "session";
+    private static final String KEY_OWNER_ID = "owner_id";
     private static final String KEY_NAME = "name";
     private static final String KEY_EMAIL = "email";
     private static final String KEY_PHONE = "phone";
@@ -48,6 +49,8 @@ public final class AuthSessionStore {
         SharedPreferences current = prefs(context);
         boolean saved = current.edit()
                 .putString(KEY_SESSION, encrypt(session))
+                .putString(KEY_OWNER_ID, profile.has("ownerId")
+                        ? profile.optString("ownerId", "") : current.getString(KEY_OWNER_ID, ""))
                 .putString(KEY_NAME, profile.has("name")
                         ? profile.optString("name", "") : current.getString(KEY_NAME, ""))
                 .putString(KEY_EMAIL, profile.has("email")
@@ -83,6 +86,7 @@ public final class AuthSessionStore {
         return !session(context).isEmpty();
     }
 
+    public static String ownerId(Context context) { return prefs(context).getString(KEY_OWNER_ID, ""); }
     public static String name(Context context) { return prefs(context).getString(KEY_NAME, ""); }
     public static String email(Context context) { return prefs(context).getString(KEY_EMAIL, ""); }
     public static String phone(Context context) { return prefs(context).getString(KEY_PHONE, ""); }
