@@ -65,6 +65,31 @@ public final class CallTagSyncApiClient {
                 null, session, deviceId);
     }
 
+    public static JSONObject devices(String session, String deviceId) throws Exception {
+        return callWithFallback("GET", "/api/calltag-sync/devices",
+                null, session, deviceId);
+    }
+
+    public static JSONObject revokeDevice(
+            String session,
+            String deviceId,
+            String deviceKey) throws Exception {
+        JSONObject body = new JSONObject()
+                .put("deviceKey", deviceKey == null ? "" : deviceKey.trim())
+                .put("confirmation", "REVOKE_CALLTAG_SYNC_DEVICE");
+        return callWithFallback("POST", "/api/calltag-sync/devices",
+                body, session, deviceId);
+    }
+
+    public static JSONObject eraseServerData(
+            String session,
+            String deviceId) throws Exception {
+        JSONObject body = new JSONObject()
+                .put("confirmation", "DELETE_CALLTAG_SYNC_DATA");
+        return callWithFallback("POST", "/api/calltag-sync/erase",
+                body, session, deviceId);
+    }
+
     private static JSONObject callWithFallback(
             String method,
             String path,
