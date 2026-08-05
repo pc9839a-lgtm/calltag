@@ -97,7 +97,9 @@ public final class CallTagSyncManager {
             store.markSuccess(serverRecords);
         } catch (CallTagSyncApiClient.ApiException error) {
             if ("CALLTAG_SYNC_NOT_ENABLED".equals(error.code)
-                    || "CALLTAG_SYNC_KEY_INVALID".equals(error.code)) {
+                    || "CALLTAG_SYNC_KEY_INVALID".equals(error.code)
+                    || error.status == 404
+                    || error.status == 405) {
                 store.markStatus("PREPARING",
                         "서버 데이터 보호 기능을 준비 중입니다. 기기 데이터는 그대로 유지됩니다.");
             } else if (error.status == 401 || error.status == 403) {
