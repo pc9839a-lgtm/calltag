@@ -13,7 +13,7 @@ export default {
     headers.set('cache-control','no-cache, no-store, must-revalidate');
 
     if (isLegal) {
-      headers.set('x-calltag-worker','v86-exact-call-flow-order');
+      headers.set('x-calltag-worker','v87-story-order-hard-pin');
       return new Response(body, {
         status: response.status,
         statusText: response.statusText,
@@ -81,7 +81,11 @@ export default {
       body = body.replace('</body>', '<script src="/assets/calltag-copy-hard-fix.js?v=20260803-hard1"></script></body>');
     }
 
-    headers.set('x-calltag-worker','v86-exact-call-flow-order');
+    if (!body.includes('calltag-story-order-hard-fix.js')) {
+      body = body.replace('</body>', '<script src="/assets/calltag-story-order-hard-fix.js?v=20260805-pin1"></script></body>');
+    }
+
+    headers.set('x-calltag-worker','v87-story-order-hard-pin');
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
