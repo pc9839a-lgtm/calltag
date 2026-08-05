@@ -1,6 +1,6 @@
 (()=>{
-  if(document.documentElement.dataset.ctSectionOrderV5)return;
-  document.documentElement.dataset.ctSectionOrderV5='1';
+  if(document.documentElement.dataset.ctSectionOrderV6)return;
+  document.documentElement.dataset.ctSectionOrderV6='1';
 
   const installBrand=()=>{
     const heading=document.querySelector('#app .hero-heading');
@@ -33,16 +33,25 @@
     return node;
   };
 
+  const findExactCallFlow=()=>{
+    const candidates=[...document.querySelectorAll('main#top section')];
+    return candidates.find(section=>{
+      const text=(section.textContent||'').replace(/\s+/g,' ').trim();
+      return text.includes('통화가 끝나면')&&
+        text.includes('태그만 하세요')&&
+        text.includes('전화번호를 고객정보로 저장')&&
+        text.includes('안내문자와 후속문자 발송');
+    })||null;
+  };
+
   const apply=()=>{
     const main=document.querySelector('main#top');
     const intro=document.querySelector('#ct-pagero-intro');
     const app=document.querySelector('#app');
-    const journey=document.querySelector('.ct-journey-clean');
     if(!main||!intro||!app)return false;
 
     installBrand();
 
-    // PageRo wrapper stays first and keeps only its own sections.
     if(main.firstElementChild!==intro)main.prepend(intro);
     const pageroHero=intro.querySelector('.ct-v8-hero');
     const connect=intro.querySelector('.ct-pagero-connect');
@@ -57,9 +66,13 @@
       }
     });
 
-    // CallTag sections must be siblings of the PageRo wrapper, never children of it.
     let cursor=moveAfter(intro,app);
-    if(journey)cursor=moveAfter(cursor,journey);
+
+    const exactCallFlow=findExactCallFlow();
+    if(exactCallFlow)cursor=moveAfter(cursor,exactCallFlow);
+
+    const journey=document.querySelector('.ct-journey-clean');
+    if(journey&&journey!==exactCallFlow)cursor=moveAfter(cursor,journey);
 
     const benefits=document.querySelector('.ct-benefit-section')||document.querySelector('.ad-benefits')?.closest('.ad-section');
     const ordered=[
@@ -73,7 +86,7 @@
       document.querySelector('#pricing'),
       document.querySelector('#faq'),
       document.querySelector('.ad-final')
-    ].filter(Boolean);
+    ].filter(Boolean).filter(section=>section!==exactCallFlow&&section!==journey);
 
     ordered.forEach(section=>{cursor=moveAfter(cursor,section);});
     document.documentElement.classList.add('ct-layout-ready');
