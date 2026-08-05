@@ -13,7 +13,7 @@ export default {
     headers.set('cache-control','no-cache, no-store, must-revalidate');
 
     if (isLegal) {
-      headers.set('x-calltag-worker','v89-pagero-light-chapter');
+      headers.set('x-calltag-worker','v90-pagero-intro-order');
       return new Response(body, {
         status: response.status,
         statusText: response.statusText,
@@ -72,7 +72,7 @@ export default {
         'calltag-mobile-clean-v2.js?v=20260804-clean3',
         'calltag-mobile-history-fix.js?v=20260804-history1',
         'calltag-footer-links-v3.js?v=20260804-links5',
-        'calltag-section-order.js?v=20260805-order8'
+        'calltag-section-order.js?v=20260805-order9'
       ];
       body = body.replace('</body>', scripts.map(src => `<script src="/assets/${src}"></script>`).join('') + '</body>');
     }
@@ -86,10 +86,10 @@ export default {
     }
 
     if (!body.includes('calltag-pagero-light-chapter.js')) {
-      body = body.replace('</body>', '<script src="/assets/calltag-pagero-light-chapter.js?v=20260805-light1"></script></body>');
+      body = body.replace('</body>', '<script src="/assets/calltag-pagero-light-chapter.js?v=20260805-light2"></script></body>');
     }
 
-    headers.set('x-calltag-worker','v89-pagero-light-chapter');
+    headers.set('x-calltag-worker','v90-pagero-intro-order');
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
