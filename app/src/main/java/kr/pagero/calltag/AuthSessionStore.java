@@ -69,6 +69,7 @@ public final class AuthSessionStore {
         if (!saved || !hasSession(context)) {
             throw new IllegalStateException("Login session was not persisted.");
         }
+        CallTagSyncWorkScheduler.reconcile(context);
     }
 
     public static String session(Context context) {
@@ -96,6 +97,7 @@ public final class AuthSessionStore {
     public static boolean active(Context context) { return prefs(context).getBoolean(KEY_ACTIVE, true); }
 
     public static void clear(Context context) {
+        CallTagSyncWorkScheduler.cancel(context);
         prefs(context).edit().clear().commit();
     }
 
