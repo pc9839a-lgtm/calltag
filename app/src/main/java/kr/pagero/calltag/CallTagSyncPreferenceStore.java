@@ -27,8 +27,16 @@ public final class CallTagSyncPreferenceStore {
     }
 
     public static void setEnabled(Context context, boolean enabled) {
-        String key = key(context);
+        Context app = context.getApplicationContext();
+        String key = key(app);
         if (key.isEmpty()) return;
-        prefs(context).edit().putBoolean(key, enabled).apply();
+        boolean saved = prefs(app).edit().putBoolean(key, enabled).commit();
+        if (!saved) return;
+        if (enabled) {
+            CallTagSyncWorkScheduler.reconcile(app);
+            CallTagSyncWorkScheduler.enqueueImmediate(app, "enabled");
+        } else {
+            CallTagSyncWorkScheduler.cancel(app);
+        }
     }
 }
