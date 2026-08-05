@@ -62,6 +62,7 @@ jobs:
           pagero = Path('app/src/main/java/kr/pagero/calltag/PageroConnectionActivity.java').read_text(encoding='utf-8')
           manifest = Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
           gradle = Path('app/build.gradle').read_text(encoding='utf-8')
+          root_gradle = Path('build.gradle').read_text(encoding='utf-8')
 
           checks = {
               'billing entry': 'BillingEntitlementActivity.class' in more,
@@ -76,7 +77,10 @@ jobs:
               'post-call notification fallback': 'CallPopupNotificationManager.showPostCall' in guard,
               'pagero user copy': '새 문의 확인' in pagero and '지금 동기화' not in pagero,
               'secure sync activities registered': '.CallTagSyncStatusActivity' in manifest and '.CallTagSyncDevicesActivity' in manifest,
-              'version 0.42.7': "versionName '0.42.7'" in gradle and 'versionCode 67' in gradle,
+              'play internal version': "versionName '0.43.0'" in gradle and 'versionCode 68' in gradle,
+              'android 16 target': 'compileSdk 36' in gradle and 'targetSdk 36' in gradle,
+              'api 36 capable AGP': "version '8.11.1'" in root_gradle,
+              'release signing required': 'CALLTAG_UPLOAD_KEYSTORE_PATH' in gradle and 'releaseSigningConfigured' in gradle,
               'stable WorkManager dependency': "androidx.work:work-runtime:2.11.2" in gradle,
           }
           failed = [name for name, ok in checks.items() if not ok]
@@ -155,7 +159,14 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.13'
+
+      - name: Install Android 16 SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
 
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
@@ -179,5 +190,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.42.7-background-data-protection-debug-apk
+          name: calltag-v0.43.0-api36-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
