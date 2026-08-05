@@ -1,6 +1,6 @@
 (()=>{
-  if(document.documentElement.dataset.ctSectionOrderV6)return;
-  document.documentElement.dataset.ctSectionOrderV6='1';
+  if(document.documentElement.dataset.ctSectionOrderCalltagFirstV1)return;
+  document.documentElement.dataset.ctSectionOrderCalltagFirstV1='1';
 
   const installBrand=()=>{
     const heading=document.querySelector('#app .hero-heading');
@@ -27,37 +27,58 @@
     return true;
   };
 
+  const unique=nodes=>[...new Set(nodes.filter(Boolean))];
+
   const moveAfter=(anchor,node)=>{
     if(!anchor||!node||anchor===node)return anchor;
     if(anchor.nextElementSibling!==node)anchor.insertAdjacentElement('afterend',node);
     return node;
   };
 
-  const findExactCallFlow=()=>{
-    const candidates=[...document.querySelectorAll('main#top section')];
-    return candidates.find(section=>{
+  const findCallStory=()=>document.querySelector('#how.ct-story-section')||
+    [...document.querySelectorAll('.ct-story-section')].find(section=>{
       const text=(section.textContent||'').replace(/\s+/g,' ').trim();
-      return text.includes('통화가 끝나면')&&
-        text.includes('태그만 하세요')&&
-        text.includes('전화번호를 고객정보로 저장')&&
-        text.includes('안내문자와 후속문자 발송');
+      return text.includes('통화가 끝나면')&&text.includes('태그만 하세요');
     })||null;
-  };
 
   const apply=()=>{
     const main=document.querySelector('main#top');
-    const intro=document.querySelector('#ct-pagero-intro');
     const app=document.querySelector('#app');
-    if(!main||!intro||!app)return false;
+    const intro=document.querySelector('#ct-pagero-intro');
+    if(!main||!app||!intro)return false;
 
     installBrand();
 
-    if(main.firstElementChild!==intro)main.prepend(intro);
-    const pageroHero=intro.querySelector('.ct-v8-hero');
+    // 1. CallTag comes first.
+    if(main.firstElementChild!==app)main.prepend(app);
+    let cursor=app;
+
+    const story=findCallStory();
+    if(story)cursor=moveAfter(cursor,story);
+
+    const benefits=document.querySelector('.ct-benefit-section')||document.querySelector('.ad-benefits')?.closest('.ad-section');
+    const calltagSections=unique([
+      document.querySelector('#what'),
+      document.querySelector('#tasks'),
+      document.querySelector('#messages'),
+      document.querySelector('#web'),
+      benefits,
+      document.querySelector('#targets'),
+      document.querySelector('#strengths')
+    ]).filter(section=>section!==story&&section!==app&&section!==intro);
+
+    calltagSections.forEach(section=>{cursor=moveAfter(cursor,section);});
+
+    // 2. PageRo standalone explanation follows all CallTag sections.
+    cursor=moveAfter(cursor,intro);
+
+    const pageroOnly=intro.querySelector('.ct-horizontal-industries-clean')||intro.querySelector('.ct-v8-nocode');
+    const integrationHero=intro.querySelector('.ct-v8-hero');
     const connect=intro.querySelector('.ct-pagero-connect');
-    const nocode=intro.querySelector('.ct-v8-nocode');
+    const integrationJourney=intro.querySelector('.ct-journey-clean')||document.querySelector('.ct-journey-clean');
+
     let introCursor=null;
-    [pageroHero,connect,nocode].filter(Boolean).forEach(section=>{
+    unique([pageroOnly,integrationHero,connect,integrationJourney]).forEach(section=>{
       if(!introCursor){
         if(intro.firstElementChild!==section)intro.prepend(section);
         introCursor=section;
@@ -66,29 +87,16 @@
       }
     });
 
-    let cursor=moveAfter(intro,app);
-
-    const exactCallFlow=findExactCallFlow();
-    if(exactCallFlow)cursor=moveAfter(cursor,exactCallFlow);
-
-    const journey=document.querySelector('.ct-journey-clean');
-    if(journey&&journey!==exactCallFlow)cursor=moveAfter(cursor,journey);
-
-    const benefits=document.querySelector('.ct-benefit-section')||document.querySelector('.ad-benefits')?.closest('.ad-section');
-    const ordered=[
-      document.querySelector('#what'),
-      document.querySelector('#tasks'),
-      document.querySelector('#messages'),
-      document.querySelector('#web'),
-      benefits,
-      document.querySelector('#targets'),
-      document.querySelector('#strengths'),
+    // 3. Pricing and closing information remain after the combined-service explanation.
+    const closing=unique([
       document.querySelector('#pricing'),
       document.querySelector('#faq'),
       document.querySelector('.ad-final')
-    ].filter(Boolean).filter(section=>section!==exactCallFlow&&section!==journey);
+    ]).filter(section=>section!==intro);
 
-    ordered.forEach(section=>{cursor=moveAfter(cursor,section);});
+    cursor=intro;
+    closing.forEach(section=>{cursor=moveAfter(cursor,section);});
+
     document.documentElement.classList.add('ct-layout-ready');
     return true;
   };
@@ -104,8 +112,8 @@
     apply();
     const observer=new MutationObserver(schedule);
     observer.observe(document.documentElement,{childList:true,subtree:true});
-    [30,80,160,320,600,1000,1600,2500,4000,6500,10000,15000].forEach(delay=>setTimeout(apply,delay));
-    setTimeout(()=>observer.disconnect(),20000);
+    [20,50,100,180,320,550,900,1400,2200,3500,5500,8000,12000,18000,25000].forEach(delay=>setTimeout(apply,delay));
+    setTimeout(()=>observer.disconnect(),30000);
   };
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
