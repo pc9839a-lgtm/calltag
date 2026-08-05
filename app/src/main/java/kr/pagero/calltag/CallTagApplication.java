@@ -36,6 +36,7 @@ public final class CallTagApplication extends Application implements Application
         registerActivityLifecycleCallbacks(this);
         MessageAutomationStore.ensureDefaults(this);
         PageroLeadNotificationManager.ensureChannel(this);
+        CallTagSyncWorkScheduler.reconcile(this);
 
         new Thread(() -> {
             MessageRecoveryManager.recoverNow(this,
@@ -54,6 +55,7 @@ public final class CallTagApplication extends Application implements Application
             PageroAccountConnectionManager.refresh(this, false);
             CallTagPushManager.registerIfAvailable(this);
             CallTagSyncManager.request(this, false);
+            CallTagSyncWorkScheduler.reconcile(this);
             if (SetupRequirements.isReady(this)) {
                 SetupRequirements.startCallMonitoring(this);
             }
@@ -89,6 +91,7 @@ public final class CallTagApplication extends Application implements Application
                 CallTagPushManager.registerIfAvailable(activity);
                 CallTagPushManager.refreshStatus(activity);
                 CallTagSyncManager.request(activity, false);
+                CallTagSyncWorkScheduler.reconcile(activity);
                 if (EntitlementNoticeActivity.shouldOpen(activity)) {
                     activity.startActivity(new Intent(activity, EntitlementNoticeActivity.class));
                 }
@@ -149,6 +152,7 @@ public final class CallTagApplication extends Application implements Application
             if (FeatureEntitlementStore.hasPhoneAccess(this)) {
                 ContactNameSyncManager.requestSyncAll(this);
             }
+            CallTagSyncWorkScheduler.enqueueImmediate(this, "app_background");
         }
     }
 
@@ -172,6 +176,7 @@ public final class CallTagApplication extends Application implements Application
                 || activity instanceof BillingEntitlementActivity
                 || activity instanceof ReferralPartnerActivity
                 || activity instanceof CallTagSyncStatusActivity
+                || activity instanceof CallTagSyncDevicesActivity
                 || activity instanceof AccountActivity
                 || activity instanceof BackupRestoreActivity;
     }
