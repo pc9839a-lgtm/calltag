@@ -1,0 +1,247 @@
+name: Build CallTag Play Internal AAB
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - docs/billing-referral-app-handoff-20260804
+
+permissions:
+  contents: read
+
+concurrency:
+  group: calltag-play-internal-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CALLTAG_FIREBASE_APPLICATION_ID: ${{ secrets.CALLTAG_FIREBASE_APPLICATION_ID }}
+      CALLTAG_FIREBASE_API_KEY: ${{ secrets.CALLTAG_FIREBASE_API_KEY }}
+      CALLTAG_FIREBASE_PROJECT_ID: ${{ secrets.CALLTAG_FIREBASE_PROJECT_ID }}
+      CALLTAG_FIREBASE_SENDER_ID: ${{ secrets.CALLTAG_FIREBASE_SENDER_ID }}
+      SECRET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
+      SECRET_UPLOAD_STORE_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_STORE_PASSWORD }}
+      SECRET_UPLOAD_KEY_ALIAS: ${{ secrets.CALLTAG_UPLOAD_KEY_ALIAS }}
+      SECRET_UPLOAD_KEY_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_KEY_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Install Android 16 SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Verify Firebase release configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for key in CALLTAG_FIREBASE_APPLICATION_ID CALLTAG_FIREBASE_API_KEY CALLTAG_FIREBASE_PROJECT_ID CALLTAG_FIREBASE_SENDER_ID
+          do
+            if [ -z "${!key:-}" ]; then
+              echo "::error::${key} is not configured"
+              missing=1
+            else
+              echo "${key}=configured"
+            fi
+          done
+          exit "$missing"
+
+      - name: Verify Play release contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          app = Path('app/build.gradle').read_text(encoding='utf-8')
+          root = Path('build.gradle').read_text(encoding='utf-8')
+          manifest = Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
+          gitignore = Path('.gitignore').read_text(encoding='utf-8')
+
+          checks = {
+              'application id': "applicationId 'kr.pagero.calltag'" in app,
+              'version code': 'versionCode 68' in app,
+              'version name': "versionName '0.43.0'" in app,
+              'compile api 36': 'compileSdk 36' in app,
+              'target api 36': 'targetSdk 36' in app,
+              'api 36 AGP': "version '8.11.1'" in root,
+              'release not debuggable': 'debuggable false' in app,
+              'release signing required': 'releaseSigningConfigured' in app and 'CALLTAG_UPLOAD_KEYSTORE_PATH' in app,
+              'automatic backup disabled': 'android:allowBackup="false"' in manifest,
+              'keystore ignored': '*.jks' in gitignore and '*.keystore' in gitignore,
+          }
+          failed = [name for name, ok in checks.items() if not ok]
+          for name, ok in checks.items():
+              print(f'{name}={"ok" if ok else "missing"}')
+          if failed:
+              raise SystemExit('Play release contract failed: ' + ', '.join(failed))
+          PY
+
+      - name: Prepare stable upload signing key
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE_PATH="$RUNNER_TEMP/calltag-upload.jks"
+          BACKUP_DIR="$RUNNER_TEMP/calltag-upload-key-backup"
+          mkdir -p "$BACKUP_DIR"
+
+          configured=0
+          for value in \
+            "$SECRET_UPLOAD_KEYSTORE_BASE64" \
+            "$SECRET_UPLOAD_STORE_PASSWORD" \
+            "$SECRET_UPLOAD_KEY_ALIAS" \
+            "$SECRET_UPLOAD_KEY_PASSWORD"
+          do
+            if [ -n "$value" ]; then configured=$((configured + 1)); fi
+          done
+
+          if [ "$configured" -ne 0 ] && [ "$configured" -ne 4 ]; then
+            echo '::error::Upload signing Secrets are partially configured. Configure all four values.'
+            exit 1
+          fi
+
+          if [ "$configured" -eq 4 ]; then
+            printf '%s' "$SECRET_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+            STORE_PASSWORD="$SECRET_UPLOAD_STORE_PASSWORD"
+            KEY_ALIAS="$SECRET_UPLOAD_KEY_ALIAS"
+            KEY_PASSWORD="$SECRET_UPLOAD_KEY_PASSWORD"
+            BOOTSTRAP='false'
+          else
+            STORE_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+            KEY_PASSWORD="$STORE_PASSWORD"
+            KEY_ALIAS='calltag-upload'
+            BOOTSTRAP='true'
+            keytool -genkeypair \
+              -keystore "$KEYSTORE_PATH" \
+              -storepass "$STORE_PASSWORD" \
+              -keypass "$KEY_PASSWORD" \
+              -alias "$KEY_ALIAS" \
+              -keyalg RSA \
+              -keysize 4096 \
+              -validity 10000 \
+              -dname 'CN=CallTag Upload, OU=Mobile, O=Pagero, L=Jeongeup, ST=Jeollabuk-do, C=KR'
+
+            cp "$KEYSTORE_PATH" "$BACKUP_DIR/calltag-upload.jks"
+            cat > "$BACKUP_DIR/CALLTAG_UPLOAD_KEY_CREDENTIALS.txt" <<EOF
+CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD
+CALLTAG_UPLOAD_KEY_ALIAS=$KEY_ALIAS
+CALLTAG_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD
+
+GitHub Secret CALLTAG_UPLOAD_KEYSTORE_BASE64에는 calltag-upload.jks의 base64 한 줄 값을 등록하세요.
+이 파일과 keystore는 첫 Play 업로드 후에도 반드시 오프라인으로 보관하세요.
+EOF
+          fi
+
+          echo "::add-mask::$STORE_PASSWORD"
+          echo "::add-mask::$KEY_PASSWORD"
+          chmod 600 "$KEYSTORE_PATH"
+
+          keytool -list -v \
+            -keystore "$KEYSTORE_PATH" \
+            -storepass "$STORE_PASSWORD" \
+            -alias "$KEY_ALIAS" \
+            | grep -E 'Alias name:|Owner:|SHA1:|SHA256:' \
+            > "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
+
+          if grep -qi 'Android Debug' "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"; then
+            echo '::error::Debug certificate cannot be used as the Play upload key.'
+            exit 1
+          fi
+
+          if [ "$BOOTSTRAP" = 'true' ]; then
+            cp "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt" "$BACKUP_DIR/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
+          fi
+
+          {
+            echo "CALLTAG_UPLOAD_KEYSTORE_PATH=$KEYSTORE_PATH"
+            echo "CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD"
+            echo "CALLTAG_UPLOAD_KEY_ALIAS=$KEY_ALIAS"
+            echo "CALLTAG_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD"
+            echo "CALLTAG_BOOTSTRAP_UPLOAD_KEY=$BOOTSTRAP"
+            echo "CALLTAG_UPLOAD_KEY_BACKUP_DIR=$BACKUP_DIR"
+          } >> "$GITHUB_ENV"
+
+      - name: Build signed release AAB
+        run: gradle :app:bundleRelease --stacktrace
+
+      - name: Verify release bundle and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAB='app/build/outputs/bundle/release/app-release.aab'
+          test -s "$AAB" || { echo '::error::Signed release AAB was not created.'; exit 1; }
+          jarsigner -verify -strict -certs "$AAB"
+          if jarsigner -verify -verbose -certs "$AAB" | grep -qi 'Android Debug'; then
+            echo '::error::Release AAB is signed with an Android debug certificate.'
+            exit 1
+          fi
+          sha256sum "$AAB" > "$RUNNER_TEMP/CALLTAG_V0430_AAB_SHA256.txt"
+
+      - name: Verify release Firebase BuildConfig
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import re
+          from pathlib import Path
+          path = Path('app/build/generated/source/buildConfig/release/kr/pagero/calltag/BuildConfig.java')
+          if not path.exists():
+              raise SystemExit(f'Release BuildConfig not found: {path}')
+          text = path.read_text(encoding='utf-8')
+          for field in ('FIREBASE_APPLICATION_ID','FIREBASE_API_KEY','FIREBASE_PROJECT_ID','FIREBASE_SENDER_ID'):
+              match = re.search(rf'{field}\s*=\s*"([^"]*)";', text)
+              if not match or not match.group(1).strip():
+                  raise SystemExit(f'{field} is empty in release BuildConfig')
+              print(f'{field}=configured')
+          if not re.search(r'DEBUG\s*=\s*false;', text):
+              raise SystemExit('Release BuildConfig DEBUG is not false')
+          PY
+
+      - name: Stage Play upload package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/calltag-v0.43.0-play-internal"
+          cp app/build/outputs/bundle/release/app-release.aab \
+            "$RUNNER_TEMP/calltag-v0.43.0-play-internal/CallTag-v0.43.0-code68.aab"
+          cp "$RUNNER_TEMP/CALLTAG_V0430_AAB_SHA256.txt" \
+            "$RUNNER_TEMP/calltag-v0.43.0-play-internal/"
+          cp "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt" \
+            "$RUNNER_TEMP/calltag-v0.43.0-play-internal/"
+          cp docs/V0430_PLAY_INTERNAL_RELEASE_KO.md \
+            "$RUNNER_TEMP/calltag-v0.43.0-play-internal/UPLOAD_GUIDE_KO.md"
+
+      - name: Upload Play internal AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: calltag-v0.43.0-play-internal-aab
+          path: ${{ runner.temp }}/calltag-v0.43.0-play-internal
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Upload bootstrap upload-key backup
+        if: env.CALLTAG_BOOTSTRAP_UPLOAD_KEY == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: calltag-v0.43.0-upload-key-backup-DOWNLOAD-AND-STORE
+          path: ${{ env.CALLTAG_UPLOAD_KEY_BACKUP_DIR }}
+          retention-days: 7
+          if-no-files-found: error
