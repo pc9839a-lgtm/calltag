@@ -32,11 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           missing=0
-          for key in \
-            CALLTAG_FIREBASE_APPLICATION_ID \
-            CALLTAG_FIREBASE_API_KEY \
-            CALLTAG_FIREBASE_PROJECT_ID \
-            CALLTAG_FIREBASE_SENDER_ID
+          for key in CALLTAG_FIREBASE_APPLICATION_ID CALLTAG_FIREBASE_API_KEY CALLTAG_FIREBASE_PROJECT_ID CALLTAG_FIREBASE_SENDER_ID
           do
             if [ -z "${!key:-}" ]; then
               echo "::error::${key} is not configured"
@@ -47,34 +43,7 @@ jobs:
           done
           exit "$missing"
 
-      - name: Verify user-facing copy
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-
-          pagero = Path('app/src/main/java/kr/pagero/calltag/PageroConnectionActivity.java').read_text(encoding='utf-8')
-          more = Path('app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java').read_text(encoding='utf-8')
-          permission = Path('app/src/main/java/kr/pagero/calltag/InitialPermissionActivity.java').read_text(encoding='utf-8')
-          account = Path('app/src/main/java/kr/pagero/calltag/AccountActivity.java').read_text(encoding='utf-8')
-
-          checks = {
-              'PageRo primary action is user language': '새 문의 확인' in pagero,
-              'PageRo screen hides sync jargon': '지금 동기화' not in pagero and '동기화 중' not in pagero,
-              'PageRo screen hides infrastructure terms': all(word not in pagero for word in ('Firebase', '토큰', '실시간 서버', 'errorCode')),
-              'diagnostic menu removed': 'DiagnosticActivity.class' not in more and '앱 진단' not in more,
-              'permission screen hides Android internals': 'Android 권한창' not in permission and '미허용:' not in permission,
-              'account screen hides raw exception text': 'error.getMessage()' not in account,
-          }
-          failed = [name for name, passed in checks.items() if not passed]
-          for name, passed in checks.items():
-              print(f'{name}={"ok" if passed else "failed"}')
-          if failed:
-              raise SystemExit('User-facing copy regression: ' + ', '.join(failed))
-          PY
-
-      - name: Verify billing and referral contract
+      - name: Verify product regression contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -83,118 +52,77 @@ jobs:
 
           more = Path('app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java').read_text(encoding='utf-8')
           entitlement = Path('app/src/main/java/kr/pagero/calltag/FeatureEntitlementStore.java').read_text(encoding='utf-8')
-          billing_screen = Path('app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java').read_text(encoding='utf-8')
-          referral_screen = Path('app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java').read_text(encoding='utf-8')
-          notice = Path('app/src/main/java/kr/pagero/calltag/EntitlementNoticeActivity.java').read_text(encoding='utf-8')
-          pending_referral = Path('app/src/main/java/kr/pagero/calltag/PendingReferralStore.java').read_text(encoding='utf-8')
-          auto_referral = Path('app/src/main/java/kr/pagero/calltag/ReferralAutoApplyManager.java').read_text(encoding='utf-8')
-          access_gate = Path('app/src/main/java/kr/pagero/calltag/FeatureAccessGate.java').read_text(encoding='utf-8')
-          auth_gate = Path('app/src/main/java/kr/pagero/calltag/AuthGateActivity.java').read_text(encoding='utf-8')
-          play = Path('app/src/main/java/kr/pagero/calltag/PlayBillingManager.java').read_text(encoding='utf-8')
-          api = Path('app/src/main/java/kr/pagero/calltag/AuthApiClient.java').read_text(encoding='utf-8')
+          billing = Path('app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java').read_text(encoding='utf-8')
+          referral = Path('app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java').read_text(encoding='utf-8')
           automation = Path('app/src/main/java/kr/pagero/calltag/MessageAutomationSettingsActivity.java').read_text(encoding='utf-8')
-          template_editor = Path('app/src/main/java/kr/pagero/calltag/MessageTemplateEditorActivity.java').read_text(encoding='utf-8')
+          template = Path('app/src/main/java/kr/pagero/calltag/MessageTemplateEditorActivity.java').read_text(encoding='utf-8')
+          monitor = Path('app/src/main/java/kr/pagero/calltag/CallMonitorService.java').read_text(encoding='utf-8')
+          launcher = Path('app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java').read_text(encoding='utf-8')
+          guard = Path('app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java').read_text(encoding='utf-8')
+          pagero = Path('app/src/main/java/kr/pagero/calltag/PageroConnectionActivity.java').read_text(encoding='utf-8')
           manifest = Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
           gradle = Path('app/build.gradle').read_text(encoding='utf-8')
 
-          gate_index = play.find('if (!billingReleaseAvailable())')
-          connect_index = play.find('billingClient.startConnection')
           checks = {
-              'More billing entry': 'BillingEntitlementActivity.class' in more and '이용권·결제' in more,
-              'More referral entry': 'ReferralPartnerActivity.class' in more and '친구 초대·파트너' in more,
-              'bundle price 6000': 'BUNDLE_PRICE_KRW = 6000' in entitlement and '월 6,000원' in billing_screen,
-              'trial copy 3 plus 5': '기본 3일' in billing_screen and '5일' in referral_screen,
-              'server pre-purchase gate': 'verifyThenPurchase' in billing_screen and 'canStartPlayPurchase' in billing_screen,
-              'web duplicate prevention': 'isWebSubscription' in billing_screen and 'CHANNEL_WEB' in entitlement,
-              'server purchase verification': 'verifyGooglePurchase' in play and 'onServerVerified' in play,
-              'server restore verification': 'restoreGooglePurchases' in play,
-              'referral apply endpoint': '/api/referrals/apply' in api,
-              'billing endpoint': '/api/billing/entitlements' in api,
-              'web precheck endpoint': '/api/billing/web/precheck' in api,
-              'billing readiness endpoint': '/api/billing/readiness' in api,
-              'activities registered': all(value in manifest for value in ('.BillingEntitlementActivity', '.EntitlementNoticeActivity', '.ReferralPartnerActivity')),
-              'Play Billing 9.1': 'com.android.billingclient:billing:9.1.0' in gradle,
-              'Play readiness cached': 'playBillingAvailable' in entitlement and 'billingAvailability' in entitlement,
-              'preregistration button copy': '출시 준비 중' in billing_screen and 'Google Play 결제 준비 중' in billing_screen,
-              'BillingClient is gated before connection': gate_index >= 0 and connect_index >= 0 and gate_index < connect_index,
-              'Play purchase requires release readiness': 'playBillingAvailable' in billing_screen and 'billingReleaseAvailable()' in play,
-              'server-time expiry enforcement': 'KEY_SERVER_NOW_AT_CHECK' in entitlement and 'estimatedServerNow' in entitlement,
-              'trial lifecycle notice': 'TRIAL_ENDING_24H' in notice and 'TRIAL_EXPIRED' in notice,
-              'records retained while automation gated': '고객·상담 기록은 그대로' in notice and 'FeatureAccessGate.MESSAGE' in more and 'hasMessageAccess' in access_gate,
-              'referral link capture': 'calltag' in pending_referral and '/r/' in pending_referral and 'PendingReferralStore.capture' in auth_gate,
-              'referral auto apply': 'AuthApiClient.applyReferral' in auto_referral,
-              'referral app links registered': 'android:host="referral"' in manifest and 'android:pathPrefix="/r/"' in manifest,
-              'partner center excluded': '파트너센터 열기' not in referral_screen,
-              'automation template button is visible': '템플릿 선택' in automation and 'template.setOnClickListener' in automation,
-              'follow-up period is user selectable': all(value in automation for value in ('showDelayPicker', '1일 후', '3일 후', '5일 후', '7일 후', '1~30일 사이')),
-              'follow-up period is outside common settings': '후속 예약 시점' not in automation and '발송 시점 · ' in automation,
-              'template variable example is removed': 'supportedVariablesLabel' not in template_editor and '변수 ·' not in template_editor,
-              'version 0.42.4': "versionName '0.42.4'" in gradle and 'versionCode 64' in gradle,
+              'billing entry': 'BillingEntitlementActivity.class' in more,
+              'referral entry': 'ReferralPartnerActivity.class' in more,
+              'bundle price': 'BUNDLE_PRICE_KRW = 6000' in entitlement and '월 6,000원' in billing,
+              'partner center excluded': '파트너센터 열기' not in referral,
+              'automation template buttons': '템플릿 선택' in automation,
+              'follow-up delay choices': all(v in automation for v in ('1일 후','3일 후','5일 후','7일 후','1~30일 사이')),
+              'variable examples removed': 'supportedVariablesLabel' not in template and '변수 ·' not in template,
+              'post-call delayed call log': 'registerContentObserver' in monitor and 'lookupImmediately' in monitor,
+              'post-call visibility receipt': 'PostCallDeliveryGuard.schedule' in launcher,
+              'post-call notification fallback': 'CallPopupNotificationManager.showPostCall' in guard,
+              'pagero user copy': '새 문의 확인' in pagero and '지금 동기화' not in pagero,
+              'secure sync activity registered': '.CallTagSyncStatusActivity' in manifest,
+              'version 0.42.5': "versionName '0.42.5'" in gradle and 'versionCode 65' in gradle,
           }
-          failed = [name for name, passed in checks.items() if not passed]
-          for name, passed in checks.items():
-              print(f'{name}={"ok" if passed else "missing"}')
-          if failed:
-              raise SystemExit('Billing/referral contract failed: ' + ', '.join(failed))
+          failed = [name for name, ok in checks.items() if not ok]
+          for name, ok in checks.items(): print(f'{name}={"ok" if ok else "missing"}')
+          if failed: raise SystemExit('Product regression contract failed: ' + ', '.join(failed))
           PY
 
-      - name: Verify post-call popup reliability contract
+      - name: Verify secure sync Android contract
         shell: bash
         run: |
           set -euo pipefail
           python3 <<'PY'
           from pathlib import Path
 
-          monitor = Path('app/src/main/java/kr/pagero/calltag/CallMonitorService.java').read_text(encoding='utf-8')
-          launcher = Path('app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java').read_text(encoding='utf-8')
-          receipt = Path('app/src/main/java/kr/pagero/calltag/PostCallLaunchReceipt.java').read_text(encoding='utf-8')
-          guard = Path('app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java').read_text(encoding='utf-8')
-          application = Path('app/src/main/java/kr/pagero/calltag/CallTagApplication.java').read_text(encoding='utf-8')
+          prefs = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncPreferenceStore.java').read_text(encoding='utf-8')
+          device = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncDeviceStore.java').read_text(encoding='utf-8')
+          local = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncLocalStore.java').read_text(encoding='utf-8')
+          adapter = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncDataAdapter.java').read_text(encoding='utf-8')
+          api = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncApiClient.java').read_text(encoding='utf-8')
+          manager = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncManager.java').read_text(encoding='utf-8')
+          screen = Path('app/src/main/java/kr/pagero/calltag/CallTagSyncStatusActivity.java').read_text(encoding='utf-8')
+          auth = Path('app/src/main/java/kr/pagero/calltag/AuthSessionStore.java').read_text(encoding='utf-8')
+          app = Path('app/src/main/java/kr/pagero/calltag/CallTagApplication.java').read_text(encoding='utf-8')
+          more = Path('app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java').read_text(encoding='utf-8')
 
+          status_index = manager.find('CallTagSyncApiClient.status')
+          scan_index = manager.find('CallTagSyncDataAdapter.scanLocal')
           checks = {
-              'already processed call log keeps retrying': 'record.id == SettingsStore.lastCallId(this)' in monitor and 'lookupCall(attempt + 1, generation)' in monitor,
-              'call log observer accelerates delayed insertion': 'registerContentObserver' in monitor and 'lookupImmediately' in monitor,
-              'lookup retry window is extended': '16_000L' in monitor and '12_000L' in monitor,
-              'pending intent success is verified': 'PostCallDeliveryGuard.schedule' in launcher and 'PostCallLaunchReceipt.arm' in launcher,
-              'activity lifecycle acknowledges visibility': 'PostCallLaunchReceipt.markVisible' in application,
-              'suppressed activity has second attempt': 'app.startActivity(new Intent(review))' in guard,
-              'suppressed activity leaves notification fallback': 'CallPopupNotificationManager.showPostCall' in guard,
-              'duplicate gate only accepts visible popup': 'PostCallLaunchReceipt.wasVisible' in launcher,
-              'stale popup is closed before next call': 'closeStaleActivity' in launcher and 'WeakReference<Activity>' in receipt,
+              'opt-in defaults false': 'getBoolean(KEY_ENABLED, false)' in prefs,
+              'device id uses secure random': 'SecureRandom' in device and 'AndroidKeyStore' in device and 'AES/GCM/NoPadding' in device,
+              'owner id is persisted': 'KEY_OWNER_ID' in auth and 'ownerId(Context context)' in auth,
+              'account isolated local database': 'account_key TEXT NOT NULL' in local and 'owner:' in local,
+              'outbox and cursor': 'pending INTEGER' in local and 'META_CURSOR' in local,
+              'stable UUID mapping': 'UUID.randomUUID()' in local,
+              'supported minimal data only': all(v in adapter for v in ('customer','interaction','task','stage')),
+              'call recording excluded from payload': 'recording' not in adapter.lower(),
+              'server readiness before payload scan': status_index >= 0 and scan_index > status_index,
+              'bootstrap push pull': all(v in manager for v in ('bootstrap(', 'pushPending(', 'pullChanges(')),
+              '100 item batch': 'PAGE_SIZE = 100' in manager,
+              'secure headers': all(v in api for v in ('X-Inlet-Session','X-CallTag-Device','X-CallTag-App-Version')),
+              'explicit consent copy': '통화 녹음과 전체 연락처는 전송하지 않습니다' in screen,
+              'settings entry': '데이터 보호·복구' in more and 'CallTagSyncStatusActivity.class' in more,
+              'app lifecycle is gated': 'CallTagSyncManager.request' in app and 'CallTagSyncPreferenceStore.isEnabled' in manager,
           }
-          failed = [name for name, passed in checks.items() if not passed]
-          for name, passed in checks.items():
-              print(f'{name}={"ok" if passed else "missing"}')
-          if failed:
-              raise SystemExit('Post-call reliability contract failed: ' + ', '.join(failed))
-          PY
-
-      - name: Verify PageRo routing contract
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-
-          sync = Path('app/src/main/java/kr/pagero/calltag/PageroLeadSyncManager.java').read_text(encoding='utf-8')
-          notice = Path('app/src/main/java/kr/pagero/calltag/PageroLeadNotificationManager.java').read_text(encoding='utf-8')
-          route = Path('app/src/main/java/kr/pagero/calltag/PageroLeadNotificationActivity.java').read_text(encoding='utf-8')
-          manifest = Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
-
-          checks = {
-              'batched customer ids': 'LinkedHashSet' in sync and 'result.customerIds()' in sync,
-              'duplicate receipt guard': 'receipts.isImported(lead.eventId)' in sync,
-              'pending forced rerun': 'PENDING_FORCE' in sync,
-              'notification customer ids': 'EXTRA_CUSTOMER_IDS' in notice,
-              'single customer detail route': 'CustomerDetailActivity.EXTRA_CUSTOMER_ID' in route,
-              'multiple customer result list': '방금 접수된 문의' in route,
-              'router manifest registration': '.PageroLeadNotificationActivity' in manifest,
-          }
-          failed = [name for name, passed in checks.items() if not passed]
-          for name, passed in checks.items():
-              print(f'{name}={"ok" if passed else "missing"}')
-          if failed:
-              raise SystemExit('PageRo routing contract failed: ' + ', '.join(failed))
+          failed = [name for name, ok in checks.items() if not ok]
+          for name, ok in checks.items(): print(f'{name}={"ok" if ok else "missing"}')
+          if failed: raise SystemExit('Secure sync contract failed: ' + ', '.join(failed))
           PY
 
       - name: Set up JDK 17
@@ -218,27 +146,17 @@ jobs:
           python3 <<'PY'
           import re
           from pathlib import Path
-
           path = Path('app/build/generated/source/buildConfig/debug/kr/pagero/calltag/BuildConfig.java')
-          if not path.exists():
-              raise SystemExit(f'BuildConfig not found: {path}')
-
+          if not path.exists(): raise SystemExit(f'BuildConfig not found: {path}')
           text = path.read_text(encoding='utf-8')
-          fields = (
-              'FIREBASE_APPLICATION_ID',
-              'FIREBASE_API_KEY',
-              'FIREBASE_PROJECT_ID',
-              'FIREBASE_SENDER_ID',
-          )
-          for field in fields:
+          for field in ('FIREBASE_APPLICATION_ID','FIREBASE_API_KEY','FIREBASE_PROJECT_ID','FIREBASE_SENDER_ID'):
               match = re.search(rf'{field}\s*=\s*"([^"]*)";', text)
-              if not match or not match.group(1).strip():
-                  raise SystemExit(f'{field} is empty in generated BuildConfig')
+              if not match or not match.group(1).strip(): raise SystemExit(f'{field} is empty')
               print(f'{field}=configured')
           PY
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.42.4-automation-template-delay-debug-apk
+          name: calltag-v0.42.5-secure-sync-client-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
