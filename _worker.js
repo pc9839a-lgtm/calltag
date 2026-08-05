@@ -13,7 +13,7 @@ export default {
     headers.set('cache-control','no-cache, no-store, must-revalidate');
 
     if (isLegal) {
-      headers.set('x-calltag-worker','v88-calltag-pagero-flow');
+      headers.set('x-calltag-worker','v89-pagero-light-chapter');
       return new Response(body, {
         status: response.status,
         statusText: response.statusText,
@@ -85,7 +85,11 @@ export default {
       body = body.replace('</body>', '<script src="/assets/calltag-story-order-hard-fix.js?v=20260805-pin1"></script></body>');
     }
 
-    headers.set('x-calltag-worker','v88-calltag-pagero-flow');
+    if (!body.includes('calltag-pagero-light-chapter.js')) {
+      body = body.replace('</body>', '<script src="/assets/calltag-pagero-light-chapter.js?v=20260805-light1"></script></body>');
+    }
+
+    headers.set('x-calltag-worker','v89-pagero-light-chapter');
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
