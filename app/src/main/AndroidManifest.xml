@@ -77,6 +77,7 @@
         <activity android:name=".AccountActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".BackupRestoreActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".CallTagSyncStatusActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".CallTagSyncDevicesActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity
             android:name=".LoginActivity"
             android:exported="true"
