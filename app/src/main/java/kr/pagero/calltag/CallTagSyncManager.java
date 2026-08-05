@@ -22,6 +22,8 @@ public final class CallTagSyncManager {
 
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
     private static final AtomicBoolean RUNNING = new AtomicBoolean(false);
+    private static final Object STATE_LOCK = new Object();
+    private static boolean maintenance;
 
     private CallTagSyncManager() {}
 
@@ -45,13 +47,13 @@ public final class CallTagSyncManager {
         long now = System.currentTimeMillis();
         boolean throttled = !force && now - state.lastAttemptAt < interval;
         store.close();
-        if (throttled || !RUNNING.compareAndSet(false, true)) return;
+        if (throttled || !acquireRunSlot()) return;
 
         EXECUTOR.execute(() -> {
             try {
                 run(app);
             } finally {
-                RUNNING.set(false);
+                releaseRunSlot();
                 broadcast(app);
             }
         });
@@ -59,6 +61,40 @@ public final class CallTagSyncManager {
 
     public static boolean isRunning() {
         return RUNNING.get();
+    }
+
+    public static boolean beginMaintenance() {
+        synchronized (STATE_LOCK) {
+            if (maintenance || RUNNING.get()) return false;
+            maintenance = true;
+            return true;
+        }
+    }
+
+    public static void endMaintenance() {
+        synchronized (STATE_LOCK) {
+            maintenance = false;
+        }
+    }
+
+    public static boolean isMaintenanceRunning() {
+        synchronized (STATE_LOCK) {
+            return maintenance;
+        }
+    }
+
+    private static boolean acquireRunSlot() {
+        synchronized (STATE_LOCK) {
+            if (maintenance || RUNNING.get()) return false;
+            RUNNING.set(true);
+            return true;
+        }
+    }
+
+    private static void releaseRunSlot() {
+        synchronized (STATE_LOCK) {
+            RUNNING.set(false);
+        }
     }
 
     private static void run(Context context) {
