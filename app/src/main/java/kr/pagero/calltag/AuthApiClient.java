@@ -18,6 +18,7 @@ public final class AuthApiClient {
             "https://inlet-8mr.pages.dev",
             "https://call.pagero.kr"
     };
+    private static final String AUTH_EMAIL_BASE_URL = "https://pagero.kr";
 
     public static final class ApiException extends Exception {
         public final int status;
@@ -70,9 +71,70 @@ public final class AuthApiClient {
     }
 
     public static JSONObject requestVerification(String email, String purpose) throws Exception {
-        return post("/api/auth/email-verification", new JSONObject()
+        JSONObject body = new JSONObject()
                 .put("email", normalizeEmail(email))
-                .put("purpose", normalizePurpose(purpose)), "");
+                .put("purpose", normalizePurpose(purpose));
+        final JSONObject response;
+        try {
+            // 인증번호는 오래된 pages.dev/call 도메인으로 우회하지 않는다.
+            response = request(
+                    AUTH_EMAIL_BASE_URL + "/api/auth/email-verification",
+                    "POST",
+                    body,
+                    "");
+        } catch (ApiException error) {
+            throw localizedEmailDeliveryError(error);
+        }
+        verifyEmailDeliveryAccepted(response);
+        return response;
+    }
+
+    private static void verifyEmailDeliveryAccepted(JSONObject response) throws ApiException {
+        JSONObject verification = response == null ? null : response.optJSONObject("verification");
+        JSONObject delivery = verification == null ? null : verification.optJSONObject("delivery");
+        String mode = delivery == null ? "" : clean(delivery.optString("mode", "")).toLowerCase();
+        String status = delivery == null ? "" : clean(delivery.optString("status", "")).toLowerCase();
+        boolean exposedToken = verification != null
+                && !clean(verification.optString("token", "")).isEmpty();
+
+        if ("api".equals(mode) && "sent".equals(status) && !exposedToken) return;
+
+        throw new ApiException(
+                "서버가 인증메일의 실제 발송을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.",
+                502,
+                "EMAIL_DELIVERY_NOT_CONFIRMED");
+    }
+
+    private static ApiException localizedEmailDeliveryError(ApiException error) {
+        String message;
+        switch (error.code) {
+            case "EMAIL_SEND_NOT_CONFIGURED":
+                message = "인증메일 발송 서버 설정이 완료되지 않았습니다.";
+                break;
+            case "EMAIL_SEND_SANDBOX_REJECTED":
+                message = "메일 발송 계정이 테스트 모드라 현재 이메일 주소로 보낼 수 없습니다.";
+                break;
+            case "EMAIL_DOMAIN_NOT_VERIFIED":
+                message = "인증메일 발신 도메인 확인이 완료되지 않았습니다.";
+                break;
+            case "EMAIL_SEND_QUOTA_EXCEEDED":
+                message = "인증메일 발송 한도를 초과했습니다. 잠시 후 다시 시도해주세요.";
+                break;
+            case "EMAIL_SEND_TIMEOUT":
+                message = "메일 발송 서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요.";
+                break;
+            case "EMAIL_SEND_PROVIDER_UNSUPPORTED":
+            case "EMAIL_SEND_PROVIDER_ERROR":
+                message = "메일 발송 서버가 인증메일 전송을 거절했습니다.";
+                break;
+            default:
+                message = error.getMessage();
+                if (message == null || message.trim().isEmpty()) {
+                    message = "인증메일을 발송하지 못했습니다.";
+                }
+                break;
+        }
+        return new ApiException(message, error.status, error.code);
     }
 
     public static JSONObject resetPassword(
