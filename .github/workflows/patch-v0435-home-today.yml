@@ -1,0 +1,116 @@
+name: Patch CallTag v0.43.5 Home Today Tasks
+
+on:
+  push:
+    branches:
+      - docs/billing-referral-app-handoff-20260804
+
+permissions:
+  contents: write
+
+env:
+  TARGET_BRANCH: docs/billing-referral-app-handoff-20260804
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[v0435-home-patched]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Patch home task scope and bump version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          main_path = Path('app/src/main/java/kr/pagero/calltag/MainActivity.java')
+          main = main_path.read_text(encoding='utf-8')
+          old = '''    private void renderTasks() {
+              todayTaskList.removeAllViews();
+              List<FollowUpTask> tasks = db.listPendingTasks();
+              todayEmpty.setVisibility(tasks.isEmpty() ? View.VISIBLE : View.GONE);
+              DateFormat formatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+          '''
+          new = '''    private void renderTasks() {
+              todayTaskList.removeAllViews();
+              Calendar todayStart = Calendar.getInstance();
+              clearTime(todayStart);
+              Calendar tomorrowStart = (Calendar) todayStart.clone();
+              tomorrowStart.add(Calendar.DAY_OF_MONTH, 1);
+
+              List<FollowUpTask> tasks = new ArrayList<>();
+              for (FollowUpTask task : db.listTasksBetween(
+                      todayStart.getTimeInMillis(), tomorrowStart.getTimeInMillis())) {
+                  if (!task.isCompleted()) tasks.add(task);
+              }
+              todayEmpty.setVisibility(tasks.isEmpty() ? View.VISIBLE : View.GONE);
+              DateFormat formatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+          '''
+          if old not in main:
+              raise SystemExit('MainActivity renderTasks target was not found')
+          main = main.replace(old, new, 1)
+          main_path.write_text(main, encoding='utf-8')
+
+          gradle_path = Path('app/build.gradle')
+          gradle = gradle_path.read_text(encoding='utf-8')
+          if 'versionCode 72' not in gradle or "versionName '0.43.4'" not in gradle:
+              raise SystemExit('Expected v0.43.4 code72 was not found')
+          gradle = gradle.replace('versionCode 72', 'versionCode 73', 1)
+          gradle = gradle.replace("versionName '0.43.4'", "versionName '0.43.5'", 1)
+          gradle_path.write_text(gradle, encoding='utf-8')
+
+          workflow_path = Path('.github/workflows/build-apk.yml')
+          workflow = workflow_path.read_text(encoding='utf-8')
+          workflow = workflow.replace('v0.43.4', 'v0.43.5')
+          workflow = workflow.replace('v0434', 'v0435')
+          workflow = workflow.replace('code72', 'code73')
+          workflow = workflow.replace('versionCode 72', 'versionCode 73')
+          workflow = workflow.replace("versionName '0.43.4'", "versionName '0.43.5'")
+          workflow = workflow.replace("'version 0.43.4 code72': 'versionCode 72' in app and \"versionName '0.43.4'\" in app,",
+                                      "'version 0.43.5 code73': 'versionCode 73' in app and \"versionName '0.43.5'\" in app,")
+          marker = "          application = (java / 'CallTagApplication.java').read_text(encoding='utf-8')\n"
+          if marker in workflow and "home = (java / 'MainActivity.java')" not in workflow:
+              workflow = workflow.replace(marker, marker + "          home = (java / 'MainActivity.java').read_text(encoding='utf-8')\n", 1)
+          check_marker = "              'boot update monitor recovery': 'SettingsStore.setMonitorEnabled(context, true)' in boot,\n"
+          if check_marker in workflow and "home today-only tasks" not in workflow:
+              workflow = workflow.replace(check_marker,
+                  check_marker + "              'home today-only tasks': 'tomorrowStart.add(Calendar.DAY_OF_MONTH, 1)' in home and 'db.listTasksBetween' in home and 'if (!task.isCompleted())' in home,\n", 1)
+          workflow = workflow.replace("cp docs/V0433_POST_CALL_CAPTURE_RECOVERY_KO.md \"$OUT/PATCH_NOTES_KO.md\"",
+                                      "cp docs/V0435_HOME_TODAY_TASKS_KO.md \"$OUT/PATCH_NOTES_KO.md\"")
+          workflow_path.write_text(workflow, encoding='utf-8')
+
+          Path('docs/V0435_HOME_TODAY_TASKS_KO.md').write_text('''# CallTag v0.43.5 홈 오늘 할 일 범위 수정
+
+- versionName: 0.43.5
+- versionCode: 73
+- 홈 `오늘 할 일`에는 기기 현지 날짜 기준 오늘 00:00 이상, 내일 00:00 미만의 미완료 일정만 표시합니다.
+- 어제까지의 기한 지난 일정과 내일 이후 일정은 홈 목록에 표시하지 않습니다.
+- 기한 지난 전체 개수는 기존 `기한 지남` 요약 카드에서 유지합니다.
+- 전체 일정은 일정 캘린더에서 계속 확인할 수 있습니다.
+- 통화 종료 고객 자동등록·팝업 복구와 사진 MMS 자동발송 패치는 그대로 포함합니다.
+''', encoding='utf-8')
+          PY
+
+      - name: Verify patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'versionCode 73' app/build.gradle
+          grep -F "versionName '0.43.5'" app/build.gradle
+          grep -F 'tomorrowStart.add(Calendar.DAY_OF_MONTH, 1)' app/src/main/java/kr/pagero/calltag/MainActivity.java
+          grep -F 'if (!task.isCompleted()) tasks.add(task);' app/src/main/java/kr/pagero/calltag/MainActivity.java
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'calltag-patch-bot'
+          git config user.email 'calltag-patch-bot@users.noreply.github.com'
+          git add app/build.gradle app/src/main/java/kr/pagero/calltag/MainActivity.java .github/workflows/build-apk.yml docs/V0435_HOME_TODAY_TASKS_KO.md
+          git commit -m 'fix: 홈 오늘 할 일에 오늘 일정만 표시 [v0435-home-patched]'
+          git push origin HEAD:${TARGET_BRANCH}
