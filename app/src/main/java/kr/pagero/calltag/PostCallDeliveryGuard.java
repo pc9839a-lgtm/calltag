@@ -7,7 +7,7 @@ import android.os.Looper;
 
 /**
  * Android가 백그라운드 Activity 시작 요청을 조용히 무시하는 경우를 감지해
- * 한 번 더 실행을 시도하고, 그래도 화면이 확인되지 않으면 알림으로 반드시 남긴다.
+ * 안전 진입 화면으로 한 번 더 실행하고, 그래도 화면이 확인되지 않으면 알림으로 남긴다.
  */
 public final class PostCallDeliveryGuard {
     private static final long FIRST_VERIFY_DELAY_MS = 2_400L;
@@ -20,16 +20,17 @@ public final class PostCallDeliveryGuard {
         if (context == null || source == null) return;
         Context app = context.getApplicationContext();
         Intent review = new Intent(source)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                        | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-                        | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+                .setClass(app, PostCallActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
         long callId = review.getLongExtra(PostCallActivity.EXTRA_CALL_LOG_ID, -1L);
         if (callId < 0L) return;
 
         MAIN.postDelayed(() -> {
             if (PostCallLaunchReceipt.wasVisible(app, callId)) return;
             try {
-                app.startActivity(new Intent(review));
+                app.startActivity(PostCallEntryActivity.createIntent(app, review));
             } catch (RuntimeException ignored) {
                 // 다음 확인 단계에서 알림 fallback을 남긴다.
             }
