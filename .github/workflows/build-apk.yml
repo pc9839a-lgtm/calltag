@@ -1,4 +1,4 @@
-name: Build CallTag v0.43.4 Internal
+name: Build CallTag v0.43.5 Internal
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: calltag-v0434-${{ github.ref }}
+  group: calltag-v0435-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify v0.43.4 contracts
+      - name: Verify v0.43.5 contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -51,17 +51,19 @@ jobs:
           calllog = (java / 'CallLogRepository.java').read_text(encoding='utf-8')
           sender = (java / 'DirectMmsSender.java').read_text(encoding='utf-8')
           checks = {
-              'version 0.43.4 code72': 'versionCode 72' in app and "versionName '0.43.4'" in app,
+              'version 0.43.5 code73': 'versionCode 73' in app and "versionName '0.43.5'" in app,
               'target api36': 'compileSdk 36' in app and 'targetSdk 36' in app,
+              'home today-only source patch': 'preparePatchedSources' in app and 'tomorrowStart.add(Calendar.DAY_OF_MONTH, 1)' in app and 'db.listTasksBetween' in app and 'if (!task.isCompleted()) tasks.add(task);' in app,
               'call-log fallback': 'handleCallLogChanged' in monitor and 'findLatestEndingAfter' in monitor,
               'automatic customer capture': 'createCustomerFromCall' in monitor and 'db.insertCustomer' in monitor,
               'post-call popup': 'CallPopupNotificationManager.showPostCall' in monitor,
               'resolved-time lookup': 'findLatestEndingAfter' in calllog,
               'direct MMS': 'sendMultimediaMessage' in sender,
+              'release notes': Path('docs/V0435_HOME_TODAY_TASKS_KO.md').exists(),
           }
           failed = [name for name, ok in checks.items() if not ok]
           for name, ok in checks.items(): print(f'{name}={"ok" if ok else "missing"}')
-          if failed: raise SystemExit('v0.43.4 contract failed: ' + ', '.join(failed))
+          if failed: raise SystemExit('v0.43.5 contract failed: ' + ', '.join(failed))
           PY
 
       - uses: actions/setup-java@v4
@@ -133,7 +135,21 @@ jobs:
       - name: Build debug APK and signed release AAB
         run: gradle :app:assembleDebug :app:bundleRelease --no-daemon --stacktrace
 
-      - name: Verify and stage v0.43.4 files
+      - name: Verify generated home source
+        shell: bash
+        run: |
+          set -euo pipefail
+          GENERATED='app/build/generated/calltagPatchedJava/kr/pagero/calltag/MainActivity.java'
+          test -s "$GENERATED"
+          grep -F 'tomorrowStart.add(Calendar.DAY_OF_MONTH, 1)' "$GENERATED"
+          grep -F 'db.listTasksBetween(' "$GENERATED"
+          grep -F 'if (!task.isCompleted()) tasks.add(task);' "$GENERATED"
+          if grep -A5 -F 'private void renderTasks()' "$GENERATED" | grep -F 'db.listPendingTasks()'; then
+            echo '::error::Home still loads every pending task.'
+            exit 1
+          fi
+
+      - name: Verify and stage v0.43.5 files
         shell: bash
         run: |
           set -euo pipefail
@@ -142,25 +158,25 @@ jobs:
           test -s "$AAB"
           test -s "$APK"
           jarsigner -verify -certs "$AAB"
-          OUT="$RUNNER_TEMP/calltag-v0.43.4-internal"
+          OUT="$RUNNER_TEMP/calltag-v0.43.5-internal"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.43.4-code72.aab"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V0434_AAB_SHA256.txt"
+          cp "$AAB" "$OUT/CallTag-v0.43.5-code73.aab"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V0435_AAB_SHA256.txt"
           cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
-          cp docs/V0433_POST_CALL_CAPTURE_RECOVERY_KO.md "$OUT/PATCH_NOTES_KO.md"
+          cp docs/V0435_HOME_TODAY_TASKS_KO.md "$OUT/PATCH_NOTES_KO.md"
 
       - name: Upload Play internal AAB
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.43.4-play-internal-aab
-          path: ${{ runner.temp }}/calltag-v0.43.4-internal
+          name: calltag-v0.43.5-play-internal-aab
+          path: ${{ runner.temp }}/calltag-v0.43.5-internal
           retention-days: 90
           if-no-files-found: error
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.43.4-api36-debug-apk
+          name: calltag-v0.43.5-api36-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
           if-no-files-found: error
