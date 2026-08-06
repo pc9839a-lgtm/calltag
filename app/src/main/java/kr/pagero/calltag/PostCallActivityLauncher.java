@@ -28,10 +28,7 @@ public final class PostCallActivityLauncher {
         }
 
         PostCallLaunchReceipt.closeStaleActivity(callId);
-        Intent target = new Intent(source)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                        | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-                        | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+        Intent target = prepareTarget(source);
         PostCallLaunchReceipt.arm(context, target);
 
         int requestCode = (int) (callId & 0x7fffffff);
@@ -39,7 +36,7 @@ public final class PostCallActivityLauncher {
                 context,
                 requestCode,
                 target,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         boolean accepted = false;
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -53,7 +50,7 @@ public final class PostCallActivityLauncher {
             accepted = true;
         } catch (PendingIntent.CanceledException | RuntimeException ignored) {
             try {
-                context.startActivity(target);
+                context.startActivity(prepareTarget(source));
                 accepted = true;
             } catch (RuntimeException ignoredAgain) {
                 accepted = false;
@@ -64,5 +61,17 @@ public final class PostCallActivityLauncher {
         lastLaunchAt = now;
         PostCallDeliveryGuard.schedule(context, target);
         return accepted;
+    }
+
+    public static Intent prepareTarget(Intent source) {
+        Intent target = new Intent(source);
+        int flags = target.getFlags();
+        flags &= ~Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS;
+        flags &= ~Intent.FLAG_ACTIVITY_NO_USER_ACTION;
+        target.setFlags(flags);
+        target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                | Intent.FLAG_ACTIVITY_CLEAR_TOP
+                | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        return target;
     }
 }

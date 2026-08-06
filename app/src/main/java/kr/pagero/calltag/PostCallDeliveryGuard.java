@@ -19,17 +19,14 @@ public final class PostCallDeliveryGuard {
     public static void schedule(Context context, Intent source) {
         if (context == null || source == null) return;
         Context app = context.getApplicationContext();
-        Intent review = new Intent(source)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                        | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-                        | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+        Intent review = PostCallActivityLauncher.prepareTarget(source);
         long callId = review.getLongExtra(PostCallActivity.EXTRA_CALL_LOG_ID, -1L);
         if (callId < 0L) return;
 
         MAIN.postDelayed(() -> {
             if (PostCallLaunchReceipt.wasVisible(app, callId)) return;
             try {
-                app.startActivity(new Intent(review));
+                app.startActivity(PostCallActivityLauncher.prepareTarget(review));
             } catch (RuntimeException ignored) {
                 // 다음 확인 단계에서 알림 fallback을 남긴다.
             }
