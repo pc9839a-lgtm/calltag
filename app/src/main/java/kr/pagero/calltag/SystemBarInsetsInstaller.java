@@ -22,7 +22,7 @@ public final class SystemBarInsetsInstaller {
 
     public static void install(Activity activity) {
         if (activity == null || activity.isFinishing()) return;
-        WindowCompat.enableEdgeToEdge(activity.getWindow());
+        WindowCompat.setDecorFitsSystemWindows(activity.getWindow(), false);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             activity.getWindow().setNavigationBarContrastEnforced(false);
             activity.getWindow().setStatusBarContrastEnforced(false);
