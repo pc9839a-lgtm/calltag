@@ -38,12 +38,12 @@ public final class BootReceiver extends BroadcastReceiver {
     }
 
     private void startMonitorIfAllowed(Context context) {
-        if (!SettingsStore.isMonitorEnabled(context)) return;
         if (!AuthSessionStore.hasSession(context) || !hasRequiredPermissions(context)) {
             SettingsStore.setMonitorEnabled(context, false);
             return;
         }
 
+        SettingsStore.setMonitorEnabled(context, true);
         Intent service = new Intent(context, CallMonitorService.class)
                 .setAction(CallMonitorService.ACTION_START);
         try {
@@ -58,14 +58,9 @@ public final class BootReceiver extends BroadcastReceiver {
     }
 
     private boolean hasRequiredPermissions(Context context) {
-        boolean granted = context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE)
+        return context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE)
                 == PackageManager.PERMISSION_GRANTED
                 && context.checkSelfPermission(Manifest.permission.READ_CALL_LOG)
                 == PackageManager.PERMISSION_GRANTED;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            granted = granted && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                    == PackageManager.PERMISSION_GRANTED;
-        }
-        return granted;
     }
 }
