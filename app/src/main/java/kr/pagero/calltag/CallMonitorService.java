@@ -56,6 +56,7 @@ public final class CallMonitorService extends Service {
         super.onCreate();
         createChannels();
         MessageAutomationStore.ensureDefaults(this);
+        FollowUpRuleStore.ensureMigrated(this);
         if (!canMonitor()) {
             SettingsStore.setMonitorEnabled(this, false);
             stopSelf();
@@ -265,6 +266,7 @@ public final class CallMonitorService extends Service {
             Customer customer = db.findByPhone(record.phone);
             if (messageAccess) {
                 MessageAutomationManager.onCallResolved(this, record, customer);
+                if (connected) FollowUpAutomationManager.onConnectedCall(this, record, customer);
             }
 
             if (phoneAccess) {
