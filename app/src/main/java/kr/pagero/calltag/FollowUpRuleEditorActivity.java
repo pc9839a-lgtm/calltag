@@ -16,7 +16,7 @@ import android.widget.Toast;
 
 import java.util.UUID;
 
-/** 후속문자 규칙 한 개의 이름·발송일·템플릿을 편집한다. */
+/** 후속문자 규칙 한 개의 이름·발송일·텍스트 또는 사진 템플릿을 편집한다. */
 public final class FollowUpRuleEditorActivity extends Activity {
     public static final String EXTRA_RULE_ID = "rule_id";
     private static final int REQUEST_TEMPLATE = 8901;
@@ -71,6 +71,7 @@ public final class FollowUpRuleEditorActivity extends Activity {
         root.addView(header, matchWrap());
 
         root.addView(body("통화가 연결된 뒤 설정한 날짜에 자동으로 보냅니다. "
+                + "사진이 포함된 템플릿도 MMS로 자동 발송됩니다. "
                 + "여러 규칙을 만들어 1차·2차·3차 후속문자를 각각 운영할 수 있습니다."), top(12));
 
         root.addView(label("규칙 이름"), top(20));
@@ -90,7 +91,7 @@ public final class FollowUpRuleEditorActivity extends Activity {
         templateCard.setOnClickListener(v -> chooseTemplate());
         templateValue = title("", 16f);
         templateCard.addView(templateValue, matchWrap());
-        TextView templateHint = body("눌러서 후속문자 템플릿 선택");
+        TextView templateHint = body("눌러서 텍스트 또는 사진 템플릿 선택");
         templateHint.setTextColor(getColor(R.color.primary));
         templateCard.addView(templateHint, top(6));
         root.addView(templateCard, top(7));
@@ -125,19 +126,21 @@ public final class FollowUpRuleEditorActivity extends Activity {
         String selected = safe(data.getStringExtra(MessageTemplateLibraryActivity.EXTRA_TEMPLATE_ID));
         MessageTemplateStore.Template template = MessageTemplateStore.get(this, selected);
         if (template == null) return;
-        if (!safe(template.imageRef).isEmpty()) {
-            Toast.makeText(this, "후속 자동문자는 이미지 없는 템플릿만 사용할 수 있습니다.",
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
         templateId = selected;
+        Toast.makeText(this,
+                safe(template.imageRef).isEmpty()
+                        ? "텍스트 후속문자 템플릿을 선택했습니다."
+                        : "사진 MMS 후속문자 템플릿을 선택했습니다.",
+                Toast.LENGTH_SHORT).show();
         renderTemplate();
     }
 
     private void renderTemplate() {
         if (templateValue == null) return;
         MessageTemplateStore.Template template = MessageTemplateStore.get(this, templateId);
-        templateValue.setText(template == null ? "템플릿 선택 필요" : template.name);
+        templateValue.setText(template == null
+                ? "템플릿 선택 필요"
+                : template.name + (safe(template.imageRef).isEmpty() ? "" : " · 사진 포함"));
     }
 
     private void save() {
@@ -157,7 +160,7 @@ public final class FollowUpRuleEditorActivity extends Activity {
             return;
         }
         MessageTemplateStore.Template template = MessageTemplateStore.get(this, templateId);
-        if (template == null || !safe(template.imageRef).isEmpty()) {
+        if (template == null) {
             Toast.makeText(this, "후속문자 템플릿을 선택해주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
