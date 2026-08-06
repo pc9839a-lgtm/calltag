@@ -1,10 +1,8 @@
 package kr.pagero.calltag;
 
-import android.app.ActivityOptions;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
 
 /** Opens the post-call screen and verifies that Android actually displayed it. */
 public final class PostCallActivityLauncher {
@@ -31,31 +29,22 @@ public final class PostCallActivityLauncher {
         Intent target = new Intent(source)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                         | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-                        | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+                        | Intent.FLAG_ACTIVITY_NO_USER_ACTION
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PostCallLaunchReceipt.arm(context, target);
 
         int requestCode = (int) (callId & 0x7fffffff);
-        PendingIntent pending = PendingIntent.getActivity(
+        PendingIntent pending = BackgroundActivityLaunchCompat.activity(
                 context,
                 requestCode,
                 target,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        boolean accepted = false;
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                ActivityOptions options = ActivityOptions.makeBasic();
-                options.setPendingIntentBackgroundActivityStartMode(
-                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
-                pending.send(context, 0, null, null, null, null, options.toBundle());
-            } else {
-                pending.send();
-            }
-            accepted = true;
-        } catch (PendingIntent.CanceledException | RuntimeException ignored) {
+        boolean accepted = BackgroundActivityLaunchCompat.send(context, pending);
+        if (!accepted) {
             try {
                 context.startActivity(target);
                 accepted = true;
-            } catch (RuntimeException ignoredAgain) {
+            } catch (RuntimeException ignored) {
                 accepted = false;
             }
         }
