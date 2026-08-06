@@ -32,6 +32,7 @@ public final class MessageSectionView extends LinearLayout {
         setOrientation(VERTICAL);
         MessageAutomationStore.ensureDefaults(getContext());
         MessageTemplateStore.ensureDefaults(getContext());
+        FollowUpRuleStore.ensureMigrated(getContext());
 
         TextView primary = primaryAction("고객 선택 후 문자");
         primary.setOnClickListener(v -> {
@@ -49,7 +50,8 @@ public final class MessageSectionView extends LinearLayout {
         menu.setPadding(dp(4), dp(4), dp(4), dp(4));
         menu.setBackgroundResource(R.drawable.bg_card);
         addMenuRow(menu, "문자 템플릿", MessageTemplateLibraryActivity.class, false);
-        addMenuRow(menu, "통화 후 자동문자", MessageAutomationSettingsActivity.class, false);
+        addMenuRow(menu, "통화 후 자동문자", PostCallAutomationActivity.class, true);
+        addMenuRow(menu, "후속문자 자동화", FollowUpAutomationActivity.class, true);
         addMenuRow(menu, "그룹·단체문자", GroupCampaignHubActivity.class, true);
         addMenuRow(menu, "발송 내역", MessageHistoryActivity.class, false);
         addView(menu, topMargin(8));
