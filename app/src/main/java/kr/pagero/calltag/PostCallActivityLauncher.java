@@ -4,7 +4,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 
-/** Opens the post-call screen and verifies that Android actually displayed it. */
+/** Opens the post-call screen through a fresh, crash-safe task entry. */
 public final class PostCallActivityLauncher {
     private static final long DUPLICATE_WINDOW_MS = 12_000L;
 
@@ -26,23 +26,24 @@ public final class PostCallActivityLauncher {
         }
 
         PostCallLaunchReceipt.closeStaleActivity(callId);
-        Intent target = new Intent(source)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                        | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-                        | Intent.FLAG_ACTIVITY_NO_USER_ACTION
-                        | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PostCallLaunchReceipt.arm(context, target);
+        Intent review = new Intent(source)
+                .setClass(context, PostCallActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS);
+        PostCallLaunchReceipt.arm(context, review);
 
-        int requestCode = (int) (callId & 0x7fffffff);
+        Intent entry = PostCallEntryActivity.createIntent(context, review);
+        int requestCode = (int) ((callId ^ 0x4A770000L) & 0x7fffffff);
         PendingIntent pending = BackgroundActivityLaunchCompat.activity(
                 context,
                 requestCode,
-                target,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                entry,
+                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         boolean accepted = BackgroundActivityLaunchCompat.send(context, pending);
         if (!accepted) {
             try {
-                context.startActivity(target);
+                context.startActivity(entry);
                 accepted = true;
             } catch (RuntimeException ignored) {
                 accepted = false;
@@ -51,7 +52,7 @@ public final class PostCallActivityLauncher {
 
         lastCallId = callId;
         lastLaunchAt = now;
-        PostCallDeliveryGuard.schedule(context, target);
+        PostCallDeliveryGuard.schedule(context, review);
         return accepted;
     }
 }
