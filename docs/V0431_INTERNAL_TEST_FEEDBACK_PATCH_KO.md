@@ -59,5 +59,20 @@
 - versionName: `0.43.1`
 - versionCode: `69`
 - targetSdk: `36`
-- 첫 내부 테스트 `0.43.0`에서 사용한 동일 upload key로 서명해야 한다.
-- 새로운 upload key를 생성하면 Play Console이 업데이트 AAB를 거부하므로 CI는 이전 key artifact 또는 등록된 repository secrets만 사용한다.
+- workflow: `Build CallTag v0.43.1 Internal` #1658
+- source head: `5b3049694cc6c4232c537071de22a6005f5743ad`
+- release AAB SHA-256: `b97e41dc9c3395eaac76865da82cd3b1a350ad1be471b414d57f4a21b7b91e4f`
+- debug APK SHA-256: `def632b35f8bbe001e0c25d00ec0ba24b19691912a4107afe2468c27af775db2`
+- v0.43.0과 동일 upload key SHA-256 지문 확인 완료:
+  `C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7`
+
+## 검증 범위
+
+- API 36 Java 17 컴파일 성공
+- debug APK 생성 성공
+- signed release AAB 생성 성공
+- `jarsigner` 검증 성공
+- 제품 계약 검사 성공
+- 동일 Play upload key 검증 성공
+
+실제 삼성 기기에서 통화 종료 후 full-screen 팝업이 표시되는지는 v0.43.1 내부 테스트 설치 후 통화 1회로 최종 확인한다. Android 정책상 전체 화면 알림 권한이 꺼져 있으면 앱의 `더보기 → 통화 종료 팝업`에서 허용해야 한다.
