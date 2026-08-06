@@ -5,7 +5,7 @@ import android.content.Intent;
 
 import java.util.List;
 
-/** 연결된 통화 한 건에 대해 활성화된 모든 후속문자 규칙을 예약한다. */
+/** 연결된 통화 한 건에 대해 활성화된 모든 후속문자·사진 MMS 규칙을 예약한다. */
 public final class FollowUpAutomationManager {
     private static final long DAY_MS = 24L * 60L * 60L * 1000L;
 
@@ -40,11 +40,8 @@ public final class FollowUpAutomationManager {
                                  FollowUpRuleStore.Rule rule) {
         MessageTemplateStore.Template template = MessageTemplateStore.get(
                 context, rule.templateId);
-        if (template != null && template.imageRef != null && !template.imageRef.trim().isEmpty()) {
-            template = null;
-        }
         if (template == null) {
-            template = MessageTemplateStore.defaultTemplate(
+            template = AutomationTemplateSelectionStore.template(
                     context, MessageTemplateStore.PURPOSE_FOLLOW_UP);
         }
         String templateId = template == null ? "" : template.id;
@@ -82,6 +79,7 @@ public final class FollowUpAutomationManager {
                 MessageLogStore.STATUS_SCHEDULED, when, subscriptionId, false);
         MessageRecord created = store.find(id);
         if (created != null && MessageLogStore.STATUS_SCHEDULED.equals(created.status)) {
+            SmsSender.bindTemplateAttachment(context, id, templateId);
             MessageScheduler.schedule(context, id, when);
         }
     }
