@@ -17,7 +17,7 @@ import android.provider.Settings;
 
 public final class CallPopupNotificationManager {
     public static final String INCOMING_CHANNEL_ID = "calltag_incoming_popup_v5";
-    public static final String POST_CALL_CHANNEL_ID = "calltag_post_call_popup_v4";
+    public static final String POST_CALL_CHANNEL_ID = "calltag_post_call_popup_v5";
 
     private static final String[] LEGACY_CHANNEL_IDS = {
             "calltag_caller_info_v2",
@@ -26,7 +26,8 @@ public final class CallPopupNotificationManager {
             "calltag_incoming_customer_popup_v5",
             "calltag_post_call",
             "calltag_post_call_popup_v2",
-            "calltag_post_call_popup_v3"
+            "calltag_post_call_popup_v3",
+            "calltag_post_call_popup_v4"
     };
 
     private CallPopupNotificationManager() {}
@@ -54,9 +55,9 @@ public final class CallPopupNotificationManager {
 
         NotificationChannel postCall = new NotificationChannel(
                 POST_CALL_CHANNEL_ID,
-                "통화 종료 큰 정리 화면",
+                "통화 종료 정리 화면",
                 NotificationManager.IMPORTANCE_HIGH);
-        postCall.setDescription("통화가 끝난 뒤 메모와 다음 할 일을 남기는 큰 정리 화면을 표시합니다.");
+        postCall.setDescription("통화가 끝난 뒤 메모와 다음 할 일을 남기는 정리 화면을 엽니다.");
         postCall.enableVibration(true);
         postCall.setVibrationPattern(new long[]{0L, 140L, 80L, 140L});
         postCall.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), audio);
@@ -160,10 +161,7 @@ public final class CallPopupNotificationManager {
         }
     }
 
-    /**
-     * PostCallActivityLauncher opens the large screen once. This method only posts a fallback
-     * notification and must never start the activity or use a full-screen intent again.
-     */
+    /** Posts a fallback notification when Android blocks the direct post-call activity launch. */
     public static boolean showPostCall(Context context, CallRecord record, Customer customer,
                                        Intent reviewIntent, String memo) {
         if (record == null || reviewIntent == null) return false;
@@ -172,11 +170,12 @@ public final class CallPopupNotificationManager {
         if (manager == null) return false;
 
         int notificationId = 5000 + (int) (record.id % 100000L);
+        Intent open = PostCallActivityLauncher.prepareTarget(reviewIntent);
         PendingIntent pending = PendingIntent.getActivity(
                 context,
                 (int) (record.id & 0x7fffffff),
-                reviewIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                open,
+                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         String callLabel = callTypeLabel(record);
         String person = customer == null
