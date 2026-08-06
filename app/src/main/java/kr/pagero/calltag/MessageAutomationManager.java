@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.provider.CallLog;
 
+/** 통화 종료 이벤트를 텍스트 SMS 또는 사진 MMS 자동발송 작업으로 변환한다. */
 public final class MessageAutomationManager {
     /** 구버전 발송내역 호환용. 신규 자동발송은 수신·발신 트리거를 분리한다. */
     public static final String TRIGGER_CONNECTED = "CALL_CONNECTED_END";
@@ -52,14 +53,14 @@ public final class MessageAutomationManager {
                         : MessageTemplateStore.PURPOSE_OUTGOING;
                 String trigger = incomingConnected ? TRIGGER_INCOMING : TRIGGER_OUTGOING;
                 MessageTemplateStore.Template template =
-                        MessageTemplateStore.defaultTemplate(context, purpose);
+                        AutomationTemplateSelectionStore.template(context, purpose);
                 sendImmediate(context, store, record, customer, trigger,
                         template == null ? "" : template.id,
                         template == null
                                 ? MessageAutomationStore.DEFAULT_CONNECTED_TEMPLATE
                                 : template.body);
             } else if (missed && MessageAutomationStore.missedEnabled(context)) {
-                MessageTemplateStore.Template template = MessageTemplateStore.defaultTemplate(
+                MessageTemplateStore.Template template = AutomationTemplateSelectionStore.template(
                         context, MessageTemplateStore.PURPOSE_MISSED);
                 sendImmediate(context, store, record, customer, TRIGGER_MISSED,
                         template == null ? "" : template.id,
@@ -68,6 +69,7 @@ public final class MessageAutomationManager {
                                 : template.body);
             }
 
+            // 이전 버전의 단일 후속문자 설정도 호환한다. 신규 다중 규칙은 FollowUpAutomationManager가 처리한다.
             if (connected && MessageAutomationStore.delayedEnabled(context)) {
                 scheduleDelayed(context, store, record, customer);
             }
@@ -127,7 +129,7 @@ public final class MessageAutomationManager {
     private static void scheduleDelayed(Context context, MessageLogStore store,
                                         CallRecord record, Customer customer) {
         long now = System.currentTimeMillis();
-        MessageTemplateStore.Template template = MessageTemplateStore.defaultTemplate(
+        MessageTemplateStore.Template template = AutomationTemplateSelectionStore.template(
                 context, MessageTemplateStore.PURPOSE_FOLLOW_UP);
         String templateId = template == null ? "" : template.id;
         String templateBody = template == null
@@ -160,6 +162,7 @@ public final class MessageAutomationManager {
                 MessageLogStore.STATUS_SCHEDULED, when, subscriptionId, false);
         MessageRecord created = store.find(id);
         if (created != null && MessageLogStore.STATUS_SCHEDULED.equals(created.status)) {
+            SmsSender.bindTemplateAttachment(context, id, templateId);
             MessageScheduler.schedule(context, id, when);
         }
     }
