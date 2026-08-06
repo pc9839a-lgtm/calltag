@@ -1,4 +1,4 @@
-name: Build CallTag v0.43.1 Internal
+name: Build CallTag v0.43.2 Internal
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: calltag-v0431-${{ github.ref }}
+  group: calltag-v0432-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify v0.43.1 product contracts
+      - name: Verify v0.43.2 direct MMS contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -48,52 +48,39 @@ jobs:
 
           app = Path('app/build.gradle').read_text(encoding='utf-8')
           manifest = Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
-          application = Path('app/src/main/java/kr/pagero/calltag/CallTagApplication.java').read_text(encoding='utf-8')
-          main_layout = Path('app/src/main/res/layout/activity_main.xml').read_text(encoding='utf-8')
-          more = Path('app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java').read_text(encoding='utf-8')
-          popup = Path('app/src/main/java/kr/pagero/calltag/CallPopupNotificationManager.java').read_text(encoding='utf-8')
-          bal = Path('app/src/main/java/kr/pagero/calltag/BackgroundActivityLaunchCompat.java').read_text(encoding='utf-8')
-          monitor = Path('app/src/main/java/kr/pagero/calltag/CallMonitorService.java').read_text(encoding='utf-8')
-          message = Path('app/src/main/java/kr/pagero/calltag/MessageSectionView.java').read_text(encoding='utf-8')
-          settlement = Path('app/src/main/java/kr/pagero/calltag/PartnerSettlementStore.java').read_text(encoding='utf-8')
+          sender = Path('app/src/main/java/kr/pagero/calltag/DirectMmsSender.java').read_text(encoding='utf-8')
+          status = Path('app/src/main/java/kr/pagero/calltag/MmsStatusReceiver.java').read_text(encoding='utf-8')
+          sms = Path('app/src/main/java/kr/pagero/calltag/SmsSender.java').read_text(encoding='utf-8')
+          scheduled = Path('app/src/main/java/kr/pagero/calltag/ScheduledMessageReceiver.java').read_text(encoding='utf-8')
+          automation = Path('app/src/main/java/kr/pagero/calltag/MessageAutomationManager.java').read_text(encoding='utf-8')
+          postcall = Path('app/src/main/java/kr/pagero/calltag/PostCallAutomationActivity.java').read_text(encoding='utf-8')
+          followup = Path('app/src/main/java/kr/pagero/calltag/FollowUpAutomationManager.java').read_text(encoding='utf-8')
+          followup_editor = Path('app/src/main/java/kr/pagero/calltag/FollowUpRuleEditorActivity.java').read_text(encoding='utf-8')
+          provider = Path('app/src/main/java/kr/pagero/calltag/MmsPduProvider.java').read_text(encoding='utf-8')
 
-          required = [
-              'SystemBarInsetsInstaller.java', 'PostCallPopupAccessActivity.java',
-              'ExternalCalendarSyncManager.java', 'ExternalCalendarSyncStore.java',
-              'PostCallAutomationActivity.java', 'FollowUpAutomationActivity.java',
-              'FollowUpRuleEditorActivity.java', 'FollowUpRuleStore.java',
-              'FollowUpAutomationManager.java', 'PageroSyncActivity.java',
-              'PageroUseGuideActivity.java', 'ReferralInviteActivity.java',
-              'ReferralCodeRegistrationActivity.java', 'PartnerSettlementActivity.java',
-              'PartnerSettlementStore.java'
-          ]
-          java = Path('app/src/main/java/kr/pagero/calltag')
           checks = {
-              'version 0.43.1 code69': 'versionCode 69' in app and "versionName '0.43.1'" in app,
+              'version 0.43.2 code70': 'versionCode 70' in app and "versionName '0.43.2'" in app,
               'target api36': 'compileSdk 36' in app and 'targetSdk 36' in app,
-              'new files': all((java / name).exists() for name in required),
-              'global safe insets': 'SystemBarInsetsInstaller.install(activity)' in application,
-              'duplicate main inset removed': 'fitsSystemWindows' not in main_layout,
-              'android16 BAL': 'MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS' in bal,
-              'postcall fullscreen': 'setFullScreenIntent' in popup and 'canUseFullScreenIntent' in popup,
-              'postcall multi followup': 'FollowUpAutomationManager.onConnectedCall' in monitor,
-              'calendar permissions': 'android.permission.READ_CALENDAR' in manifest and 'android.permission.WRITE_CALENDAR' in manifest,
-              'message screens split': 'PostCallAutomationActivity.class' in message and 'FollowUpAutomationActivity.class' in message,
-              'more duplicate removed': 'Section message' not in more and 'Section customer' not in more,
-              'pagero split': 'PageroSyncActivity.class' in more and 'PageroUseGuideActivity.class' in more,
-              'referral split': 'ReferralInviteActivity.class' in more and 'ReferralCodeRegistrationActivity.class' in more,
-              'settlement separate': 'PartnerSettlementActivity.class' in more,
-              'settlement encrypted': 'AndroidKeyStore' in settlement and 'AES/GCM/NoPadding' in settlement,
-              'manifest activities': all(name in manifest for name in (
-                  '.PostCallAutomationActivity', '.FollowUpAutomationActivity',
-                  '.FollowUpRuleEditorActivity', '.PartnerSettlementActivity',
-                  '.ReferralInviteActivity', '.ReferralCodeRegistrationActivity',
-                  '.PageroSyncActivity', '.PageroUseGuideActivity',
-                  '.PostCallPopupAccessActivity')),
+              'klinker pdu dependency': 'com.klinkerapps:android-smsmms:5.2.6' in app,
+              'direct MMS API': 'sendMultimediaMessage' in sender and 'Transaction.getBytes' in sender,
+              'selected SIM': 'createForSubscriptionId' in sender or 'getSmsManagerForSubscriptionId' in sender,
+              'PDU size guard': 'MAX_PDU_BYTES' in sender and 'MAX_IMAGE_BYTES' in sender,
+              'PDU provider secure': 'Read only' in provider and 'getCanonicalPath' in provider,
+              'manifest provider': '.MmsPduProvider' in manifest and '${applicationId}.mms-pdu' in manifest,
+              'manifest result receiver': '.MmsStatusReceiver' in manifest,
+              'template image snapshot': 'bindTemplateAttachment' in sms and 'MmsComposer.remember' in sms,
+              'automatic MMS routing': 'DirectMmsSender.sendExisting' in sms,
+              'scheduled MMS automatic': 'postComposeNotification' not in scheduled and 'SmsSender.sendExisting' in scheduled,
+              'postcall image selection allowed': '이미지 없는 템플릿만' not in postcall and 'AutomationTemplateSelectionStore.set' in postcall,
+              'postcall selected template used': 'AutomationTemplateSelectionStore.template' in automation,
+              'followup image selection allowed': '이미지 없는 템플릿만' not in followup_editor,
+              'followup image snapshot': 'bindTemplateAttachment' in followup,
+              'MMS failure SMS fallback': 'fallbackToText' in status and 'SmsSender.sendExisting' in status,
+              'release notes': Path('docs/V0432_DIRECT_MMS_AUTOMATION_KO.md').exists(),
           }
           failed = [name for name, ok in checks.items() if not ok]
           for name, ok in checks.items(): print(f'{name}={"ok" if ok else "missing"}')
-          if failed: raise SystemExit('v0.43.1 product contract failed: ' + ', '.join(failed))
+          if failed: raise SystemExit('v0.43.2 direct MMS contract failed: ' + ', '.join(failed))
           PY
 
       - uses: actions/setup-java@v4
@@ -170,7 +157,7 @@ jobs:
       - name: Build debug APK and signed release AAB
         run: gradle :app:assembleDebug :app:bundleRelease --no-daemon --stacktrace
 
-      - name: Verify and stage v0.43.1 files
+      - name: Verify and stage v0.43.2 files
         shell: bash
         run: |
           set -euo pipefail
@@ -183,25 +170,25 @@ jobs:
             echo '::error::Release AAB uses a debug certificate.'
             exit 1
           fi
-          OUT="$RUNNER_TEMP/calltag-v0.43.1-internal"
+          OUT="$RUNNER_TEMP/calltag-v0.43.2-internal"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.43.1-code69.aab"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V0431_AAB_SHA256.txt"
+          cp "$AAB" "$OUT/CallTag-v0.43.2-code70.aab"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V0432_AAB_SHA256.txt"
           cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
-          cp docs/V0431_INTERNAL_TEST_FEEDBACK_PATCH_KO.md "$OUT/PATCH_NOTES_KO.md"
+          cp docs/V0432_DIRECT_MMS_AUTOMATION_KO.md "$OUT/PATCH_NOTES_KO.md"
 
       - name: Upload Play internal AAB
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.43.1-play-internal-aab
-          path: ${{ runner.temp }}/calltag-v0.43.1-internal
+          name: calltag-v0.43.2-play-internal-aab
+          path: ${{ runner.temp }}/calltag-v0.43.2-internal
           retention-days: 90
           if-no-files-found: error
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.43.1-api36-debug-apk
+          name: calltag-v0.43.2-api36-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
           if-no-files-found: error
