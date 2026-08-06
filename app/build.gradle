@@ -76,8 +76,8 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        versionCode 73
-        versionName '0.43.5'
+        versionCode 74
+        versionName '0.43.6'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
         buildConfigField 'String', 'FIREBASE_API_KEY', '"' + envString('CALLTAG_FIREBASE_API_KEY') + '"'
