@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 
+/** 예약 시간이 된 텍스트·사진 문자를 자동 발송 큐로 전환한다. */
 public final class ScheduledMessageReceiver extends BroadcastReceiver {
     public static final String ACTION_SEND_SCHEDULED = "kr.pagero.calltag.SEND_SCHEDULED_MESSAGE";
     public static final String EXTRA_MESSAGE_ID = "message_id";
@@ -51,14 +52,12 @@ public final class ScheduledMessageReceiver extends BroadcastReceiver {
                 return;
             }
 
-            if (MmsComposer.hasAttachment(context, messageId)) {
-                MmsComposer.postComposeNotification(context, messageId);
-                DiagnosticEventStore.record(context, "이미지 문자 알림", messageId,
-                        "사용자 확인 필요");
-                return;
-            }
+            boolean hasImage = MmsComposer.hasAttachment(context, messageId);
             store.markReady(messageId);
-            DiagnosticEventStore.record(context, "예약 발송 준비", messageId, "SMS 발송 요청 전환");
+            DiagnosticEventStore.record(context,
+                    hasImage ? "예약 MMS 준비" : "예약 SMS 준비",
+                    messageId,
+                    hasImage ? "사진 포함 자동발송 요청 전환" : "텍스트 자동발송 요청 전환");
         } finally {
             store.close();
         }
