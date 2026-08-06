@@ -66,9 +66,7 @@ public final class CallTagApplication extends Application implements Application
             CallTagPushManager.registerIfAvailable(this);
             CallTagSyncManager.request(this, false);
             CallTagSyncWorkScheduler.reconcile(this);
-            if (SetupRequirements.isReady(this)) {
-                SetupRequirements.startCallMonitoring(this);
-            }
+            ensureCallMonitoring(this);
         }
     }
 
@@ -84,6 +82,13 @@ public final class CallTagApplication extends Application implements Application
         PageroLeadSyncManager.requestSyncAndNotify(this, false);
     }
 
+    private void ensureCallMonitoring(android.content.Context context) {
+        if (!AuthSessionStore.hasSession(context)) return;
+        if (!SetupRequirements.hasPhoneState(context)
+                || !SetupRequirements.hasCallLog(context)) return;
+        SetupRequirements.startCallMonitoring(context);
+    }
+
     @Override
     public void onActivityResumed(Activity activity) {
         if (activity instanceof PostCallActivity) {
@@ -95,6 +100,7 @@ public final class CallTagApplication extends Application implements Application
         if (activity instanceof MainActivity) {
             MainExitGuard.install(activity);
             if (AuthSessionStore.hasSession(activity)) {
+                ensureCallMonitoring(activity);
                 ReferralAutoApplyManager.applyIfNeeded(activity);
                 EntitlementRefreshManager.request(activity, false);
                 PageroAccountConnectionManager.refresh(activity, false);
@@ -132,9 +138,9 @@ public final class CallTagApplication extends Application implements Application
         if (!isProtectedActivity(activity) || routingToSetup) return;
         if (!AuthSessionStore.hasSession(activity)) return;
 
+        ensureCallMonitoring(activity);
         PageroLeadSyncManager.requestSync(activity);
         if (SetupRequirements.isReady(activity)) {
-            SetupRequirements.startCallMonitoring(activity);
             if (FeatureEntitlementStore.hasPhoneAccess(activity)) {
                 ContactNameSyncManager.requestSyncAll(activity);
             }
