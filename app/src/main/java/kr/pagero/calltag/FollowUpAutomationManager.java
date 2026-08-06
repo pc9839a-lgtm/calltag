@@ -1,6 +1,7 @@
 package kr.pagero.calltag;
 
 import android.content.Context;
+import android.content.Intent;
 
 import java.util.List;
 
@@ -14,11 +15,18 @@ public final class FollowUpAutomationManager {
         if (context == null || record == null || record.durationSec <= 0L) return;
         if (!FeatureEntitlementStore.hasMessageAccess(context)) return;
         FollowUpRuleStore.ensureMigrated(context);
-        List<FollowUpRuleStore.Rule> rules = FollowUpRuleStore.enabledRules(context);
-        if (rules.isEmpty()) return;
 
         MessageLogStore store = new MessageLogStore(context);
         try {
+            int cancelled = store.cancelScheduledForPhone(
+                    record.phone,
+                    MessageAutomationManager.TRIGGER_DELAYED,
+                    "새 통화가 감지돼 이전 후속 문자를 취소했습니다.");
+            if (cancelled > 0) {
+                context.sendBroadcast(new Intent(MessageSectionView.ACTION_CHANGED)
+                        .setPackage(context.getPackageName()));
+            }
+            List<FollowUpRuleStore.Rule> rules = FollowUpRuleStore.enabledRules(context);
             for (FollowUpRuleStore.Rule rule : rules) {
                 schedule(context, store, record, customer, rule);
             }
