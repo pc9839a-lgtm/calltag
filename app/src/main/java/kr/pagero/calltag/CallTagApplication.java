@@ -84,6 +84,7 @@ public final class CallTagApplication extends Application implements Application
         }
         if (activity instanceof MainActivity) {
             MainExitGuard.install(activity);
+            MainActivityCardInteractionFix.install((MainActivity) activity);
             if (AuthSessionStore.hasSession(activity)) {
                 ReferralAutoApplyManager.applyIfNeeded(activity);
                 EntitlementRefreshManager.request(activity, false);
@@ -130,6 +131,9 @@ public final class CallTagApplication extends Application implements Application
         if (activity instanceof PostCallActivity) {
             PostCallLaunchReceipt.markVisible(activity);
             PostCallPopupWindowInstaller.install(activity);
+        }
+        if (activity instanceof MainActivity) {
+            MainActivityCardInteractionFix.install((MainActivity) activity);
         }
         if (startedActivities == 1) {
             handler.removeCallbacks(periodicForegroundWork);
@@ -187,6 +191,9 @@ public final class CallTagApplication extends Application implements Application
             PostCallLaunchReceipt.markVisible(activity);
             PostCallPopupWindowInstaller.install(activity);
         }
+        if (activity instanceof MainActivity) {
+            MainActivityCardInteractionFix.install((MainActivity) activity);
+        }
     }
 
     @Override public void onActivitySaveInstanceState(Activity activity, Bundle outState) {}
@@ -195,5 +202,8 @@ public final class CallTagApplication extends Application implements Application
     public void onActivityDestroyed(Activity activity) {
         MainExitGuard.uninstall(activity);
         PostCallPopupWindowInstaller.uninstall(activity);
+        if (activity instanceof MainActivity) {
+            MainActivityCardInteractionFix.uninstall((MainActivity) activity);
+        }
     }
 }
