@@ -17,6 +17,57 @@ def releaseSigningConfigured = !uploadStorePath.trim().isEmpty()
         && !uploadKeyPassword.trim().isEmpty()
         && file(uploadStorePath).isFile()
 
+def patchedJavaDir = file("$buildDir/generated/calltagPatchedJava")
+def originalJavaDir = file('src/main/java')
+
+def preparePatchedSources = tasks.register('preparePatchedSources') {
+    inputs.dir(originalJavaDir)
+    outputs.dir(patchedJavaDir)
+    doLast {
+        delete patchedJavaDir
+        copy {
+            from originalJavaDir
+            into patchedJavaDir
+        }
+
+        File mainActivity = new File(
+                patchedJavaDir,
+                'kr/pagero/calltag/MainActivity.java')
+        if (!mainActivity.isFile()) {
+            throw new GradleException('MainActivity.java was not found in generated sources.')
+        }
+
+        String source = mainActivity.getText('UTF-8')
+        String oldBlock = '''    private void renderTasks() {
+        todayTaskList.removeAllViews();
+        List<FollowUpTask> tasks = db.listPendingTasks();
+        todayEmpty.setVisibility(tasks.isEmpty() ? View.VISIBLE : View.GONE);
+        DateFormat formatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+'''
+        String newBlock = '''    private void renderTasks() {
+        todayTaskList.removeAllViews();
+        Calendar todayStart = Calendar.getInstance();
+        clearTime(todayStart);
+        Calendar tomorrowStart = (Calendar) todayStart.clone();
+        tomorrowStart.add(Calendar.DAY_OF_MONTH, 1);
+
+        List<FollowUpTask> tasks = new ArrayList<>();
+        for (FollowUpTask task : db.listTasksBetween(
+                todayStart.getTimeInMillis(), tomorrowStart.getTimeInMillis())) {
+            if (!task.isCompleted()) tasks.add(task);
+        }
+        todayEmpty.setVisibility(tasks.isEmpty() ? View.VISIBLE : View.GONE);
+        DateFormat formatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+'''
+        if (source.contains(oldBlock)) {
+            source = source.replace(oldBlock, newBlock)
+            mainActivity.write(source, 'UTF-8')
+        } else if (!source.contains('tomorrowStart.add(Calendar.DAY_OF_MONTH, 1)')) {
+            throw new GradleException('Home today-task patch target was not found.')
+        }
+    }
+}
+
 android {
     namespace 'kr.pagero.calltag'
     compileSdk 36
@@ -25,13 +76,17 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        versionCode 72
-        versionName '0.43.4'
+        versionCode 73
+        versionName '0.43.5'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
         buildConfigField 'String', 'FIREBASE_API_KEY', '"' + envString('CALLTAG_FIREBASE_API_KEY') + '"'
         buildConfigField 'String', 'FIREBASE_PROJECT_ID', '"' + envString('CALLTAG_FIREBASE_PROJECT_ID') + '"'
         buildConfigField 'String', 'FIREBASE_SENDER_ID', '"' + envString('CALLTAG_FIREBASE_SENDER_ID') + '"'
+    }
+
+    sourceSets {
+        main.java.setSrcDirs([patchedJavaDir])
     }
 
     buildFeatures {
@@ -65,6 +120,12 @@ android {
         coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+tasks.configureEach { task ->
+    if (task.name.startsWith('compile') && task.name.endsWith('JavaWithJavac')) {
+        task.dependsOn(preparePatchedSources)
     }
 }
 
