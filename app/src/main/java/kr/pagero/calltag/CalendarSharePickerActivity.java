@@ -1,168 +1,287 @@
 package kr.pagero.calltag;
 
+import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextUtils;
-import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.EditText;
+import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
+import java.text.DateFormat;
 import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 
-/** 콜태그의 예정 일정을 선택해 설치된 Android 캘린더 앱에 등록한다. */
+/** 콜태그의 모든 예정 일정을 선택한 Google·삼성 캘린더에 계속 반영한다. */
 public final class CalendarSharePickerActivity extends Activity {
-    private CallTagDbHelper db;
-    private EditText searchInput;
-    private LinearLayout listContainer;
-    private List<FollowUpTask> tasks = new ArrayList<>();
+    private static final int REQUEST_CALENDAR = 8701;
+
+    private Switch enabled;
+    private TextView calendarValue;
+    private TextView status;
+    private Button syncButton;
+    private List<ExternalCalendarSyncManager.CalendarInfo> calendars;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        db = new CallTagDbHelper(this);
         setContentView(buildContent());
+        render();
+        if (!ExternalCalendarSyncManager.hasPermissions(this)) requestCalendarPermissions();
+        else loadCalendars();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        tasks = db.listPendingTasks();
+        if (ExternalCalendarSyncManager.hasPermissions(this)) loadCalendars();
         render();
     }
 
     private View buildContent() {
-        LinearLayout page = new LinearLayout(this);
-        page.setOrientation(LinearLayout.VERTICAL);
-        page.setBackgroundColor(getColor(R.color.background));
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(getColor(R.color.background));
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(18), dp(14), dp(18), dp(36));
+        scroll.addView(root, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT));
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(8), dp(6), dp(16), dp(6));
-        TextView back = title("‹", 31f);
+        TextView back = title("‹", 30f);
         back.setGravity(Gravity.CENTER);
-        back.setClickable(true);
-        back.setFocusable(true);
         back.setOnClickListener(v -> finish());
-        header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
-        TextView screenTitle = title("외부 캘린더에 추가", 20f);
-        LinearLayout.LayoutParams screenTitleParams = new LinearLayout.LayoutParams(
+        header.addView(back, new LinearLayout.LayoutParams(dp(44), dp(44)));
+        TextView screenTitle = title("외부 캘린더 연동", 22f);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        screenTitleParams.leftMargin = dp(8);
-        header.addView(screenTitle, screenTitleParams);
-        page.addView(header, matchWrap());
+        titleParams.leftMargin = dp(6);
+        header.addView(screenTitle, titleParams);
+        root.addView(header, matchWrap());
 
-        TextView guide = body("일정을 누르면 Google 캘린더·삼성 캘린더 등 저장할 앱과 계정을 선택할 수 있습니다.");
-        guide.setPadding(dp(16), dp(8), dp(16), dp(10));
-        page.addView(guide, matchWrap());
+        root.addView(body(
+                "콜태그에 등록된 모든 예정 일정을 선택한 Google 캘린더·삼성 캘린더에 한 번에 반영합니다. "
+                        + "일정 변경·완료·삭제도 다음 연동 때 같이 반영됩니다."), top(14));
 
-        searchInput = new EditText(this);
-        searchInput.setHint("고객명·전화번호·일정 검색");
-        searchInput.setSingleLine(true);
-        searchInput.setTextSize(14f);
-        searchInput.setTextColor(getColor(R.color.text_primary));
-        searchInput.setHintTextColor(getColor(R.color.text_muted));
-        searchInput.setBackgroundResource(R.drawable.bg_input);
-        searchInput.setPadding(dp(14), 0, dp(14), 0);
-        searchInput.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-                render();
+        LinearLayout enableCard = card();
+        LinearLayout enableRow = new LinearLayout(this);
+        enableRow.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout enableText = new LinearLayout(this);
+        enableText.setOrientation(LinearLayout.VERTICAL);
+        enableText.addView(title("전체 일정 자동 연동", 16f), matchWrap());
+        enableText.addView(body("앱을 사용할 때 변경된 일정을 자동으로 반영"), top(4));
+        enableRow.addView(enableText, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        enabled = new Switch(this);
+        enabled.setOnCheckedChangeListener((button, checked) -> {
+            if (checked && !ExternalCalendarSyncManager.hasPermissions(this)) {
+                button.setChecked(false);
+                requestCalendarPermissions();
+                return;
             }
-            @Override public void afterTextChanged(Editable s) {}
+            if (checked && ExternalCalendarSyncStore.calendarId(this) < 0L) {
+                button.setChecked(false);
+                chooseCalendar();
+                return;
+            }
+            ExternalCalendarSyncStore.setEnabled(this, checked);
+            if (checked) syncAll(false);
+            render();
         });
-        LinearLayout.LayoutParams searchParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
-        searchParams.leftMargin = dp(16);
-        searchParams.rightMargin = dp(16);
-        page.addView(searchInput, searchParams);
+        enableRow.addView(enabled);
+        enableCard.addView(enableRow, matchWrap());
+        root.addView(enableCard, top(18));
 
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        listContainer = new LinearLayout(this);
-        listContainer.setOrientation(LinearLayout.VERTICAL);
-        listContainer.setPadding(dp(16), dp(6), dp(16), dp(32));
-        scroll.addView(listContainer, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT,
-                ScrollView.LayoutParams.WRAP_CONTENT));
-        page.addView(scroll, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-        return page;
+        LinearLayout calendarCard = card();
+        calendarCard.setClickable(true);
+        calendarCard.setFocusable(true);
+        calendarCard.setOnClickListener(v -> chooseCalendar());
+        calendarCard.addView(body("연동할 캘린더"), matchWrap());
+        calendarValue = title("선택 필요", 17f);
+        calendarCard.addView(calendarValue, top(8));
+        TextView chooseHint = body("눌러서 Google·삼성 계정 중 선택");
+        chooseHint.setTextColor(getColor(R.color.primary));
+        calendarCard.addView(chooseHint, top(7));
+        root.addView(calendarCard, top(10));
+
+        status = body("");
+        status.setPadding(dp(16), dp(16), dp(16), dp(16));
+        status.setBackgroundResource(R.drawable.bg_card);
+        root.addView(status, top(10));
+
+        syncButton = button("전체 일정 지금 연동", true);
+        syncButton.setOnClickListener(v -> syncAll(true));
+        root.addView(syncButton, fixedTop(52, 14));
+
+        Button permissions = button("캘린더 권한 확인", false);
+        permissions.setOnClickListener(v -> requestCalendarPermissions());
+        root.addView(permissions, fixedTop(50, 8));
+        return scroll;
+    }
+
+    private void loadCalendars() {
+        calendars = ExternalCalendarSyncManager.writableCalendars(this);
+        if (ExternalCalendarSyncStore.calendarId(this) < 0L
+                && calendars != null && calendars.size() == 1) {
+            ExternalCalendarSyncManager.CalendarInfo only = calendars.get(0);
+            ExternalCalendarSyncStore.setCalendar(this, only.id, only.label());
+        }
+        render();
+    }
+
+    private void chooseCalendar() {
+        if (!ExternalCalendarSyncManager.hasPermissions(this)) {
+            requestCalendarPermissions();
+            return;
+        }
+        calendars = ExternalCalendarSyncManager.writableCalendars(this);
+        if (calendars.isEmpty()) {
+            Toast.makeText(this, "쓰기 가능한 외부 캘린더가 없습니다.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        String[] labels = new String[calendars.size()];
+        int selected = -1;
+        long currentId = ExternalCalendarSyncStore.calendarId(this);
+        for (int i = 0; i < calendars.size(); i++) {
+            labels[i] = calendars.get(i).label();
+            if (calendars.get(i).id == currentId) selected = i;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("전체 일정을 연동할 캘린더")
+                .setSingleChoiceItems(labels, selected, (dialog, which) -> {
+                    ExternalCalendarSyncManager.CalendarInfo picked = calendars.get(which);
+                    ExternalCalendarSyncStore.setCalendar(this, picked.id, picked.label());
+                    dialog.dismiss();
+                    render();
+                    if (ExternalCalendarSyncStore.isEnabled(this)) syncAll(false);
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void syncAll(boolean notify) {
+        if (!ExternalCalendarSyncManager.hasPermissions(this)) {
+            requestCalendarPermissions();
+            return;
+        }
+        if (ExternalCalendarSyncStore.calendarId(this) < 0L) {
+            chooseCalendar();
+            return;
+        }
+        syncButton.setEnabled(false);
+        syncButton.setText("전체 일정 연동 중…");
+        ExternalCalendarSyncManager.requestSync(this, true, result -> runOnUiThread(() -> {
+            render();
+            if (notify) {
+                Toast.makeText(this,
+                        result.success
+                                ? "예정 일정 " + result.synced + "건을 외부 캘린더에 반영했습니다."
+                                : result.error,
+                        result.success ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
+            }
+        }));
     }
 
     private void render() {
-        if (listContainer == null) return;
-        listContainer.removeAllViews();
-        String query = searchInput == null ? "" : searchInput.getText().toString().trim();
-        String textQuery = query.toLowerCase(Locale.KOREA);
-        String phoneQuery = PhoneNumberNormalizer.normalize(query);
+        if (enabled == null) return;
+        enabled.setOnCheckedChangeListener(null);
+        enabled.setChecked(ExternalCalendarSyncStore.isEnabled(this));
+        enabled.setOnCheckedChangeListener((button, checked) -> {
+            if (checked && !ExternalCalendarSyncManager.hasPermissions(this)) {
+                button.setChecked(false);
+                requestCalendarPermissions();
+                return;
+            }
+            if (checked && ExternalCalendarSyncStore.calendarId(this) < 0L) {
+                button.setChecked(false);
+                chooseCalendar();
+                return;
+            }
+            ExternalCalendarSyncStore.setEnabled(this, checked);
+            if (checked) syncAll(false);
+            render();
+        });
 
-        int visible = 0;
-        for (FollowUpTask task : tasks) {
-            boolean match = textQuery.isEmpty()
-                    || safe(task.customerName).toLowerCase(Locale.KOREA).contains(textQuery)
-                    || safe(task.title).toLowerCase(Locale.KOREA).contains(textQuery)
-                    || (!phoneQuery.isEmpty()
-                    && PhoneNumberNormalizer.normalize(task.phone).contains(phoneQuery));
-            if (!match) continue;
-            listContainer.addView(taskRow(task), topMargin(8));
-            visible++;
+        String name = ExternalCalendarSyncStore.calendarName(this);
+        calendarValue.setText(name.isEmpty() ? "선택 필요" : name);
+        boolean running = ExternalCalendarSyncManager.isRunning();
+        syncButton.setEnabled(!running);
+        syncButton.setText(running ? "전체 일정 연동 중…" : "전체 일정 지금 연동");
+
+        if (!ExternalCalendarSyncManager.hasPermissions(this)) {
+            status.setText("캘린더 읽기·쓰기 권한을 허용해주세요.");
+            status.setTextColor(getColor(R.color.danger));
+            return;
         }
-        if (visible == 0) {
-            TextView empty = body(tasks.isEmpty()
-                    ? "공유할 예정 일정이 없습니다."
-                    : "검색 결과가 없습니다.");
-            empty.setGravity(Gravity.CENTER);
-            empty.setBackgroundResource(R.drawable.bg_card);
-            empty.setPadding(dp(18), dp(28), dp(18), dp(28));
-            listContainer.addView(empty, topMargin(10));
+        if (ExternalCalendarSyncStore.calendarId(this) < 0L) {
+            status.setText("연동할 외부 캘린더를 먼저 선택해주세요.");
+            status.setTextColor(getColor(R.color.text_secondary));
+            return;
         }
+        String error = ExternalCalendarSyncStore.lastError(this);
+        if (!error.isEmpty()) {
+            status.setText(error);
+            status.setTextColor(getColor(R.color.danger));
+            return;
+        }
+        long last = ExternalCalendarSyncStore.lastSyncAt(this);
+        if (last <= 0L) {
+            status.setText("아직 전체 일정을 연동하지 않았습니다.");
+        } else {
+            String when = DateFormat.getDateTimeInstance(
+                    DateFormat.SHORT, DateFormat.SHORT).format(new Date(last));
+            status.setText(when + " · 예정 일정 "
+                    + ExternalCalendarSyncStore.lastSyncCount(this) + "건 반영");
+        }
+        status.setTextColor(getColor(R.color.text_secondary));
     }
 
-    private View taskRow(FollowUpTask task) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(15), dp(12), dp(10), dp(12));
-        row.setBackgroundResource(R.drawable.bg_clickable_row);
-        row.setClickable(true);
-        row.setFocusable(true);
-        row.setOnClickListener(v -> share(task));
-
-        LinearLayout textArea = new LinearLayout(this);
-        textArea.setOrientation(LinearLayout.VERTICAL);
-        TextView name = title(task.customerName + " · " + task.title, 15f);
-        name.setSingleLine(true);
-        name.setEllipsize(TextUtils.TruncateAt.END);
-        textArea.addView(name, matchWrap());
-        SimpleDateFormat format = new SimpleDateFormat("M월 d일 E a h:mm", Locale.KOREA);
-        TextView meta = body(format.format(new Date(task.dueAt)) + " · " + task.phone);
-        meta.setSingleLine(true);
-        meta.setEllipsize(TextUtils.TruncateAt.END);
-        textArea.addView(meta, topMargin(5));
-        row.addView(textArea, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
-        TextView arrow = title("›", 24f);
-        arrow.setTextColor(getColor(R.color.text_muted));
-        arrow.setGravity(Gravity.CENTER);
-        row.addView(arrow, new LinearLayout.LayoutParams(dp(32), dp(44)));
-        return row;
+    private void requestCalendarPermissions() {
+        if (ExternalCalendarSyncManager.hasPermissions(this)) {
+            loadCalendars();
+            return;
+        }
+        requestPermissions(new String[]{
+                Manifest.permission.READ_CALENDAR,
+                Manifest.permission.WRITE_CALENDAR
+        }, REQUEST_CALENDAR);
     }
 
-    private void share(FollowUpTask task) {
-        Customer customer = db.findCustomerById(task.customerId);
-        String memo = customer == null ? "" : CustomerInsightResolver.latestMemo(db, customer);
-        ExternalCalendarShare.open(this, task, customer, memo);
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode != REQUEST_CALENDAR) return;
+        boolean granted = true;
+        for (int value : results) {
+            if (value != PackageManager.PERMISSION_GRANTED) granted = false;
+        }
+        if (granted) {
+            loadCalendars();
+            chooseCalendar();
+        } else {
+            Toast.makeText(this, "전체 일정 연동에는 캘린더 권한이 필요합니다.",
+                    Toast.LENGTH_LONG).show();
+        }
+        render();
+    }
+
+    private LinearLayout card() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(16), dp(16), dp(16));
+        card.setBackgroundResource(R.drawable.bg_card);
+        return card;
     }
 
     private TextView title(String value, float size) {
@@ -179,9 +298,22 @@ public final class CalendarSharePickerActivity extends Activity {
         TextView view = new TextView(this);
         view.setText(value);
         view.setTextColor(getColor(R.color.text_secondary));
-        view.setTextSize(13f);
+        view.setTextSize(14f);
         view.setIncludeFontPadding(false);
+        view.setLineSpacing(0f, 1.2f);
         return view;
+    }
+
+    private Button button(String value, boolean primary) {
+        Button button = new Button(this);
+        button.setText(value);
+        button.setAllCaps(false);
+        button.setTextSize(15f);
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        button.setTextColor(getColor(primary ? android.R.color.white : R.color.text_primary));
+        button.setBackgroundResource(primary
+                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        return button;
     }
 
     private LinearLayout.LayoutParams matchWrap() {
@@ -190,23 +322,20 @@ public final class CalendarSharePickerActivity extends Activity {
                 LinearLayout.LayoutParams.WRAP_CONTENT);
     }
 
-    private LinearLayout.LayoutParams topMargin(int value) {
+    private LinearLayout.LayoutParams top(int margin) {
         LinearLayout.LayoutParams params = matchWrap();
-        params.topMargin = dp(value);
+        params.topMargin = dp(margin);
         return params;
     }
 
-    private String safe(String value) {
-        return value == null ? "" : value;
+    private LinearLayout.LayoutParams fixedTop(int height, int margin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(height));
+        params.topMargin = dp(margin);
+        return params;
     }
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    @Override
-    protected void onDestroy() {
-        if (db != null) db.close();
-        super.onDestroy();
     }
 }
