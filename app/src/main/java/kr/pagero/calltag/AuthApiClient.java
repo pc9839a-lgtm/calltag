@@ -1,5 +1,6 @@
 package kr.pagero.calltag;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -17,6 +18,7 @@ public final class AuthApiClient {
             "https://inlet-8mr.pages.dev",
             "https://call.pagero.kr"
     };
+    private static final String AUTH_EMAIL_BASE_URL = "https://pagero.kr";
 
     public static final class ApiException extends Exception {
         public final int status;
@@ -69,9 +71,70 @@ public final class AuthApiClient {
     }
 
     public static JSONObject requestVerification(String email, String purpose) throws Exception {
-        return post("/api/auth/email-verification", new JSONObject()
+        JSONObject body = new JSONObject()
                 .put("email", normalizeEmail(email))
-                .put("purpose", normalizePurpose(purpose)), "");
+                .put("purpose", normalizePurpose(purpose));
+        final JSONObject response;
+        try {
+            // 인증번호는 오래된 pages.dev/call 도메인으로 우회하지 않는다.
+            response = request(
+                    AUTH_EMAIL_BASE_URL + "/api/auth/email-verification",
+                    "POST",
+                    body,
+                    "");
+        } catch (ApiException error) {
+            throw localizedEmailDeliveryError(error);
+        }
+        verifyEmailDeliveryAccepted(response);
+        return response;
+    }
+
+    private static void verifyEmailDeliveryAccepted(JSONObject response) throws ApiException {
+        JSONObject verification = response == null ? null : response.optJSONObject("verification");
+        JSONObject delivery = verification == null ? null : verification.optJSONObject("delivery");
+        String mode = delivery == null ? "" : clean(delivery.optString("mode", "")).toLowerCase();
+        String status = delivery == null ? "" : clean(delivery.optString("status", "")).toLowerCase();
+        boolean exposedToken = verification != null
+                && !clean(verification.optString("token", "")).isEmpty();
+
+        if ("api".equals(mode) && "sent".equals(status) && !exposedToken) return;
+
+        throw new ApiException(
+                "서버가 인증메일의 실제 발송을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.",
+                502,
+                "EMAIL_DELIVERY_NOT_CONFIRMED");
+    }
+
+    private static ApiException localizedEmailDeliveryError(ApiException error) {
+        String message;
+        switch (error.code) {
+            case "EMAIL_SEND_NOT_CONFIGURED":
+                message = "인증메일 발송 서버 설정이 완료되지 않았습니다.";
+                break;
+            case "EMAIL_SEND_SANDBOX_REJECTED":
+                message = "메일 발송 계정이 테스트 모드라 현재 이메일 주소로 보낼 수 없습니다.";
+                break;
+            case "EMAIL_DOMAIN_NOT_VERIFIED":
+                message = "인증메일 발신 도메인 확인이 완료되지 않았습니다.";
+                break;
+            case "EMAIL_SEND_QUOTA_EXCEEDED":
+                message = "인증메일 발송 한도를 초과했습니다. 잠시 후 다시 시도해주세요.";
+                break;
+            case "EMAIL_SEND_TIMEOUT":
+                message = "메일 발송 서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요.";
+                break;
+            case "EMAIL_SEND_PROVIDER_UNSUPPORTED":
+            case "EMAIL_SEND_PROVIDER_ERROR":
+                message = "메일 발송 서버가 인증메일 전송을 거절했습니다.";
+                break;
+            default:
+                message = error.getMessage();
+                if (message == null || message.trim().isEmpty()) {
+                    message = "인증메일을 발송하지 못했습니다.";
+                }
+                break;
+        }
+        return new ApiException(message, error.status, error.code);
     }
 
     public static JSONObject resetPassword(
@@ -92,6 +155,57 @@ public final class AuthApiClient {
         return post("/api/call/delete-account", new JSONObject()
                 .put("session", session)
                 .put("confirm", "DELETE"), session);
+    }
+
+    public static JSONObject billingEntitlements(String session) throws Exception {
+        return get("/api/billing/entitlements", session);
+    }
+
+    public static JSONObject billingSubscriptions(String session) throws Exception {
+        return get("/api/billing/subscriptions", session);
+    }
+
+    public static JSONObject billingReadiness(String session) throws Exception {
+        return get("/api/billing/readiness", session);
+    }
+
+    public static JSONObject webCheckoutPrecheck(String session, String productCode)
+            throws Exception {
+        return post("/api/billing/web/precheck", new JSONObject()
+                .put("productCode", clean(productCode)), session);
+    }
+
+    public static JSONObject referralMe(String session) throws Exception {
+        return get("/api/referrals/me", session);
+    }
+
+    public static JSONObject referralSummary(String session) throws Exception {
+        return get("/api/referrals/summary", session);
+    }
+
+    public static JSONObject applyReferral(String session, String code) throws Exception {
+        return post("/api/referrals/apply", new JSONObject()
+                .put("code", clean(code).toUpperCase()), session);
+    }
+
+    public static JSONObject verifyGooglePurchase(
+            String session,
+            String productId,
+            String purchaseToken,
+            String orderId) throws Exception {
+        return post("/api/billing/google/verify", new JSONObject()
+                .put("packageName", "kr.pagero.calltag")
+                .put("productId", clean(productId))
+                .put("purchaseToken", clean(purchaseToken))
+                .put("orderId", clean(orderId)), session);
+    }
+
+    public static JSONObject restoreGooglePurchases(
+            String session,
+            JSONArray purchases) throws Exception {
+        return post("/api/billing/google/restore", new JSONObject()
+                .put("packageName", "kr.pagero.calltag")
+                .put("purchases", purchases == null ? new JSONArray() : purchases), session);
     }
 
     private static String clean(String value) {
@@ -190,6 +304,7 @@ public final class AuthApiClient {
             if (status < 200 || status >= 300 || !response.optBoolean("ok", true)) {
                 JSONObject details = response.optJSONObject("details");
                 String code = details == null ? "" : details.optString("code", "");
+                if (code.isEmpty()) code = response.optString("code", "");
                 throw new ApiException(
                         response.optString("error", "요청을 처리하지 못했습니다."),
                         status,

@@ -11,6 +11,7 @@ import android.telephony.SmsManager;
 import java.util.ArrayList;
 import java.util.List;
 
+/** 문자 작업을 큐에 등록하고 텍스트 SMS 또는 사진 MMS로 자동 발송한다. */
 public final class SmsSender {
     private SmsSender() {}
 
@@ -31,11 +32,26 @@ public final class SmsSender {
                     campaignId, templateId, phone, body, triggerType,
                     MessageLogStore.STATUS_READY, System.currentTimeMillis(),
                     subscriptionId, forceSend);
-            if (store.isSendable(id)) sendExisting(context, id);
+            if (store.isSendable(id)) {
+                bindTemplateAttachment(context, id, templateId);
+                sendExisting(context, id);
+            }
             return id;
         } finally {
             store.close();
         }
+    }
+
+    /** 예약 작업을 만들 때 호출해 템플릿 이미지를 메시지별 스냅샷으로 보관한다. */
+    public static boolean bindTemplateAttachment(Context context, long messageId,
+                                                 String templateId) {
+        if (context == null || messageId <= 0L || templateId == null
+                || templateId.trim().isEmpty()) return false;
+        MessageTemplateStore.Template template = MessageTemplateStore.get(context, templateId);
+        if (template == null || template.imageRef == null || template.imageRef.trim().isEmpty()) {
+            return false;
+        }
+        return MmsComposer.remember(context, messageId, template.imageRef);
     }
 
     public static long forceResend(Context context, MessageRecord source) {
@@ -55,23 +71,27 @@ public final class SmsSender {
             MessageExclusionStore.Decision exclusion = MessageExclusionStore.evaluate(
                     context, record.customerId, record.phone, record.triggerType);
             if (exclusion.blocked) {
+                MmsComposer.forget(context, messageId);
                 failWithoutTransport(context, store, messageId,
                         MessageLogStore.STATUS_SKIPPED, exclusion.reason);
                 return;
             }
 
             if (!FeatureEntitlementStore.hasMessageAccess(context)) {
+                MmsComposer.forget(context, messageId);
                 failWithoutTransport(context, store, messageId,
                         MessageLogStore.STATUS_FAILED, "문자자동화 구독 권한이 없습니다.");
                 return;
             }
             if (context.checkSelfPermission(Manifest.permission.SEND_SMS)
                     != PackageManager.PERMISSION_GRANTED) {
+                MmsComposer.forget(context, messageId);
                 failWithoutTransport(context, store, messageId,
                         MessageLogStore.STATUS_FAILED, "문자 발송 권한이 필요합니다.");
                 return;
             }
             if (!SimProfileManager.isActive(context, record.subscriptionId)) {
+                MmsComposer.forget(context, messageId);
                 failWithoutTransport(context, store, messageId,
                         MessageLogStore.STATUS_FAILED,
                         "선택한 문자 SIM을 사용할 수 없습니다. 발송 회선을 다시 선택해주세요.");
@@ -80,6 +100,7 @@ public final class SmsSender {
 
             String normalized = PhoneNumberNormalizer.normalize(record.phone);
             if (normalized.length() < 8 || record.body.trim().isEmpty()) {
+                MmsComposer.forget(context, messageId);
                 failWithoutTransport(context, store, messageId,
                         MessageLogStore.STATUS_FAILED, "전화번호 또는 문자 내용을 확인해주세요.");
                 return;
@@ -87,10 +108,17 @@ public final class SmsSender {
 
             List<String> unresolved = MessageTemplateEngine.findPlaceholders(record.body);
             if (!unresolved.isEmpty()) {
+                MmsComposer.forget(context, messageId);
                 failWithoutTransport(context, store, messageId,
                         MessageLogStore.STATUS_FAILED,
                         "치환되지 않은 변수가 남아 발송하지 않았습니다: "
                                 + MessageTemplateEngine.describeVariables(unresolved));
+                return;
+            }
+
+            // 사진 스냅샷이 있으면 사용자 작성창 없이 MMS로 바로 전송한다.
+            if (MmsComposer.hasAttachment(context, messageId)) {
+                DirectMmsSender.sendExisting(context, messageId);
                 return;
             }
 
@@ -125,12 +153,14 @@ public final class SmsSender {
             }
         } catch (SecurityException error) {
             store.markFailed(messageId, "문자 발송 권한을 확인해주세요.");
+            MmsComposer.forget(context, messageId);
             CampaignRuntimeManager.onSendResult(context, messageId, false, Integer.MIN_VALUE);
         } catch (RuntimeException error) {
             String message = error.getMessage();
             store.markFailed(messageId,
                     message == null || message.trim().isEmpty()
                             ? "문자 발송 요청에 실패했습니다." : message);
+            MmsComposer.forget(context, messageId);
             CampaignRuntimeManager.onSendResult(context, messageId, false,
                     SmsManager.RESULT_ERROR_GENERIC_FAILURE);
         } finally {

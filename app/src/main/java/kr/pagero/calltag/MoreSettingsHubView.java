@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** 검색 가능한 설정 목록. */
+/** 검색 가능한 설정 목록. 메인 고객·문자·일정 기능은 중복 노출하지 않는다. */
 public final class MoreSettingsHubView extends LinearLayout {
     private final List<MenuItem> items = new ArrayList<>();
     private final List<Section> sections = new ArrayList<>();
@@ -56,23 +56,33 @@ public final class MoreSettingsHubView extends LinearLayout {
         });
         addView(search, new LayoutParams(LayoutParams.MATCH_PARENT, dp(46)));
 
-        Section messages = section("문자");
-        messages.add("문자 문구·이미지", "자주 쓰는 안내문과 이미지", MessageTemplateLibraryActivity.class);
-        messages.add("자동문자", "통화 후 필요한 문자를 자동으로 보내기", MessageAutomationSettingsActivity.class);
-        messages.add("그룹·단체문자", "여러 고객에게 한 번에 보내기", GroupCampaignHubActivity.class);
-        messages.add("발송 관리", "보낸 문자와 제외 번호 확인", MessageSafetyHubActivity.class);
+        Section call = section("통화·외부 연동");
+        call.add("통화 종료 팝업", "통화 끝난 뒤 큰 고객 정리 화면 알림 전체화면 권한",
+                PostCallPopupAccessActivity.class);
+        call.add("외부 캘린더 연동", "모든 고객 일정 Google 삼성 캘린더 전체 자동 연동",
+                CalendarSharePickerActivity.class);
 
-        Section customers = section("고객·일정");
-        customers.add("고객 상태", "고객 단계 이름과 색상", StageSettingsActivity.class);
-        customers.add("일정 종류", "전화·미팅 등 할 일 이름", TaskTypeSettingsActivity.class);
+        Section pagero = section("페이지로");
+        pagero.add("문의 동기화", "페이지로 랜딩 문의 고객 자동 등록 연결 상태 새 문의",
+                PageroSyncActivity.class);
+        pagero.add("페이지로 사용하기", "랜딩페이지 만들기 사용 방법 관리화면",
+                PageroUseGuideActivity.class);
 
-        Section integrations = section("페이지로");
-        integrations.add("페이지로 문의 연결", "랜딩페이지 문의를 고객으로 자동 등록",
-                PageroConnectionActivity.class);
+        Section partner = section("친구 초대·파트너");
+        partner.add("내 추천인 코드", "내 코드 확인 복사 공유 친구 초대 추천 회원",
+                ReferralInviteActivity.class);
+        partner.add("추천인 코드 등록", "다른 사람 추천코드 입력 무료 이용기간 5일",
+                ReferralCodeRegistrationActivity.class);
+        partner.add("정산", "파트너 수익 예상 확정 계좌 은행 예금주 정산정보",
+                PartnerSettlementActivity.class);
 
         Section app = section("앱·계정");
-        app.add("계정 및 개인정보", "로그인 정보와 개인정보 관리", AccountActivity.class);
-        app.add("백업 및 복원", "고객정보를 보관하고 되돌리기", BackupRestoreActivity.class);
+        app.add("계정 및 개인정보", "로그인 정보 개인정보 탈퇴", AccountActivity.class);
+        app.add("데이터 보호·복구", "앱 삭제 재설치 기기 변경 고객 메모 상담 일정 암호화 동기화",
+                CallTagSyncStatusActivity.class);
+        app.add("이용권·결제", "현재 이용권 다음 결제일 요금제 구독 무료 체험 구매 복원",
+                BillingEntitlementActivity.class);
+        app.add("백업 및 복원", "고객정보 파일 보관 되돌리기", BackupRestoreActivity.class);
     }
 
     private Section section(String title) {

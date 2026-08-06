@@ -17,7 +17,7 @@ import android.provider.Settings;
 
 public final class CallPopupNotificationManager {
     public static final String INCOMING_CHANNEL_ID = "calltag_incoming_popup_v5";
-    public static final String POST_CALL_CHANNEL_ID = "calltag_post_call_popup_v4";
+    public static final String POST_CALL_CHANNEL_ID = "calltag_post_call_popup_v5";
 
     private static final String[] LEGACY_CHANNEL_IDS = {
             "calltag_caller_info_v2",
@@ -26,7 +26,8 @@ public final class CallPopupNotificationManager {
             "calltag_incoming_customer_popup_v5",
             "calltag_post_call",
             "calltag_post_call_popup_v2",
-            "calltag_post_call_popup_v3"
+            "calltag_post_call_popup_v3",
+            "calltag_post_call_popup_v4"
     };
 
     private CallPopupNotificationManager() {}
@@ -86,6 +87,13 @@ public final class CallPopupNotificationManager {
         return channel != null && channel.getImportance() >= NotificationManager.IMPORTANCE_HIGH;
     }
 
+    public static boolean canUsePostCallFullScreen(Context context) {
+        if (!isPopupReady(context, POST_CALL_CHANNEL_ID)) return false;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true;
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        return manager != null && manager.canUseFullScreenIntent();
+    }
+
     public static void openChannelSettings(Context context, String channelId) {
         try {
             Intent intent = new Intent(Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
@@ -121,7 +129,7 @@ public final class CallPopupNotificationManager {
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                         | Intent.FLAG_ACTIVITY_CLEAR_TOP
                         | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pending = PendingIntent.getActivity(
+        PendingIntent pending = BackgroundActivityLaunchCompat.activity(
                 context,
                 notificationId,
                 open,
@@ -161,8 +169,9 @@ public final class CallPopupNotificationManager {
     }
 
     /**
-     * PostCallActivityLauncher opens the large screen once. This method only posts a fallback
-     * notification and must never start the activity or use a full-screen intent again.
+     * 통화 종료 화면이 Android의 백그라운드 실행 제한으로 표시되지 않으면,
+     * 권한이 있는 기기에서는 full-screen intent로 큰 정리 화면을 즉시 표시한다.
+     * 권한이 없으면 동일 알림이 heads-up으로 남아 사용자가 바로 열 수 있다.
      */
     public static boolean showPostCall(Context context, CallRecord record, Customer customer,
                                        Intent reviewIntent, String memo) {
@@ -172,7 +181,7 @@ public final class CallPopupNotificationManager {
         if (manager == null) return false;
 
         int notificationId = 5000 + (int) (record.id % 100000L);
-        PendingIntent pending = PendingIntent.getActivity(
+        PendingIntent pending = BackgroundActivityLaunchCompat.activity(
                 context,
                 (int) (record.id & 0x7fffffff),
                 reviewIntent,
@@ -198,25 +207,28 @@ public final class CallPopupNotificationManager {
                     ? "" : "\n최근 메모 · " + safe(memo, compactMemo));
         }
 
-        Notification notification = new Notification.Builder(context, POST_CALL_CHANNEL_ID)
+        Notification.Builder builder = new Notification.Builder(context, POST_CALL_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.sym_action_call)
                 .setContentTitle(title)
                 .setContentText(content)
                 .setStyle(new Notification.BigTextStyle().bigText(expanded))
                 .setContentIntent(pending)
                 .setAutoCancel(true)
-                .setTimeoutAfter(120_000L)
-                .setCategory(Notification.CATEGORY_REMINDER)
-                .setPriority(Notification.PRIORITY_HIGH)
+                .setTimeoutAfter(180_000L)
+                .setCategory(Notification.CATEGORY_CALL)
+                .setPriority(Notification.PRIORITY_MAX)
                 .setVisibility(Notification.VISIBILITY_PRIVATE)
-                .setOnlyAlertOnce(true)
+                .setOnlyAlertOnce(false)
+                .setDefaults(Notification.DEFAULT_ALL)
                 .setWhen(System.currentTimeMillis())
                 .setShowWhen(true)
                 .setColor(context.getColor(R.color.primary))
-                .setColorized(true)
-                .build();
+                .setColorized(true);
+        if (canUsePostCallFullScreen(context)) {
+            builder.setFullScreenIntent(pending, true);
+        }
         try {
-            manager.notify(notificationId, notification);
+            manager.notify(notificationId, builder.build());
             return true;
         } catch (RuntimeException ignored) {
             return false;

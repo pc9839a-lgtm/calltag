@@ -7,7 +7,6 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
-import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -90,11 +89,6 @@ public final class MessageTemplateEditorActivity extends Activity {
         bodyInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
         root.addView(bodyInput, fixedHeight(170, 7));
 
-        TextView variables = body("변수 · " + MessageTemplateEngine.supportedVariablesLabel());
-        variables.setSingleLine(true);
-        variables.setEllipsize(TextUtils.TruncateAt.END);
-        root.addView(variables, topMargin(7));
-
         root.addView(label("이미지"), topMargin(18));
         LinearLayout imageRow = new LinearLayout(this);
         imageRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -107,7 +101,6 @@ public final class MessageTemplateEditorActivity extends Activity {
         imageStatus = body("첨부 이미지 없음");
         imageStatus.setTextColor(getColor(R.color.text_primary));
         imageStatus.setSingleLine(true);
-        imageStatus.setEllipsize(TextUtils.TruncateAt.END);
         imageRow.addView(imageStatus, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 

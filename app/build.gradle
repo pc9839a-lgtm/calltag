@@ -7,16 +7,77 @@ def envString = { String key ->
     return value.replace('\\', '\\\\').replace('"', '\\"')
 }
 
+def uploadStorePath = System.getenv('CALLTAG_UPLOAD_KEYSTORE_PATH') ?: ''
+def uploadStorePassword = System.getenv('CALLTAG_UPLOAD_STORE_PASSWORD') ?: ''
+def uploadKeyAlias = System.getenv('CALLTAG_UPLOAD_KEY_ALIAS') ?: ''
+def uploadKeyPassword = System.getenv('CALLTAG_UPLOAD_KEY_PASSWORD') ?: ''
+def releaseSigningConfigured = !uploadStorePath.trim().isEmpty()
+        && !uploadStorePassword.trim().isEmpty()
+        && !uploadKeyAlias.trim().isEmpty()
+        && !uploadKeyPassword.trim().isEmpty()
+        && file(uploadStorePath).isFile()
+
+def patchedJavaDir = file("$buildDir/generated/calltagPatchedJava")
+def originalJavaDir = file('src/main/java')
+
+def preparePatchedSources = tasks.register('preparePatchedSources') {
+    inputs.dir(originalJavaDir)
+    outputs.dir(patchedJavaDir)
+    doLast {
+        delete patchedJavaDir
+        copy {
+            from originalJavaDir
+            into patchedJavaDir
+        }
+
+        File mainActivity = new File(
+                patchedJavaDir,
+                'kr/pagero/calltag/MainActivity.java')
+        if (!mainActivity.isFile()) {
+            throw new GradleException('MainActivity.java was not found in generated sources.')
+        }
+
+        String source = mainActivity.getText('UTF-8')
+        String oldBlock = '''    private void renderTasks() {
+        todayTaskList.removeAllViews();
+        List<FollowUpTask> tasks = db.listPendingTasks();
+        todayEmpty.setVisibility(tasks.isEmpty() ? View.VISIBLE : View.GONE);
+        DateFormat formatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+'''
+        String newBlock = '''    private void renderTasks() {
+        todayTaskList.removeAllViews();
+        Calendar todayStart = Calendar.getInstance();
+        clearTime(todayStart);
+        Calendar tomorrowStart = (Calendar) todayStart.clone();
+        tomorrowStart.add(Calendar.DAY_OF_MONTH, 1);
+
+        List<FollowUpTask> tasks = new ArrayList<>();
+        for (FollowUpTask task : db.listTasksBetween(
+                todayStart.getTimeInMillis(), tomorrowStart.getTimeInMillis())) {
+            if (!task.isCompleted()) tasks.add(task);
+        }
+        todayEmpty.setVisibility(tasks.isEmpty() ? View.VISIBLE : View.GONE);
+        DateFormat formatter = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+'''
+        if (source.contains(oldBlock)) {
+            source = source.replace(oldBlock, newBlock)
+            mainActivity.write(source, 'UTF-8')
+        } else if (!source.contains('tomorrowStart.add(Calendar.DAY_OF_MONTH, 1)')) {
+            throw new GradleException('Home today-task patch target was not found.')
+        }
+    }
+}
+
 android {
     namespace 'kr.pagero.calltag'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         applicationId 'kr.pagero.calltag'
         minSdk 26
-        targetSdk 35
-        versionCode 59
-        versionName '0.41.1'
+        targetSdk 36
+        versionCode 75
+        versionName '0.43.7'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
         buildConfigField 'String', 'FIREBASE_API_KEY', '"' + envString('CALLTAG_FIREBASE_API_KEY') + '"'
@@ -24,12 +85,31 @@ android {
         buildConfigField 'String', 'FIREBASE_SENDER_ID', '"' + envString('CALLTAG_FIREBASE_SENDER_ID') + '"'
     }
 
+    sourceSets {
+        main.java.setSrcDirs([patchedJavaDir])
+    }
+
     buildFeatures {
         buildConfig true
     }
 
+    signingConfigs {
+        release {
+            if (releaseSigningConfigured) {
+                storeFile file(uploadStorePath)
+                storePassword uploadStorePassword
+                keyAlias uploadKeyAlias
+                keyPassword uploadKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
+            debuggable false
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
@@ -43,8 +123,29 @@ android {
     }
 }
 
+tasks.configureEach { task ->
+    if (task.name.startsWith('compile') && task.name.endsWith('JavaWithJavac')) {
+        task.dependsOn(preparePatchedSources)
+    }
+}
+
+gradle.taskGraph.whenReady { graph ->
+    boolean releaseRequested = graph.allTasks.any { task ->
+        task.path == ':app:bundleRelease' || task.path == ':app:assembleRelease'
+    }
+    if (releaseRequested && !releaseSigningConfigured) {
+        throw new GradleException(
+                'Release signing is not configured. Set CALLTAG_UPLOAD_KEYSTORE_PATH, ' +
+                        'CALLTAG_UPLOAD_STORE_PASSWORD, CALLTAG_UPLOAD_KEY_ALIAS and ' +
+                        'CALLTAG_UPLOAD_KEY_PASSWORD.')
+    }
+}
+
 dependencies {
     implementation 'androidx.core:core:1.15.0'
+    implementation 'androidx.work:work-runtime:2.11.2'
     implementation 'com.google.firebase:firebase-messaging:25.1.1'
+    implementation 'com.android.billingclient:billing:9.1.0'
+    implementation 'com.klinkerapps:android-smsmms:5.2.6'
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
 }

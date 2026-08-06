@@ -108,6 +108,8 @@ public final class AccountActivity extends Activity {
         SettingsStore.setMonitorEnabled(this, false);
         CallTagPushManager.unregisterBestEffort(this, session);
         PageroAccountStatusStore.clear(this);
+        FeatureEntitlementStore.clear(this);
+        ReferralStateStore.clear(this);
         AuthSessionStore.clear(this);
         startActivity(new Intent(this, LoginActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -166,9 +168,10 @@ public final class AccountActivity extends Activity {
         stopService(new Intent(this, CallMonitorService.class));
         CallTagPushManager.unregisterBestEffort(this, session);
         PageroAccountStatusStore.clear(this);
+        FeatureEntitlementStore.clear(this);
+        ReferralStateStore.clear(this);
         getSharedPreferences("calltag_settings", MODE_PRIVATE).edit().clear().commit();
         getSharedPreferences("calltag_message_automation", MODE_PRIVATE).edit().clear().commit();
-        getSharedPreferences("calltag_entitlements", MODE_PRIVATE).edit().clear().commit();
         AuthSessionStore.clear(this);
         for (String databaseName : databaseList()) {
             deleteDatabase(databaseName);

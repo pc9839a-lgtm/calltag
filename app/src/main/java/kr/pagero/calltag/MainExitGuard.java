@@ -22,6 +22,7 @@ public final class MainExitGuard {
 
     public static void install(Activity activity) {
         if (!(activity instanceof MainActivity) || activity.isFinishing()) return;
+        HomeTodayTaskFilter.install(activity);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (CALLBACKS.containsKey(activity)) return;
             Object callback = Api33.register(activity, () -> handleBack(activity));
@@ -66,6 +67,7 @@ public final class MainExitGuard {
 
     public static void uninstall(Activity activity) {
         if (activity == null) return;
+        HomeTodayTaskFilter.uninstall(activity);
         Object callback = CALLBACKS.remove(activity);
         if (callback != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             Api33.unregister(activity, callback);

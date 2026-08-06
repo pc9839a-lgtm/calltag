@@ -9,6 +9,7 @@ import android.app.Service;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
+import android.database.ContentObserver;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -21,26 +22,42 @@ import android.telephony.TelephonyManager;
 public final class CallMonitorService extends Service {
     public static final String ACTION_START = "kr.pagero.calltag.START_MONITOR";
     public static final String ACTION_STOP = "kr.pagero.calltag.STOP_MONITOR";
+    public static final String ACTION_CUSTOMER_DATA_CHANGED =
+            "kr.pagero.calltag.CUSTOMER_DATA_CHANGED";
 
     private static final String MONITOR_CHANNEL = "calltag_monitor";
     private static final int MONITOR_NOTIFICATION_ID = 4101;
-    private static final long[] LOOKUP_DELAYS = {1500L, 3500L, 7000L};
-    private static final long POST_CALL_SETTLE_DELAY_MS = 1200L;
+    private static final long[] LOOKUP_DELAYS = {
+            500L, 900L, 1_500L, 2_500L, 4_000L, 6_500L, 10_000L, 15_000L
+    };
+    private static final long POST_CALL_SETTLE_DELAY_MS = 1_200L;
+    private static final long CALL_MATCH_TOLERANCE_MS = 45_000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private final ContentObserver callLogObserver = new ContentObserver(handler) {
+        @Override
+        public void onChange(boolean selfChange) {
+            handler.postDelayed(CallMonitorService.this::handleCallLogChanged, 180L);
+        }
+    };
+
     private TelephonyManager telephonyManager;
     private TelephonyCallback callback31;
     private PhoneStateListener legacyListener;
     private boolean sawCall;
     private boolean lookupRunning;
     private boolean listenerRegistered;
+    private boolean observerRegistered;
     private long callEventStartedAt;
+    private int lookupGeneration;
+    private int currentCallState = TelephonyManager.CALL_STATE_IDLE;
 
     @Override
     public void onCreate() {
         super.onCreate();
         createChannels();
         MessageAutomationStore.ensureDefaults(this);
+        FollowUpRuleStore.ensureMigrated(this);
         if (!canMonitor()) {
             SettingsStore.setMonitorEnabled(this, false);
             stopSelf();
@@ -48,6 +65,9 @@ public final class CallMonitorService extends Service {
         }
         startForegroundSafely();
         registerCallListener();
+        registerCallLogObserver();
+        DiagnosticEventStore.record(this, "통화 감지 시작", 0L,
+                "전화 상태와 통화기록 이중 감지 활성화");
     }
 
     @Override
@@ -64,6 +84,7 @@ public final class CallMonitorService extends Service {
         }
         SettingsStore.setMonitorEnabled(this, true);
         if (!listenerRegistered) registerCallListener();
+        if (!observerRegistered) registerCallLogObserver();
         return START_STICKY;
     }
 
@@ -77,6 +98,8 @@ public final class CallMonitorService extends Service {
             }
         } catch (RuntimeException e) {
             SettingsStore.setMonitorEnabled(this, false);
+            DiagnosticEventStore.record(this, "통화 감지 실패", 0L,
+                    "포그라운드 서비스 시작 실패");
             stopSelf();
         }
     }
@@ -116,12 +139,25 @@ public final class CallMonitorService extends Service {
             }
             listenerRegistered = true;
         } catch (RuntimeException e) {
-            SettingsStore.setMonitorEnabled(this, false);
-            stopSelf();
+            listenerRegistered = false;
+            DiagnosticEventStore.record(this, "전화 상태 감지 실패", 0L,
+                    "통화기록 보조 감지는 계속 유지");
+        }
+    }
+
+    private void registerCallLogObserver() {
+        if (observerRegistered || !hasRequiredPermissions()) return;
+        try {
+            getContentResolver().registerContentObserver(
+                    CallLog.Calls.CONTENT_URI, true, callLogObserver);
+            observerRegistered = true;
+        } catch (RuntimeException ignored) {
+            observerRegistered = false;
         }
     }
 
     private void handleCallState(int state) {
+        currentCallState = state;
         if (state == TelephonyManager.CALL_STATE_RINGING
                 || state == TelephonyManager.CALL_STATE_OFFHOOK) {
             if (!sawCall) callEventStartedAt = System.currentTimeMillis();
@@ -134,55 +170,137 @@ public final class CallMonitorService extends Service {
             CallerOverlayCallStateWatcher.stop(this);
 
             if (sawCall && !lookupRunning) {
-                lookupRunning = true;
-                lookupCall(0);
+                beginLookup(callEventStartedAt > 0L
+                        ? callEventStartedAt : System.currentTimeMillis());
             }
         }
     }
 
-    private void lookupCall(int attempt) {
+    /** 제조사 전화 앱이 상태 콜백을 누락해도 통화기록 변경으로 종료 처리를 복구한다. */
+    private void handleCallLogChanged() {
+        if (!canMonitor()) return;
+        if (lookupRunning) {
+            int generation = lookupGeneration;
+            handler.postDelayed(() -> lookupImmediately(generation), 120L);
+            return;
+        }
+        if (currentCallState != TelephonyManager.CALL_STATE_IDLE) return;
+        beginLookup(System.currentTimeMillis());
+        DiagnosticEventStore.record(this, "통화기록 보조 감지", 0L,
+                "전화 상태 콜백과 독립적으로 최근 종료 통화 확인");
+    }
+
+    private void beginLookup(long eventAt) {
+        if (lookupRunning) return;
+        sawCall = true;
+        lookupRunning = true;
+        callEventStartedAt = eventAt > 0L ? eventAt : System.currentTimeMillis();
+        lookupGeneration++;
+        lookupCall(0, lookupGeneration);
+    }
+
+    private void lookupCall(int attempt, int generation) {
+        if (!lookupRunning || generation != lookupGeneration) return;
         if (attempt < 0 || attempt >= LOOKUP_DELAYS.length) {
-            resetLookupState();
+            DiagnosticEventStore.record(this, "통화 종료 탐색 실패", 0L,
+                    "통화기록이 제한 시간 안에 저장되지 않음");
+            resetLookupState(generation);
             return;
         }
         handler.postDelayed(() -> {
+            if (!lookupRunning || generation != lookupGeneration) return;
             if (!canMonitor()) {
                 SettingsStore.setMonitorEnabled(this, false);
-                resetLookupState();
+                resetLookupState(generation);
                 stopSelf();
                 return;
             }
 
-            CallRecord record = CallLogRepository.findLatest(this, callEventStartedAt - 120_000L);
-            if (record == null && attempt + 1 < LOOKUP_DELAYS.length) {
-                lookupCall(attempt + 1);
+            CallRecord record = findCurrentCallRecord();
+            if (!matchesCurrentCall(record)) {
+                if (attempt + 1 < LOOKUP_DELAYS.length) {
+                    lookupCall(attempt + 1, generation);
+                } else {
+                    DiagnosticEventStore.record(this, "통화 종료 탐색 실패", 0L,
+                            "최근 통화기록과 현재 종료 이벤트가 일치하지 않음");
+                    resetLookupState(generation);
+                }
                 return;
             }
-            if (record != null && record.id != SettingsStore.lastCallId(this)) {
-                SettingsStore.setLastCallId(this, record.id);
-                onCallResolved(record);
-            }
-            resetLookupState();
+            completeLookup(record, generation);
         }, LOOKUP_DELAYS[attempt]);
+    }
+
+    private void lookupImmediately(int generation) {
+        if (!lookupRunning || generation != lookupGeneration || !canMonitor()) return;
+        CallRecord record = findCurrentCallRecord();
+        if (matchesCurrentCall(record)) completeLookup(record, generation);
+    }
+
+    private CallRecord findCurrentCallRecord() {
+        long eventAt = callEventStartedAt > 0L
+                ? callEventStartedAt : System.currentTimeMillis();
+        return CallLogRepository.findLatestEndingAfter(
+                this, eventAt - CALL_MATCH_TOLERANCE_MS);
+    }
+
+    private boolean matchesCurrentCall(CallRecord record) {
+        if (record == null) return false;
+        if (record.id == SettingsStore.lastCallId(this)) return false;
+        long earliest = callEventStartedAt - CALL_MATCH_TOLERANCE_MS;
+        long resolvedAt = Math.max(record.startedAt, record.endedAt());
+        return record.startedAt >= earliest || resolvedAt >= earliest;
+    }
+
+    private void completeLookup(CallRecord record, int generation) {
+        if (!lookupRunning || generation != lookupGeneration || record == null) return;
+        boolean handled = false;
+        try {
+            handled = onCallResolved(record);
+        } catch (RuntimeException error) {
+            DiagnosticEventStore.record(this, "통화 종료 처리 오류", record.id,
+                    error.getClass().getSimpleName());
+        }
+        if (handled) {
+            SettingsStore.setLastCallId(this, record.id);
+            DiagnosticEventStore.record(this, "통화 종료 처리 완료", record.id,
+                    "고객등록·팝업·자동화 연결 완료");
+        }
+        resetLookupState(generation);
+    }
+
+    private void resetLookupState(int generation) {
+        if (generation != lookupGeneration) return;
+        sawCall = false;
+        lookupRunning = false;
+        callEventStartedAt = 0L;
+        lookupGeneration++;
     }
 
     private void resetLookupState() {
         sawCall = false;
         lookupRunning = false;
         callEventStartedAt = 0L;
+        lookupGeneration++;
     }
 
-    private void onCallResolved(CallRecord record) {
-        if (record == null || PhoneNumberNormalizer.normalize(record.phone).length() < 8) return;
+    private boolean onCallResolved(CallRecord record) {
+        if (record == null || PhoneNumberNormalizer.normalize(record.phone).length() < 8) {
+            return false;
+        }
 
         boolean phoneAccess = FeatureEntitlementStore.hasPhoneAccess(this);
         boolean messageAccess = FeatureEntitlementStore.hasMessageAccess(this);
-        if (!phoneAccess && !messageAccess) return;
+        if (!phoneAccess && !messageAccess) {
+            DiagnosticEventStore.record(this, "통화 종료 처리 보류", record.id,
+                    "이용권 확인 필요");
+            return false;
+        }
 
         CallTagDbHelper db = new CallTagDbHelper(this);
         PendingCallStore pendingStore = phoneAccess ? new PendingCallStore(this) : null;
         try {
-            if (db.isExcluded(record.phone)) return;
+            if (db.isExcluded(record.phone)) return true;
 
             boolean deferred = needsDeferredHandling(record);
             boolean connected = !deferred && record.durationSec > 0L;
@@ -198,8 +316,18 @@ public final class CallMonitorService extends Service {
             }
 
             Customer customer = db.findByPhone(record.phone);
+            if (phoneAccess && customer == null) {
+                customer = createCustomerFromCall(db, record);
+            }
+            if (customer != null) {
+                sendBroadcast(new Intent(ACTION_CUSTOMER_DATA_CHANGED)
+                        .setPackage(getPackageName()));
+                ContactNameSyncManager.requestSyncAll(this);
+            }
+
             if (messageAccess) {
                 MessageAutomationManager.onCallResolved(this, record, customer);
+                if (connected) FollowUpAutomationManager.onConnectedCall(this, record, customer);
             }
 
             if (phoneAccess) {
@@ -216,23 +344,54 @@ public final class CallMonitorService extends Service {
                                 Math.max(0L, record.durationSec))
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                                 | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-                                | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+                                | Intent.FLAG_ACTIVITY_NO_USER_ACTION
+                                | Intent.FLAG_ACTIVITY_SINGLE_TOP);
 
                 String memo = customer == null
                         ? "" : CustomerInsightResolver.latestMemo(db, customer);
                 openPostCallAfterPhoneUiSettles(record, customer, review, memo);
             }
+            return true;
         } finally {
             if (pendingStore != null) pendingStore.close();
             db.close();
         }
     }
 
+    private Customer createCustomerFromCall(CallTagDbHelper db, CallRecord record) {
+        String name = safeCustomerName(record.cachedName, record.phone);
+        try {
+            long customerId = db.insertCustomer(
+                    name, record.phone, db.firstStage(), "통화 자동등록");
+            return db.findCustomerById(customerId);
+        } catch (IllegalArgumentException | android.database.SQLException race) {
+            return db.findByPhone(record.phone);
+        }
+    }
+
+    private String safeCustomerName(String cachedName, String phone) {
+        String name = cachedName == null ? "" : cachedName.trim();
+        if (!name.isEmpty()
+                && !"이름없는고객".equals(name)
+                && !"알 수 없음".equals(name)
+                && !name.equals(phone)) {
+            return name;
+        }
+        String normalized = PhoneNumberNormalizer.normalize(phone);
+        String suffix = normalized.length() >= 4
+                ? normalized.substring(normalized.length() - 4) : normalized;
+        return suffix.isEmpty() ? "새 고객" : "고객 " + suffix;
+    }
+
     private void openPostCallAfterPhoneUiSettles(CallRecord record, Customer customer,
                                                   Intent review, String memo) {
+        PostCallLaunchReceipt.arm(this, review);
+        boolean notificationShown = CallPopupNotificationManager.showPostCall(
+                this, record, customer, review, memo);
         handler.postDelayed(() -> {
+            if (PostCallLaunchReceipt.wasVisible(this, record.id)) return;
             boolean launched = PostCallActivityLauncher.launch(this, review);
-            if (!launched) {
+            if (!launched && !notificationShown) {
                 CallPopupNotificationManager.showPostCall(
                         this, record, customer, review, memo);
             }
@@ -281,6 +440,14 @@ public final class CallMonitorService extends Service {
     public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
         CallerOverlayCallStateWatcher.stop(this);
+        if (observerRegistered) {
+            try {
+                getContentResolver().unregisterContentObserver(callLogObserver);
+            } catch (RuntimeException ignored) {
+                // Observer may already be gone during process shutdown.
+            }
+            observerRegistered = false;
+        }
         if (telephonyManager != null && listenerRegistered) {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && callback31 != null) {

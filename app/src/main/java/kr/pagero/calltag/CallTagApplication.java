@@ -2,6 +2,7 @@ package kr.pagero.calltag;
 
 import android.app.Activity;
 import android.app.Application;
+import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -21,6 +22,10 @@ public final class CallTagApplication extends Application implements Application
                 ContactNameSyncManager.requestSyncAll(CallTagApplication.this);
             }
             maybeSyncPageroLeads();
+            if (ExternalCalendarSyncStore.isEnabled(CallTagApplication.this)) {
+                ExternalCalendarSyncManager.requestSync(
+                        CallTagApplication.this, false, null);
+            }
             handler.postDelayed(this, CONTACT_SYNC_INTERVAL_MS);
         }
     };
@@ -34,7 +39,11 @@ public final class CallTagApplication extends Application implements Application
         super.onCreate();
         registerActivityLifecycleCallbacks(this);
         MessageAutomationStore.ensureDefaults(this);
+        MessageTemplateStore.ensureDefaults(this);
+        FollowUpRuleStore.ensureMigrated(this);
         PageroLeadNotificationManager.ensureChannel(this);
+        CallPopupNotificationManager.ensureChannels(this);
+        CallTagSyncWorkScheduler.reconcile(this);
 
         new Thread(() -> {
             MessageRecoveryManager.recoverNow(this,
@@ -46,13 +55,18 @@ public final class CallTagApplication extends Application implements Application
         if (FeatureEntitlementStore.hasPhoneAccess(this)) {
             ContactNameSyncManager.requestSyncAll(this);
         }
+        if (ExternalCalendarSyncStore.isEnabled(this)) {
+            ExternalCalendarSyncManager.requestSync(this, false, null);
+        }
         if (AuthSessionStore.hasSession(this)) {
+            ReferralAutoApplyManager.applyIfNeeded(this);
+            EntitlementRefreshManager.request(this, true);
             PageroLeadSyncManager.requestSync(this, true);
             PageroAccountConnectionManager.refresh(this, false);
             CallTagPushManager.registerIfAvailable(this);
-            if (SetupRequirements.isReady(this)) {
-                SetupRequirements.startCallMonitoring(this);
-            }
+            CallTagSyncManager.request(this, false);
+            CallTagSyncWorkScheduler.reconcile(this);
+            ensureCallMonitoring(this);
         }
     }
 
@@ -68,9 +82,17 @@ public final class CallTagApplication extends Application implements Application
         PageroLeadSyncManager.requestSyncAndNotify(this, false);
     }
 
+    private void ensureCallMonitoring(android.content.Context context) {
+        if (!AuthSessionStore.hasSession(context)) return;
+        if (!SetupRequirements.hasPhoneState(context)
+                || !SetupRequirements.hasCallLog(context)) return;
+        SetupRequirements.startCallMonitoring(context);
+    }
+
     @Override
     public void onActivityResumed(Activity activity) {
         if (activity instanceof PostCallActivity) {
+            PostCallLaunchReceipt.markVisible(activity);
             PostCallPopupWindowInstaller.install(activity);
             routingToSetup = false;
             return;
@@ -78,9 +100,27 @@ public final class CallTagApplication extends Application implements Application
         if (activity instanceof MainActivity) {
             MainExitGuard.install(activity);
             if (AuthSessionStore.hasSession(activity)) {
+                ensureCallMonitoring(activity);
+                ReferralAutoApplyManager.applyIfNeeded(activity);
+                EntitlementRefreshManager.request(activity, false);
                 PageroAccountConnectionManager.refresh(activity, false);
                 CallTagPushManager.registerIfAvailable(activity);
                 CallTagPushManager.refreshStatus(activity);
+                CallTagSyncManager.request(activity, false);
+                CallTagSyncWorkScheduler.reconcile(activity);
+                if (ExternalCalendarSyncStore.isEnabled(activity)) {
+                    ExternalCalendarSyncManager.requestSync(activity, false, null);
+                }
+                if (SetupRequirements.isReady(activity)
+                        && FeatureEntitlementStore.hasPhoneAccess(activity)
+                        && PostCallPopupAccessPromptStore.shouldPrompt(activity)) {
+                    PostCallPopupAccessPromptStore.markPrompted(activity);
+                    activity.startActivity(new Intent(activity, PostCallPopupAccessActivity.class));
+                    return;
+                }
+                if (EntitlementNoticeActivity.shouldOpen(activity)) {
+                    activity.startActivity(new Intent(activity, EntitlementNoticeActivity.class));
+                }
             }
         }
         if (activity instanceof ManualMessageActivity) {
@@ -89,16 +129,18 @@ public final class CallTagApplication extends Application implements Application
         if (activity instanceof CallerIdSetupActivity
                 || activity instanceof InitialPermissionActivity
                 || activity instanceof AuthGateActivity
-                || activity instanceof LoginActivity) {
+                || activity instanceof LoginActivity
+                || activity instanceof EntitlementNoticeActivity
+                || activity instanceof PostCallPopupAccessActivity) {
             routingToSetup = false;
             return;
         }
         if (!isProtectedActivity(activity) || routingToSetup) return;
         if (!AuthSessionStore.hasSession(activity)) return;
 
+        ensureCallMonitoring(activity);
         PageroLeadSyncManager.requestSync(activity);
         if (SetupRequirements.isReady(activity)) {
-            SetupRequirements.startCallMonitoring(activity);
             if (FeatureEntitlementStore.hasPhoneAccess(activity)) {
                 ContactNameSyncManager.requestSyncAll(activity);
             }
@@ -113,6 +155,7 @@ public final class CallTagApplication extends Application implements Application
     public void onActivityStarted(Activity activity) {
         startedActivities++;
         if (activity instanceof PostCallActivity) {
+            PostCallLaunchReceipt.markVisible(activity);
             PostCallPopupWindowInstaller.install(activity);
         }
         if (startedActivities == 1) {
@@ -136,6 +179,10 @@ public final class CallTagApplication extends Application implements Application
             if (FeatureEntitlementStore.hasPhoneAccess(this)) {
                 ContactNameSyncManager.requestSyncAll(this);
             }
+            if (ExternalCalendarSyncStore.isEnabled(this)) {
+                ExternalCalendarSyncManager.requestSync(this, false, null);
+            }
+            CallTagSyncWorkScheduler.enqueueImmediate(this, "app_background");
         }
     }
 
@@ -147,6 +194,9 @@ public final class CallTagApplication extends Application implements Application
                 || activity instanceof StageSettingsActivity
                 || activity instanceof TaskTypeSettingsActivity
                 || activity instanceof MessageAutomationSettingsActivity
+                || activity instanceof PostCallAutomationActivity
+                || activity instanceof FollowUpAutomationActivity
+                || activity instanceof FollowUpRuleEditorActivity
                 || activity instanceof MessageTemplateLibraryActivity
                 || activity instanceof MessageTemplateEditorActivity
                 || activity instanceof ManualMessageActivity
@@ -155,14 +205,26 @@ public final class CallTagApplication extends Application implements Application
                 || activity instanceof GroupCampaignHubActivity
                 || activity instanceof MessageSafetyHubActivity
                 || activity instanceof CampaignListActivity
+                || activity instanceof CalendarSharePickerActivity
                 || activity instanceof PageroConnectionActivity
+                || activity instanceof PageroSyncActivity
+                || activity instanceof PageroUseGuideActivity
+                || activity instanceof BillingEntitlementActivity
+                || activity instanceof ReferralPartnerActivity
+                || activity instanceof ReferralInviteActivity
+                || activity instanceof ReferralCodeRegistrationActivity
+                || activity instanceof PartnerSettlementActivity
+                || activity instanceof CallTagSyncStatusActivity
+                || activity instanceof CallTagSyncDevicesActivity
                 || activity instanceof AccountActivity
                 || activity instanceof BackupRestoreActivity;
     }
 
     @Override
     public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+        SystemBarInsetsInstaller.install(activity);
         if (activity instanceof PostCallActivity) {
+            PostCallLaunchReceipt.markVisible(activity);
             PostCallPopupWindowInstaller.install(activity);
         }
     }
