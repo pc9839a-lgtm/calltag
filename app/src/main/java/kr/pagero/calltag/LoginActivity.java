@@ -83,7 +83,7 @@ public final class LoginActivity extends Activity {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
         params.topMargin = dp(8);
-        form.addView(googleButton, 3, params);
+        form.addView(googleButton, Math.min(3, form.getChildCount()), params);
     }
 
     private void bindActions() {
@@ -108,10 +108,11 @@ public final class LoginActivity extends Activity {
             hideKeyboardAndClearFocus();
             resetPassword();
         });
+        findViewById(R.id.btnClosePasswordReset).setOnClickListener(v -> showLogin());
         findViewById(R.id.btnPrivacyDetail).setOnClickListener(v ->
-                openWeb("https://call.pagero.kr/privacy/"));
+                openWeb("https://calltag.pagero.kr/privacy"));
         findViewById(R.id.btnTermsDetail).setOnClickListener(v ->
-                openWeb("https://call.pagero.kr/terms/"));
+                openWeb("https://calltag.pagero.kr/terms"));
 
         loginEmail.setImeOptions(EditorInfo.IME_ACTION_NEXT);
         loginEmail.setOnEditorActionListener((view, actionId, event) -> {
@@ -213,11 +214,11 @@ public final class LoginActivity extends Activity {
         if (!hasRequiredConsent()) return;
         EditText email = findViewById(R.id.editSignupEmail);
         if (text(email).isEmpty()) {
-            showNotice("이메일을 입력해주세요.", true);
+            showNotice("필수 이메일을 입력해주세요.", true);
             return;
         }
         runTask(() -> AuthApiClient.requestVerification(text(email), "signup"), response ->
-                showNotice("이메일로 인증번호를 보냈습니다. 30분 안에 입력해주세요.", false));
+                showNotice("인증번호를 보냈습니다. 30분 안에 입력해주세요.", false));
     }
 
     private void signup() {
@@ -229,15 +230,18 @@ public final class LoginActivity extends Activity {
         EditText brand = findViewById(R.id.editSignupBrand);
         EditText industry = findViewById(R.id.editSignupIndustry);
         EditText password = findViewById(R.id.editSignupPassword);
+
         if (text(name).isEmpty() || text(phone).isEmpty() || text(email).isEmpty()
-                || text(code).isEmpty() || text(brand).isEmpty()
-                || text(industry).isEmpty() || text(password).isEmpty()) {
-            showNotice("모든 가입 정보를 입력해주세요.", true);
+                || text(code).isEmpty() || text(password).isEmpty()) {
+            showNotice("[필수] 표시된 항목을 모두 입력해주세요.", true);
             return;
         }
+
+        String brandValue = text(brand).isEmpty() ? "개인" : text(brand);
+        String industryValue = text(industry).isEmpty() ? "기타" : text(industry);
         runTask(() -> AuthApiClient.register(
                 text(name), text(phone), text(email), text(code),
-                text(brand), text(industry), text(password)), this::acceptAuth);
+                brandValue, industryValue, text(password)), this::acceptAuth);
     }
 
     private void requestResetVerification() {
@@ -266,11 +270,11 @@ public final class LoginActivity extends Activity {
 
     private boolean hasRequiredConsent() {
         if (!privacyConsent.isChecked()) {
-            showNotice("개인정보 수집·이용에 동의해야 회원가입할 수 있습니다.", true);
+            showNotice("[필수] 개인정보 수집·이용에 동의해주세요.", true);
             return false;
         }
         if (!termsConsent.isChecked()) {
-            showNotice("서비스 이용약관에 동의해야 회원가입할 수 있습니다.", true);
+            showNotice("[필수] 서비스 이용약관에 동의해주세요.", true);
             return false;
         }
         return true;
@@ -332,6 +336,8 @@ public final class LoginActivity extends Activity {
         loginButton.setAlpha(enabled ? 1f : 0.6f);
         googleButton.setEnabled(enabled);
         googleButton.setAlpha(enabled ? 1f : 0.6f);
+        privacyConsent.setEnabled(enabled);
+        termsConsent.setEnabled(enabled);
         findViewById(R.id.btnAuthSignup).setEnabled(enabled);
         findViewById(R.id.btnSignupVerification).setEnabled(enabled);
         findViewById(R.id.btnResetVerification).setEnabled(enabled);
@@ -349,7 +355,7 @@ public final class LoginActivity extends Activity {
             if ("EMAIL_VERIFICATION_COOLDOWN".equals(code)) return "인증메일을 이미 보냈습니다. 잠시 후 다시 시도해주세요.";
             if ("AUTH_LOGIN_INVALID".equals(code)) return "이메일 또는 비밀번호가 올바르지 않습니다.";
             if ("AUTH_PASSWORD_POLICY".equals(code)) return "비밀번호는 영문과 숫자를 포함해 6자리 이상이어야 합니다.";
-            if ("CALL_PROFILE_REQUIRED".equals(code)) return "이름, 휴대폰번호, 이메일, 브랜드명과 업종을 모두 입력해주세요.";
+            if ("CALL_PROFILE_REQUIRED".equals(code)) return "필수 가입 정보를 모두 입력해주세요.";
             if ("EMAIL_VERIFICATION_REQUIRED".equals(code)) return "이메일 인증이 완료되지 않은 계정입니다.";
             if ("AUTH_ACCOUNT_SUSPENDED".equals(code)) return "사용이 정지된 계정입니다.";
             if ("AUTH_ACCOUNT_DELETED".equals(code)) return "삭제 처리된 계정입니다.";
