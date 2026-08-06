@@ -11,12 +11,12 @@ import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
 
-/** Keeps PostCallActivity as a compact, persistent center popup. */
+/** Keeps PostCallActivity as a large centered memo popup, never a full-screen page. */
 public final class PostCallPopupWindowInstaller {
-    private static final float HEIGHT_RATIO = 0.66f;
+    private static final float HEIGHT_RATIO = 0.54f;
     private static final int MAX_WIDTH_DP = 420;
-    private static final int MAX_HEIGHT_DP = 560;
-    private static final int MIN_HEIGHT_DP = 300;
+    private static final int MAX_HEIGHT_DP = 470;
+    private static final int MIN_HEIGHT_DP = 360;
 
     private PostCallPopupWindowInstaller() {}
 
@@ -69,11 +69,11 @@ public final class PostCallPopupWindowInstaller {
 
         DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
         int totalHorizontalMargin = dp(activity,
-                metrics.widthPixels < dp(activity, 360) ? 24 : 40);
-        int verticalReserved = dp(activity, 88);
-        int availableWidth = Math.max(dp(activity, 260),
+                metrics.widthPixels < dp(activity, 360) ? 22 : 36);
+        int verticalReserved = dp(activity, 74);
+        int availableWidth = Math.max(dp(activity, 280),
                 metrics.widthPixels - totalHorizontalMargin);
-        int availableHeight = Math.max(dp(activity, 220),
+        int availableHeight = Math.max(dp(activity, 300),
                 metrics.heightPixels - verticalReserved - Math.max(0, keyboardHeight));
 
         int width = Math.min(availableWidth, dp(activity, MAX_WIDTH_DP));
@@ -87,7 +87,7 @@ public final class PostCallPopupWindowInstaller {
         params.width = width;
         params.height = height;
         params.gravity = Gravity.CENTER;
-        params.dimAmount = 0.42f;
+        params.dimAmount = 0.46f;
         params.windowAnimations = android.R.style.Animation_Dialog;
         window.setAttributes(params);
         window.setLayout(width, height);
