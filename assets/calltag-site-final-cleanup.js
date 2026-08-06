@@ -1,17 +1,18 @@
 (()=>{
-  if(document.documentElement.dataset.ctSiteFinalCleanupV2)return;
-  document.documentElement.dataset.ctSiteFinalCleanupV2='1';
+  if(document.documentElement.dataset.ctSiteFinalCleanupV3)return;
+  document.documentElement.dataset.ctSiteFinalCleanupV3='1';
 
   const footerMarkup=`
     <div class="wrap ct-wayzi-footer__inner">
       <div class="ct-wayzi-footer__brand">
-        <strong>웨이지 <span>WAYZI</span></strong>
-        <p>통화 후 고객관리 콜태그<br>모바일 랜딩페이지 페이지로</p>
+        <strong>콜태그 <span>CALLTAG</span></strong>
+        <p>통화 후 고객관리·자동문자<br>페이지로 문의 연동</p>
         <nav class="ct-wayzi-footer__policy" aria-label="정책 및 고객지원">
           <a href="/terms">이용약관</a>
           <a class="is-strong" href="/privacy">개인정보처리방침</a>
           <a href="/refund">환불정책</a>
-          <a href="mailto:roadfor@kakao.com">고객센터</a>
+          <a href="/support">고객센터</a>
+          <a href="/settlement">파트너 정산</a>
         </nav>
       </div>
       <div class="ct-wayzi-footer__company">
@@ -24,21 +25,21 @@
         </dl>
       </div>
       <div class="ct-wayzi-footer__support">
-        <strong>고객지원</strong>
+        <strong>콜태그 고객지원</strong>
         <a href="mailto:roadfor@kakao.com">roadfor@kakao.com</a>
         <a href="tel:01057669839">010-5766-9839</a>
         <p>서비스·결제·환불·개인정보 문의</p>
       </div>
     </div>
     <div class="wrap ct-wayzi-footer__bottom">
-      <small>© 2026 WAYZI. All rights reserved.</small>
-      <span>CALLTAG · PAGERO</span>
+      <small>© 2026 콜태그. 운영사 웨이지(WAYZI).</small>
+      <span>CALLTAG</span>
     </div>`;
 
   const installStyle=()=>{
-    if(document.querySelector('style[data-ct-site-final-cleanup-v2]'))return;
+    if(document.querySelector('style[data-ct-site-final-cleanup-v3]'))return;
     const style=document.createElement('style');
-    style.dataset.ctSiteFinalCleanupV2='1';
+    style.dataset.ctSiteFinalCleanupV3='1';
     style.textContent=`
       :root{--ct-display-title:clamp(54px,6.4vw,92px);--ct-section-title:clamp(42px,4.8vw,68px)}
       .hero-heading h1,.ct-v8-head h1{font-size:var(--ct-display-title)!important;line-height:.96!important;letter-spacing:-.078em!important}
@@ -104,7 +105,7 @@
     let footer=document.querySelector('footer.footer,footer');
     if(!footer){footer=document.createElement('footer');document.body.append(footer)}
     footer.className='footer ct-wayzi-footer';
-    if(footer.dataset.ctWayziFooter!=='2'){footer.innerHTML=footerMarkup;footer.dataset.ctWayziFooter='2'}
+    if(footer.dataset.ctWayziFooter!=='3'){footer.innerHTML=footerMarkup;footer.dataset.ctWayziFooter='3'}
   };
 
   let queued=false;
