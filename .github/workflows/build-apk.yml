@@ -1,4 +1,4 @@
-name: Build CallTag v0.43.2 Internal
+name: Build CallTag v0.43.3 Internal
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: calltag-v0432-${{ github.ref }}
+  group: calltag-v0433-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify v0.43.2 direct MMS contracts
+      - name: Verify v0.43.3 post-call recovery contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -46,20 +46,25 @@ jobs:
           python3 <<'PY'
           from pathlib import Path
 
+          java = Path('app/src/main/java/kr/pagero/calltag')
           app = Path('app/build.gradle').read_text(encoding='utf-8')
           manifest = Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
-          sender = Path('app/src/main/java/kr/pagero/calltag/DirectMmsSender.java').read_text(encoding='utf-8')
-          status = Path('app/src/main/java/kr/pagero/calltag/MmsStatusReceiver.java').read_text(encoding='utf-8')
-          sms = Path('app/src/main/java/kr/pagero/calltag/SmsSender.java').read_text(encoding='utf-8')
-          scheduled = Path('app/src/main/java/kr/pagero/calltag/ScheduledMessageReceiver.java').read_text(encoding='utf-8')
-          automation = Path('app/src/main/java/kr/pagero/calltag/MessageAutomationManager.java').read_text(encoding='utf-8')
-          postcall = Path('app/src/main/java/kr/pagero/calltag/PostCallAutomationActivity.java').read_text(encoding='utf-8')
-          followup = Path('app/src/main/java/kr/pagero/calltag/FollowUpAutomationManager.java').read_text(encoding='utf-8')
-          followup_editor = Path('app/src/main/java/kr/pagero/calltag/FollowUpRuleEditorActivity.java').read_text(encoding='utf-8')
-          provider = Path('app/src/main/java/kr/pagero/calltag/MmsPduProvider.java').read_text(encoding='utf-8')
+          sender = (java / 'DirectMmsSender.java').read_text(encoding='utf-8')
+          status = (java / 'MmsStatusReceiver.java').read_text(encoding='utf-8')
+          sms = (java / 'SmsSender.java').read_text(encoding='utf-8')
+          scheduled = (java / 'ScheduledMessageReceiver.java').read_text(encoding='utf-8')
+          automation = (java / 'MessageAutomationManager.java').read_text(encoding='utf-8')
+          postcall = (java / 'PostCallAutomationActivity.java').read_text(encoding='utf-8')
+          followup = (java / 'FollowUpAutomationManager.java').read_text(encoding='utf-8')
+          followup_editor = (java / 'FollowUpRuleEditorActivity.java').read_text(encoding='utf-8')
+          provider = (java / 'MmsPduProvider.java').read_text(encoding='utf-8')
+          monitor = (java / 'CallMonitorService.java').read_text(encoding='utf-8')
+          calllog = (java / 'CallLogRepository.java').read_text(encoding='utf-8')
+          application = (java / 'CallTagApplication.java').read_text(encoding='utf-8')
+          boot = (java / 'BootReceiver.java').read_text(encoding='utf-8')
 
           checks = {
-              'version 0.43.2 code70': 'versionCode 70' in app and "versionName '0.43.2'" in app,
+              'version 0.43.3 code71': 'versionCode 71' in app and "versionName '0.43.3'" in app,
               'target api36': 'compileSdk 36' in app and 'targetSdk 36' in app,
               'klinker pdu dependency': 'com.klinkerapps:android-smsmms:5.2.6' in app,
               'direct MMS API': 'sendMultimediaMessage' in sender and 'Transaction.getBytes' in sender,
@@ -76,11 +81,17 @@ jobs:
               'followup image selection allowed': '이미지 없는 템플릿만' not in followup_editor,
               'followup image snapshot': 'bindTemplateAttachment' in followup,
               'MMS failure SMS fallback': 'fallbackToText' in status and 'SmsSender.sendExisting' in status,
-              'release notes': Path('docs/V0432_DIRECT_MMS_AUTOMATION_KO.md').exists(),
+              'call-log independent fallback': 'handleCallLogChanged' in monitor and 'findLatestEndingAfter' in monitor,
+              'resolved-time call lookup': 'findLatestEndingAfter' in calllog and 'record.endedAt()' in calllog,
+              'automatic customer capture': 'createCustomerFromCall' in monitor and 'db.insertCustomer' in monitor,
+              'popup notification first': 'PostCallLaunchReceipt.arm' in monitor and 'CallPopupNotificationManager.showPostCall' in monitor,
+              'app restart monitor recovery': 'ensureCallMonitoring' in application and 'SetupRequirements.startCallMonitoring' in application,
+              'boot update monitor recovery': 'SettingsStore.setMonitorEnabled(context, true)' in boot,
+              'release notes': Path('docs/V0433_POST_CALL_CAPTURE_RECOVERY_KO.md').exists(),
           }
           failed = [name for name, ok in checks.items() if not ok]
           for name, ok in checks.items(): print(f'{name}={"ok" if ok else "missing"}')
-          if failed: raise SystemExit('v0.43.2 direct MMS contract failed: ' + ', '.join(failed))
+          if failed: raise SystemExit('v0.43.3 post-call recovery contract failed: ' + ', '.join(failed))
           PY
 
       - uses: actions/setup-java@v4
@@ -157,7 +168,7 @@ jobs:
       - name: Build debug APK and signed release AAB
         run: gradle :app:assembleDebug :app:bundleRelease --no-daemon --stacktrace
 
-      - name: Verify and stage v0.43.2 files
+      - name: Verify and stage v0.43.3 files
         shell: bash
         run: |
           set -euo pipefail
@@ -170,25 +181,25 @@ jobs:
             echo '::error::Release AAB uses a debug certificate.'
             exit 1
           fi
-          OUT="$RUNNER_TEMP/calltag-v0.43.2-internal"
+          OUT="$RUNNER_TEMP/calltag-v0.43.3-internal"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.43.2-code70.aab"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V0432_AAB_SHA256.txt"
+          cp "$AAB" "$OUT/CallTag-v0.43.3-code71.aab"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V0433_AAB_SHA256.txt"
           cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
-          cp docs/V0432_DIRECT_MMS_AUTOMATION_KO.md "$OUT/PATCH_NOTES_KO.md"
+          cp docs/V0433_POST_CALL_CAPTURE_RECOVERY_KO.md "$OUT/PATCH_NOTES_KO.md"
 
       - name: Upload Play internal AAB
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.43.2-play-internal-aab
-          path: ${{ runner.temp }}/calltag-v0.43.2-internal
+          name: calltag-v0.43.3-play-internal-aab
+          path: ${{ runner.temp }}/calltag-v0.43.3-internal
           retention-days: 90
           if-no-files-found: error
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.43.2-api36-debug-apk
+          name: calltag-v0.43.3-api36-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
           if-no-files-found: error
