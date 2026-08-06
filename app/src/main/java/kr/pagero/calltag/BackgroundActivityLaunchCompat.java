@@ -2,6 +2,7 @@ package kr.pagero.calltag;
 
 import android.app.ActivityOptions;
 import android.app.PendingIntent;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
@@ -13,6 +14,7 @@ public final class BackgroundActivityLaunchCompat {
 
     public static PendingIntent activity(Context context, int requestCode,
                                          Intent intent, int flags) {
+        Intent safeIntent = wrapPostCallIntent(context, intent);
         Bundle options = null;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             ActivityOptions creator = ActivityOptions.makeBasic();
@@ -25,7 +27,17 @@ public final class BackgroundActivityLaunchCompat {
             }
             options = creator.toBundle();
         }
-        return PendingIntent.getActivity(context, requestCode, intent, flags, options);
+        return PendingIntent.getActivity(context, requestCode, safeIntent, flags, options);
+    }
+
+    private static Intent wrapPostCallIntent(Context context, Intent intent) {
+        if (context == null || intent == null) return intent;
+        ComponentName component = intent.getComponent();
+        if (component == null
+                || !PostCallActivity.class.getName().equals(component.getClassName())) {
+            return intent;
+        }
+        return PostCallEntryActivity.createIntent(context, intent);
     }
 
     public static boolean send(Context context, PendingIntent pendingIntent) {
