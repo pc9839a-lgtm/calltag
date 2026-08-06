@@ -1,0 +1,107 @@
+package kr.pagero.calltag;
+
+import android.content.Intent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import java.lang.ref.WeakReference;
+import java.util.List;
+import java.util.WeakHashMap;
+
+/** Makes the whole home task/customer card open the linked customer detail. */
+public final class MainActivityCardInteractionFix {
+    private static final WeakHashMap<MainActivity, ViewTreeObserver.OnGlobalLayoutListener> LISTENERS =
+            new WeakHashMap<>();
+
+    private MainActivityCardInteractionFix() {}
+
+    public static void install(MainActivity activity) {
+        if (activity == null || activity.isFinishing() || LISTENERS.containsKey(activity)) return;
+        View root = activity.findViewById(R.id.rootApp);
+        if (root == null) return;
+
+        WeakReference<MainActivity> reference = new WeakReference<>(activity);
+        ViewTreeObserver.OnGlobalLayoutListener listener = () -> {
+            MainActivity current = reference.get();
+            if (current == null || current.isFinishing() || current.isDestroyed()) return;
+            bindTaskCards(current);
+            bindCustomerCards(current);
+        };
+        LISTENERS.put(activity, listener);
+        root.getViewTreeObserver().addOnGlobalLayoutListener(listener);
+        bindTaskCards(activity);
+        bindCustomerCards(activity);
+    }
+
+    public static void uninstall(MainActivity activity) {
+        if (activity == null) return;
+        ViewTreeObserver.OnGlobalLayoutListener listener = LISTENERS.remove(activity);
+        View root = activity.findViewById(R.id.rootApp);
+        if (root != null && listener != null && root.getViewTreeObserver().isAlive()) {
+            root.getViewTreeObserver().removeOnGlobalLayoutListener(listener);
+        }
+    }
+
+    private static void bindTaskCards(MainActivity activity) {
+        LinearLayout list = activity.findViewById(R.id.todayTaskList);
+        if (list == null) return;
+        CallTagDbHelper db = new CallTagDbHelper(activity);
+        try {
+            List<FollowUpTask> tasks = db.listPendingTasks();
+            int count = Math.min(list.getChildCount(), tasks.size());
+            for (int index = 0; index < count; index++) {
+                View card = list.getChildAt(index);
+                FollowUpTask task = tasks.get(index);
+                bindCustomerOpen(activity, card, task.customerId);
+            }
+        } finally {
+            db.close();
+        }
+    }
+
+    private static void bindCustomerCards(MainActivity activity) {
+        LinearLayout list = activity.findViewById(R.id.customerList);
+        if (list == null) return;
+        CallTagDbHelper db = new CallTagDbHelper(activity);
+        try {
+            for (int index = 0; index < list.getChildCount(); index++) {
+                View card = list.getChildAt(index);
+                String phone = findPhone(card);
+                if (phone.isEmpty()) continue;
+                Customer customer = db.findByPhone(phone);
+                if (customer != null) bindCustomerOpen(activity, card, customer.id);
+            }
+        } finally {
+            db.close();
+        }
+    }
+
+    private static void bindCustomerOpen(MainActivity activity, View card, long customerId) {
+        if (card == null || customerId <= 0L) return;
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(v -> activity.startActivity(
+                new Intent(activity, CustomerDetailActivity.class)
+                        .putExtra(CustomerDetailActivity.EXTRA_CUSTOMER_ID, customerId)));
+    }
+
+    private static String findPhone(View view) {
+        if (view instanceof TextView) {
+            String text = ((TextView) view).getText() == null
+                    ? "" : ((TextView) view).getText().toString().trim();
+            String normalized = PhoneNumberNormalizer.normalize(text);
+            if (normalized.length() >= 8) return text;
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                String found = findPhone(group.getChildAt(index));
+                if (!found.isEmpty()) return found;
+            }
+        }
+        return "";
+    }
+}
