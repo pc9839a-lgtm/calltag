@@ -21,7 +21,7 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 통화 직후와 부재중에 즉시 보내는 문자만 설정한다. */
+/** 통화 직후와 부재중에 즉시 보내는 문자·사진 MMS를 설정한다. */
 public final class PostCallAutomationActivity extends Activity {
     private static final int REQUEST_CONNECTED = 8801;
     private static final int REQUEST_MISSED = 8802;
@@ -81,16 +81,16 @@ public final class PostCallAutomationActivity extends Activity {
         root.addView(header, matchWrap());
 
         root.addView(body("통화가 끝난 직후 보내는 문자와 부재중 문자를 설정합니다. "
-                + "며칠 뒤 보내는 후속문자는 별도 메뉴에서 여러 개 만들 수 있습니다."), top(12));
+                + "사진이 포함된 템플릿은 기본 메시지 앱을 열지 않고 MMS로 자동 발송합니다."), top(12));
 
         master = switchCard("통화 직후 자동문자 사용", "통화 후·부재중 문자 전체 켜기");
         root.addView(master, top(18));
 
         connected = new Switch(this);
-        connectedTemplate = scenario(root, "통화 후 문자", "수신·발신 통화가 연결된 뒤 즉시 발송",
+        connectedTemplate = scenario(root, "통화 후 문자", "수신·발신 통화가 연결된 뒤 즉시 자동발송",
                 connected, REQUEST_CONNECTED);
         missed = new Switch(this);
-        missedTemplate = scenario(root, "부재중 문자", "받지 못하거나 거절한 전화에 즉시 발송",
+        missedTemplate = scenario(root, "부재중 문자", "받지 못하거나 거절한 전화에 즉시 자동발송",
                 missed, REQUEST_MISSED);
 
         LinearLayout common = card();
@@ -152,17 +152,20 @@ public final class PostCallAutomationActivity extends Activity {
         String id = safe(data.getStringExtra(MessageTemplateLibraryActivity.EXTRA_TEMPLATE_ID));
         MessageTemplateStore.Template template = MessageTemplateStore.get(this, id);
         if (template == null) return;
-        if (!safe(template.imageRef).isEmpty()) {
-            Toast.makeText(this, "자동문자는 이미지 없는 템플릿만 사용할 수 있습니다.",
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
         if (requestCode == REQUEST_CONNECTED) {
-            MessageTemplateStore.setDefault(this, MessageTemplateStore.PURPOSE_INCOMING, id);
-            MessageTemplateStore.setDefault(this, MessageTemplateStore.PURPOSE_OUTGOING, id);
+            AutomationTemplateSelectionStore.set(
+                    this, MessageTemplateStore.PURPOSE_INCOMING, id);
+            AutomationTemplateSelectionStore.set(
+                    this, MessageTemplateStore.PURPOSE_OUTGOING, id);
         } else {
-            MessageTemplateStore.setDefault(this, MessageTemplateStore.PURPOSE_MISSED, id);
+            AutomationTemplateSelectionStore.set(
+                    this, MessageTemplateStore.PURPOSE_MISSED, id);
         }
+        Toast.makeText(this,
+                safe(template.imageRef).isEmpty()
+                        ? "텍스트 자동문자 템플릿을 선택했습니다."
+                        : "사진 포함 MMS 자동발송 템플릿을 선택했습니다.",
+                Toast.LENGTH_SHORT).show();
         render();
     }
 
@@ -256,9 +259,9 @@ public final class PostCallAutomationActivity extends Activity {
         master.setChecked(MessageAutomationStore.isEnabled(this));
         connected.setChecked(MessageAutomationStore.connectedEnabled(this));
         missed.setChecked(MessageAutomationStore.missedEnabled(this));
-        connectedTemplate.setText("선택된 템플릿 · " + MessageTemplateStore.defaultName(
+        connectedTemplate.setText("선택된 템플릿 · " + AutomationTemplateSelectionStore.name(
                 this, MessageTemplateStore.PURPOSE_INCOMING));
-        missedTemplate.setText("선택된 템플릿 · " + MessageTemplateStore.defaultName(
+        missedTemplate.setText("선택된 템플릿 · " + AutomationTemplateSelectionStore.name(
                 this, MessageTemplateStore.PURPOSE_MISSED));
         commonSummary.setText((businessHours
                 ? startHour + "시~" + endHour + "시" : "시간 제한 없음")
