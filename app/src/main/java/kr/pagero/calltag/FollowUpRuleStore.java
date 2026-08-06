@@ -57,6 +57,7 @@ public final class FollowUpRuleStore {
                     templateId));
             write(context, rules);
         }
+        MessageAutomationStore.setDelayedEnabled(context, false);
         p.edit().putBoolean(KEY_MIGRATED, true).apply();
     }
 
