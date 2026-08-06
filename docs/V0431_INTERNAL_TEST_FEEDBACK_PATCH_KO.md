@@ -59,8 +59,8 @@
 - versionName: `0.43.1`
 - versionCode: `69`
 - targetSdk: `36`
-- workflow: `Build CallTag v0.43.1 Internal` #1662
-- source head: `715a9ebf7f9ee040507ac703a05dbf3f1d3bf875`
+- 검증 workflow: `Build CallTag v0.43.1 Internal` #1662
+- 검증 source head: `715a9ebf7f9ee040507ac703a05dbf3f1d3bf875`
 - release AAB SHA-256: `e9180b6a9cd0bd80139fcff807d31e618d54ce8c99c25b3b30426e5c94de8bfa`
 - debug APK SHA-256: `143765afe2727ac06ac9fa6322069b4a761467f2817e7c834018f72260c3742c`
 - v0.43.0과 동일 upload key SHA-256 지문 확인 완료:
