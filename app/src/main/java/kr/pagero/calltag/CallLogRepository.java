@@ -61,9 +61,10 @@ public final class CallLogRepository {
                 projection(),
                 selection,
                 args,
-                CallLog.Calls.DATE + " DESC LIMIT " + RECENT_SCAN_LIMIT)) {
+                CallLog.Calls.DATE + " DESC")) {
             if (cursor == null) return null;
-            while (cursor.moveToNext()) {
+            int scanned = 0;
+            while (cursor.moveToNext() && scanned++ < RECENT_SCAN_LIMIT) {
                 CallRecord record = read(cursor);
                 long resolvedAt = Math.max(record.startedAt, record.endedAt());
                 if (resolvedAt >= endedAfterMillis) return record;
