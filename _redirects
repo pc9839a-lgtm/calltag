@@ -6,3 +6,6 @@
 /privacy.html /privacy/ 301
 /refund.html /refund/ 301
 /support.html /support/ 301
+/settlement /web/settlement.html 200
+/settlement/ /web/settlement.html 200
+/settlement.html /web/settlement.html 200
