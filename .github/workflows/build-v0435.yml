@@ -1,0 +1,140 @@
+name: Build CallTag v0.43.5 Internal
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - docs/billing-referral-app-handoff-20260804
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: calltag-v0435-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      CALLTAG_FIREBASE_APPLICATION_ID: ${{ secrets.CALLTAG_FIREBASE_APPLICATION_ID }}
+      CALLTAG_FIREBASE_API_KEY: ${{ secrets.CALLTAG_FIREBASE_API_KEY }}
+      CALLTAG_FIREBASE_PROJECT_ID: ${{ secrets.CALLTAG_FIREBASE_PROJECT_ID }}
+      CALLTAG_FIREBASE_SENDER_ID: ${{ secrets.CALLTAG_FIREBASE_SENDER_ID }}
+      SECRET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
+      SECRET_UPLOAD_STORE_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_STORE_PASSWORD }}
+      SECRET_UPLOAD_KEY_ALIAS: ${{ secrets.CALLTAG_UPLOAD_KEY_ALIAS }}
+      SECRET_UPLOAD_KEY_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_KEY_PASSWORD }}
+      V0430_UPLOAD_KEY_ARTIFACT_ID: '8922836146'
+      EXPECTED_UPLOAD_KEY_SHA256: 'C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify today-only home contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          app = Path('app/build.gradle').read_text(encoding='utf-8')
+          guard = Path('app/src/main/java/kr/pagero/calltag/MainExitGuard.java').read_text(encoding='utf-8')
+          filt = Path('app/src/main/java/kr/pagero/calltag/HomeTodayTaskFilter.java').read_text(encoding='utf-8')
+          checks = {
+              'version': 'versionCode 73' in app and "versionName '0.43.5'" in app,
+              'generated source patch': 'listTasksBetween' in app and 'tomorrowStart' in app,
+              'runtime safety filter': 'HomeTodayTaskFilter.install' in guard and 'isToday' in filt,
+              'today boundaries': 'Calendar.DAY_OF_YEAR' in filt,
+          }
+          failed = [name for name, ok in checks.items() if not ok]
+          if failed: raise SystemExit('contract failed: ' + ', '.join(failed))
+          PY
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Install Android 16 SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' | head -n 1)"
+          fi
+          "$SDKMANAGER" 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Restore original Play upload key
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/calltag-upload.jks"
+          configured=0
+          for value in "$SECRET_UPLOAD_KEYSTORE_BASE64" "$SECRET_UPLOAD_STORE_PASSWORD" "$SECRET_UPLOAD_KEY_ALIAS" "$SECRET_UPLOAD_KEY_PASSWORD"; do
+            [ -n "$value" ] && configured=$((configured + 1))
+          done
+          if [ "$configured" -eq 4 ]; then
+            printf '%s' "$SECRET_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+            STORE_PASSWORD="$SECRET_UPLOAD_STORE_PASSWORD"
+            KEY_ALIAS="$SECRET_UPLOAD_KEY_ALIAS"
+            KEY_PASSWORD="$SECRET_UPLOAD_KEY_PASSWORD"
+          elif [ "$configured" -eq 0 ]; then
+            mkdir -p "$RUNNER_TEMP/original-upload-key"
+            gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${V0430_UPLOAD_KEY_ARTIFACT_ID}/zip" > "$RUNNER_TEMP/original-upload-key.zip"
+            unzip -q "$RUNNER_TEMP/original-upload-key.zip" -d "$RUNNER_TEMP/original-upload-key"
+            cp "$RUNNER_TEMP/original-upload-key/calltag-upload.jks" "$KEYSTORE"
+            CREDENTIALS="$RUNNER_TEMP/original-upload-key/CALLTAG_UPLOAD_KEY_CREDENTIALS.txt"
+            STORE_PASSWORD="$(grep '^CALLTAG_UPLOAD_STORE_PASSWORD=' "$CREDENTIALS" | cut -d= -f2-)"
+            KEY_ALIAS="$(grep '^CALLTAG_UPLOAD_KEY_ALIAS=' "$CREDENTIALS" | cut -d= -f2-)"
+            KEY_PASSWORD="$(grep '^CALLTAG_UPLOAD_KEY_PASSWORD=' "$CREDENTIALS" | cut -d= -f2-)"
+          else
+            echo '::error::Configure all four upload-key secrets or none.'
+            exit 1
+          fi
+          keytool -list -v -keystore "$KEYSTORE" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | grep -F "SHA256: $EXPECTED_UPLOAD_KEY_SHA256"
+          echo "::add-mask::$STORE_PASSWORD"
+          echo "::add-mask::$KEY_PASSWORD"
+          {
+            echo "CALLTAG_UPLOAD_KEYSTORE_PATH=$KEYSTORE"
+            echo "CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD"
+            echo "CALLTAG_UPLOAD_KEY_ALIAS=$KEY_ALIAS"
+            echo "CALLTAG_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Build signed AAB and debug APK
+        run: gradle :app:assembleDebug :app:bundleRelease --no-daemon --stacktrace
+
+      - name: Verify files
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAB='app/build/outputs/bundle/release/app-release.aab'
+          APK='app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$AAB"
+          test -s "$APK"
+          jarsigner -verify -certs "$AAB"
+          mkdir -p "$RUNNER_TEMP/v0435"
+          cp "$AAB" "$RUNNER_TEMP/v0435/CallTag-v0.43.5-code73.aab"
+          sha256sum "$AAB" > "$RUNNER_TEMP/v0435/CALLTAG_V0435_AAB_SHA256.txt"
+
+      - name: Upload Play AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: calltag-v0.43.5-play-internal-aab
+          path: ${{ runner.temp }}/v0435
+          retention-days: 90
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: calltag-v0.43.5-api36-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
