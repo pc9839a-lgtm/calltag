@@ -227,7 +227,7 @@ public final class CallerOverlayManager {
         card.addView(lastContact, lastParams);
 
         Button primary = new Button(context);
-        primary.setText(setupTest ? "정상적으로 보입니다 · 앱 시작" : "고객 상세 보기");
+        primary.setText(setupTest ? "정상적으로 보입니다 · 앱 시작" : "고객 바로 수정");
         primary.setAllCaps(false);
         primary.setTextSize(15f);
         primary.setTextColor(context.getColor(R.color.text_primary));
@@ -250,15 +250,16 @@ public final class CallerOverlayManager {
                 }
                 return;
             }
-            hide(context);
             try {
-                context.startActivity(new Intent(context, CustomerDetailActivity.class)
-                        .putExtra(CustomerDetailActivity.EXTRA_CUSTOMER_ID, customer.id)
+                context.startActivity(new Intent(context, CustomerQuickEditActivity.class)
+                        .putExtra(CustomerQuickEditActivity.EXTRA_CUSTOMER_ID, customer.id)
+                        .putExtra(CustomerQuickEditActivity.EXTRA_FALLBACK_PHONE, customer.primaryPhone)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                                 | Intent.FLAG_ACTIVITY_CLEAR_TOP
                                 | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+                hide(context);
             } catch (RuntimeException ignored) {
-                // Keep the phone screen in place when the detail screen cannot open.
+                // Do not hide the caller card unless the edit screen launch was accepted.
             }
         });
         LinearLayout.LayoutParams primaryParams = new LinearLayout.LayoutParams(
