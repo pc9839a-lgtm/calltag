@@ -2,13 +2,9 @@ name: CallTag 0.44.2 P0 call stability regression
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - agent/play-internal-v0430-run2
-      - agent/calltag-v0442-p0-stability
   pull_request:
     branches:
-      - agent/play-internal-v0430-run2
+      - agent/calltag-v0442-ci-base
 
 jobs:
   android-build:
