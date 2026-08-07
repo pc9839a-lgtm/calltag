@@ -15,7 +15,7 @@ import java.util.concurrent.Executors;
  * Legacy cleanup only.
  *
  * CallTag no longer creates, merges, or renames contacts. This class remains only to remove
- * RawContacts created by older builds. New memo display is handled by CallLogMemoSyncManager.
+ * RawContacts created by older builds. Customer names and memos now stay inside CallTag data.
  */
 public final class ContactNameSyncManager {
     private static final String PREFS = "calltag_contact_name_sync";
