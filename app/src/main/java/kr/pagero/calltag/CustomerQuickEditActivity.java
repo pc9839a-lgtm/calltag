@@ -50,7 +50,6 @@ public final class CustomerQuickEditActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(getColor(R.color.background));
-        root.setFitsSystemWindows(true);
 
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
@@ -61,12 +60,12 @@ public final class CustomerQuickEditActivity extends Activity {
         back.setOnClickListener(v -> {
             if (!saving) finish();
         });
-        top.addView(back, new LinearLayout.LayoutParams(dp(48), dp(56)));
+        top.addView(back, new LinearLayout.LayoutParams(dp(48), dp(52)));
 
         TextView title = text("고객 수정", 19f, R.color.text_primary, true);
         title.setGravity(Gravity.CENTER);
-        top.addView(title, new LinearLayout.LayoutParams(0, dp(56), 1f));
-        top.addView(new View(this), new LinearLayout.LayoutParams(dp(48), dp(56)));
+        top.addView(title, new LinearLayout.LayoutParams(0, dp(52), 1f));
+        top.addView(new View(this), new LinearLayout.LayoutParams(dp(48), dp(52)));
         root.addView(top, matchWrap());
 
         View divider = new View(this);
@@ -78,7 +77,7 @@ public final class CustomerQuickEditActivity extends Activity {
         scroll.setFillViewport(true);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(16), dp(18), dp(16), dp(36));
+        content.setPadding(dp(16), dp(16), dp(16), dp(32));
 
         content.addView(label("고객명"), matchWrap());
         nameInput = input("고객명 또는 업체명", InputType.TYPE_CLASS_TEXT);

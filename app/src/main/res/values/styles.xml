@@ -12,6 +12,8 @@
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowDisablePreview">true</item>
         <item name="android:alertDialogTheme">@style/Theme.CallTag.Dialog</item>
+        <item name="android:datePickerDialogTheme">@style/Theme.CallTag.PickerDialog</item>
+        <item name="android:timePickerDialogTheme">@style/Theme.CallTag.PickerDialog</item>
         <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
     </style>
 
@@ -56,14 +58,30 @@
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:buttonStyle">@style/Widget.CallTag.Button</item>
         <item name="android:windowBackground">@drawable/bg_dialog_panel</item>
+        <item name="android:colorBackground">@color/surface_soft</item>
         <item name="android:colorAccent">@color/primary</item>
+        <item name="android:colorControlNormal">@color/text_secondary</item>
+        <item name="android:colorControlActivated">@color/primary</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:textColorAlertDialogListItem">@color/text_primary</item>
         <item name="android:selectableItemBackground">@drawable/bg_dialog_choice</item>
         <item name="android:listPreferredItemHeightSmall">56dp</item>
         <item name="android:listViewStyle">@style/Widget.CallTag.DialogList</item>
         <item name="android:backgroundDimEnabled">true</item>
         <item name="android:backgroundDimAmount">0.72</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+    </style>
+
+    <style name="Theme.CallTag.PickerDialog" parent="@style/Theme.CallTag.Dialog">
+        <item name="android:windowBackground">@drawable/bg_dialog_panel</item>
+        <item name="android:colorBackground">@color/surface_soft</item>
+        <item name="android:colorAccent">@color/primary</item>
+        <item name="android:colorControlNormal">@color/text_secondary</item>
+        <item name="android:colorControlActivated">@color/primary</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
     </style>
 
     <style name="Widget.CallTag.DialogList" parent="android:style/Widget.Material.ListView">

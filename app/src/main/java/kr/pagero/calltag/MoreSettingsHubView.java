@@ -56,10 +56,17 @@ public final class MoreSettingsHubView extends LinearLayout {
         });
         addView(search, new LayoutParams(LayoutParams.MATCH_PARENT, dp(46)));
 
+        View automation = featuredAutomationCard();
+        MenuItem automationItem = new MenuItem(automation,
+                "통화 후 자동문자 자동 문자 수신 발신 부재중 후속문자 문자 자동화"
+                        .toLowerCase(Locale.KOREA));
+        items.add(automationItem);
+        LayoutParams automationParams = new LayoutParams(LayoutParams.MATCH_PARENT, dp(82));
+        automationParams.topMargin = dp(14);
+        addView(automation, automationParams);
+
         Section messages = section("문자");
         messages.add("문자 문구·이미지", "자주 쓰는 안내문과 이미지", MessageTemplateLibraryActivity.class);
-        messages.add("자동문자", "통화 후 필요한 문자를 자동으로 보내기",
-                MessageAutomationSettingsActivity.class, FeatureAccessGate.MESSAGE);
         messages.add("그룹·단체문자", "여러 고객에게 한 번에 보내기",
                 GroupCampaignHubActivity.class, FeatureAccessGate.MESSAGE);
         messages.add("발송 관리", "보낸 문자와 제외 번호 확인", MessageSafetyHubActivity.class);
@@ -83,6 +90,49 @@ public final class MoreSettingsHubView extends LinearLayout {
         app.add("페이지로 서비스 안내", "페이지로 랜딩페이지 문의 수집 서비스 설명 사용 방법",
                 PageroUseGuideActivity.class);
         app.add("백업 및 복원", "고객정보를 보관하고 되돌리기", BackupRestoreActivity.class);
+    }
+
+    private View featuredAutomationCard() {
+        LinearLayout card = new LinearLayout(getContext());
+        card.setOrientation(HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(18), 0, dp(13), 0);
+        card.setBackgroundResource(R.drawable.bg_selected_row);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(v -> FeatureAccessGate.open(
+                getContext(), MessageAutomationSettingsActivity.class, FeatureAccessGate.MESSAGE));
+
+        LinearLayout labels = new LinearLayout(getContext());
+        labels.setOrientation(VERTICAL);
+
+        TextView title = new TextView(getContext());
+        title.setText("통화 후 자동문자");
+        title.setTextSize(18f);
+        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        title.setTextColor(getContext().getColor(R.color.text_primary));
+        title.setIncludeFontPadding(false);
+        labels.addView(title, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+
+        TextView subtitle = new TextView(getContext());
+        subtitle.setText("수신·발신·부재중 통화가 끝나면 자동으로 후속문자를 보냅니다.");
+        subtitle.setTextSize(12.5f);
+        subtitle.setTextColor(getContext().getColor(R.color.text_secondary));
+        subtitle.setIncludeFontPadding(false);
+        subtitle.setSingleLine(true);
+        LayoutParams subtitleParams = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        subtitleParams.topMargin = dp(5);
+        labels.addView(subtitle, subtitleParams);
+
+        card.addView(labels, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView arrow = new TextView(getContext());
+        arrow.setText("›");
+        arrow.setTextSize(27f);
+        arrow.setTextColor(getContext().getColor(R.color.primary));
+        arrow.setGravity(Gravity.CENTER);
+        card.addView(arrow, new LayoutParams(dp(32), dp(52)));
+        return card;
     }
 
     private Section section(String title) {

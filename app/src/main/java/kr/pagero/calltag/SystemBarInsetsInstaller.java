@@ -3,14 +3,15 @@ package kr.pagero.calltag;
 import android.app.Activity;
 import android.os.Build;
 import android.view.View;
+import android.view.Window;
 import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 
 import java.util.WeakHashMap;
 
 /**
  * Android 15/16 edge-to-edge enforcement can place ordinary activity content below the
- * status/navigation bars even when older theme opt-out flags are present. Apply real system-bar
- * insets to the activity content root instead of relying on per-screen fitsSystemWindows hacks.
+ * status/navigation bars. Apply one inset path and explicitly keep system-bar icons readable.
  */
 public final class SystemBarInsetsInstaller {
     private static final WeakHashMap<Activity, BasePadding> INSTALLED = new WeakHashMap<>();
@@ -19,6 +20,8 @@ public final class SystemBarInsetsInstaller {
 
     public static void install(Activity activity) {
         if (activity == null || activity.isFinishing() || excluded(activity)) return;
+        keepSystemBarsReadable(activity);
+
         View content = activity.findViewById(android.R.id.content);
         if (content == null) return;
 
@@ -60,6 +63,31 @@ public final class SystemBarInsetsInstaller {
                 return insets;
             });
             content.requestApplyInsets();
+        }
+    }
+
+    private static void keepSystemBarsReadable(Activity activity) {
+        Window window = activity.getWindow();
+        if (window == null) return;
+        window.setStatusBarColor(activity.getColor(R.color.background));
+        window.setNavigationBarColor(activity.getColor(R.color.surface_soft));
+
+        View decor = window.getDecorView();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsetsController controller = decor.getWindowInsetsController();
+            if (controller != null) {
+                int lightMask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                controller.setSystemBarsAppearance(0, lightMask);
+                controller.show(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
+            }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            int visibility = decor.getSystemUiVisibility();
+            visibility &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                visibility &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            }
+            decor.setSystemUiVisibility(visibility);
         }
     }
 

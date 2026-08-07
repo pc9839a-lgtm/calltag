@@ -23,10 +23,8 @@ import android.widget.Toast;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Set;
 
 public final class CustomerAddActivity extends Activity {
     private static final int REQUEST_CALL_LOG = 2301;
@@ -44,11 +42,16 @@ public final class CustomerAddActivity extends Activity {
         renderRecentCalls();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (recentCallList != null) renderRecentCalls();
+    }
+
     private View buildScreen() {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(getColor(R.color.background));
-        root.setFitsSystemWindows(true);
 
         LinearLayout topBar = new LinearLayout(this);
         topBar.setGravity(Gravity.CENTER_VERTICAL);
@@ -58,11 +61,11 @@ public final class CustomerAddActivity extends Activity {
         back.setOnClickListener(v -> {
             if (!saving) finish();
         });
-        topBar.addView(back, new LinearLayout.LayoutParams(dp(48), dp(56)));
+        topBar.addView(back, new LinearLayout.LayoutParams(dp(48), dp(52)));
         TextView topTitle = text("고객 추가", 19f, R.color.text_primary, true);
         topTitle.setGravity(Gravity.CENTER);
-        topBar.addView(topTitle, new LinearLayout.LayoutParams(0, dp(56), 1f));
-        topBar.addView(new View(this), new LinearLayout.LayoutParams(dp(48), dp(56)));
+        topBar.addView(topTitle, new LinearLayout.LayoutParams(0, dp(52), 1f));
+        topBar.addView(new View(this), new LinearLayout.LayoutParams(dp(48), dp(52)));
         root.addView(topBar, matchWrap());
 
         View divider = new View(this);
@@ -76,7 +79,7 @@ public final class CustomerAddActivity extends Activity {
 
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(16), dp(16), dp(16), dp(48));
+        content.setPadding(dp(16), dp(14), dp(16), dp(48));
 
         TextView direct = text("직접 입력", 15f, android.R.color.white, true);
         direct.setGravity(Gravity.CENTER);
@@ -136,6 +139,8 @@ public final class CustomerAddActivity extends Activity {
 
         SimpleDateFormat formatter = new SimpleDateFormat("M월 d일 a h:mm", Locale.KOREA);
         for (RecentCallItem item : calls) {
+            Customer registered = db.findByPhone(item.number);
+
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
@@ -144,12 +149,17 @@ public final class CustomerAddActivity extends Activity {
             row.setClickable(true);
             row.setFocusable(true);
             row.setOnClickListener(v -> {
-                if (!saving) showRegistrationDialog(item.cachedName, item.number);
+                if (saving) return;
+                Customer existing = db.findByPhone(item.number);
+                if (existing != null) openCustomer(existing.id);
+                else showRegistrationDialog(item.cachedName, item.number);
             });
 
             LinearLayout labels = new LinearLayout(this);
             labels.setOrientation(LinearLayout.VERTICAL);
-            String name = item.cachedName.isEmpty() ? "이름 없음" : item.cachedName;
+            String name = registered != null
+                    ? registered.displayName
+                    : (item.cachedName.isEmpty() ? "이름 없음" : item.cachedName);
             TextView nameView = text(name, 15f, R.color.text_primary, true);
             nameView.setSingleLine(true);
             nameView.setEllipsize(TextUtils.TruncateAt.END);
@@ -163,6 +173,7 @@ public final class CustomerAddActivity extends Activity {
             String meta = callTypeLabel(item.type) + " · "
                     + formatter.format(new Date(item.date)) + " · "
                     + durationLabel(item.durationSec);
+            if (registered != null) meta += " · 등록됨";
             TextView metaView = text(meta, 11f, R.color.text_muted, false);
             metaView.setSingleLine(true);
             metaView.setEllipsize(TextUtils.TruncateAt.END);
@@ -180,9 +191,14 @@ public final class CustomerAddActivity extends Activity {
         }
     }
 
+    /**
+     * Customer-add recent calls intentionally mirrors the device CallLog instead of deduping by
+     * phone number or hiding already-registered CallTag customers. Samsung/Pixel phone apps may
+     * visually group consecutive calls, but every raw CallLog row remains visible here in the same
+     * DATE DESC order so a call made after adding a customer never disappears from this screen.
+     */
     private List<RecentCallItem> loadRecentCalls() {
         List<RecentCallItem> rows = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
         String[] projection = {
                 CallLog.Calls.NUMBER,
                 CallLog.Calls.CACHED_NAME,
@@ -204,14 +220,10 @@ public final class CustomerAddActivity extends Activity {
             int dateIndex = cursor.getColumnIndex(CallLog.Calls.DATE);
             int durationIndex = cursor.getColumnIndex(CallLog.Calls.DURATION);
 
-            int scanned = 0;
-            while (cursor.moveToNext() && rows.size() < 40 && scanned < 160) {
-                scanned++;
+            while (cursor.moveToNext() && rows.size() < 60) {
                 String number = numberIndex >= 0 ? cursor.getString(numberIndex) : "";
                 String normalized = PhoneNumberNormalizer.normalize(number);
-                if (normalized.length() < 8 || seen.contains(normalized)) continue;
-                seen.add(normalized);
-                if (db.findByPhone(number) != null) continue;
+                if (normalized.length() < 8) continue;
 
                 String name = nameIndex >= 0 ? cursor.getString(nameIndex) : "";
                 int type = typeIndex >= 0 ? cursor.getInt(typeIndex) : CallLog.Calls.INCOMING_TYPE;
@@ -251,13 +263,14 @@ public final class CustomerAddActivity extends Activity {
         phoneParams.topMargin = dp(10);
         form.addView(phone, phoneParams);
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("고객 등록")
                 .setView(form)
                 .setNegativeButton("취소", null)
                 .setPositiveButton("등록", null)
                 .create();
         dialog.setOnShowListener(ignored -> {
+            CallTagDialogStyler.apply(dialog);
             Button register = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
             register.setOnClickListener(v -> {
                 if (saving) return;
@@ -319,6 +332,7 @@ public final class CustomerAddActivity extends Activity {
         if (type == CallLog.Calls.OUTGOING_TYPE) return "발신";
         if (type == CallLog.Calls.MISSED_TYPE) return "부재중";
         if (type == CallLog.Calls.REJECTED_TYPE) return "거절";
+        if (type == CallLog.Calls.BLOCKED_TYPE) return "차단";
         return "수신";
     }
 
