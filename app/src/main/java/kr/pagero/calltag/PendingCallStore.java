@@ -103,6 +103,14 @@ public final class PendingCallStore extends SQLiteOpenHelper {
         prune();
     }
 
+    /** Removes only CallTag's local review item. It never deletes the Android system call log. */
+    public boolean deletePending(long callLogId) {
+        if (callLogId <= 0L) return false;
+        int deleted = getWritableDatabase().delete(
+                "pending_calls", "call_log_id=?", new String[]{String.valueOf(callLogId)});
+        return deleted > 0;
+    }
+
     public int markUnansweredHandledByPhone(String phone, long beforeStartedAt) {
         String normalized = PhoneNumberNormalizer.normalize(phone);
         if (normalized.length() < 8) return 0;

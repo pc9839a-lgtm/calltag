@@ -43,7 +43,7 @@ public final class ReferralStateStore {
                 referral.optString("shareUrl", ""));
         boolean isApplied = referral.optBoolean("applied", false);
         String appliedCode = referral.optString("appliedCode", "");
-        int bonusDays = referral.optInt("bonusDays", isApplied ? 5 : 0);
+        int bonusDays = referral.optInt("bonusDays", isApplied ? 7 : 0);
         if (applied != null) {
             isApplied = applied.optBoolean("completed", applied.optBoolean("active", true));
             appliedCode = firstNonEmpty(appliedCode, applied.optString("code", ""));

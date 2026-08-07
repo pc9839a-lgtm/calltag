@@ -39,7 +39,6 @@ public final class HomeTaskEditorActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(getColor(R.color.background));
-        root.setFitsSystemWindows(true);
 
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
@@ -169,13 +168,14 @@ public final class HomeTaskEditorActivity extends Activity {
     }
 
     private void chooseTime(Customer customer, TaskTypeOption type, Calendar selected) {
+        Calendar now = Calendar.getInstance();
         new TimePickerDialog(this, (view, hourOfDay, minute) -> {
             selected.set(Calendar.HOUR_OF_DAY, hourOfDay);
             selected.set(Calendar.MINUTE, minute);
             selected.set(Calendar.SECOND, 0);
             selected.set(Calendar.MILLISECOND, 0);
             save(customer, type, selected.getTimeInMillis());
-        }, 10, 0, false).show();
+        }, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE), false).show();
     }
 
     private void save(Customer customer, TaskTypeOption type, long dueAt) {
@@ -192,13 +192,25 @@ public final class HomeTaskEditorActivity extends Activity {
             long now = System.currentTimeMillis();
             db.insertInteraction(latest.id, "SCHEDULE_CREATE", now, now, 0L,
                     "SCHEDULED", type.name);
-            Toast.makeText(this, "할 일을 등록했습니다.", Toast.LENGTH_SHORT).show();
+            HomeTaskRefreshStore.mark(this);
+            Toast.makeText(this,
+                    isToday(dueAt) ? "오늘 할 일에 등록했습니다." : "일정에 등록했습니다.",
+                    Toast.LENGTH_SHORT).show();
             setResult(RESULT_OK);
             finish();
         } catch (RuntimeException error) {
             saving = false;
             Toast.makeText(this, "할 일을 저장하지 못했습니다.", Toast.LENGTH_LONG).show();
         }
+    }
+
+    private boolean isToday(long value) {
+        Calendar target = Calendar.getInstance();
+        target.setTimeInMillis(value);
+        Calendar today = Calendar.getInstance();
+        return target.get(Calendar.ERA) == today.get(Calendar.ERA)
+                && target.get(Calendar.YEAR) == today.get(Calendar.YEAR)
+                && target.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR);
     }
 
     private TextView text(String value, float size, int color, boolean bold) {

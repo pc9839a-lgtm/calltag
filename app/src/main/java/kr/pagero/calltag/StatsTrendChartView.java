@@ -6,13 +6,15 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.View;
 
-/** 7~30일 통화·페이지로 유입 추이를 보여주는 가벼운 선 차트. */
+/** 7~30일 통화·페이지로 유입 추이를 보여주며 터치한 날짜의 정확한 수치를 표시한다. */
 public final class StatsTrendChartView extends View {
     private String[] labels = new String[0];
     private int[] calls = new int[0];
     private int[] leads = new int[0];
+    private int selectedIndex = -1;
 
     private final Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint axisTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -20,6 +22,9 @@ public final class StatsTrendChartView extends View {
     private final Paint leadsPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pointPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint backgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint selectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint tooltipPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint tooltipTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     public StatsTrendChartView(Context context) {
         super(context);
@@ -38,6 +43,8 @@ public final class StatsTrendChartView extends View {
 
     private void init() {
         setWillNotDraw(false);
+        setClickable(true);
+        setFocusable(true);
         gridPaint.setColor(getContext().getColor(R.color.border));
         gridPaint.setStrokeWidth(dp(1));
 
@@ -58,16 +65,53 @@ public final class StatsTrendChartView extends View {
 
         pointPaint.setStyle(Paint.Style.FILL);
         backgroundPaint.setColor(getContext().getColor(R.color.surface));
+
+        selectionPaint.setColor(getContext().getColor(R.color.text_muted));
+        selectionPaint.setStrokeWidth(dp(1));
+        selectionPaint.setStyle(Paint.Style.STROKE);
+
+        tooltipPaint.setColor(getContext().getColor(R.color.text_primary));
+        tooltipPaint.setStyle(Paint.Style.FILL);
+        tooltipTextPaint.setColor(getContext().getColor(android.R.color.white));
+        tooltipTextPaint.setTextSize(sp(11));
     }
 
     public void setData(String[] labels, int[] calls, int[] leads) {
         this.labels = labels == null ? new String[0] : labels;
         this.calls = calls == null ? new int[0] : calls;
         this.leads = leads == null ? new int[0] : leads;
+        selectedIndex = -1;
         int callTotal = sum(this.calls);
         int leadTotal = sum(this.leads);
-        setContentDescription("일별 통화 추이 " + callTotal + "건, 페이지로 유입 " + leadTotal + "명");
+        setContentDescription("일별 통화 추이 " + callTotal + "건, 페이지로 유입 " + leadTotal + "명. 차트를 누르면 날짜별 수치를 확인할 수 있습니다.");
         invalidate();
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        int count = Math.min(labels.length, Math.min(calls.length, leads.length));
+        if (count == 0) return super.onTouchEvent(event);
+        if (event.getActionMasked() == MotionEvent.ACTION_DOWN
+                || event.getActionMasked() == MotionEvent.ACTION_MOVE
+                || event.getActionMasked() == MotionEvent.ACTION_UP) {
+            float left = dp(34);
+            float right = getWidth() - dp(12);
+            float width = Math.max(1f, right - left);
+            float step = count <= 1 ? width : width / (count - 1f);
+            int index = count <= 1 ? 0 : Math.round((event.getX() - left) / step);
+            selectedIndex = Math.max(0, Math.min(count - 1, index));
+            setContentDescription(detailText(selectedIndex));
+            invalidate();
+            if (event.getActionMasked() == MotionEvent.ACTION_UP) performClick();
+            return true;
+        }
+        return super.onTouchEvent(event);
+    }
+
+    @Override
+    public boolean performClick() {
+        super.performClick();
+        return true;
     }
 
     @Override
@@ -120,6 +164,10 @@ public final class StatsTrendChartView extends View {
             float x = left + step * i;
             canvas.drawText(labels[i], x, height - dp(10), axisTextPaint);
         }
+
+        if (selectedIndex >= 0 && selectedIndex < count) {
+            drawSelection(canvas, selectedIndex, left, top, bottom, step, chartWidth);
+        }
     }
 
     private void drawLegend(Canvas canvas) {
@@ -136,6 +184,30 @@ public final class StatsTrendChartView extends View {
         canvas.drawText("페이지로 유입", dp(92), y, axisTextPaint);
         axisTextPaint.setTextSize(sp(10));
         axisTextPaint.setColor(getContext().getColor(R.color.text_muted));
+    }
+
+    private void drawSelection(Canvas canvas, int index, float left, float top,
+                               float bottom, float step, float chartWidth) {
+        float x = labels.length <= 1 ? left + chartWidth / 2f : left + step * index;
+        canvas.drawLine(x, top, x, bottom, selectionPaint);
+
+        String detail = detailText(index);
+        float paddingX = dp(10);
+        float tooltipWidth = tooltipTextPaint.measureText(detail) + paddingX * 2f;
+        float maxWidth = getWidth() - dp(16);
+        tooltipWidth = Math.min(tooltipWidth, maxWidth);
+        float boxLeft = Math.max(dp(8), Math.min(x - tooltipWidth / 2f, getWidth() - dp(8) - tooltipWidth));
+        RectF box = new RectF(boxLeft, dp(30), boxLeft + tooltipWidth, dp(58));
+        canvas.drawRoundRect(box, dp(8), dp(8), tooltipPaint);
+        tooltipTextPaint.setTextAlign(Paint.Align.CENTER);
+        canvas.drawText(detail, box.centerX(), box.centerY() + dp(4), tooltipTextPaint);
+    }
+
+    private String detailText(int index) {
+        if (index < 0 || index >= labels.length || index >= calls.length || index >= leads.length) {
+            return "";
+        }
+        return labels[index] + " · 통화 " + calls[index] + "건 · 페이지로 " + leads[index] + "명";
     }
 
     private void drawSeries(Canvas canvas, int[] values, int count,

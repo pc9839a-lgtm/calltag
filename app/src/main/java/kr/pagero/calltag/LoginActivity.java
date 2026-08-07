@@ -17,6 +17,7 @@ import android.widget.Toast;
 
 import org.json.JSONObject;
 
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -34,6 +35,7 @@ public final class LoginActivity extends Activity {
     private TextView googleButton;
     private EditText loginEmail;
     private EditText loginPassword;
+    private EditText signupReferral;
     private CheckBox privacyConsent;
     private CheckBox termsConsent;
     private boolean working;
@@ -44,6 +46,7 @@ public final class LoginActivity extends Activity {
         setContentView(R.layout.activity_auth);
         bindViews();
         installGoogleButton();
+        installSignupReferralField();
         bindActions();
         showLogin();
         handleGoogleCallback(getIntent());
@@ -53,6 +56,11 @@ public final class LoginActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        PendingReferralStore.capture(this, intent);
+        if (signupReferral != null && signupReferral.getText().toString().trim().isEmpty()) {
+            String pending = PendingReferralStore.peek(this);
+            if (!pending.isEmpty()) signupReferral.setText(pending);
+        }
         handleGoogleCallback(intent);
     }
 
@@ -84,6 +92,43 @@ public final class LoginActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
         params.topMargin = dp(8);
         form.addView(googleButton, Math.min(3, form.getChildCount()), params);
+    }
+
+    private void installSignupReferralField() {
+        LinearLayout form = (LinearLayout) signupForm;
+        int insertAt = Math.max(0, form.getChildCount() - 2);
+
+        TextView benefit = new TextView(this);
+        benefit.setText("[선택] 추천인 코드 · 입력 시 통합권 7일 추가, 총 14일 무료");
+        benefit.setTextSize(13f);
+        benefit.setTextColor(getColor(R.color.primary));
+        benefit.setGravity(Gravity.CENTER_VERTICAL);
+        benefit.setBackgroundResource(R.drawable.bg_preview);
+        benefit.setPadding(dp(12), dp(10), dp(12), dp(10));
+        LinearLayout.LayoutParams benefitParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+        benefitParams.topMargin = dp(12);
+        form.addView(benefit, insertAt, benefitParams);
+
+        signupReferral = new EditText(this);
+        signupReferral.setSingleLine(true);
+        signupReferral.setHint("[선택] 추천인 코드");
+        signupReferral.setTextSize(15f);
+        signupReferral.setTextColor(getColor(R.color.text_primary));
+        signupReferral.setHintTextColor(getColor(R.color.text_muted));
+        signupReferral.setBackgroundResource(R.drawable.bg_input);
+        signupReferral.setPadding(dp(14), 0, dp(14), 0);
+        signupReferral.setAllCaps(true);
+        signupReferral.setMaxLines(1);
+        signupReferral.setContentDescription("선택 추천인 코드");
+        LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(50));
+        inputParams.topMargin = dp(8);
+        form.addView(signupReferral, insertAt + 1, inputParams);
+
+        String pending = PendingReferralStore.peek(this);
+        if (!pending.isEmpty()) signupReferral.setText(pending);
     }
 
     private void bindActions() {
@@ -237,11 +282,18 @@ public final class LoginActivity extends Activity {
             return;
         }
 
+        String referral = text(signupReferral).toUpperCase(Locale.KOREA)
+                .replaceAll("[^A-Z0-9]", "");
+        if (!referral.isEmpty() && !referral.matches("[A-Z0-9]{4,20}")) {
+            showNotice("추천인 코드를 정확히 입력하거나 비워주세요.", true);
+            return;
+        }
+
         String brandValue = text(brand).isEmpty() ? "개인" : text(brand);
         String industryValue = text(industry).isEmpty() ? "기타" : text(industry);
         runTask(() -> AuthApiClient.register(
                 text(name), text(phone), text(email), text(code),
-                brandValue, industryValue, text(password)), this::acceptAuth);
+                brandValue, industryValue, text(password), referral), this::acceptAuth);
     }
 
     private void requestResetVerification() {
@@ -283,6 +335,12 @@ public final class LoginActivity extends Activity {
     private void acceptAuth(JSONObject response) {
         try {
             AuthSessionStore.save(this, response);
+            if (response.optJSONObject("referral") != null) {
+                PendingReferralStore.clear(this);
+                Toast.makeText(this,
+                        "추천 혜택 적용 · 통합권 총 14일 무료",
+                        Toast.LENGTH_LONG).show();
+            }
             if (response.optJSONObject("pageroConnection") != null
                     || response.optJSONObject("connection") != null) {
                 PageroAccountStatusStore.save(this, response);
@@ -294,6 +352,7 @@ public final class LoginActivity extends Activity {
                 PageroAccountConnectionManager.refresh(this, true);
             }
             CallTagPushManager.registerIfAvailable(this);
+            EntitlementRefreshManager.request(this, true);
 
             Intent destination = SetupRequirements.isReady(this)
                     ? new Intent(this, MainActivity.class)
@@ -338,6 +397,7 @@ public final class LoginActivity extends Activity {
         googleButton.setAlpha(enabled ? 1f : 0.6f);
         privacyConsent.setEnabled(enabled);
         termsConsent.setEnabled(enabled);
+        if (signupReferral != null) signupReferral.setEnabled(enabled);
         findViewById(R.id.btnAuthSignup).setEnabled(enabled);
         findViewById(R.id.btnSignupVerification).setEnabled(enabled);
         findViewById(R.id.btnResetVerification).setEnabled(enabled);
@@ -359,6 +419,9 @@ public final class LoginActivity extends Activity {
             if ("EMAIL_VERIFICATION_REQUIRED".equals(code)) return "이메일 인증이 완료되지 않은 계정입니다.";
             if ("AUTH_ACCOUNT_SUSPENDED".equals(code)) return "사용이 정지된 계정입니다.";
             if ("AUTH_ACCOUNT_DELETED".equals(code)) return "삭제 처리된 계정입니다.";
+            if ("REFERRAL_CODE_NOT_FOUND".equals(code)) return "존재하지 않는 추천인 코드입니다.";
+            if ("SELF_REFERRAL".equals(code)) return "본인 추천인 코드는 등록할 수 없습니다.";
+            if ("REFERRAL_ALREADY_APPLIED".equals(code)) return "이미 추천 혜택이 적용된 계정입니다.";
             if ("GOOGLE_LOGIN_NOT_CONFIGURED".equals(code)) return "Google 로그인 운영 설정이 아직 완료되지 않았습니다.";
             if ("GOOGLE_TICKET_EXPIRED".equals(code)) return "Google 로그인 시간이 만료되었습니다. 다시 시도해주세요.";
             if ("GOOGLE_TICKET_INVALID".equals(code) || "GOOGLE_TICKET_USED".equals(code)) {
@@ -398,7 +461,8 @@ public final class LoginActivity extends Activity {
     }
 
     private String text(EditText editText) {
-        return editText.getText().toString().trim();
+        return editText == null || editText.getText() == null
+                ? "" : editText.getText().toString().trim();
     }
 
     private String clean(String value) {
