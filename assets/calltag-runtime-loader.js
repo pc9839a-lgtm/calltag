@@ -1,6 +1,6 @@
 (()=>{
-  if(document.documentElement.dataset.ctRuntimeLoaderV3)return;
-  document.documentElement.dataset.ctRuntimeLoaderV3='1';
+  if(document.documentElement.dataset.ctRuntimeLoaderV4)return;
+  document.documentElement.dataset.ctRuntimeLoaderV4='1';
 
   const scripts=[
     'calltag-enhance.js?v=20260801-37',
@@ -11,11 +11,10 @@
     'calltag-benefits-flow.js?v=20260804-benefits2',
     'calltag-message-simple.js?v=20260801-37',
     'calltag-final-fix.js?v=20260801-37',
-    'calltag-suite-pricing.js?v=20260801-37',
+    'calltag-suite-pricing.js?v=20260807-suite2',
     'calltag-steady-slider.js?v=20260801-37',
     'calltag-strength-animation.js?v=20260801-37',
-    'calltag-pricing-redesign.js?v=20260801-37',
-    'calltag-pagero-intro.js?v=20260803-intro11',
+    'calltag-pagero-intro.js?v=20260807-inline1',
     'calltag-pagero-reveal-fix.js?v=20260802-reveal3',
     'calltag-pagero-connect-visual.js?v=20260802-connect1',
     'calltag-pagero-start-cta.js?v=20260805-cta3',
