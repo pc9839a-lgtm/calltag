@@ -1,5 +1,6 @@
 package kr.pagero.calltag;
 
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -175,10 +176,37 @@ public final class PendingCallSectionView extends LinearLayout {
         Button reviewButton = actionButton("할 일 등록", false);
         reviewButton.setOnClickListener(v -> openReview(call));
         LayoutParams reviewParams = new LayoutParams(0, dp(46), 1f);
-        reviewParams.leftMargin = dp(8);
+        reviewParams.leftMargin = dp(7);
         actions.addView(reviewButton, reviewParams);
+
+        Button deleteButton = actionButton("삭제", false);
+        deleteButton.setTextColor(getContext().getColor(R.color.danger));
+        deleteButton.setOnClickListener(v -> confirmDelete(call));
+        LayoutParams deleteParams = new LayoutParams(0, dp(46), 0.72f);
+        deleteParams.leftMargin = dp(7);
+        actions.addView(deleteButton, deleteParams);
         card.addView(actions, topMargin(14));
         return card;
+    }
+
+    private void confirmDelete(PendingCallRecord call) {
+        new AlertDialog.Builder(getContext())
+                .setTitle("확인할 통화 삭제")
+                .setMessage("콜태그의 확인할 통화 목록에서만 삭제합니다. 휴대폰 기본 통화기록은 삭제하지 않습니다.")
+                .setNegativeButton("취소", null)
+                .setPositiveButton("삭제", (dialog, which) -> {
+                    try (PendingCallStore store = new PendingCallStore(getContext())) {
+                        if (store.deletePending(call.callLogId)) {
+                            CrashTelemetryStore.record(getContext(), "pending_call", "deleted",
+                                    String.valueOf(call.callLogId));
+                            refresh();
+                        } else {
+                            Toast.makeText(getContext(), "이미 처리된 통화입니다.", Toast.LENGTH_SHORT).show();
+                            refresh();
+                        }
+                    }
+                })
+                .show();
     }
 
     private void openReview(PendingCallRecord call) {
@@ -232,10 +260,10 @@ public final class PendingCallSectionView extends LinearLayout {
         button.setText(label);
         button.setAllCaps(false);
         button.setTextColor(getContext().getColor(R.color.text_primary));
-        button.setTextSize(14f);
+        button.setTextSize(13f);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setMinWidth(0);
-        button.setPadding(dp(8), 0, dp(8), 0);
+        button.setPadding(dp(5), 0, dp(5), 0);
         button.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
         return button;
