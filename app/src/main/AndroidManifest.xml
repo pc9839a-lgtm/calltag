@@ -96,6 +96,8 @@
         </activity>
         <activity android:name=".CustomerAddActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".CustomerDetailActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".CustomerQuickEditActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".HomeTaskEditorActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity
             android:name=".PostCallActivity"
             android:excludeFromRecents="true"
