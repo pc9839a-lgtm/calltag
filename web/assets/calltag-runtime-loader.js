@@ -1,6 +1,6 @@
 (()=>{
-  if(document.documentElement.dataset.ctRuntimeLoaderV1)return;
-  document.documentElement.dataset.ctRuntimeLoaderV1='1';
+  if(document.documentElement.dataset.ctRuntimeLoaderV2)return;
+  document.documentElement.dataset.ctRuntimeLoaderV2='1';
 
   const scripts=[
     'calltag-enhance.js?v=20260801-37',
@@ -15,7 +15,7 @@
     'calltag-steady-slider.js?v=20260801-37',
     'calltag-strength-animation.js?v=20260801-37',
     'calltag-pricing-redesign.js?v=20260801-37',
-    'calltag-pagero-intro-loader.js?v=20260803-intro11',
+    'calltag-pagero-intro.js?v=20260803-intro11',
     'calltag-pagero-reveal-fix.js?v=20260802-reveal3',
     'calltag-pagero-heading-fix.js?v=20260803-heading1',
     'calltag-pagero-connect-visual.js?v=20260802-connect1',
