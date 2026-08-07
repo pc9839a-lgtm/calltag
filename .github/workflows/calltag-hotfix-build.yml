@@ -49,7 +49,7 @@ jobs:
           grep -F 'PostCallRecoveryStore.arm' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
           grep -F 'CallInteractionDeduper.insertOnce' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
           grep -F 'CallDisposition.needsFollowUp' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
-          grep -F 'listRecent' app/src/main/java/kr/pagero/calltag/CallLogRepository.java
+          grep -F 'findRecent' app/src/main/java/kr/pagero/calltag/CallLogRepository.java
           grep -F 'postCallFieldsScroll' app/src/main/res/layout/activity_post_call.xml
           grep -F 'todayWindow()' app/src/main/java/kr/pagero/calltag/MainActivityCardInteractionFix.java
 
