@@ -53,12 +53,52 @@ public final class SetupRequirements {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
+    public static boolean isScreeningRoleAvailable(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false;
+        RoleManager manager = (RoleManager) context.getSystemService(Context.ROLE_SERVICE);
+        return manager != null && manager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING);
+    }
+
     public static boolean hasScreeningRole(Context context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false;
         RoleManager manager = (RoleManager) context.getSystemService(Context.ROLE_SERVICE);
         return manager != null
                 && manager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)
                 && manager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING);
+    }
+
+    /**
+     * Re-checks the user-selected caller-ID role every time the app returns to foreground.
+     * OEM settings can revoke this role without changing CallTag runtime permissions.
+     */
+    public static void refreshScreeningRoleState(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return;
+        boolean available = isScreeningRoleAvailable(context);
+        boolean held = available && hasScreeningRole(context);
+        boolean changed = SettingsStore.updateScreeningRoleState(context, held);
+
+        if (!available) {
+            SettingsStore.setCallerScreeningStatus(context,
+                    "이 기기에서는 발신자 정보 역할을 제공하지 않습니다. 통화 후 고객관리는 계속 사용할 수 있습니다.");
+            return;
+        }
+        if (!held && initialFlowCompleted(context)) {
+            SettingsStore.setCallerScreeningStatus(context,
+                    "발신자 정보 역할이 꺼져 있습니다. 설정에서 다시 켜면 수신 시 고객명·최근 메모를 표시합니다.");
+            if (changed) {
+                CrashTelemetryStore.record(context, "caller_screening_role", "role_lost", "");
+            }
+            return;
+        }
+        if (held && changed) {
+            SettingsStore.setCallerScreeningStatus(context,
+                    "발신자 정보 역할이 다시 켜졌습니다. 수신 고객정보 표시가 준비되었습니다.");
+            CrashTelemetryStore.record(context, "caller_screening_role", "role_restored", "");
+        }
+    }
+
+    public static boolean screeningRoleNeedsAttention(Context context) {
+        return isScreeningRoleAvailable(context) && !hasScreeningRole(context);
     }
 
     public static boolean hasOverlay(Context context) {
