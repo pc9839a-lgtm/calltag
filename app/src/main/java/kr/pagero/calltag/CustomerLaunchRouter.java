@@ -17,7 +17,7 @@ public final class CustomerLaunchRouter {
         Resolved resolved = resolve(context, customerId, fallbackPhone);
         if (resolved == null) {
             CrashTelemetryStore.record(context, source, "customer_resolve_failed",
-                    "id=" + customerId + ",phone=" + safe(fallbackPhone));
+                    "id=" + customerId + ",phone=***" + phoneSuffix(fallbackPhone));
             return openHome(context, source + ":fallback_home");
         }
 
@@ -99,6 +99,12 @@ public final class CustomerLaunchRouter {
                     error.getClass().getSimpleName());
             return false;
         }
+    }
+
+    private static String phoneSuffix(String value) {
+        String digits = PhoneNumberNormalizer.normalize(value);
+        if (digits.length() <= 4) return digits;
+        return digits.substring(digits.length() - 4);
     }
 
     private static String safe(String value) {
