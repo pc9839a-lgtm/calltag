@@ -39,11 +39,18 @@ public final class PostCallActivity extends Activity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        PostCallRecoveryStore.markDelivered(this, callLogId());
+    }
+
+    @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
         bindIntent(intent);
         PostCallLaunchReceipt.markVisible(this);
+        PostCallRecoveryStore.markDelivered(this, callLogId());
         PostCallPopupWindowInstaller.install(this);
         CrashTelemetryStore.record(this, "post_call", "new_intent_visible",
                 "call=" + callLogId());
@@ -121,16 +128,23 @@ public final class PostCallActivity extends Activity {
 
             long startedAt = startedAt();
             long endedAt = Math.max(startedAt, endedAt());
-            db.insertInteraction(customerId, callTypeCode(callType()), startedAt, endedAt,
-                    durationSec(), "MEMO_SAVED", memo);
+            long interactionId = CallInteractionDeduper.insertOnce(
+                    db,
+                    customerId,
+                    CallDisposition.interactionType(callType()),
+                    startedAt,
+                    endedAt,
+                    durationSec(),
+                    "MEMO_SAVED",
+                    memo);
 
             SettingsStore.markCallProcessed(this, callFingerprint);
             markPendingHandledSafely();
 
-            // v0.44.1: never write customer names or memos into the system call log.
-            // CallTag owns the memo and interaction history; system Contacts/CallLog stay unchanged.
+            // v0.44.2: call interaction insertion is idempotent and all memo/history data stays
+            // inside CallTag. System Contacts/CallLog are never modified.
             CrashTelemetryStore.record(this, "post_call_save", "calltag_db_only",
-                    "call=" + callLogId());
+                    "call=" + callLogId() + ",interaction=" + interactionId);
 
             Toast.makeText(this, "고객명과 메모를 저장했습니다.", Toast.LENGTH_SHORT).show();
             finish();
@@ -177,6 +191,8 @@ public final class PostCallActivity extends Activity {
     }
 
     private String buildCallFingerprint() {
+        long callId = callLogId();
+        if (callId > 0L) return "call_log:" + callId;
         return PhoneNumberNormalizer.normalize(phone) + ":" + startedAt() + ":"
                 + durationSec() + ":" + callType();
     }
@@ -203,19 +219,10 @@ public final class PostCallActivity extends Activity {
         return Math.max(0L, getIntent().getLongExtra(EXTRA_DURATION_SEC, 0L));
     }
 
-    private String callTypeCode(int type) {
-        if (type == CallLog.Calls.OUTGOING_TYPE) return "OUTGOING_CALL";
-        if (type == CallLog.Calls.MISSED_TYPE) return "MISSED_CALL";
-        if (type == CallLog.Calls.REJECTED_TYPE) return "REJECTED_CALL";
-        return "INCOMING_CALL";
-    }
-
     private String callTypeLabel(int type, long durationSec) {
-        if (type == CallLog.Calls.OUTGOING_TYPE && durationSec == 0L) return "발신 · 연결 안 됨";
-        if (type == CallLog.Calls.OUTGOING_TYPE) return "발신 통화 종료";
-        if (type == CallLog.Calls.MISSED_TYPE) return "부재중 전화";
-        if (type == CallLog.Calls.REJECTED_TYPE) return "거절한 전화";
-        return "수신 통화 종료";
+        CallRecord record = new CallRecord(callLogId(), phone, "", type,
+                startedAt(), Math.max(0L, durationSec));
+        return CallDisposition.label(record);
     }
 
     private String formatDuration(long seconds) {
