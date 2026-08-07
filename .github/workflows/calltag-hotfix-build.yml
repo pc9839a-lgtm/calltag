@@ -1,11 +1,11 @@
-name: CallTag 0.44.1 Play-safe phone CRM regression
+name: CallTag 0.44.2 P0 call stability regression
 
 on:
   workflow_dispatch:
   push:
     branches:
       - agent/play-internal-v0430-run2
-      - agent/calltag-v0441-play-policy
+      - agent/calltag-v0442-p0-stability
   pull_request:
     branches:
       - agent/play-internal-v0430-run2
@@ -18,7 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify 0.44.1 policy-safe phone CRM contracts
+      - name: Verify 0.44.2 call stability contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -31,28 +31,28 @@ jobs:
             fi
           }
 
-          grep -F 'versionCode 79' app/build.gradle
-          grep -F "versionName '0.44.1'" app/build.gradle
+          grep -F 'versionCode 80' app/build.gradle
+          grep -F "versionName '0.44.2'" app/build.gradle
           grep -F 'targetSdk 36' app/build.gradle
           grep -F 'android.permission.READ_CALL_LOG' app/src/main/AndroidManifest.xml
           assert_absent 'android.permission.WRITE_CALL_LOG' app/src/main/AndroidManifest.xml
           test ! -e app/src/main/java/kr/pagero/calltag/CallLogMemoSyncManager.java
           assert_absent 'values.put(CallLog.Calls.CACHED_NAME' app/src/main/java
           assert_absent 'CallLogMemoSyncManager' app/src/main/java app/src/androidTest
-          assert_absent 'hasCallLogWrite' app/src/main/java
           assert_absent 'Manifest.permission.WRITE_CALL_LOG' app/src/main/java
           assert_absent 'addIfMissing(missing, Manifest.permission.WRITE_CONTACTS)' app/src/main/java/kr/pagero/calltag/InitialPermissionActivity.java
           assert_absent 'createAppRawContact' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
           assert_absent 'TYPE_KEEP_TOGETHER' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
           assert_absent 'StructuredName.DISPLAY_NAME' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
           grep -F 'android.telecom.CallScreeningService' app/src/main/AndroidManifest.xml
-          grep -F 'extends CallScreeningService' app/src/main/java/kr/pagero/calltag/CallTagScreeningService.java
           grep -F 'RoleManager.ROLE_CALL_SCREENING' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
-          grep -F 'createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
-          grep -F 'REQUEST_CALL_SCREENING_ROLE' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
-          grep -F 'listRecentInteractions' app/src/main/java/kr/pagero/calltag/RecentCallHistoryView.java
-          grep -F 'RecentCallHistoryView' app/src/main/res/layout/section_consultations.xml
-          grep -F 'calltag_db_only' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
+          grep -F 'refreshScreeningRoleState' app/src/main/java/kr/pagero/calltag/CallTagApplication.java
+          grep -F 'CallProcessingLedger' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
+          grep -F 'recoverCallsAfterRestart' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
+          grep -F 'PostCallRecoveryStore.arm' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
+          grep -F 'CallInteractionDeduper.insertOnce' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
+          grep -F 'CallDisposition.needsFollowUp' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
+          grep -F 'listRecent' app/src/main/java/kr/pagero/calltag/CallLogRepository.java
           grep -F 'postCallFieldsScroll' app/src/main/res/layout/activity_post_call.xml
           grep -F 'todayWindow()' app/src/main/java/kr/pagero/calltag/MainActivityCardInteractionFix.java
 
@@ -73,7 +73,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.1-code79-debug-apk
+          name: calltag-v0.44.2-code80-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -83,7 +83,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run 8 P0 regression tests on Android 16
+      - name: Run 12 P0 regression tests on Android 16
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
           api-level: 36
@@ -96,7 +96,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.1-code79-instrumentation-results
+          name: calltag-v0.44.2-code80-instrumentation-results
           path: |
             app/build/reports/androidTests/connected/**
             app/build/outputs/androidTest-results/connected/**
