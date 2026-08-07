@@ -35,8 +35,8 @@ public final class CallTagApplication extends Application implements Application
         PageroLeadNotificationManager.ensureChannel(this);
         CallTagSyncWorkScheduler.reconcile(this);
 
-        // v0.44.0 migration: remove only contacts created by older CallTag builds.
-        // No new contact aliases are created after this point.
+        // Upgrade migration only: remove CallTag-owned contacts created by older builds when the
+        // already-installed app still has legacy WRITE_CONTACTS. v0.44.1 never creates aliases.
         ContactNameSyncManager.disableAndRestore(this);
 
         new Thread(() -> {
@@ -46,10 +46,6 @@ public final class CallTagApplication extends Application implements Application
                     DataIntegrityManager.TRIGGER_APP_START);
         }, "calltag-startup-recovery").start();
 
-        if (FeatureEntitlementStore.hasPhoneAccess(this)
-                && CallLogMemoSyncManager.hasPermissions(this)) {
-            CallLogMemoSyncManager.requestSyncAll(this);
-        }
         if (AuthSessionStore.hasSession(this)) {
             ReferralAutoApplyManager.applyIfNeeded(this);
             EntitlementRefreshManager.request(this, true);
@@ -148,11 +144,7 @@ public final class CallTagApplication extends Application implements Application
 
     @Override
     public void onActivityPaused(Activity activity) {
-        // Detail edit has several save paths; refresh call-log aliases when leaving that screen.
-        if (activity instanceof CustomerDetailActivity
-                && FeatureEntitlementStore.hasPhoneAccess(activity)) {
-            CallLogMemoSyncManager.requestSyncAll(activity);
-        }
+        // No system Contacts/CallLog writes are triggered from lifecycle callbacks.
     }
 
     @Override
