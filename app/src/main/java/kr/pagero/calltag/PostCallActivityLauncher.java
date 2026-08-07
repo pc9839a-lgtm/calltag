@@ -5,6 +5,7 @@ import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.os.Bundle;
 
 /** Opens the post-call screen and verifies that Android actually displayed it. */
 public final class PostCallActivityLauncher {
@@ -38,17 +39,18 @@ public final class PostCallActivityLauncher {
         CrashTelemetryStore.record(context, "post_call_launcher", "attempt", "call=" + callId);
 
         int requestCode = (int) (callId & 0x7fffffff);
-        PendingIntent pending = PendingIntent.getActivity(
-                context,
-                requestCode,
-                target,
-                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent pending = createActivityPendingIntent(context, requestCode, target);
         boolean accepted = false;
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 ActivityOptions options = ActivityOptions.makeBasic();
-                options.setPendingIntentBackgroundActivityStartMode(
-                        ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
+                if (Build.VERSION.SDK_INT >= 36) {
+                    options.setPendingIntentBackgroundActivityStartMode(
+                            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS);
+                } else {
+                    options.setPendingIntentBackgroundActivityStartMode(
+                            ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
+                }
                 pending.send(context, 0, null, null, null, null, options.toBundle());
             } else {
                 pending.send();
@@ -75,6 +77,28 @@ public final class PostCallActivityLauncher {
         lastLaunchAt = now;
         PostCallDeliveryGuard.schedule(context, target);
         return accepted;
+    }
+
+    private static PendingIntent createActivityPendingIntent(Context context, int requestCode,
+                                                              Intent target) {
+        int flags = PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            return PendingIntent.getActivity(context, requestCode, target, flags);
+        }
+
+        // Android 14+ requires the PendingIntent creator as well as the sender to opt in to
+        // background Activity starts. Android 16 adds ALLOW_ALWAYS; without this creator-side
+        // option, a post-call popup request can be accepted but silently never reach onResume().
+        ActivityOptions creator = ActivityOptions.makeBasic();
+        if (Build.VERSION.SDK_INT >= 36) {
+            creator.setPendingIntentCreatorBackgroundActivityStartMode(
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS);
+        } else {
+            creator.setPendingIntentCreatorBackgroundActivityStartMode(
+                    ActivityOptions.MODE_BACKGROUND_ACTIVITY_START_ALLOWED);
+        }
+        Bundle options = creator.toBundle();
+        return PendingIntent.getActivity(context, requestCode, target, flags, options);
     }
 
     public static Intent prepareTarget(Intent source) {
