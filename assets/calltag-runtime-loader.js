@@ -1,6 +1,6 @@
 (()=>{
-  if(document.documentElement.dataset.ctRuntimeLoaderV2)return;
-  document.documentElement.dataset.ctRuntimeLoaderV2='1';
+  if(document.documentElement.dataset.ctRuntimeLoaderV3)return;
+  document.documentElement.dataset.ctRuntimeLoaderV3='1';
 
   const scripts=[
     'calltag-enhance.js?v=20260801-37',
@@ -17,7 +17,6 @@
     'calltag-pricing-redesign.js?v=20260801-37',
     'calltag-pagero-intro.js?v=20260803-intro11',
     'calltag-pagero-reveal-fix.js?v=20260802-reveal3',
-    'calltag-pagero-heading-fix.js?v=20260803-heading1',
     'calltag-pagero-connect-visual.js?v=20260802-connect1',
     'calltag-pagero-start-cta.js?v=20260805-cta3',
     'calltag-pagero-industries.js?v=20260802-industries2',
@@ -29,17 +28,14 @@
     'calltag-horizontal-guard.js?v=20260803-pin4',
     'calltag-industry-visual-v5.js?v=20260803-v5',
     'calltag-horizontal-impact.js?v=20260803-impact2',
-    'calltag-feature-copy-exact.js?v=20260803-copy3',
     'calltag-section-motion.js?v=20260803-motion2',
     'calltag-site-final-cleanup.js?v=20260804-footer2',
     'calltag-horizontal-live-fix.js?v=20260803-live1',
     'calltag-mobile-clean-v2.js?v=20260804-clean3',
     'calltag-mobile-history-fix.js?v=20260804-history1',
     'calltag-footer-links-v3.js?v=20260804-links5',
-    'calltag-section-order.js?v=20260805-order9',
+    'calltag-section-order.js?v=20260807-coord3',
     'calltag-seo-runtime.js?v=20260805-seo1',
-    'calltag-copy-hard-fix.js?v=20260803-hard1',
-    'calltag-story-order-hard-fix.js?v=20260805-pin1',
     'calltag-pagero-light-chapter.js?v=20260805-light2'
   ];
 
