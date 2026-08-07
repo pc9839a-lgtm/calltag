@@ -1,4 +1,5 @@
 name: CallTag 0.44.1 signed Play build
+# Artifact-only workflow. This branch is never merged into the product branch.
 
 on:
   workflow_dispatch:
