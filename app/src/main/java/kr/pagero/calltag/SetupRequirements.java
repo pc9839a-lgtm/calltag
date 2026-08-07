@@ -20,6 +20,7 @@ public final class SetupRequirements {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
+    /** Legacy migration permission only. It is no longer required for normal CallTag use. */
     public static boolean hasContactWrite(Context context) {
         return context.checkSelfPermission(Manifest.permission.WRITE_CONTACTS)
                 == PackageManager.PERMISSION_GRANTED;
@@ -38,6 +39,12 @@ public final class SetupRequirements {
 
     public static boolean hasCallLog(Context context) {
         return context.checkSelfPermission(Manifest.permission.READ_CALL_LOG)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    /** Feature permission for writing memo text into the recent-call cache. */
+    public static boolean hasCallLogWrite(Context context) {
+        return context.checkSelfPermission(Manifest.permission.WRITE_CALL_LOG)
                 == PackageManager.PERMISSION_GRANTED;
     }
 
@@ -69,16 +76,18 @@ public final class SetupRequirements {
                 context, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
     }
 
-    /** 연락처 이름 동기화가 주 기능이며 상세 오버레이는 선택 기능이다. */
+    /** Base phone CRM readiness. Contact write and call-log write are feature-specific gates. */
     public static boolean baseReady(Context context) {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                && hasRequiredRuntimePermissions(context)
-                && SettingsStore.isContactNameSyncEnabled(context);
+                && hasRequiredRuntimePermissions(context);
     }
 
+    /**
+     * WRITE_CALL_LOG is intentionally not a global startup gate. Android treats it as a hard
+     * restricted permission, so denial must not trap the user in setup or break the rest of CRM.
+     */
     public static boolean hasRequiredRuntimePermissions(Context context) {
         if (!hasContacts(context)
-                || !hasContactWrite(context)
                 || !hasPhoneState(context)
                 || !hasPhoneNumbers(context)
                 || !hasCallLog(context)
@@ -118,8 +127,7 @@ public final class SetupRequirements {
 
     public static boolean isReady(Context context) {
         return initialFlowCompleted(context)
-                && hasRequiredRuntimePermissions(context)
-                && SettingsStore.isContactNameSyncEnabled(context);
+                && hasRequiredRuntimePermissions(context);
     }
 
     public static Intent requiredSetupIntent(Context context) {

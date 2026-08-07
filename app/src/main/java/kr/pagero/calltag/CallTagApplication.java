@@ -8,7 +8,7 @@ import android.os.Handler;
 import android.os.Looper;
 
 public final class CallTagApplication extends Application implements Application.ActivityLifecycleCallbacks {
-    private static final long CONTACT_SYNC_INTERVAL_MS = 5_000L;
+    private static final long FOREGROUND_TICK_MS = 5_000L;
     private static final long PAGERO_FALLBACK_SYNC_INTERVAL_MS = 30_000L;
     private static final long PAGERO_REALTIME_SAFETY_INTERVAL_MS = 5L * 60L * 1000L;
 
@@ -17,12 +17,8 @@ public final class CallTagApplication extends Application implements Application
         @Override
         public void run() {
             if (startedActivities <= 0) return;
-            if (FeatureEntitlementStore.hasPhoneAccess(CallTagApplication.this)
-                    && SettingsStore.isContactNameSyncEnabled(CallTagApplication.this)) {
-                ContactNameSyncManager.requestSyncAll(CallTagApplication.this);
-            }
             maybeSyncPageroLeads();
-            handler.postDelayed(this, CONTACT_SYNC_INTERVAL_MS);
+            handler.postDelayed(this, FOREGROUND_TICK_MS);
         }
     };
 
@@ -39,6 +35,10 @@ public final class CallTagApplication extends Application implements Application
         PageroLeadNotificationManager.ensureChannel(this);
         CallTagSyncWorkScheduler.reconcile(this);
 
+        // v0.44.0 migration: remove only contacts created by older CallTag builds.
+        // No new contact aliases are created after this point.
+        ContactNameSyncManager.disableAndRestore(this);
+
         new Thread(() -> {
             MessageRecoveryManager.recoverNow(this,
                     MessageRecoveryManager.TRIGGER_APP_START);
@@ -46,8 +46,9 @@ public final class CallTagApplication extends Application implements Application
                     DataIntegrityManager.TRIGGER_APP_START);
         }, "calltag-startup-recovery").start();
 
-        if (FeatureEntitlementStore.hasPhoneAccess(this)) {
-            ContactNameSyncManager.requestSyncAll(this);
+        if (FeatureEntitlementStore.hasPhoneAccess(this)
+                && CallLogMemoSyncManager.hasPermissions(this)) {
+            CallLogMemoSyncManager.requestSyncAll(this);
         }
         if (AuthSessionStore.hasSession(this)) {
             ReferralAutoApplyManager.applyIfNeeded(this);
@@ -122,9 +123,6 @@ public final class CallTagApplication extends Application implements Application
         PageroLeadSyncManager.requestSync(activity);
         if (SetupRequirements.isReady(activity)) {
             SetupRequirements.startCallMonitoring(activity);
-            if (FeatureEntitlementStore.hasPhoneAccess(activity)) {
-                ContactNameSyncManager.requestSyncAll(activity);
-            }
             return;
         }
 
@@ -150,8 +148,10 @@ public final class CallTagApplication extends Application implements Application
 
     @Override
     public void onActivityPaused(Activity activity) {
-        if (FeatureEntitlementStore.hasPhoneAccess(activity)) {
-            ContactNameSyncManager.requestSyncAll(activity);
+        // Detail edit has several save paths; refresh call-log aliases when leaving that screen.
+        if (activity instanceof CustomerDetailActivity
+                && FeatureEntitlementStore.hasPhoneAccess(activity)) {
+            CallLogMemoSyncManager.requestSyncAll(activity);
         }
     }
 
@@ -160,9 +160,6 @@ public final class CallTagApplication extends Application implements Application
         startedActivities = Math.max(0, startedActivities - 1);
         if (startedActivities == 0) {
             handler.removeCallbacks(periodicForegroundWork);
-            if (FeatureEntitlementStore.hasPhoneAccess(this)) {
-                ContactNameSyncManager.requestSyncAll(this);
-            }
             CallTagSyncWorkScheduler.enqueueImmediate(this, "app_background");
         }
     }

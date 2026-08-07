@@ -14,11 +14,12 @@ import android.widget.Toast;
 import java.util.ArrayList;
 import java.util.List;
 
-/** 사용자에게 필요한 전화 화면 메모 설정만 노출한다. */
+/** 사용자에게 필요한 통화목록 메모 설정만 노출한다. */
 public final class CallerIdSetupActivity extends Activity {
     public static final String EXTRA_REQUIRED_SETUP = "required_setup";
 
     private static final int REQUEST_RUNTIME_PERMISSIONS = 7301;
+    private static final int REQUEST_CALL_LOG_WRITE = 7302;
 
     private TextView status;
     private TextView title;
@@ -44,11 +45,11 @@ public final class CallerIdSetupActivity extends Activity {
         back.setVisibility(requiredSetup ? View.GONE : View.VISIBLE);
         back.setOnClickListener(v -> finish());
         action.setOnClickListener(v -> beginSetup());
-        contactSyncToggle.setOnClickListener(v -> toggleContactNameSync());
+        contactSyncToggle.setOnClickListener(v -> requestCallLogWritePermission());
 
         if (requiredSetup) {
-            title.setText("전화 화면 메모 설정");
-            intro.setText("전화가 오기 전에\n고객명과 최근 메모를 준비합니다.");
+            title.setText("통화목록 메모 설정");
+            intro.setText("연락처는 그대로 두고\n최근 통화목록에 메모를 표시합니다.");
         }
         render();
     }
@@ -66,21 +67,17 @@ public final class CallerIdSetupActivity extends Activity {
             return;
         }
 
-        List<String> missing = missingRuntimePermissions();
+        List<String> missing = missingCoreRuntimePermissions();
         if (!missing.isEmpty()) {
             requestPermissions(missing.toArray(new String[0]), REQUEST_RUNTIME_PERMISSIONS);
             return;
         }
-        if (!SettingsStore.isContactNameSyncEnabled(this)) {
-            ContactNameSyncManager.enable(this);
-        }
         finishSetup();
     }
 
-    private List<String> missingRuntimePermissions() {
+    private List<String> missingCoreRuntimePermissions() {
         List<String> missing = new ArrayList<>();
         if (!SetupRequirements.hasContacts(this)) missing.add(Manifest.permission.READ_CONTACTS);
-        if (!SetupRequirements.hasContactWrite(this)) missing.add(Manifest.permission.WRITE_CONTACTS);
         if (!SetupRequirements.hasPhoneState(this)) missing.add(Manifest.permission.READ_PHONE_STATE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 && !SetupRequirements.hasPhoneNumbers(this)) {
@@ -97,48 +94,46 @@ public final class CallerIdSetupActivity extends Activity {
         return missing;
     }
 
+    private void requestCallLogWritePermission() {
+        if (SetupRequirements.hasCallLogWrite(this)) {
+            CallLogMemoSyncManager.requestSyncAll(this);
+            Toast.makeText(this, "통화목록 메모가 이미 허용되어 있습니다.", Toast.LENGTH_SHORT).show();
+            render();
+            return;
+        }
+        requestPermissions(new String[]{Manifest.permission.WRITE_CALL_LOG}, REQUEST_CALL_LOG_WRITE);
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQUEST_RUNTIME_PERMISSIONS) return;
-        if (missingRuntimePermissions().isEmpty()) {
-            beginSetup();
-        } else {
-            Toast.makeText(this,
-                    "전화 화면 메모에 필요한 권한을 모두 허용해주세요.",
-                    Toast.LENGTH_LONG).show();
-            render();
-        }
-    }
-
-    private void toggleContactNameSync() {
-        if (!ContactNameSyncManager.hasPermissions(this)) {
-            beginSetup();
+        if (requestCode == REQUEST_RUNTIME_PERMISSIONS) {
+            if (missingCoreRuntimePermissions().isEmpty()) {
+                finishSetup();
+            } else {
+                Toast.makeText(this,
+                        "전화 고객관리에 필요한 권한을 모두 허용해주세요.",
+                        Toast.LENGTH_LONG).show();
+                render();
+            }
             return;
         }
-        if (!SettingsStore.isContactNameSyncEnabled(this)) {
-            ContactNameSyncManager.enable(this);
-            Toast.makeText(this, "전화 화면 메모를 켰습니다.", Toast.LENGTH_SHORT).show();
+        if (requestCode == REQUEST_CALL_LOG_WRITE) {
+            if (SetupRequirements.hasCallLogWrite(this)) {
+                CallLogMemoSyncManager.requestSyncAll(this);
+                Toast.makeText(this, "통화목록 메모를 켰습니다.", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this,
+                        "통화목록 메모 권한이 허용되지 않았습니다. 다른 고객관리 기능은 그대로 사용할 수 있습니다.",
+                        Toast.LENGTH_LONG).show();
+            }
             render();
-            return;
         }
-
-        new AlertDialog.Builder(this)
-                .setTitle("전화 화면 메모 끄기")
-                .setMessage("콜태그가 만든 연락처만 삭제합니다. 기존 Google·삼성 연락처는 그대로 유지됩니다.")
-                .setNegativeButton("취소", null)
-                .setPositiveButton("끄기", (dialog, which) -> {
-                    ContactNameSyncManager.disableAndRestore(this);
-                    SetupRequirements.clearInitialFlow(this);
-                    Toast.makeText(this, "원래 연락처 표시로 복원하고 있습니다.", Toast.LENGTH_LONG).show();
-                    render();
-                })
-                .show();
     }
 
     private void render() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            status.setText("이 기기에서는 전화 화면 메모를 사용할 수 없습니다.");
+            status.setText("이 기기에서는 통화목록 메모를 사용할 수 없습니다.");
             action.setEnabled(false);
             action.setAlpha(0.5f);
             action.setText("지원되지 않는 기기");
@@ -146,33 +141,33 @@ public final class CallerIdSetupActivity extends Activity {
             return;
         }
 
-        boolean contactsReady = SetupRequirements.hasContacts(this)
-                && SetupRequirements.hasContactWrite(this);
-        boolean callReady = SetupRequirements.hasPhoneState(this)
-                && SetupRequirements.hasPhoneNumbers(this)
-                && SetupRequirements.hasCallLog(this);
-        boolean notificationReady = SetupRequirements.hasNotifications(this);
-        boolean smsReady = !FeatureEntitlementStore.hasMessageAccess(this)
-                || SetupRequirements.hasSms(this);
-        boolean nameSync = SettingsStore.isContactNameSyncEnabled(this);
-        boolean runtimeReady = contactsReady && callReady && notificationReady && smsReady;
-        boolean complete = runtimeReady && nameSync;
+        boolean coreReady = SetupRequirements.hasRequiredRuntimePermissions(this);
+        boolean callLogMemoReady = SetupRequirements.hasCallLogWrite(this);
 
-        status.setText(complete
-                ? "전화 화면 메모가 준비되었습니다.\n고객 정보가 바뀌면 자동으로 반영됩니다."
-                : "설정을 완료하면 전화가 올 때\n고객명과 최근 메모를 바로 확인할 수 있습니다.");
+        if (!coreReady) {
+            status.setText("설정을 완료하면 통화 후 고객관리 기능을 사용할 수 있습니다.");
+            action.setText("필수 권한 허용하고 시작");
+            contactSyncToggle.setVisibility(View.GONE);
+        } else if (callLogMemoReady) {
+            status.setText("통화목록 메모가 준비되었습니다.\n연락처 이름은 변경하지 않습니다.");
+            action.setText("앱 시작");
+            contactSyncToggle.setVisibility(View.GONE);
+        } else {
+            status.setText("고객관리 기능은 사용할 수 있습니다.\n통화목록에 메모를 표시하려면 아래 권한을 추가로 허용해주세요.");
+            action.setText("앱 시작");
+            contactSyncToggle.setVisibility(View.VISIBLE);
+            contactSyncToggle.setText("통화목록 메모 권한 허용");
+        }
 
         action.setEnabled(true);
         action.setAlpha(1f);
-        action.setText(complete ? "앱 시작" : "필수 권한 허용하고 시작");
-
-        contactSyncToggle.setVisibility(runtimeReady ? View.VISIBLE : View.GONE);
-        contactSyncToggle.setEnabled(contactsReady);
-        contactSyncToggle.setText(nameSync ? "전화 화면 메모 끄기" : "전화 화면 메모 켜기");
     }
 
     private void finishSetup() {
-        ContactNameSyncManager.requestSyncAll(this);
+        ContactNameSyncManager.disableAndRestore(this);
+        if (SetupRequirements.hasCallLogWrite(this)) {
+            CallLogMemoSyncManager.requestSyncAll(this);
+        }
         SetupRequirements.markInitialFlowCompleted(this);
         SetupRequirements.startCallMonitoring(this);
         startActivity(new Intent(this, MainActivity.class)
@@ -188,7 +183,7 @@ public final class CallerIdSetupActivity extends Activity {
         }
         new AlertDialog.Builder(this)
                 .setTitle("설정을 마치지 않고 나갈까요?")
-                .setMessage("전화 화면 메모를 사용하려면 필수 설정을 완료해야 합니다.")
+                .setMessage("필수 전화 고객관리 설정을 완료해야 합니다.")
                 .setNegativeButton("계속 설정", null)
                 .setPositiveButton("나가기", (dialog, which) -> moveTaskToBack(true))
                 .show();

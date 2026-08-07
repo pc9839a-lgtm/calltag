@@ -132,7 +132,11 @@ public final class PostCallActivity extends Activity {
             // a cleanup failure must not tell the user the already-committed memo failed to save.
             SettingsStore.markCallProcessed(this, callFingerprint);
             markPendingHandledSafely();
-            ContactNameSyncManager.requestSyncAll(this);
+
+            // Only the call-log row cache is changed. ContactsContract is intentionally untouched.
+            CallLogMemoSyncManager.requestSyncForCall(
+                    this, callLogId(), phone, name, memo);
+
             Toast.makeText(this, "고객명과 메모를 저장했습니다.", Toast.LENGTH_SHORT).show();
             finish();
         } catch (IllegalArgumentException error) {
