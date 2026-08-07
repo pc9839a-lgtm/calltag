@@ -42,6 +42,7 @@ public final class SetupRequirements {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
+    /** Feature permission for writing memo text into the recent-call cache. */
     public static boolean hasCallLogWrite(Context context) {
         return context.checkSelfPermission(Manifest.permission.WRITE_CALL_LOG)
                 == PackageManager.PERMISSION_GRANTED;
@@ -75,18 +76,21 @@ public final class SetupRequirements {
                 context, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
     }
 
-    /** Base phone CRM readiness. Contact write/sync is intentionally not part of the gate. */
+    /** Base phone CRM readiness. Contact write and call-log write are feature-specific gates. */
     public static boolean baseReady(Context context) {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                 && hasRequiredRuntimePermissions(context);
     }
 
+    /**
+     * WRITE_CALL_LOG is intentionally not a global startup gate. Android treats it as a hard
+     * restricted permission, so denial must not trap the user in setup or break the rest of CRM.
+     */
     public static boolean hasRequiredRuntimePermissions(Context context) {
         if (!hasContacts(context)
                 || !hasPhoneState(context)
                 || !hasPhoneNumbers(context)
                 || !hasCallLog(context)
-                || !hasCallLogWrite(context)
                 || !hasNotifications(context)) {
             return false;
         }
