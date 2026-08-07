@@ -34,8 +34,11 @@ public final class CallInteractionDeduper {
             long startedAt,
             long endedAt,
             long durationSec) {
+        // All call interactions written by PostCallActivity contain ended_at. Compare the actual
+        // INTEGER column directly so SQLite applies its column affinity to string-bound args.
+        // COALESCE(ended_at,0)=? has expression affinity and can compare INTEGER vs TEXT unequal.
         String sql = "SELECT id FROM interactions WHERE customer_id=? AND type=? "
-                + "AND started_at=? AND COALESCE(ended_at,0)=? AND duration_sec=? "
+                + "AND started_at=? AND ended_at=? AND duration_sec=? "
                 + "ORDER BY id DESC LIMIT 1";
         String[] args = {
                 String.valueOf(customerId),
