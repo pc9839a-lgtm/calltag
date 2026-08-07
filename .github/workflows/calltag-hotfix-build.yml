@@ -1,11 +1,13 @@
 name: CallTag 0.44.2 P0 call stability regression
-# Isolated PR validation for code80 before product-branch merge.
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - agent/play-internal-v0430-run2
   pull_request:
     branches:
-      - agent/calltag-v0442-p0-stability
+      - agent/play-internal-v0430-run2
 
 jobs:
   android-build:
