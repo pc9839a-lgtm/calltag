@@ -1,6 +1,7 @@
 package kr.pagero.calltag;
 
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.TextView;
@@ -38,8 +39,8 @@ public final class QuickCustomerMessageView extends TextView {
     }
 
     private void openCustomerMessages() {
-        if (!(getContext() instanceof MainActivity)) return;
-        MainActivity activity = (MainActivity) getContext();
+        MainActivity activity = activity();
+        if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
         if (!UiLaunchGuard.tryAcquire("home_customer_messages", 500L)) return;
         MainSectionRouter.showCustomers(activity);
         post(() -> {
@@ -49,5 +50,16 @@ public final class QuickCustomerMessageView extends TextView {
                 CrashTelemetryStore.record(activity, "home_customer_messages", "shown", "");
             }
         });
+    }
+
+    private MainActivity activity() {
+        Context current = getContext();
+        while (current instanceof ContextWrapper) {
+            if (current instanceof MainActivity) return (MainActivity) current;
+            Context base = ((ContextWrapper) current).getBaseContext();
+            if (base == current) break;
+            current = base;
+        }
+        return current instanceof MainActivity ? (MainActivity) current : null;
     }
 }
