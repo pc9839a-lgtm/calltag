@@ -199,8 +199,8 @@ public final class CustomerQuickEditActivity extends Activity {
         setSaving(true);
         try {
             db.updateCustomerProfile(latest.id, name, status, memo);
-            CallLogMemoSyncManager.requestSyncForCustomer(
-                    this, latest.primaryPhone, name, memo);
+            CrashTelemetryStore.record(this, "customer_quick_edit", "calltag_db_only",
+                    "customer=" + latest.id);
             Toast.makeText(this, "고객 정보를 수정했습니다.", Toast.LENGTH_SHORT).show();
             setResult(RESULT_OK);
             finish();

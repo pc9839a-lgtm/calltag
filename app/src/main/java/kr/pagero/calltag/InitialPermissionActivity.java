@@ -54,7 +54,7 @@ public final class InitialPermissionActivity extends Activity {
         root.setBackgroundColor(getColor(R.color.background));
 
         TextView title = new TextView(this);
-        title.setText("통화목록 메모 설정");
+        title.setText("전화 고객관리 설정");
         title.setTextColor(getColor(R.color.text_primary));
         title.setTextSize(23f);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -62,7 +62,7 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(title, wrap());
 
         detail = new TextView(this);
-        detail.setText("연락처 이름은 그대로 두고 최근 통화목록에 고객명과 최근 메모를 표시하기 위해 통화기록 권한이 필요합니다.");
+        detail.setText("연락처 이름은 변경하지 않습니다. 통화 감지와 고객 확인, 통화 후 메모 저장에 필요한 권한만 사용합니다.");
         detail.setTextColor(getColor(R.color.text_secondary));
         detail.setTextSize(14f);
         detail.setGravity(Gravity.CENTER);
@@ -79,7 +79,7 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(settingsButton, fixedTop(50, 9));
 
         TextView note = new TextView(this);
-        note.setText("연락처 수정 권한은 새로 요청하지 않습니다. 통화목록 표시, 고객 확인, 통화 후 정리와 문자 기능에만 사용합니다.");
+        note.setText("연락처 수정 권한과 통화기록 쓰기 권한은 새로 요청하지 않습니다. 통화기록은 읽기 전용으로 고객 이력 연결에만 사용합니다.");
         note.setTextColor(getColor(R.color.text_muted));
         note.setTextSize(12f);
         note.setGravity(Gravity.CENTER);
@@ -125,7 +125,6 @@ public final class InitialPermissionActivity extends Activity {
             addIfMissing(missing, Manifest.permission.READ_PHONE_NUMBERS);
         }
         addIfMissing(missing, Manifest.permission.READ_CALL_LOG);
-        addIfMissing(missing, Manifest.permission.WRITE_CALL_LOG);
         if (FeatureEntitlementStore.hasMessageAccess(this)) {
             addIfMissing(missing, Manifest.permission.SEND_SMS);
         }
@@ -168,7 +167,6 @@ public final class InitialPermissionActivity extends Activity {
         if (!SetupRequirements.hasPhoneState(this)) labels.add("전화 수신 확인");
         if (!SetupRequirements.hasPhoneNumbers(this)) labels.add("전화번호 확인");
         if (!SetupRequirements.hasCallLog(this)) labels.add("통화기록 보기");
-        if (!SetupRequirements.hasCallLogWrite(this)) labels.add("통화목록 메모 표시");
         if (FeatureEntitlementStore.hasMessageAccess(this) && !SetupRequirements.hasSms(this)) {
             labels.add("문자 보내기");
         }
@@ -191,12 +189,12 @@ public final class InitialPermissionActivity extends Activity {
         completing = true;
         requestButton.setEnabled(false);
         requestButton.setAlpha(0.6f);
-        requestButton.setText("통화목록 메모 준비 중…");
-        detail.setText("연락처는 그대로 유지하고 최근 통화목록 표시만 준비하고 있어요.");
+        requestButton.setText("전화 고객관리 준비 중…");
+        detail.setText("연락처는 그대로 유지하고 콜태그 고객관리 기능을 준비하고 있어요.");
 
         new Thread(() -> {
-            // Remove only contacts created by older CallTag builds when legacy WRITE_CONTACTS
-            // permission is still available. No new contact rows are ever created.
+            // Upgrade migration only: remove legacy CallTag-owned contact rows when an older
+            // installation had already granted WRITE_CONTACTS. New installs never request it.
             ContactNameSyncManager.disableAndRestore(this);
             runOnUiThread(() -> {
                 SetupRequirements.startCallMonitoring(this);
@@ -207,7 +205,7 @@ public final class InitialPermissionActivity extends Activity {
                         .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
                 finish();
             });
-        }, "calltag-call-log-setup").start();
+        }, "calltag-phone-setup").start();
     }
 
     @Override

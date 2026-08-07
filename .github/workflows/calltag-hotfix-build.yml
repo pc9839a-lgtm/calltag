@@ -1,11 +1,11 @@
-name: CallTag 0.44.0 call-log memo regression
+name: CallTag 0.44.1 Play-safe phone CRM regression
 
 on:
   workflow_dispatch:
   push:
     branches:
       - agent/play-internal-v0430-run2
-      - agent/calltag-v0440-calllog-memo
+      - agent/calltag-v0441-play-policy
   pull_request:
     branches:
       - agent/play-internal-v0430-run2
@@ -18,29 +18,43 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify 0.44.0 call-log-only memo contracts
+      - name: Verify 0.44.1 policy-safe phone CRM contracts
         shell: bash
         run: |
           set -euo pipefail
-          grep -F 'versionCode 78' app/build.gradle
-          grep -F "versionName '0.44.0'" app/build.gradle
+          assert_absent() {
+            local pattern="$1"
+            shift
+            if grep -R -F -- "$pattern" "$@"; then
+              echo "::error::Forbidden pattern found: $pattern"
+              exit 1
+            fi
+          }
+
+          grep -F 'versionCode 79' app/build.gradle
+          grep -F "versionName '0.44.1'" app/build.gradle
           grep -F 'targetSdk 36' app/build.gradle
-          grep -F 'android.permission.WRITE_CALL_LOG' app/src/main/AndroidManifest.xml
-          grep -F 'CallLog.Calls.CACHED_NAME' app/src/main/java/kr/pagero/calltag/CallLogMemoSyncManager.java
-          grep -F 'requestSyncForCall' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
-          grep -F 'requestSyncForCustomer' app/src/main/java/kr/pagero/calltag/CustomerQuickEditActivity.java
-          grep -F 'addIfMissing(missing, Manifest.permission.WRITE_CALL_LOG)' app/src/main/java/kr/pagero/calltag/InitialPermissionActivity.java
-          ! grep -F 'addIfMissing(missing, Manifest.permission.WRITE_CONTACTS)' app/src/main/java/kr/pagero/calltag/InitialPermissionActivity.java
-          ! grep -F 'createAppRawContact' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
-          ! grep -F 'TYPE_KEEP_TOGETHER' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
-          ! grep -F 'StructuredName.DISPLAY_NAME' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
-          grep -F 'setPendingIntentCreatorBackgroundActivityStartMode' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
-          grep -F 'MODE_BACKGROUND_ACTIVITY_START_ALLOW_ALWAYS' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
-          grep -F 'new_intent_visible' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
-          grep -F 'markPendingHandledSafely' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
+          grep -F 'android.permission.READ_CALL_LOG' app/src/main/AndroidManifest.xml
+          assert_absent 'android.permission.WRITE_CALL_LOG' app/src/main/AndroidManifest.xml
+          test ! -e app/src/main/java/kr/pagero/calltag/CallLogMemoSyncManager.java
+          assert_absent 'values.put(CallLog.Calls.CACHED_NAME' app/src/main/java
+          assert_absent 'CallLogMemoSyncManager' app/src/main/java app/src/androidTest
+          assert_absent 'hasCallLogWrite' app/src/main/java
+          assert_absent 'Manifest.permission.WRITE_CALL_LOG' app/src/main/java
+          assert_absent 'addIfMissing(missing, Manifest.permission.WRITE_CONTACTS)' app/src/main/java/kr/pagero/calltag/InitialPermissionActivity.java
+          assert_absent 'createAppRawContact' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
+          assert_absent 'TYPE_KEEP_TOGETHER' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
+          assert_absent 'StructuredName.DISPLAY_NAME' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
+          grep -F 'android.telecom.CallScreeningService' app/src/main/AndroidManifest.xml
+          grep -F 'extends CallScreeningService' app/src/main/java/kr/pagero/calltag/CallTagScreeningService.java
+          grep -F 'RoleManager.ROLE_CALL_SCREENING' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
+          grep -F 'createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
+          grep -F 'REQUEST_CALL_SCREENING_ROLE' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
+          grep -F 'listRecentInteractions' app/src/main/java/kr/pagero/calltag/RecentCallHistoryView.java
+          grep -F 'RecentCallHistoryView' app/src/main/res/layout/section_consultations.xml
+          grep -F 'calltag_db_only' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
           grep -F 'postCallFieldsScroll' app/src/main/res/layout/activity_post_call.xml
           grep -F 'todayWindow()' app/src/main/java/kr/pagero/calltag/MainActivityCardInteractionFix.java
-          grep -F 'count_mismatch' app/src/main/java/kr/pagero/calltag/MainActivityCardInteractionFix.java
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -59,7 +73,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.0-code78-debug-apk
+          name: calltag-v0.44.1-code79-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -82,7 +96,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.0-code78-instrumentation-results
+          name: calltag-v0.44.1-code79-instrumentation-results
           path: |
             app/build/reports/androidTests/connected/**
             app/build/outputs/androidTest-results/connected/**

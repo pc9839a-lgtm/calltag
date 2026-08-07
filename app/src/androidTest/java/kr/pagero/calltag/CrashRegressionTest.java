@@ -5,9 +5,12 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.view.View;
@@ -42,16 +45,15 @@ public final class CrashRegressionTest {
     }
 
     @Test
-    public void callLogMemoDisplayName_isBoundedAndMemoOnly() {
-        assertEquals("홍길동 · 견적 다시 연락",
-                CallLogMemoSyncManager.buildDisplayName(
-                        "홍길동", "견적 다시 연락", "01012345678"));
-        assertEquals("고객 5678 · 메모",
-                CallLogMemoSyncManager.buildDisplayName(
-                        "이름없는고객", "메모", "01012345678"));
-        String longAlias = CallLogMemoSyncManager.buildDisplayName(
-                "아주아주긴고객이름테스트입니다", "아주아주긴메모를입력해서길이제한을검증합니다", "01012345678");
-        assertTrue("call-log alias must remain compact", longAlias.length() <= 32);
+    public void restrictedWriteCallLog_isNotDeclared() throws Exception {
+        PackageInfo info = app.getPackageManager().getPackageInfo(
+                app.getPackageName(), PackageManager.GET_PERMISSIONS);
+        String[] requested = info.requestedPermissions == null
+                ? new String[0] : info.requestedPermissions;
+        for (String permission : requested) {
+            assertFalse("WRITE_CALL_LOG must not ship in the Play build",
+                    Manifest.permission.WRITE_CALL_LOG.equals(permission));
+        }
     }
 
     @Test
@@ -114,17 +116,17 @@ public final class CrashRegressionTest {
         long tomorrowAt = atDayOffset(1, 10, 20);
         long todayCustomer = seedCustomer("01054789012");
         long tomorrowCustomer = seedCustomer("01065890123");
-        seedTask(todayCustomer, "오늘 회귀 0440", todayAt);
-        seedTask(tomorrowCustomer, "내일 회귀 0440", tomorrowAt);
+        seedTask(todayCustomer, "오늘 회귀 0441", todayAt);
+        seedTask(tomorrowCustomer, "내일 회귀 0441", tomorrowAt);
 
         ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class);
         try {
             scenario.onActivity(activity -> {
                 LinearLayout list = activity.findViewById(R.id.todayTaskList);
                 assertNotNull(list);
-                assertTrue("today task must stay visible", containsText(list, "오늘 회귀 0440"));
+                assertTrue("today task must stay visible", containsText(list, "오늘 회귀 0441"));
                 assertFalse("tomorrow task must not appear in today section",
-                        containsText(list, "내일 회귀 0440"));
+                        containsText(list, "내일 회귀 0441"));
             });
         } finally {
             scenario.close();
