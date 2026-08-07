@@ -31,7 +31,11 @@ public final class PostCallActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Apply compact window geometry before setContentView so there is never a full-screen frame
+        // before the small post-call popup is measured/drawn.
+        PostCallPopupWindowInstaller.install(this);
         setContentView(R.layout.activity_post_call);
+        PostCallPopupWindowInstaller.install(this);
         db = new CallTagDbHelper(this);
         bindViews();
         bindIntent(getIntent());
@@ -41,7 +45,9 @@ public final class PostCallActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        PostCallLaunchReceipt.markVisible(this);
         PostCallRecoveryStore.markDelivered(this, callLogId());
+        PostCallPopupWindowInstaller.install(this);
     }
 
     @Override
@@ -140,9 +146,6 @@ public final class PostCallActivity extends Activity {
 
             SettingsStore.markCallProcessed(this, callFingerprint);
             markPendingHandledSafely();
-
-            // v0.44.2: call interaction insertion is idempotent and all memo/history data stays
-            // inside CallTag. System Contacts/CallLog are never modified.
             CrashTelemetryStore.record(this, "post_call_save", "calltag_db_only",
                     "call=" + callLogId() + ",interaction=" + interactionId);
 
@@ -246,6 +249,7 @@ public final class PostCallActivity extends Activity {
     @Override
     protected void onDestroy() {
         if (db != null) db.close();
+        PostCallPopupWindowInstaller.uninstall(this);
         super.onDestroy();
     }
 }
