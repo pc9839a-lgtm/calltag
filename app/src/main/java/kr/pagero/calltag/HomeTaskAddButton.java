@@ -32,10 +32,18 @@ public final class HomeTaskAddButton extends Button {
     private void openEditor() {
         Activity activity = activity();
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
+        if (!UiLaunchGuard.tryAcquire("home_task_editor", 900L)) {
+            CrashTelemetryStore.record(activity, "home_task_editor", "duplicate_suppressed", "");
+            return;
+        }
         setEnabled(false);
         try {
             activity.startActivity(new Intent(activity, HomeTaskEditorActivity.class));
+            CrashTelemetryStore.record(activity, "home_task_editor", "launch_accepted", "");
         } catch (RuntimeException error) {
+            UiLaunchGuard.release("home_task_editor");
+            CrashTelemetryStore.record(activity, "home_task_editor", "launch_failed",
+                    error.getClass().getSimpleName());
             Toast.makeText(activity, "할 일 등록 화면을 열지 못했습니다.", Toast.LENGTH_LONG).show();
         } finally {
             setEnabled(true);
