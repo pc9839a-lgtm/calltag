@@ -109,6 +109,13 @@ public final class CallTagApplication extends Application implements Application
                 // unresolved review as soon as the user returns to the app foreground.
                 PostCallRecoveryStore.recoverLatest(activity, true);
             }
+            if (HomeTaskRefreshStore.consume(activity)) {
+                CrashTelemetryStore.record(activity, "home_today_tasks", "refresh_after_save", "");
+                activity.getWindow().getDecorView().post(() -> {
+                    if (!activity.isFinishing() && !activity.isDestroyed()) activity.recreate();
+                });
+                return;
+            }
         }
         if (activity instanceof ManualMessageActivity) {
             ManualMessageUxEnhancer.enhance((ManualMessageActivity) activity);
