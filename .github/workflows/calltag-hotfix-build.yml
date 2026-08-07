@@ -38,6 +38,9 @@ jobs:
           ! grep -F 'StructuredName.DISPLAY_NAME' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
           grep -F 'android.telecom.CallScreeningService' app/src/main/AndroidManifest.xml
           grep -F 'extends CallScreeningService' app/src/main/java/kr/pagero/calltag/CallTagScreeningService.java
+          grep -F 'RoleManager.ROLE_CALL_SCREENING' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
+          grep -F 'createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
+          grep -F 'REQUEST_CALL_SCREENING_ROLE' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
           grep -F 'listRecentInteractions' app/src/main/java/kr/pagero/calltag/RecentCallHistoryView.java
           grep -F 'RecentCallHistoryView' app/src/main/res/layout/section_consultations.xml
           grep -F 'calltag_db_only' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
