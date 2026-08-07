@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   pull_request:
     branches:
-      - agent/calltag-v0442-ci-base
+      - agent/calltag-v0442-p0-stability
 
 jobs:
   android-build:
