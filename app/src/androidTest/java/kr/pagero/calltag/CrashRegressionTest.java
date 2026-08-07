@@ -1,6 +1,7 @@
 package kr.pagero.calltag;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -10,8 +11,11 @@ import android.content.Intent;
 import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
 
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.core.app.ApplicationProvider;
@@ -24,6 +28,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -91,14 +96,31 @@ public final class CrashRegressionTest {
     }
 
     @Test
+    public void homeTodayTasks_hidesTomorrowCards() {
+        long todayAt = atDayOffset(0, 15, 10);
+        long tomorrowAt = atDayOffset(1, 10, 20);
+        long todayCustomer = seedCustomer("01054789012");
+        long tomorrowCustomer = seedCustomer("01065890123");
+        seedTask(todayCustomer, "오늘 회귀 0439", todayAt);
+        seedTask(tomorrowCustomer, "내일 회귀 0439", tomorrowAt);
+
+        ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class);
+        try {
+            scenario.onActivity(activity -> {
+                LinearLayout list = activity.findViewById(R.id.todayTaskList);
+                assertNotNull(list);
+                assertTrue("today task must stay visible", containsText(list, "오늘 회귀 0439"));
+                assertFalse("tomorrow task must not appear in today section",
+                        containsText(list, "내일 회귀 0439"));
+            });
+        } finally {
+            scenario.close();
+        }
+    }
+
+    @Test
     public void postCallPopup_isPartialAndDoesNotDimWholeScreen() {
-        Intent intent = new Intent(app, PostCallActivity.class)
-                .putExtra(PostCallActivity.EXTRA_CALL_LOG_ID, 987654321L)
-                .putExtra(PostCallActivity.EXTRA_PHONE, "01045678901")
-                .putExtra(PostCallActivity.EXTRA_CACHED_NAME, "부분 팝업 테스트")
-                .putExtra(PostCallActivity.EXTRA_STARTED_AT, System.currentTimeMillis() - 10_000L)
-                .putExtra(PostCallActivity.EXTRA_ENDED_AT, System.currentTimeMillis())
-                .putExtra(PostCallActivity.EXTRA_DURATION_SEC, 10L);
+        Intent intent = postCallIntent(987654321L, "01045678901");
 
         ActivityScenario<PostCallActivity> scenario = ActivityScenario.launch(intent);
         try {
@@ -118,10 +140,58 @@ public final class CrashRegressionTest {
                 assertNotNull(activity.findViewById(R.id.postCallName));
                 assertNotNull(activity.findViewById(R.id.postCallNote));
                 assertNotNull(activity.findViewById(R.id.postCallSaveOnly));
+
+                View root = activity.findViewById(R.id.postCallRoot);
+                View save = activity.findViewById(R.id.postCallSaveOnly);
+                View scroll = activity.findViewById(R.id.postCallFieldsScroll);
+                assertTrue("fields must scroll instead of clipping save button", scroll instanceof ScrollView);
+                assertEquals("save button must stay fixed outside fields scroll", root, save.getParent());
             });
         } finally {
             scenario.close();
         }
+    }
+
+    @Test
+    public void postCallNewIntent_marksSameCallVisibleAgain() {
+        long callId = System.currentTimeMillis();
+        Intent first = postCallIntent(callId, "01076901234");
+        ActivityScenario<PostCallActivity> scenario = ActivityScenario.launch(first);
+        try {
+            scenario.onActivity(activity -> {
+                Intent retry = postCallIntent(callId, "01076901234");
+                PostCallLaunchReceipt.arm(activity, retry);
+                assertFalse(PostCallLaunchReceipt.wasVisible(activity, callId));
+                activity.onNewIntent(retry);
+                assertTrue("same-instance reentry must acknowledge visibility",
+                        PostCallLaunchReceipt.wasVisible(activity, callId));
+            });
+        } finally {
+            scenario.close();
+        }
+    }
+
+    @Test
+    public void postCallLauncher_fromApplicationContext_reachesPopup() {
+        long callId = System.currentTimeMillis() + 100_000L;
+        Intent intent = postCallIntent(callId, "01087012345");
+        assertTrue("background-style launcher request must be accepted",
+                PostCallActivityLauncher.launch(app, intent));
+        assertResumed(PostCallActivity.class);
+        assertTrue("launcher must receive a visible receipt",
+                PostCallLaunchReceipt.wasVisible(app, callId));
+        finishResumed(PostCallActivity.class);
+    }
+
+    private Intent postCallIntent(long callId, String phone) {
+        long now = System.currentTimeMillis();
+        return new Intent(app, PostCallActivity.class)
+                .putExtra(PostCallActivity.EXTRA_CALL_LOG_ID, callId)
+                .putExtra(PostCallActivity.EXTRA_PHONE, phone)
+                .putExtra(PostCallActivity.EXTRA_CACHED_NAME, "부분 팝업 테스트")
+                .putExtra(PostCallActivity.EXTRA_STARTED_AT, now - 10_000L)
+                .putExtra(PostCallActivity.EXTRA_ENDED_AT, now)
+                .putExtra(PostCallActivity.EXTRA_DURATION_SEC, 10L);
     }
 
     private long seedCustomer(String phone) {
@@ -132,6 +202,39 @@ public final class CrashRegressionTest {
         } finally {
             db.close();
         }
+    }
+
+    private void seedTask(long customerId, String title, long dueAt) {
+        CallTagDbHelper db = new CallTagDbHelper(app);
+        try {
+            db.insertFollowUpTask(customerId, 0L, TaskTypeStore.TYPE_CALL, title, dueAt);
+        } finally {
+            db.close();
+        }
+    }
+
+    private long atDayOffset(int days, int hour, int minute) {
+        Calendar value = Calendar.getInstance();
+        value.add(Calendar.DAY_OF_MONTH, days);
+        value.set(Calendar.HOUR_OF_DAY, hour);
+        value.set(Calendar.MINUTE, minute);
+        value.set(Calendar.SECOND, 0);
+        value.set(Calendar.MILLISECOND, 0);
+        return value.getTimeInMillis();
+    }
+
+    private boolean containsText(View view, String target) {
+        if (view instanceof TextView) {
+            CharSequence value = ((TextView) view).getText();
+            if (value != null && value.toString().contains(target)) return true;
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                if (containsText(group.getChildAt(index), target)) return true;
+            }
+        }
+        return false;
     }
 
     private void assertResumed(Class<? extends Activity> expected) {
