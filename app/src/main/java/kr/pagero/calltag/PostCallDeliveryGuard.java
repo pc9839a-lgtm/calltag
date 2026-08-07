@@ -6,12 +6,11 @@ import android.os.Handler;
 import android.os.Looper;
 
 /**
- * Android가 백그라운드 Activity 시작 요청을 조용히 무시하는 경우를 감지해
- * 한 번 더 실행을 시도하고, 그래도 화면이 확인되지 않으면 알림으로 반드시 남긴다.
+ * Verifies post-call delivery without ever launching a second Activity instance.
+ * If the compact popup was blocked by Android, leave a notification fallback only.
  */
 public final class PostCallDeliveryGuard {
-    private static final long FIRST_VERIFY_DELAY_MS = 2_400L;
-    private static final long FINAL_VERIFY_DELAY_MS = 2_400L;
+    private static final long VERIFY_DELAY_MS = 2_400L;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
     private PostCallDeliveryGuard() {}
@@ -25,17 +24,10 @@ public final class PostCallDeliveryGuard {
 
         MAIN.postDelayed(() -> {
             if (PostCallLaunchReceipt.wasVisible(app, callId)) return;
-            try {
-                app.startActivity(PostCallActivityLauncher.prepareTarget(review));
-            } catch (RuntimeException ignored) {
-                // 다음 확인 단계에서 알림 fallback을 남긴다.
-            }
-
-            MAIN.postDelayed(() -> {
-                if (PostCallLaunchReceipt.wasVisible(app, callId)) return;
-                showFallback(app, review);
-            }, FINAL_VERIFY_DELAY_MS);
-        }, FIRST_VERIFY_DELAY_MS);
+            CrashTelemetryStore.record(app, "post_call_delivery",
+                    "activity_not_visible_notification_only", "call=" + callId);
+            showFallback(app, review);
+        }, VERIFY_DELAY_MS);
     }
 
     private static void showFallback(Context context, Intent review) {
@@ -49,23 +41,14 @@ public final class PostCallDeliveryGuard {
                 PostCallActivity.EXTRA_DURATION_SEC, 0L));
         if (callId < 0L || phone.isEmpty()) return;
 
-        CallRecord record = new CallRecord(
-                callId,
-                phone,
-                cachedName,
-                type,
-                startedAt,
-                durationSec);
+        CallRecord record = new CallRecord(callId, phone, cachedName, type, startedAt, durationSec);
         CallTagDbHelper db = new CallTagDbHelper(context);
         try {
             Customer customer = db.findByPhone(phone);
-            String memo = customer == null
-                    ? "" : CustomerInsightResolver.latestMemo(db, customer);
+            String memo = customer == null ? "" : CustomerInsightResolver.latestMemo(db, customer);
             boolean posted = CallPopupNotificationManager.showPostCall(
                     context, record, customer, review, memo);
-            if (posted) {
-                PostCallRecoveryStore.markDelivered(context, callId);
-            }
+            if (posted) PostCallRecoveryStore.markDelivered(context, callId);
         } finally {
             db.close();
         }
