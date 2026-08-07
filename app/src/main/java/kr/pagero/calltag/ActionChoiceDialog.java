@@ -170,7 +170,7 @@ public final class ActionChoiceDialog {
             });
         }
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(activity)
+        AlertDialog.Builder builder = new AlertDialog.Builder(activity, R.style.Theme_CallTag_Dialog)
                 .setTitle(title)
                 .setView(content);
         if (saveMode) {
@@ -182,6 +182,7 @@ public final class ActionChoiceDialog {
 
         AlertDialog dialog = builder.create();
         dialog.setOnShowListener(ignored -> {
+            CallTagDialogStyler.apply(dialog);
             bindDialogTag(optionList, dialog);
             if (footerTitle != null && content.getChildCount() > 0) {
                 View footer = content.getChildAt(content.getChildCount() - 1);
@@ -280,7 +281,7 @@ public final class ActionChoiceDialog {
 
         LinearLayout labels = new LinearLayout(activity);
         labels.setOrientation(LinearLayout.VERTICAL);
-        TextView title = text(activity, option.title, compact ? 15f : 15f,
+        TextView title = text(activity, option.title, 15f,
                 R.color.text_primary, true);
         title.setSingleLine(true);
         labels.addView(title, matchWrap());
@@ -288,7 +289,7 @@ public final class ActionChoiceDialog {
             String subtitleText = compact
                     ? option.subtitle.replace("현재 설정 · ", "")
                     : option.subtitle;
-            TextView subtitle = text(activity, subtitleText, compact ? 12.5f : 12.5f,
+            TextView subtitle = text(activity, subtitleText, 12.5f,
                     R.color.text_secondary, false);
             subtitle.setSingleLine(true);
             LinearLayout.LayoutParams subtitleParams = matchWrap();
