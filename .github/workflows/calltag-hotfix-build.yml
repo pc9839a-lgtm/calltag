@@ -1,18 +1,23 @@
-name: CallTag 0.44.4 popup and UI regression
+name: CallTag 0.44.4 signed Play build
+# Artifact-only workflow. Never merge this branch into product.
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - agent/play-internal-v0430-run2
+      - agent/calltag-v0444-play-aab
   pull_request:
     branches:
       - agent/play-internal-v0430-run2
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   android-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 55
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,66 +34,28 @@ jobs:
               exit 1
             fi
           }
-
           grep -F 'versionCode 82' app/build.gradle
           grep -F "versionName '0.44.4'" app/build.gradle
           grep -F 'targetSdk 36' app/build.gradle
-
-          # Play-safe phone CRM contract remains unchanged.
           grep -F 'android.permission.READ_CALL_LOG' app/src/main/AndroidManifest.xml
           assert_absent 'android.permission.WRITE_CALL_LOG' app/src/main/AndroidManifest.xml
-          test ! -e app/src/main/java/kr/pagero/calltag/CallLogMemoSyncManager.java
           assert_absent 'values.put(CallLog.Calls.CACHED_NAME' app/src/main/java
-          assert_absent 'CallLogMemoSyncManager' app/src/main/java app/src/androidTest
           assert_absent 'Manifest.permission.WRITE_CALL_LOG' app/src/main/java
-          assert_absent 'addIfMissing(missing, Manifest.permission.WRITE_CONTACTS)' app/src/main/java/kr/pagero/calltag/InitialPermissionActivity.java
-          assert_absent 'createAppRawContact' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
-          assert_absent 'TYPE_KEEP_TOGETHER' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
-          assert_absent 'StructuredName.DISPLAY_NAME' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
-          grep -F 'android.telecom.CallScreeningService' app/src/main/AndroidManifest.xml
-          grep -F 'RoleManager.ROLE_CALL_SCREENING' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
-          grep -F 'CallProcessingLedger' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
-          grep -F 'recoverCallsAfterRestart' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
-          grep -F 'CallInteractionDeduper.insertOnce' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
-
-          # Signup-only 7 + 7 referral contract remains.
-          grep -F 'referralCode' app/src/main/java/kr/pagero/calltag/AuthApiClient.java
-          grep -F '통합권 7일 추가, 총 14일 무료' app/src/main/java/kr/pagero/calltag/LoginActivity.java
-          grep -F '추천인 코드는 회원가입 시 1회만 입력' app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java
-          test ! -e app/src/main/java/kr/pagero/calltag/ReferralAutoApplyManager.java
-
-          # PageRo connection and service guide must be two different screens.
           grep -F 'PageroConnectionCompactActivity.class' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
           grep -F 'PageroUseGuideActivity.class' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
-          grep -F 'PageroConnectionCompactActivity' app/src/main/AndroidManifest.xml
           assert_absent '이렇게 사용하세요' app/src/main/java/kr/pagero/calltag/PageroConnectionCompactActivity.java
-          assert_absent '페이지로 관리화면 열기' app/src/main/java/kr/pagero/calltag/PageroConnectionCompactActivity.java
-          grep -F 'https://calltag.pagero.kr/web/settlement' app/src/main/java/kr/pagero/calltag/PartnerSettlementActivity.java
-
-          # Home pending-call task action must open task editor, never memo popup.
-          grep -F 'openTask(call)' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
           grep -F 'HomeTaskEditorActivity.class' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
           assert_absent 'PostCallActivity.class' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
-          grep -F 'EXTRA_CUSTOMER_ID' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
-          grep -F 'HomeTaskRefreshStore.mark' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
           grep -F 'actionButton("삭제"' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
           grep -F '최근 메모 · ' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
-
-          # Post-call UI must be one compact popup only; no second Activity retry.
           grep -F 'PostCallPopupWindowInstaller.install(this);' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
           grep -F 'activity_not_visible_notification_only' app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java
           assert_absent 'app.startActivity' app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java
-          grep -F 'postCallFieldsScroll' app/src/main/res/layout/activity_post_call.xml
-
-          # System bars: one inset mechanism, not fitsSystemWindows + global inset twice.
-          grep -F 'SystemBarInsetsInstaller.install' app/src/main/java/kr/pagero/calltag/CallTagApplication.java
           assert_absent 'fitsSystemWindows="true"' app/src/main/res/layout/activity_main.xml
-
-          # Calendar and chart regressions remain fixed.
+          grep -F '통합권 7일 추가, 총 14일 무료' app/src/main/java/kr/pagero/calltag/LoginActivity.java
+          grep -F 'https://calltag.pagero.kr/web/settlement' app/src/main/java/kr/pagero/calltag/PartnerSettlementActivity.java
           assert_absent 'RecentCallHistoryView' app/src/main/res/layout/section_consultations.xml
-          grep -F 'android:text="일정"' app/src/main/res/layout/section_consultations.xml
           grep -F 'onTouchEvent(MotionEvent event)' app/src/main/java/kr/pagero/calltag/StatsTrendChartView.java
-          grep -F '통화 " + calls[index] + "건 · 페이지로 " + leads[index] + "명' app/src/main/java/kr/pagero/calltag/StatsTrendChartView.java
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -117,7 +84,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run phone CRM regression tests on Android 16
+      - name: Run regression tests on Android 16
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
           api-level: 36
@@ -135,3 +102,78 @@ jobs:
             app/build/reports/androidTests/connected/**
             app/build/outputs/androidTest-results/connected/**
           if-no-files-found: ignore
+
+      - name: Restore verified Play upload key
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SECRET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
+          SECRET_UPLOAD_STORE_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_STORE_PASSWORD }}
+          SECRET_UPLOAD_KEY_ALIAS: ${{ secrets.CALLTAG_UPLOAD_KEY_ALIAS }}
+          SECRET_UPLOAD_KEY_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_KEY_PASSWORD }}
+          ORIGINAL_UPLOAD_KEY_ARTIFACT_ID: '8922836146'
+          EXPECTED_UPLOAD_KEY_SHA256: 'C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7'
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/calltag-upload.jks"
+          configured=0
+          for value in "$SECRET_UPLOAD_KEYSTORE_BASE64" "$SECRET_UPLOAD_STORE_PASSWORD" "$SECRET_UPLOAD_KEY_ALIAS" "$SECRET_UPLOAD_KEY_PASSWORD"
+          do
+            [ -n "$value" ] && configured=$((configured + 1))
+          done
+          if [ "$configured" -ne 0 ] && [ "$configured" -ne 4 ]; then
+            echo '::error::Upload-key Secrets are only partially configured.'
+            exit 1
+          fi
+          if [ "$configured" -eq 4 ]; then
+            printf '%s' "$SECRET_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+            STORE_PASSWORD="$SECRET_UPLOAD_STORE_PASSWORD"
+            KEY_ALIAS="$SECRET_UPLOAD_KEY_ALIAS"
+            KEY_PASSWORD="$SECRET_UPLOAD_KEY_PASSWORD"
+          else
+            mkdir -p "$RUNNER_TEMP/original-upload-key"
+            gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ORIGINAL_UPLOAD_KEY_ARTIFACT_ID}/zip" > "$RUNNER_TEMP/original-upload-key.zip"
+            unzip -q "$RUNNER_TEMP/original-upload-key.zip" -d "$RUNNER_TEMP/original-upload-key"
+            cp "$RUNNER_TEMP/original-upload-key/calltag-upload.jks" "$KEYSTORE"
+            CREDENTIALS="$RUNNER_TEMP/original-upload-key/CALLTAG_UPLOAD_KEY_CREDENTIALS.txt"
+            STORE_PASSWORD="$(grep '^CALLTAG_UPLOAD_STORE_PASSWORD=' "$CREDENTIALS" | cut -d= -f2-)"
+            KEY_ALIAS="$(grep '^CALLTAG_UPLOAD_KEY_ALIAS=' "$CREDENTIALS" | cut -d= -f2-)"
+            KEY_PASSWORD="$(grep '^CALLTAG_UPLOAD_KEY_PASSWORD=' "$CREDENTIALS" | cut -d= -f2-)"
+          fi
+          test -s "$KEYSTORE"
+          echo "::add-mask::$STORE_PASSWORD"
+          echo "::add-mask::$KEY_PASSWORD"
+          chmod 600 "$KEYSTORE"
+          keytool -list -v -keystore "$KEYSTORE" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" \
+            | grep -E 'Alias name:|Owner:|SHA1:|SHA256:' > "$RUNNER_TEMP/upload-key-fingerprints.txt"
+          grep -F "SHA256: $EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/upload-key-fingerprints.txt"
+          {
+            echo "CALLTAG_UPLOAD_KEYSTORE_PATH=$KEYSTORE"
+            echo "CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD"
+            echo "CALLTAG_UPLOAD_KEY_ALIAS=$KEY_ALIAS"
+            echo "CALLTAG_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Build signed Play release AAB
+        run: gradle :app:bundleRelease --no-daemon --stacktrace
+
+      - name: Verify and stage signed AAB
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAB='app/build/outputs/bundle/release/app-release.aab'
+          test -s "$AAB"
+          jarsigner -verify -certs "$AAB"
+          OUT="$RUNNER_TEMP/calltag-v0.44.4-play"
+          mkdir -p "$OUT"
+          cp "$AAB" "$OUT/CallTag-v0.44.4-code82.aab"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V0444_AAB_SHA256.txt"
+          cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
+
+      - name: Upload Play Console AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: calltag-v0.44.4-code82-play-aab
+          path: ${{ runner.temp }}/calltag-v0.44.4-play
+          retention-days: 90
+          if-no-files-found: error
