@@ -49,12 +49,47 @@
 
 이로써 별도 MutationObserver 여러 개와 250ms 반복 보정 타이머를 제거하고, 레이아웃 감시는 하나의 코디네이터로 줄였습니다. 코디네이터 자체도 기존 30초 감시에서 15초 제한으로 축소했습니다.
 
+## 2026-08-07 단순화 3단계
+
+중첩 로더와 서로 덮어쓰는 가격 렌더러를 제거했습니다.
+
+### 페이지로 인트로
+
+기존 구조:
+
+`calltag-pagero-intro.js` → `calltag-pagero-intro-core.js` → 페이지로 DOM/CSS 생성
+
+현재 루트 정본:
+
+`calltag-pagero-intro.js` → 페이지로 DOM/CSS 생성
+
+따라서 별도 core 네트워크 요청과 wrapper의 문구 감시 단계를 제거했습니다. 루트의 `calltag-pagero-intro-core.js`는 삭제했습니다.
+
+### 요금/강점
+
+기존 구조:
+
+`calltag-suite-pricing.js`가 구버전 강점/요금 DOM 생성 → `calltag-pricing-redesign.js`가 강점 문구와 가격표를 다시 교체
+
+현재 구조:
+
+`calltag-suite-pricing.js`가 최종 강점 DOM과 최종 가격표를 한 번에 생성
+
+최종 가격표의 마크업/클래스/디자인은 기존 `calltag-pricing-redesign.js` 결과를 그대로 유지했습니다. 별도 `calltag-pricing-redesign.js` 호출과 파일을 제거했습니다.
+
+### 구형 페이지로 브리지
+
+`calltag-pricing-redesign.js` 뒤에서 다시 불러오던 `calltag-pagero-bridge.js`는 현재 페이지로 인트로가 즉시 제거하던 구형 구성이라 루트 정본에서 제거했습니다.
+
+현재 최상위 런타임 스크립트는 33개이며, 페이지로 core/legacy bridge 같은 중첩 요청도 줄었습니다. Worker의 런타임 로더 캐시 버전은 `runtime4`로 올려 변경된 자산이 즉시 반영되도록 했습니다.
+
 ## 아직 남은 기술 부채
 
 현재 최종 화면은 여전히 여러 과거 패치 스크립트가 순차 실행된 결과입니다. 다음 항목은 아직 제거하지 않았습니다.
 
+- `calltag-enhance.js`가 만든 초기 DOM을 후속 스크립트가 다시 교체하는 구조
+- `calltag-section-split.js`가 만드는 통화 스토리의 후속 보정
 - 페이지로 섹션의 런타임 DOM 생성
-- 가격표의 런타임 DOM 교체
 - 일부 모바일/가로형 레이아웃 후처리
 - JS 내부에서 동적으로 `<style>`을 삽입하는 방식
 - 일부 개별 애니메이션 스크립트의 IntersectionObserver
@@ -64,13 +99,14 @@
 
 ## 다음 단순화 순서
 
-1. 현재 운영 화면의 최종 DOM/스타일을 정본으로 확정
-2. 페이지로/가격/기능 카드처럼 런타임 생성되는 영역을 정적 HTML로 이동
-3. 섹션 순서를 `index.html`에 직접 고정
-4. 동적으로 생성되는 CSS를 통합 CSS로 이동
-5. 실제 인터랙션만 `calltag.js`에 남김
-6. 남은 MutationObserver와 반복 보정 제거
-7. 미사용 과거 패치 자산 삭제
+1. `calltag-enhance.js`의 현재 사용 기능과 후속 스크립트에 의해 덮이는 기능 분리
+2. 통화 스토리 생성/보정 체인을 하나로 통합
+3. 페이지로/가격/기능 카드처럼 런타임 생성되는 영역을 정적 HTML로 이동
+4. 섹션 순서를 `index.html`에 직접 고정
+5. 동적으로 생성되는 CSS를 통합 CSS로 이동
+6. 실제 인터랙션만 `calltag.js`에 남김
+7. 남은 MutationObserver와 반복 보정 제거
+8. 미사용 과거 패치 자산 삭제
 
 최종 목표:
 
@@ -89,5 +125,6 @@ _worker.js
 - 단순화 1단계 안정 기준: `backup/runtime-simplified-stage1-20260807-2341`
 - 2단계 시작 직전: `backup/runtime-stage2-before-dedupe-20260807-2349`
 - 2단계 코디네이터 적용 직후: `backup/runtime-stage2-after-coordinator-20260807-2350`
+- 3단계 가격 통합 직전: `backup/runtime-stage3-before-pricing-consolidation-20260807-2357`
 
 화면 이상이 생기면 먼저 직전 단계 백업으로 되돌리고, 필요 시 전체 구조를 `backup/runtime-before-simplify-20260807-2323` 기준으로 복원합니다.
