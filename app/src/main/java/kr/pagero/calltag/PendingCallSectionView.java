@@ -182,8 +182,14 @@ public final class PendingCallSectionView extends LinearLayout {
     }
 
     private void openReview(PendingCallRecord call) {
+        if (!UiLaunchGuard.tryAcquire("pending_call_review:" + call.callLogId, 900L)) {
+            CrashTelemetryStore.record(getContext(), "pending_call_review",
+                    "duplicate_suppressed", String.valueOf(call.callLogId));
+            return;
+        }
         Intent review = new Intent(getContext(), PostCallActivity.class)
                 .putExtra(PostCallActivity.EXTRA_PENDING_CALL_ID, call.callLogId)
+                .putExtra(PostCallActivity.EXTRA_CALL_LOG_ID, call.callLogId)
                 .putExtra(PostCallActivity.EXTRA_PHONE, call.phone)
                 .putExtra(PostCallActivity.EXTRA_CACHED_NAME, call.cachedName)
                 .putExtra(PostCallActivity.EXTRA_CALL_TYPE, call.type)
@@ -191,7 +197,13 @@ public final class PendingCallSectionView extends LinearLayout {
                 .putExtra(PostCallActivity.EXTRA_ENDED_AT,
                         call.startedAt + Math.max(0L, call.durationSec) * 1000L)
                 .putExtra(PostCallActivity.EXTRA_DURATION_SEC, call.durationSec);
-        getContext().startActivity(review);
+        boolean opened = PostCallActivityLauncher.launch(getContext(), review);
+        CrashTelemetryStore.record(getContext(), "pending_call_review",
+                opened ? "launch_accepted" : "launch_failed", String.valueOf(call.callLogId));
+        if (!opened) {
+            UiLaunchGuard.release("pending_call_review:" + call.callLogId);
+            Toast.makeText(getContext(), "통화 정리 화면을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void dial(String phone) {
