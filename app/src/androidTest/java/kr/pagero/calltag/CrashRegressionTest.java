@@ -28,10 +28,8 @@ public final class CrashRegressionTest {
     private Context app;
 
     @Before
-    public void resetLocalState() {
+    public void prepareContext() {
         app = ApplicationProvider.getApplicationContext();
-        app.deleteDatabase("calltag.db");
-        app.deleteDatabase("calltag_task_types.db");
     }
 
     @Test
@@ -91,7 +89,8 @@ public final class CrashRegressionTest {
     private long seedCustomer(String phone) {
         CallTagDbHelper db = new CallTagDbHelper(app);
         try {
-            return db.insertNewLead("회귀 테스트", phone);
+            Customer existing = db.findByPhone(phone);
+            return existing == null ? db.insertNewLead("회귀 테스트", phone) : existing.id;
         } finally {
             db.close();
         }
