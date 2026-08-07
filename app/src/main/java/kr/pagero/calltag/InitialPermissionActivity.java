@@ -54,7 +54,7 @@ public final class InitialPermissionActivity extends Activity {
         root.setBackgroundColor(getColor(R.color.background));
 
         TextView title = new TextView(this);
-        title.setText("전화 화면 메모 설정");
+        title.setText("통화목록 메모 설정");
         title.setTextColor(getColor(R.color.text_primary));
         title.setTextSize(23f);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -62,7 +62,7 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(title, wrap());
 
         detail = new TextView(this);
-        detail.setText("전화가 오면 고객명과 최근 메모를 보여드리기 위해 연락처와 통화 권한이 필요합니다. 기존 Google·삼성 연락처는 그대로 유지합니다.");
+        detail.setText("연락처 이름은 그대로 두고 최근 통화목록에 고객명과 최근 메모를 표시하기 위해 통화기록 권한이 필요합니다.");
         detail.setTextColor(getColor(R.color.text_secondary));
         detail.setTextSize(14f);
         detail.setGravity(Gravity.CENTER);
@@ -79,7 +79,7 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(settingsButton, fixedTop(50, 9));
 
         TextView note = new TextView(this);
-        note.setText("허용한 권한은 고객 확인, 통화 후 정리, 알림과 문자 기능에만 사용합니다.");
+        note.setText("연락처 수정 권한은 새로 요청하지 않습니다. 통화목록 표시, 고객 확인, 통화 후 정리와 문자 기능에만 사용합니다.");
         note.setTextColor(getColor(R.color.text_muted));
         note.setTextSize(12f);
         note.setGravity(Gravity.CENTER);
@@ -120,12 +120,12 @@ public final class InitialPermissionActivity extends Activity {
     private List<String> missingPermissions() {
         List<String> missing = new ArrayList<>();
         addIfMissing(missing, Manifest.permission.READ_CONTACTS);
-        addIfMissing(missing, Manifest.permission.WRITE_CONTACTS);
         addIfMissing(missing, Manifest.permission.READ_PHONE_STATE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             addIfMissing(missing, Manifest.permission.READ_PHONE_NUMBERS);
         }
         addIfMissing(missing, Manifest.permission.READ_CALL_LOG);
+        addIfMissing(missing, Manifest.permission.WRITE_CALL_LOG);
         if (FeatureEntitlementStore.hasMessageAccess(this)) {
             addIfMissing(missing, Manifest.permission.SEND_SMS);
         }
@@ -165,10 +165,10 @@ public final class InitialPermissionActivity extends Activity {
     private String missingPermissionLabels() {
         List<String> labels = new ArrayList<>();
         if (!SetupRequirements.hasContacts(this)) labels.add("연락처 보기");
-        if (!SetupRequirements.hasContactWrite(this)) labels.add("전화 화면 메모 준비");
         if (!SetupRequirements.hasPhoneState(this)) labels.add("전화 수신 확인");
         if (!SetupRequirements.hasPhoneNumbers(this)) labels.add("전화번호 확인");
-        if (!SetupRequirements.hasCallLog(this)) labels.add("통화기록 확인");
+        if (!SetupRequirements.hasCallLog(this)) labels.add("통화기록 보기");
+        if (!SetupRequirements.hasCallLogWrite(this)) labels.add("통화목록 메모 표시");
         if (FeatureEntitlementStore.hasMessageAccess(this) && !SetupRequirements.hasSms(this)) {
             labels.add("문자 보내기");
         }
@@ -191,25 +191,14 @@ public final class InitialPermissionActivity extends Activity {
         completing = true;
         requestButton.setEnabled(false);
         requestButton.setAlpha(0.6f);
-        requestButton.setText("전화 화면 메모 준비 중…");
-        detail.setText("고객명과 최근 메모를 전화 화면에 표시할 준비를 하고 있어요.");
+        requestButton.setText("통화목록 메모 준비 중…");
+        detail.setText("연락처는 그대로 유지하고 최근 통화목록 표시만 준비하고 있어요.");
 
         new Thread(() -> {
-            boolean accountReady = CallTagContactsAccount.ensure(this);
-            if (accountReady && FeatureEntitlementStore.hasPhoneAccess(this)) {
-                ContactNameSyncManager.enable(this);
-            }
+            // Remove only contacts created by older CallTag builds when legacy WRITE_CONTACTS
+            // permission is still available. No new contact rows are ever created.
+            ContactNameSyncManager.disableAndRestore(this);
             runOnUiThread(() -> {
-                if (!accountReady) {
-                    completing = false;
-                    requestButton.setEnabled(true);
-                    requestButton.setAlpha(1f);
-                    requestButton.setText("다시 준비하기");
-                    settingsButton.setVisibility(View.VISIBLE);
-                    detail.setText("전화 화면 메모를 준비하지 못했어요. 휴대전화 설정에서 연락처 권한을 허용한 뒤 다시 시도해주세요.");
-                    return;
-                }
-
                 SetupRequirements.startCallMonitoring(this);
                 MessageAutomationStore.ensureDefaults(this);
                 MessageScheduler.rescheduleAll(this);
@@ -218,7 +207,7 @@ public final class InitialPermissionActivity extends Activity {
                         .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
                 finish();
             });
-        }, "calltag-contact-name-setup").start();
+        }, "calltag-call-log-setup").start();
     }
 
     @Override
