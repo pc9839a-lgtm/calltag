@@ -43,10 +43,6 @@ public final class PostCallActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         bindIntent(intent);
-
-        // singleTop/CLEAR_TOP can deliver a new intent while this popup stays RESUMED.
-        // ActivityLifecycleCallbacks are not guaranteed to run again in that case, so explicitly
-        // acknowledge the new call and re-apply partial-popup bounds here.
         PostCallLaunchReceipt.markVisible(this);
         PostCallPopupWindowInstaller.install(this);
         CrashTelemetryStore.record(this, "post_call", "new_intent_visible",
@@ -128,14 +124,13 @@ public final class PostCallActivity extends Activity {
             db.insertInteraction(customerId, callTypeCode(callType()), startedAt, endedAt,
                     durationSec(), "MEMO_SAVED", memo);
 
-            // The customer/memo write above is the primary save. Pending-call cleanup is best-effort;
-            // a cleanup failure must not tell the user the already-committed memo failed to save.
             SettingsStore.markCallProcessed(this, callFingerprint);
             markPendingHandledSafely();
 
-            // Only the call-log row cache is changed. ContactsContract is intentionally untouched.
-            CallLogMemoSyncManager.requestSyncForCall(
-                    this, callLogId(), phone, name, memo);
+            // v0.44.1: never write customer names or memos into the system call log.
+            // CallTag owns the memo and interaction history; system Contacts/CallLog stay unchanged.
+            CrashTelemetryStore.record(this, "post_call_save", "calltag_db_only",
+                    "call=" + callLogId());
 
             Toast.makeText(this, "고객명과 메모를 저장했습니다.", Toast.LENGTH_SHORT).show();
             finish();
