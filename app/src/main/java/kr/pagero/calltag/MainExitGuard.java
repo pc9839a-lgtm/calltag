@@ -86,9 +86,8 @@ public final class MainExitGuard {
         if (!(activity instanceof MainActivity) || activity.isFinishing()) return;
 
         View home = activity.findViewById(R.id.sectionToday);
-        View homeNav = activity.findViewById(R.id.navToday);
-        if (home != null && home.getVisibility() != View.VISIBLE && homeNav != null) {
-            homeNav.performClick();
+        if (home != null && home.getVisibility() != View.VISIBLE) {
+            MainSectionRouter.showHome((MainActivity) activity);
             return;
         }
 
@@ -100,6 +99,7 @@ public final class MainExitGuard {
                 .setMessage("실수로 종료되지 않도록 확인합니다. 통화 감지와 예약 기능은 계속 유지됩니다.")
                 .setNegativeButton("계속 사용", null)
                 .setPositiveButton("앱 닫기", (d, which) -> {
+                    CrashTelemetryStore.record(activity, "main_back", "finish_affinity", "user_confirmed");
                     uninstall(activity);
                     activity.finishAffinity();
                 })
