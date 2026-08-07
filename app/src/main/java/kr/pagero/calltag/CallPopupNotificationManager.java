@@ -117,17 +117,12 @@ public final class CallPopupNotificationManager {
         String compactMemo = compactFirstLine(memo);
         int notificationId = 6400 + Math.abs(customer.normalizedPhone.hashCode() % 1000);
 
-        Intent open = new Intent(context, CustomerQuickEditActivity.class)
-                .putExtra(CustomerQuickEditActivity.EXTRA_CUSTOMER_ID, customer.id)
-                .putExtra(CustomerQuickEditActivity.EXTRA_FALLBACK_PHONE, customer.primaryPhone)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                        | Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent pending = PendingIntent.getActivity(
+        PendingIntent pending = CustomerLaunchRouter.pendingIntentForEdit(
                 context,
+                customer.id,
+                customer.primaryPhone,
                 notificationId,
-                open,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                "incoming_notification");
 
         String content = compactMemo.isEmpty() ? stage : "최근 메모 · " + compactMemo;
         String expanded = stage + "\n" + (compactMemo.isEmpty()
@@ -156,8 +151,12 @@ public final class CallPopupNotificationManager {
                 .build();
         try {
             manager.notify(notificationId, notification);
+            CrashTelemetryStore.record(context, "incoming_notification",
+                    "posted", "customer=" + customer.id);
             return true;
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException error) {
+            CrashTelemetryStore.record(context, "incoming_notification",
+                    "post_failed", error.getClass().getSimpleName());
             return false;
         }
     }
@@ -217,8 +216,12 @@ public final class CallPopupNotificationManager {
                 .build();
         try {
             manager.notify(notificationId, notification);
+            CrashTelemetryStore.record(context, "post_call_notification",
+                    "posted", "call=" + record.id);
             return true;
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException error) {
+            CrashTelemetryStore.record(context, "post_call_notification",
+                    "post_failed", error.getClass().getSimpleName());
             return false;
         }
     }

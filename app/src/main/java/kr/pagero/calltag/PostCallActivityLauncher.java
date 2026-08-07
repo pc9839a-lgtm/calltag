@@ -20,16 +20,22 @@ public final class PostCallActivityLauncher {
 
         long callId = source.getLongExtra(PostCallActivity.EXTRA_CALL_LOG_ID, -1L);
         long now = System.currentTimeMillis();
-        if (callId < 0L) return false;
+        if (callId < 0L) {
+            CrashTelemetryStore.record(context, "post_call_launcher", "invalid_call_id", "");
+            return false;
+        }
         if (callId == lastCallId
                 && now - lastLaunchAt < DUPLICATE_WINDOW_MS
                 && PostCallLaunchReceipt.wasVisible(context, callId)) {
+            CrashTelemetryStore.record(context, "post_call_launcher",
+                    "duplicate_visible", "call=" + callId);
             return true;
         }
 
         PostCallLaunchReceipt.closeStaleActivity(callId);
         Intent target = prepareTarget(source);
         PostCallLaunchReceipt.arm(context, target);
+        CrashTelemetryStore.record(context, "post_call_launcher", "attempt", "call=" + callId);
 
         int requestCode = (int) (callId & 0x7fffffff);
         PendingIntent pending = PendingIntent.getActivity(
@@ -48,12 +54,20 @@ public final class PostCallActivityLauncher {
                 pending.send();
             }
             accepted = true;
-        } catch (PendingIntent.CanceledException | RuntimeException ignored) {
+            CrashTelemetryStore.record(context, "post_call_launcher",
+                    "pending_intent_accepted", "call=" + callId);
+        } catch (PendingIntent.CanceledException | RuntimeException firstError) {
+            CrashTelemetryStore.record(context, "post_call_launcher",
+                    "pending_intent_failed", firstError.getClass().getSimpleName());
             try {
                 context.startActivity(prepareTarget(source));
                 accepted = true;
-            } catch (RuntimeException ignoredAgain) {
+                CrashTelemetryStore.record(context, "post_call_launcher",
+                        "direct_start_accepted", "call=" + callId);
+            } catch (RuntimeException secondError) {
                 accepted = false;
+                CrashTelemetryStore.record(context, "post_call_launcher",
+                        "direct_start_failed", secondError.getClass().getSimpleName());
             }
         }
 

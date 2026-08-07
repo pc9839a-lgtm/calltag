@@ -33,6 +33,7 @@ public final class CallTagApplication extends Application implements Application
     @Override
     public void onCreate() {
         super.onCreate();
+        CrashTelemetryStore.install(this);
         registerActivityLifecycleCallbacks(this);
         MessageAutomationStore.ensureDefaults(this);
         PageroLeadNotificationManager.ensureChannel(this);
@@ -77,10 +78,16 @@ public final class CallTagApplication extends Application implements Application
     @Override
     public void onActivityResumed(Activity activity) {
         if (activity instanceof PostCallActivity) {
+            CrashTelemetryStore.record(activity, "post_call", "visible", "");
             PostCallLaunchReceipt.markVisible(activity);
             PostCallPopupWindowInstaller.install(activity);
             routingToSetup = false;
             return;
+        }
+        if (activity instanceof CustomerQuickEditActivity) {
+            CrashTelemetryStore.record(activity, "customer_quick_edit", "visible", "");
+        } else if (activity instanceof HomeTaskEditorActivity) {
+            CrashTelemetryStore.record(activity, "home_task_editor", "visible", "");
         }
         if (activity instanceof MainActivity) {
             MainExitGuard.install(activity);

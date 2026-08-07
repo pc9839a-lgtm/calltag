@@ -68,6 +68,8 @@ public final class CallerOverlayManager {
         Context app = context.getApplicationContext();
         HANDLER.post(() -> {
             boolean shown = showOnMain(app, customer, memo, stageColor, false);
+            CrashTelemetryStore.record(app, "caller_overlay",
+                    shown ? "shown" : "show_failed", "customer=" + customer.id);
             if (callback != null) callback.onResult(shown);
         });
         return true;
@@ -240,27 +242,22 @@ public final class CallerOverlayManager {
                 SetupRequirements.markOverlayTestPassed(context);
                 SetupRequirements.markInitialFlowCompleted(context);
                 SetupRequirements.startCallMonitoring(context);
-                hide(context);
                 try {
                     context.startActivity(new Intent(context, MainActivity.class)
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                                     | Intent.FLAG_ACTIVITY_CLEAR_TASK));
-                } catch (RuntimeException ignored) {
-                    // Keep the test card available if the app cannot be reopened.
+                    CrashTelemetryStore.record(context, "caller_overlay_test",
+                            "launch_accepted", "main");
+                    hide(context);
+                } catch (RuntimeException error) {
+                    CrashTelemetryStore.record(context, "caller_overlay_test",
+                            "launch_failed", error.getClass().getSimpleName());
                 }
                 return;
             }
-            try {
-                context.startActivity(new Intent(context, CustomerQuickEditActivity.class)
-                        .putExtra(CustomerQuickEditActivity.EXTRA_CUSTOMER_ID, customer.id)
-                        .putExtra(CustomerQuickEditActivity.EXTRA_FALLBACK_PHONE, customer.primaryPhone)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                                | Intent.FLAG_ACTIVITY_CLEAR_TOP
-                                | Intent.FLAG_ACTIVITY_SINGLE_TOP));
-                hide(context);
-            } catch (RuntimeException ignored) {
-                // Do not hide the caller card unless the edit screen launch was accepted.
-            }
+            boolean opened = CustomerLaunchRouter.openForEdit(
+                    context, customer.id, customer.primaryPhone, "caller_overlay");
+            if (opened) hide(context);
         });
         LinearLayout.LayoutParams primaryParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(context, 48));
