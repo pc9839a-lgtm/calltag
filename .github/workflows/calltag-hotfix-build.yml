@@ -6,6 +6,9 @@ on:
   push:
     branches:
       - agent/calltag-v0442-play-aab
+  pull_request:
+    branches:
+      - agent/play-internal-v0430-run2
 
 permissions:
   contents: read
