@@ -6,6 +6,9 @@ on:
   push:
     branches:
       - agent/calltag-v0443-play-aab
+  pull_request:
+    branches:
+      - agent/play-internal-v0430-run2
 
 permissions:
   contents: read
@@ -54,14 +57,12 @@ jobs:
           grep -F 'CallDisposition.needsFollowUp' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
           grep -F 'postCallFieldsScroll' app/src/main/res/layout/activity_post_call.xml
           grep -F 'todayWindow()' app/src/main/java/kr/pagero/calltag/MainActivityCardInteractionFix.java
-
           grep -F 'referralCode' app/src/main/java/kr/pagero/calltag/AuthApiClient.java
           grep -F '통합권 7일 추가, 총 14일 무료' app/src/main/java/kr/pagero/calltag/LoginActivity.java
           grep -F '추천인 코드는 회원가입 시 1회만 입력' app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java
           test ! -e app/src/main/java/kr/pagero/calltag/ReferralAutoApplyManager.java
           assert_absent 'applyPendingReferral' app/src/main/java/kr/pagero/calltag/AuthGateActivity.java
           assert_absent 'ReferralAutoApplyManager' app/src/main/java
-
           grep -F '"페이지로 연동"' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
           grep -F '"페이지로 서비스 안내"' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
           grep -F '"파트너 정산"' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
@@ -138,12 +139,10 @@ jobs:
           do
             [ -n "$value" ] && configured=$((configured + 1))
           done
-
           if [ "$configured" -ne 0 ] && [ "$configured" -ne 4 ]; then
             echo '::error::Upload-key Secrets are only partially configured.'
             exit 1
           fi
-
           if [ "$configured" -eq 4 ]; then
             printf '%s' "$SECRET_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
             STORE_PASSWORD="$SECRET_UPLOAD_STORE_PASSWORD"
@@ -159,7 +158,6 @@ jobs:
             KEY_ALIAS="$(grep '^CALLTAG_UPLOAD_KEY_ALIAS=' "$CREDENTIALS" | cut -d= -f2-)"
             KEY_PASSWORD="$(grep '^CALLTAG_UPLOAD_KEY_PASSWORD=' "$CREDENTIALS" | cut -d= -f2-)"
           fi
-
           test -s "$KEYSTORE"
           echo "::add-mask::$STORE_PASSWORD"
           echo "::add-mask::$KEY_PASSWORD"
