@@ -20,6 +20,8 @@ import java.util.List;
  * re-entrant home refresh while the activity is rendering task/customer cards.
  */
 public final class HomeTaskEditorActivity extends Activity {
+    public static final String EXTRA_CUSTOMER_ID = "customer_id";
+
     private CallTagDbHelper db;
     private TaskTypeStore taskTypes;
     private LinearLayout customerList;
@@ -33,6 +35,17 @@ public final class HomeTaskEditorActivity extends Activity {
         taskTypes = new TaskTypeStore(this);
         setContentView(buildScreen());
         renderCustomers();
+        if (savedInstanceState == null) {
+            long customerId = getIntent().getLongExtra(EXTRA_CUSTOMER_ID, 0L);
+            if (customerId > 0L) {
+                Customer customer = db.findCustomerById(customerId);
+                if (customer != null) {
+                    getWindow().getDecorView().post(() -> {
+                        if (!isFinishing() && !isDestroyed()) chooseTaskType(customer);
+                    });
+                }
+            }
+        }
     }
 
     private View buildScreen() {
@@ -49,12 +62,12 @@ public final class HomeTaskEditorActivity extends Activity {
         back.setOnClickListener(v -> {
             if (!saving) finish();
         });
-        top.addView(back, new LinearLayout.LayoutParams(dp(48), dp(56)));
+        top.addView(back, new LinearLayout.LayoutParams(dp(48), dp(52)));
 
         TextView title = text("할 일 등록", 19f, R.color.text_primary, true);
         title.setGravity(Gravity.CENTER);
-        top.addView(title, new LinearLayout.LayoutParams(0, dp(56), 1f));
-        top.addView(new View(this), new LinearLayout.LayoutParams(dp(48), dp(56)));
+        top.addView(title, new LinearLayout.LayoutParams(0, dp(52), 1f));
+        top.addView(new View(this), new LinearLayout.LayoutParams(dp(48), dp(52)));
         root.addView(top, matchWrap());
 
         View divider = new View(this);
@@ -64,7 +77,7 @@ public final class HomeTaskEditorActivity extends Activity {
 
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(dp(16), dp(18), dp(16), dp(30));
+        body.setPadding(dp(16), dp(14), dp(16), dp(26));
 
         body.addView(text("고객을 선택하세요", 16f, R.color.text_primary, true), matchWrap());
         TextView helper = text("선택 후 할 일 종류와 날짜·시간을 지정합니다.",
@@ -118,6 +131,11 @@ public final class HomeTaskEditorActivity extends Activity {
             labels.addView(text(customer.displayName, 15f, R.color.text_primary, true), matchWrap());
             labels.addView(text(customer.primaryPhone + " · " + customer.relationStatus,
                     12.5f, R.color.text_secondary, false), topMargin(4));
+            String memo = CustomerInsightResolver.latestMemo(db, customer);
+            if (!memo.isEmpty()) {
+                labels.addView(text("최근 메모 · " + memo,
+                        12.5f, R.color.text_muted, false), topMargin(4));
+            }
             row.addView(labels, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
