@@ -38,13 +38,15 @@ public final class QuickCustomerMessageView extends TextView {
     }
 
     private void openCustomerMessages() {
-        View root = getRootView();
-        View customerNav = root.findViewById(R.id.navCustomers);
-        if (customerNav != null) customerNav.performClick();
+        if (!(getContext() instanceof MainActivity)) return;
+        MainActivity activity = (MainActivity) getContext();
+        if (!UiLaunchGuard.tryAcquire("home_customer_messages", 500L)) return;
+        MainSectionRouter.showCustomers(activity);
         post(() -> {
-            View tabs = root.findViewById(R.id.customerHubTabs);
+            View tabs = getRootView().findViewById(R.id.customerHubTabs);
             if (tabs instanceof CustomerHubTabsView) {
                 ((CustomerHubTabsView) tabs).showMessages();
+                CrashTelemetryStore.record(activity, "home_customer_messages", "shown", "");
             }
         });
     }
