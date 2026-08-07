@@ -6,12 +6,13 @@ import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.WeakHashMap;
 
-/** Makes the whole home task/customer card open the linked customer detail. */
+/** Makes home task/customer cards open the linked customer directly in edit mode. */
 public final class MainActivityCardInteractionFix {
     private static final WeakHashMap<MainActivity, ViewTreeObserver.OnGlobalLayoutListener> LISTENERS =
             new WeakHashMap<>();
@@ -55,7 +56,7 @@ public final class MainActivityCardInteractionFix {
             for (int index = 0; index < count; index++) {
                 View card = list.getChildAt(index);
                 FollowUpTask task = tasks.get(index);
-                bindCustomerOpen(activity, card, task.customerId);
+                bindCustomerOpen(activity, card, task.customerId, task.phone);
             }
         } finally {
             db.close();
@@ -72,20 +73,30 @@ public final class MainActivityCardInteractionFix {
                 String phone = findPhone(card);
                 if (phone.isEmpty()) continue;
                 Customer customer = db.findByPhone(phone);
-                if (customer != null) bindCustomerOpen(activity, card, customer.id);
+                if (customer != null) {
+                    bindCustomerOpen(activity, card, customer.id, customer.primaryPhone);
+                }
             }
         } finally {
             db.close();
         }
     }
 
-    private static void bindCustomerOpen(MainActivity activity, View card, long customerId) {
+    private static void bindCustomerOpen(MainActivity activity, View card,
+                                         long customerId, String phone) {
         if (card == null || customerId <= 0L) return;
         card.setClickable(true);
         card.setFocusable(true);
-        card.setOnClickListener(v -> activity.startActivity(
-                new Intent(activity, CustomerDetailActivity.class)
-                        .putExtra(CustomerDetailActivity.EXTRA_CUSTOMER_ID, customerId)));
+        card.setOnClickListener(v -> {
+            try {
+                activity.startActivity(new Intent(activity, CustomerQuickEditActivity.class)
+                        .putExtra(CustomerQuickEditActivity.EXTRA_CUSTOMER_ID, customerId)
+                        .putExtra(CustomerQuickEditActivity.EXTRA_FALLBACK_PHONE,
+                                phone == null ? "" : phone));
+            } catch (RuntimeException error) {
+                Toast.makeText(activity, "고객 수정 화면을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private static String findPhone(View view) {

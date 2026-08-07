@@ -164,6 +164,8 @@ public final class CallTagApplication extends Application implements Application
         return activity instanceof MainActivity
                 || activity instanceof CustomerAddActivity
                 || activity instanceof CustomerDetailActivity
+                || activity instanceof CustomerQuickEditActivity
+                || activity instanceof HomeTaskEditorActivity
                 || activity instanceof CustomerMessagePickerActivity
                 || activity instanceof StageSettingsActivity
                 || activity instanceof TaskTypeSettingsActivity

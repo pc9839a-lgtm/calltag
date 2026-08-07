@@ -117,8 +117,9 @@ public final class CallPopupNotificationManager {
         String compactMemo = compactFirstLine(memo);
         int notificationId = 6400 + Math.abs(customer.normalizedPhone.hashCode() % 1000);
 
-        Intent open = new Intent(context, CustomerDetailActivity.class)
-                .putExtra(CustomerDetailActivity.EXTRA_CUSTOMER_ID, customer.id)
+        Intent open = new Intent(context, CustomerQuickEditActivity.class)
+                .putExtra(CustomerQuickEditActivity.EXTRA_CUSTOMER_ID, customer.id)
+                .putExtra(CustomerQuickEditActivity.EXTRA_FALLBACK_PHONE, customer.primaryPhone)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                         | Intent.FLAG_ACTIVITY_CLEAR_TOP
                         | Intent.FLAG_ACTIVITY_SINGLE_TOP);
