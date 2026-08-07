@@ -8,9 +8,13 @@ public final class SettingsStore {
     private static final String KEY_MONITOR_ENABLED = "monitor_enabled";
     private static final String KEY_LAST_CALL_ID = "last_call_id";
     private static final String KEY_LAST_PROCESSED_CALL = "last_processed_call";
+    private static final String KEY_CALL_RECOVERY_CURSOR_AT = "call_recovery_cursor_at";
     private static final String KEY_CALLER_PRIVACY_MODE = "caller_privacy_mode";
     private static final String KEY_LAST_SCREENING_STATUS = "last_screening_status";
     private static final String KEY_LAST_SCREENING_AT = "last_screening_at";
+    private static final String KEY_SCREENING_ROLE_KNOWN = "screening_role_known";
+    private static final String KEY_SCREENING_ROLE_HELD = "screening_role_held";
+    private static final String KEY_SCREENING_ROLE_CHANGED_AT = "screening_role_changed_at";
     private static final String KEY_CONTACT_NAME_SYNC_ENABLED = "contact_name_sync_enabled";
     private static final String KEY_CONTACT_NAME_SYNC_STATUS = "contact_name_sync_status";
 
@@ -40,6 +44,24 @@ public final class SettingsStore {
         prefs(context).edit().putLong(KEY_LAST_CALL_ID, callId).apply();
     }
 
+    public static long callRecoveryCursorAt(Context context) {
+        return prefs(context).getLong(KEY_CALL_RECOVERY_CURSOR_AT, 0L);
+    }
+
+    public static void setCallRecoveryCursorAt(Context context, long timestamp) {
+        prefs(context).edit()
+                .putLong(KEY_CALL_RECOVERY_CURSOR_AT, Math.max(0L, timestamp))
+                .apply();
+    }
+
+    public static void advanceCallRecoveryCursor(Context context, long timestamp) {
+        if (timestamp <= 0L) return;
+        SharedPreferences values = prefs(context);
+        long current = values.getLong(KEY_CALL_RECOVERY_CURSOR_AT, 0L);
+        if (timestamp <= current) return;
+        values.edit().putLong(KEY_CALL_RECOVERY_CURSOR_AT, timestamp).apply();
+    }
+
     public static boolean isCallProcessed(Context context, String fingerprint) {
         if (fingerprint == null || fingerprint.isEmpty()) return false;
         return fingerprint.equals(prefs(context).getString(KEY_LAST_PROCESSED_CALL, ""));
@@ -61,6 +83,29 @@ public final class SettingsStore {
     public static void setCallerPrivacyMode(Context context, int mode) {
         int safe = Math.max(CALLER_PRIVACY_NAME, Math.min(CALLER_PRIVACY_MEMO, mode));
         prefs(context).edit().putInt(KEY_CALLER_PRIVACY_MODE, safe).apply();
+    }
+
+    public static boolean updateScreeningRoleState(Context context, boolean held) {
+        SharedPreferences values = prefs(context);
+        boolean known = values.getBoolean(KEY_SCREENING_ROLE_KNOWN, false);
+        boolean previous = values.getBoolean(KEY_SCREENING_ROLE_HELD, false);
+        boolean changed = known && previous != held;
+        SharedPreferences.Editor editor = values.edit()
+                .putBoolean(KEY_SCREENING_ROLE_KNOWN, true)
+                .putBoolean(KEY_SCREENING_ROLE_HELD, held);
+        if (!known || changed) {
+            editor.putLong(KEY_SCREENING_ROLE_CHANGED_AT, System.currentTimeMillis());
+        }
+        editor.apply();
+        return changed;
+    }
+
+    public static boolean lastScreeningRoleHeld(Context context) {
+        return prefs(context).getBoolean(KEY_SCREENING_ROLE_HELD, false);
+    }
+
+    public static long screeningRoleChangedAt(Context context) {
+        return prefs(context).getLong(KEY_SCREENING_ROLE_CHANGED_AT, 0L);
     }
 
     public static boolean isContactNameSyncEnabled(Context context) {
