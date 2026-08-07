@@ -42,6 +42,19 @@ public final class CrashRegressionTest {
     }
 
     @Test
+    public void callLogMemoDisplayName_isBoundedAndMemoOnly() {
+        assertEquals("홍길동 · 견적 다시 연락",
+                CallLogMemoSyncManager.buildDisplayName(
+                        "홍길동", "견적 다시 연락", "01012345678"));
+        assertEquals("고객 5678 · 메모",
+                CallLogMemoSyncManager.buildDisplayName(
+                        "이름없는고객", "메모", "01012345678"));
+        String longAlias = CallLogMemoSyncManager.buildDisplayName(
+                "아주아주긴고객이름테스트입니다", "아주아주긴메모를입력해서길이제한을검증합니다", "01012345678");
+        assertTrue("call-log alias must remain compact", longAlias.length() <= 32);
+    }
+
+    @Test
     public void popupCustomerRoute_recoversWithPhoneFallback() {
         String phone = "01012345678";
         seedCustomer(phone);
@@ -101,17 +114,17 @@ public final class CrashRegressionTest {
         long tomorrowAt = atDayOffset(1, 10, 20);
         long todayCustomer = seedCustomer("01054789012");
         long tomorrowCustomer = seedCustomer("01065890123");
-        seedTask(todayCustomer, "오늘 회귀 0439", todayAt);
-        seedTask(tomorrowCustomer, "내일 회귀 0439", tomorrowAt);
+        seedTask(todayCustomer, "오늘 회귀 0440", todayAt);
+        seedTask(tomorrowCustomer, "내일 회귀 0440", tomorrowAt);
 
         ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class);
         try {
             scenario.onActivity(activity -> {
                 LinearLayout list = activity.findViewById(R.id.todayTaskList);
                 assertNotNull(list);
-                assertTrue("today task must stay visible", containsText(list, "오늘 회귀 0439"));
+                assertTrue("today task must stay visible", containsText(list, "오늘 회귀 0440"));
                 assertFalse("tomorrow task must not appear in today section",
-                        containsText(list, "내일 회귀 0439"));
+                        containsText(list, "내일 회귀 0440"));
             });
         } finally {
             scenario.close();
