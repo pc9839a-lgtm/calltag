@@ -1,4 +1,4 @@
-name: CallTag 0.43.5 build
+name: CallTag 0.43.6 build
 
 on:
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
     branches:
       - agent/play-internal-v0430-run2
       - agent/calltag-v0435-postcall-auth-hotfix
+      - agent/calltag-v0436-priority-crash-hotfix
   pull_request:
     branches:
       - agent/play-internal-v0430-run2
@@ -35,7 +36,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.43.5-code73-debug-apk
+          name: calltag-v0.43.6-code74-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -83,6 +84,6 @@ jobs:
         if: steps.signing.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.43.5-code73-release-aab
+          name: calltag-v0.43.6-code74-release-aab
           path: app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
