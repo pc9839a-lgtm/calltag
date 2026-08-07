@@ -36,7 +36,7 @@ public final class CallTagApplication extends Application implements Application
         CallTagSyncWorkScheduler.reconcile(this);
 
         // Upgrade migration only: remove CallTag-owned contacts created by older builds when the
-        // already-installed app still has legacy WRITE_CONTACTS. v0.44.2 never creates aliases.
+        // already-installed app still has legacy WRITE_CONTACTS. v0.44.3 never creates aliases.
         ContactNameSyncManager.disableAndRestore(this);
 
         new Thread(() -> {
@@ -48,7 +48,6 @@ public final class CallTagApplication extends Application implements Application
 
         if (AuthSessionStore.hasSession(this)) {
             SetupRequirements.refreshScreeningRoleState(this);
-            ReferralAutoApplyManager.applyIfNeeded(this);
             EntitlementRefreshManager.request(this, true);
             PageroLeadSyncManager.requestSync(this, true);
             PageroAccountConnectionManager.refresh(this, false);
@@ -75,6 +74,7 @@ public final class CallTagApplication extends Application implements Application
 
     @Override
     public void onActivityResumed(Activity activity) {
+        SystemBarInsetsInstaller.install(activity);
         if (activity instanceof PostCallActivity) {
             CrashTelemetryStore.record(activity, "post_call", "visible", "");
             PostCallLaunchReceipt.markVisible(activity);
@@ -96,7 +96,6 @@ public final class CallTagApplication extends Application implements Application
             MainExitGuard.install(activity);
             MainActivityCardInteractionFix.install((MainActivity) activity);
             if (AuthSessionStore.hasSession(activity)) {
-                ReferralAutoApplyManager.applyIfNeeded(activity);
                 EntitlementRefreshManager.request(activity, false);
                 PageroAccountConnectionManager.refresh(activity, false);
                 CallTagPushManager.registerIfAvailable(activity);
@@ -184,6 +183,8 @@ public final class CallTagApplication extends Application implements Application
                 || activity instanceof MessageSafetyHubActivity
                 || activity instanceof CampaignListActivity
                 || activity instanceof PageroConnectionActivity
+                || activity instanceof PageroUseGuideActivity
+                || activity instanceof PartnerSettlementActivity
                 || activity instanceof BillingEntitlementActivity
                 || activity instanceof ReferralPartnerActivity
                 || activity instanceof CallTagSyncStatusActivity
@@ -194,6 +195,7 @@ public final class CallTagApplication extends Application implements Application
 
     @Override
     public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+        SystemBarInsetsInstaller.install(activity);
         if (activity instanceof PostCallActivity) {
             PostCallLaunchReceipt.markVisible(activity);
             PostCallPopupWindowInstaller.install(activity);
@@ -209,6 +211,7 @@ public final class CallTagApplication extends Application implements Application
     public void onActivityDestroyed(Activity activity) {
         MainExitGuard.uninstall(activity);
         PostCallPopupWindowInstaller.uninstall(activity);
+        SystemBarInsetsInstaller.uninstall(activity);
         if (activity instanceof MainActivity) {
             MainActivityCardInteractionFix.uninstall((MainActivity) activity);
         }
