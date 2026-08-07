@@ -1,6 +1,5 @@
 package kr.pagero.calltag;
 
-import android.content.Intent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
@@ -56,7 +55,7 @@ public final class MainActivityCardInteractionFix {
             for (int index = 0; index < count; index++) {
                 View card = list.getChildAt(index);
                 FollowUpTask task = tasks.get(index);
-                bindCustomerOpen(activity, card, task.customerId, task.phone);
+                bindCustomerOpen(activity, card, task.customerId, task.phone, "home_task_card");
             }
         } finally {
             db.close();
@@ -74,7 +73,8 @@ public final class MainActivityCardInteractionFix {
                 if (phone.isEmpty()) continue;
                 Customer customer = db.findByPhone(phone);
                 if (customer != null) {
-                    bindCustomerOpen(activity, card, customer.id, customer.primaryPhone);
+                    bindCustomerOpen(activity, card, customer.id, customer.primaryPhone,
+                            "home_customer_card");
                 }
             }
         } finally {
@@ -83,17 +83,14 @@ public final class MainActivityCardInteractionFix {
     }
 
     private static void bindCustomerOpen(MainActivity activity, View card,
-                                         long customerId, String phone) {
+                                         long customerId, String phone, String source) {
         if (card == null || customerId <= 0L) return;
         card.setClickable(true);
         card.setFocusable(true);
         card.setOnClickListener(v -> {
-            try {
-                activity.startActivity(new Intent(activity, CustomerQuickEditActivity.class)
-                        .putExtra(CustomerQuickEditActivity.EXTRA_CUSTOMER_ID, customerId)
-                        .putExtra(CustomerQuickEditActivity.EXTRA_FALLBACK_PHONE,
-                                phone == null ? "" : phone));
-            } catch (RuntimeException error) {
+            boolean opened = CustomerLaunchRouter.openForEdit(
+                    activity, customerId, phone, source);
+            if (!opened) {
                 Toast.makeText(activity, "고객 수정 화면을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
             }
         });
