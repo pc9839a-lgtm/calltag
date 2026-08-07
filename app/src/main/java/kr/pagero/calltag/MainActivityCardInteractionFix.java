@@ -54,20 +54,26 @@ public final class MainActivityCardInteractionFix {
         try {
             List<FollowUpTask> allPending = db.listPendingTasks();
             long[] today = todayWindow();
-            int pairedCount = Math.min(list.getChildCount(), allPending.size());
-
-            // MainActivity still renders every pending task. Remove non-today cards immediately so
-            // the home section really means "오늘 할 일" and card/task indexes remain aligned.
-            for (int index = pairedCount - 1; index >= 0; index--) {
-                FollowUpTask task = allPending.get(index);
-                if (!isWithin(task.dueAt, today[0], today[1])) {
-                    list.removeViewAt(index);
-                }
-            }
-
             List<FollowUpTask> todayTasks = new ArrayList<>();
             for (FollowUpTask task : allPending) {
                 if (isWithin(task.dueAt, today[0], today[1])) todayTasks.add(task);
+            }
+
+            // MainActivity currently renders all pending tasks first. Filter only while the view
+            // count still matches that unfiltered source. A subsequent global-layout callback sees
+            // the already-filtered count and must never reuse allPending indexes against it.
+            if (list.getChildCount() == allPending.size()) {
+                for (int index = allPending.size() - 1; index >= 0; index--) {
+                    FollowUpTask task = allPending.get(index);
+                    if (!isWithin(task.dueAt, today[0], today[1])) {
+                        list.removeViewAt(index);
+                    }
+                }
+            } else if (list.getChildCount() != todayTasks.size()) {
+                CrashTelemetryStore.record(activity, "home_today_tasks", "count_mismatch",
+                        "views=" + list.getChildCount() + ",today=" + todayTasks.size()
+                                + ",pending=" + allPending.size());
+                return;
             }
 
             TextView empty = activity.findViewById(R.id.todayEmpty);
