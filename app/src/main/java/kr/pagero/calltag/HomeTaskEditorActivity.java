@@ -176,24 +176,39 @@ public final class HomeTaskEditorActivity extends Activity {
 
     private void chooseDate(Customer customer, TaskTypeOption type) {
         Calendar selected = Calendar.getInstance();
-        new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
-            selected.set(Calendar.YEAR, year);
-            selected.set(Calendar.MONTH, month);
-            selected.set(Calendar.DAY_OF_MONTH, dayOfMonth);
-            chooseTime(customer, type, selected);
-        }, selected.get(Calendar.YEAR), selected.get(Calendar.MONTH),
-                selected.get(Calendar.DAY_OF_MONTH)).show();
+        DatePickerDialog dialog = new DatePickerDialog(
+                this,
+                R.style.Theme_CallTag_PickerDialog,
+                (view, year, month, dayOfMonth) -> {
+                    selected.set(Calendar.YEAR, year);
+                    selected.set(Calendar.MONTH, month);
+                    selected.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+                    chooseTime(customer, type, selected);
+                },
+                selected.get(Calendar.YEAR),
+                selected.get(Calendar.MONTH),
+                selected.get(Calendar.DAY_OF_MONTH));
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.show();
     }
 
     private void chooseTime(Customer customer, TaskTypeOption type, Calendar selected) {
         Calendar now = Calendar.getInstance();
-        new TimePickerDialog(this, (view, hourOfDay, minute) -> {
-            selected.set(Calendar.HOUR_OF_DAY, hourOfDay);
-            selected.set(Calendar.MINUTE, minute);
-            selected.set(Calendar.SECOND, 0);
-            selected.set(Calendar.MILLISECOND, 0);
-            save(customer, type, selected.getTimeInMillis());
-        }, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE), false).show();
+        TimePickerDialog dialog = new TimePickerDialog(
+                this,
+                R.style.Theme_CallTag_PickerDialog,
+                (view, hourOfDay, minute) -> {
+                    selected.set(Calendar.HOUR_OF_DAY, hourOfDay);
+                    selected.set(Calendar.MINUTE, minute);
+                    selected.set(Calendar.SECOND, 0);
+                    selected.set(Calendar.MILLISECOND, 0);
+                    save(customer, type, selected.getTimeInMillis());
+                },
+                now.get(Calendar.HOUR_OF_DAY),
+                now.get(Calendar.MINUTE),
+                false);
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.show();
     }
 
     private void save(Customer customer, TaskTypeOption type, long dueAt) {
