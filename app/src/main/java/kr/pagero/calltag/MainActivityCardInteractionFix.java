@@ -8,6 +8,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.WeakHashMap;
 
@@ -50,16 +52,62 @@ public final class MainActivityCardInteractionFix {
         if (list == null) return;
         CallTagDbHelper db = new CallTagDbHelper(activity);
         try {
-            List<FollowUpTask> tasks = db.listPendingTasks();
-            int count = Math.min(list.getChildCount(), tasks.size());
+            List<FollowUpTask> allPending = db.listPendingTasks();
+            long[] today = todayWindow();
+            List<FollowUpTask> todayTasks = new ArrayList<>();
+            for (FollowUpTask task : allPending) {
+                if (isWithin(task.dueAt, today[0], today[1])) todayTasks.add(task);
+            }
+
+            // MainActivity currently renders all pending tasks first. Filter only while the view
+            // count still matches that unfiltered source. A subsequent global-layout callback sees
+            // the already-filtered count and must never reuse allPending indexes against it.
+            if (list.getChildCount() == allPending.size()) {
+                for (int index = allPending.size() - 1; index >= 0; index--) {
+                    FollowUpTask task = allPending.get(index);
+                    if (!isWithin(task.dueAt, today[0], today[1])) {
+                        list.removeViewAt(index);
+                    }
+                }
+            } else if (list.getChildCount() != todayTasks.size()) {
+                CrashTelemetryStore.record(activity, "home_today_tasks", "count_mismatch",
+                        "views=" + list.getChildCount() + ",today=" + todayTasks.size()
+                                + ",pending=" + allPending.size());
+                return;
+            }
+
+            TextView empty = activity.findViewById(R.id.todayEmpty);
+            if (empty != null) {
+                empty.setVisibility(todayTasks.isEmpty() ? View.VISIBLE : View.GONE);
+            }
+
+            int count = Math.min(list.getChildCount(), todayTasks.size());
             for (int index = 0; index < count; index++) {
                 View card = list.getChildAt(index);
-                FollowUpTask task = tasks.get(index);
+                FollowUpTask task = todayTasks.get(index);
                 bindCustomerOpen(activity, card, task.customerId, task.phone, "home_task_card");
             }
+        } catch (RuntimeException error) {
+            CrashTelemetryStore.record(activity, "home_today_tasks", "filter_failed",
+                    error.getClass().getSimpleName());
         } finally {
             db.close();
         }
+    }
+
+    private static long[] todayWindow() {
+        Calendar start = Calendar.getInstance();
+        start.set(Calendar.HOUR_OF_DAY, 0);
+        start.set(Calendar.MINUTE, 0);
+        start.set(Calendar.SECOND, 0);
+        start.set(Calendar.MILLISECOND, 0);
+        Calendar end = (Calendar) start.clone();
+        end.add(Calendar.DAY_OF_MONTH, 1);
+        return new long[]{start.getTimeInMillis(), end.getTimeInMillis()};
+    }
+
+    private static boolean isWithin(long value, long start, long end) {
+        return value >= start && value < end;
     }
 
     private static void bindCustomerCards(MainActivity activity) {

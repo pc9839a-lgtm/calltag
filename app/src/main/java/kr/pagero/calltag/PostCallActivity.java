@@ -43,6 +43,14 @@ public final class PostCallActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         bindIntent(intent);
+
+        // singleTop/CLEAR_TOP can deliver a new intent while this popup stays RESUMED.
+        // ActivityLifecycleCallbacks are not guaranteed to run again in that case, so explicitly
+        // acknowledge the new call and re-apply partial-popup bounds here.
+        PostCallLaunchReceipt.markVisible(this);
+        PostCallPopupWindowInstaller.install(this);
+        CrashTelemetryStore.record(this, "post_call", "new_intent_visible",
+                "call=" + callLogId());
     }
 
     private void bindViews() {
@@ -91,7 +99,7 @@ public final class PostCallActivity extends Activity {
             return;
         }
         if (SettingsStore.isCallProcessed(this, callFingerprint)) {
-            markPendingHandled();
+            markPendingHandledSafely();
             Toast.makeText(this, "이미 저장한 통화입니다.", Toast.LENGTH_SHORT).show();
             finish();
             return;
@@ -120,8 +128,10 @@ public final class PostCallActivity extends Activity {
             db.insertInteraction(customerId, callTypeCode(callType()), startedAt, endedAt,
                     durationSec(), "MEMO_SAVED", memo);
 
+            // The customer/memo write above is the primary save. Pending-call cleanup is best-effort;
+            // a cleanup failure must not tell the user the already-committed memo failed to save.
             SettingsStore.markCallProcessed(this, callFingerprint);
-            markPendingHandled();
+            markPendingHandledSafely();
             ContactNameSyncManager.requestSyncAll(this);
             Toast.makeText(this, "고객명과 메모를 저장했습니다.", Toast.LENGTH_SHORT).show();
             finish();
@@ -130,6 +140,8 @@ public final class PostCallActivity extends Activity {
             Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
         } catch (RuntimeException error) {
             setSaving(false);
+            CrashTelemetryStore.record(this, "post_call_save", "failed",
+                    error.getClass().getSimpleName());
             Toast.makeText(this, "저장하지 못했습니다. 다시 시도해주세요.", Toast.LENGTH_LONG).show();
         }
     }
@@ -141,6 +153,15 @@ public final class PostCallActivity extends Activity {
         saveButton.setEnabled(!value);
         saveButton.setAlpha(value ? 0.55f : 1f);
         saveButton.setText(value ? "저장 중" : "저장");
+    }
+
+    private void markPendingHandledSafely() {
+        try {
+            markPendingHandled();
+        } catch (RuntimeException error) {
+            CrashTelemetryStore.record(this, "pending_call_cleanup", "failed",
+                    error.getClass().getSimpleName());
+        }
     }
 
     private void markPendingHandled() {

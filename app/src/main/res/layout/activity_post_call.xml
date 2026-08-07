@@ -48,59 +48,76 @@
         android:layout_height="0dp"
         android:visibility="gone" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="고객명"
-        android:textColor="@color/text_primary"
-        android:textSize="13sp"
-        android:textStyle="bold" />
-
-    <EditText
-        android:id="@+id/postCallName"
+    <ScrollView
+        android:id="@+id/postCallFieldsScroll"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="0dp"
         android:layout_marginTop="6dp"
-        android:background="@drawable/bg_input"
-        android:hint="고객명"
-        android:inputType="textCapWords"
-        android:paddingLeft="14dp"
-        android:paddingRight="14dp"
-        android:singleLine="true"
-        android:textColor="@color/text_primary"
-        android:textColorHint="@color/text_muted"
-        android:textSize="15sp" />
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:overScrollMode="ifContentScrolls">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="메모"
-        android:textColor="@color/text_primary"
-        android:textSize="13sp"
-        android:textStyle="bold" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="4dp">
 
-    <EditText
-        android:id="@+id/postCallNote"
-        android:layout_width="match_parent"
-        android:layout_height="100dp"
-        android:layout_marginTop="6dp"
-        android:background="@drawable/bg_input"
-        android:gravity="top|start"
-        android:hint="통화 내용을 메모하세요"
-        android:inputType="textMultiLine|textCapSentences"
-        android:maxLines="5"
-        android:padding="14dp"
-        android:textColor="@color/text_primary"
-        android:textColorHint="@color/text_muted"
-        android:textSize="15sp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="고객명"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/postCallName"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_input"
+                android:hint="고객명"
+                android:inputType="textCapWords"
+                android:paddingLeft="14dp"
+                android:paddingRight="14dp"
+                android:singleLine="true"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_muted"
+                android:textSize="15sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="메모"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/postCallNote"
+                android:layout_width="match_parent"
+                android:layout_height="92dp"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_input"
+                android:gravity="top|start"
+                android:hint="통화 내용을 메모하세요"
+                android:inputType="textMultiLine|textCapSentences"
+                android:maxLines="5"
+                android:padding="14dp"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_muted"
+                android:textSize="15sp" />
+        </LinearLayout>
+    </ScrollView>
 
     <Button
         android:id="@+id/postCallSaveOnly"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="10dp"
         android:background="@drawable/bg_primary_button"
         android:text="저장"
         android:textAllCaps="false"
