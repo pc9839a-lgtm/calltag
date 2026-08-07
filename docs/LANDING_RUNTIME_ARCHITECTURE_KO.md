@@ -26,26 +26,50 @@
 
 실제 UI 패치 스크립트 목록과 실행 순서는 `assets/calltag-runtime-loader.js` 한 곳에서 관리합니다.
 
+## 2026-08-07 단순화 2단계
+
+섹션 순서와 문구를 각각 감시하던 후처리를 `calltag-section-order.js`의 단일 레이아웃 코디네이터로 합쳤습니다.
+
+통합된 역할:
+
+- 콜태그 히어로와 통화 스토리 순서 고정
+- 콜태그 기능 섹션 순서 고정
+- 페이지로 챕터와 연동 챕터 순서 고정
+- 요금/FAQ/최종 CTA 순서 고정
+- `오늘 할 일`, `상담이력`, `캘린더` 최종 문구 고정
+- 페이지로×콜태그 연결 제목 고정
+- 중복 업종 설명 영역 정리
+
+런타임에서 제거한 별도 보정 스크립트:
+
+- `calltag-story-order-hard-fix.js`
+- `calltag-feature-copy-exact.js`
+- `calltag-pagero-heading-fix.js`
+- `calltag-copy-hard-fix.js` (파일은 과거 이력/원복을 위해 일부 미러에 남을 수 있으나 런타임에서는 호출하지 않음)
+
+이로써 별도 MutationObserver 여러 개와 250ms 반복 보정 타이머를 제거하고, 레이아웃 감시는 하나의 코디네이터로 줄였습니다. 코디네이터 자체도 기존 30초 감시에서 15초 제한으로 축소했습니다.
+
 ## 아직 남은 기술 부채
 
-현재 최종 화면은 다수의 과거 패치 스크립트가 순차 실행된 결과입니다. 다음 항목은 아직 제거하지 않았습니다.
+현재 최종 화면은 여전히 여러 과거 패치 스크립트가 순차 실행된 결과입니다. 다음 항목은 아직 제거하지 않았습니다.
 
-- DOM 섹션 재배치용 MutationObserver
-- 일정 시간마다 재실행하는 보정 타이머
-- 과거 스크립트가 만든 DOM을 후속 스크립트가 다시 덮는 구조
+- 페이지로 섹션의 런타임 DOM 생성
+- 가격표의 런타임 DOM 교체
+- 일부 모바일/가로형 레이아웃 후처리
 - JS 내부에서 동적으로 `<style>`을 삽입하는 방식
-- 페이지로 섹션, 가격표, 모바일 보정 코드의 다단계 후처리
+- 일부 개별 애니메이션 스크립트의 IntersectionObserver
+- 레이아웃 코디네이터의 제한적 MutationObserver
 
 디자인을 유지해야 하므로 검증 없이 기존 패치 파일을 일괄 삭제하지 않습니다.
 
 ## 다음 단순화 순서
 
 1. 현재 운영 화면의 최종 DOM/스타일을 정본으로 확정
-2. 섹션 순서를 `index.html`에 직접 고정
-3. 페이지로/가격/기능 카드처럼 런타임 생성되는 영역을 정적 HTML로 이동
+2. 페이지로/가격/기능 카드처럼 런타임 생성되는 영역을 정적 HTML로 이동
+3. 섹션 순서를 `index.html`에 직접 고정
 4. 동적으로 생성되는 CSS를 통합 CSS로 이동
 5. 실제 인터랙션만 `calltag.js`에 남김
-6. MutationObserver와 반복 타이머 제거
+6. 남은 MutationObserver와 반복 보정 제거
 7. 미사용 과거 패치 자산 삭제
 
 최종 목표:
@@ -63,5 +87,7 @@ _worker.js
 
 - 구조 단순화 시작 전: `backup/runtime-before-simplify-20260807-2323`
 - 단순화 1단계 안정 기준: `backup/runtime-simplified-stage1-20260807-2341`
+- 2단계 시작 직전: `backup/runtime-stage2-before-dedupe-20260807-2349`
+- 2단계 코디네이터 적용 직후: `backup/runtime-stage2-after-coordinator-20260807-2350`
 
-화면 이상이 생기면 먼저 `backup/runtime-simplified-stage1-20260807-2341`로 되돌리고, 필요 시 전체 구조를 `backup/runtime-before-simplify-20260807-2323` 기준으로 복원합니다.
+화면 이상이 생기면 먼저 직전 단계 백업으로 되돌리고, 필요 시 전체 구조를 `backup/runtime-before-simplify-20260807-2323` 기준으로 복원합니다.
