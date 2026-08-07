@@ -1,4 +1,4 @@
-name: CallTag 0.44.3 trial and UI regression
+name: CallTag 0.44.4 popup and UI regression
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify 0.44.3 contracts
+      - name: Verify 0.44.4 contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -30,8 +30,8 @@ jobs:
             fi
           }
 
-          grep -F 'versionCode 81' app/build.gradle
-          grep -F "versionName '0.44.3'" app/build.gradle
+          grep -F 'versionCode 82' app/build.gradle
+          grep -F "versionName '0.44.4'" app/build.gradle
           grep -F 'targetSdk 36' app/build.gradle
 
           # Play-safe phone CRM contract remains unchanged.
@@ -49,34 +49,42 @@ jobs:
           grep -F 'RoleManager.ROLE_CALL_SCREENING' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
           grep -F 'CallProcessingLedger' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
           grep -F 'recoverCallsAfterRestart' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
-          grep -F 'PostCallRecoveryStore.arm' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
           grep -F 'CallInteractionDeduper.insertOnce' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
-          grep -F 'CallDisposition.needsFollowUp' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
-          grep -F 'postCallFieldsScroll' app/src/main/res/layout/activity_post_call.xml
-          grep -F 'todayWindow()' app/src/main/java/kr/pagero/calltag/MainActivityCardInteractionFix.java
 
-          # Referral is signup-only: normal 7 days, referral +7, total 14.
+          # Signup-only 7 + 7 referral contract remains.
           grep -F 'referralCode' app/src/main/java/kr/pagero/calltag/AuthApiClient.java
           grep -F '통합권 7일 추가, 총 14일 무료' app/src/main/java/kr/pagero/calltag/LoginActivity.java
           grep -F '추천인 코드는 회원가입 시 1회만 입력' app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java
           test ! -e app/src/main/java/kr/pagero/calltag/ReferralAutoApplyManager.java
-          assert_absent 'applyPendingReferral' app/src/main/java/kr/pagero/calltag/AuthGateActivity.java
-          assert_absent 'ReferralAutoApplyManager' app/src/main/java
 
-          # PageRo connection, guide, and partner settlement are separate entries.
-          grep -F '"페이지로 연동"' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
-          grep -F '"페이지로 서비스 안내"' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
-          grep -F '"파트너 정산"' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
+          # PageRo connection and service guide must be two different screens.
+          grep -F 'PageroConnectionCompactActivity.class' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
+          grep -F 'PageroUseGuideActivity.class' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
+          grep -F 'PageroConnectionCompactActivity' app/src/main/AndroidManifest.xml
+          assert_absent '이렇게 사용하세요' app/src/main/java/kr/pagero/calltag/PageroConnectionCompactActivity.java
+          assert_absent '페이지로 관리화면 열기' app/src/main/java/kr/pagero/calltag/PageroConnectionCompactActivity.java
           grep -F 'https://calltag.pagero.kr/web/settlement' app/src/main/java/kr/pagero/calltag/PartnerSettlementActivity.java
-          grep -F 'PageroUseGuideActivity' app/src/main/AndroidManifest.xml
-          grep -F 'PartnerSettlementActivity' app/src/main/AndroidManifest.xml
 
-          # UI regressions requested for code81.
-          grep -F 'SystemBarInsetsInstaller.install' app/src/main/java/kr/pagero/calltag/CallTagApplication.java
+          # Home pending-call task action must open task editor, never memo popup.
+          grep -F 'openTask(call)' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
+          grep -F 'HomeTaskEditorActivity.class' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
+          assert_absent 'PostCallActivity.class' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
+          grep -F 'EXTRA_CUSTOMER_ID' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
           grep -F 'HomeTaskRefreshStore.mark' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
-          grep -F 'HomeTaskRefreshStore.consume' app/src/main/java/kr/pagero/calltag/CallTagApplication.java
-          grep -F 'deletePending' app/src/main/java/kr/pagero/calltag/PendingCallStore.java
           grep -F 'actionButton("삭제"' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
+          grep -F '최근 메모 · ' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
+
+          # Post-call UI must be one compact popup only; no second Activity retry.
+          grep -F 'PostCallPopupWindowInstaller.install(this);' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
+          grep -F 'activity_not_visible_notification_only' app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java
+          assert_absent 'app.startActivity' app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java
+          grep -F 'postCallFieldsScroll' app/src/main/res/layout/activity_post_call.xml
+
+          # System bars: one inset mechanism, not fitsSystemWindows + global inset twice.
+          grep -F 'SystemBarInsetsInstaller.install' app/src/main/java/kr/pagero/calltag/CallTagApplication.java
+          assert_absent 'fitsSystemWindows="true"' app/src/main/res/layout/activity_main.xml
+
+          # Calendar and chart regressions remain fixed.
           assert_absent 'RecentCallHistoryView' app/src/main/res/layout/section_consultations.xml
           grep -F 'android:text="일정"' app/src/main/res/layout/section_consultations.xml
           grep -F 'onTouchEvent(MotionEvent event)' app/src/main/java/kr/pagero/calltag/StatsTrendChartView.java
@@ -99,7 +107,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.3-code81-debug-apk
+          name: calltag-v0.44.4-code82-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -109,7 +117,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Run 12 phone CRM regression tests on Android 16
+      - name: Run phone CRM regression tests on Android 16
         uses: ReactiveCircus/android-emulator-runner@v2
         with:
           api-level: 36
@@ -122,7 +130,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.3-code81-instrumentation-results
+          name: calltag-v0.44.4-code82-instrumentation-results
           path: |
             app/build/reports/androidTests/connected/**
             app/build/outputs/androidTest-results/connected/**
