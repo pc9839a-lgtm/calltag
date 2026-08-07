@@ -66,7 +66,6 @@ public final class PendingCallSectionView extends LinearLayout {
             try {
                 getContext().unregisterReceiver(refreshReceiver);
             } catch (RuntimeException ignored) {
-                // Receiver may already be removed with the activity.
             }
             receiverRegistered = false;
         }
@@ -104,9 +103,7 @@ public final class PendingCallSectionView extends LinearLayout {
             addView(sectionTitle("확인할 통화", calls.size()), matchWrap());
             addView(text("부재중·거절·연결되지 않은 발신만 표시됩니다.",
                     13f, R.color.text_secondary, false), topMargin(6));
-            for (PendingCallRecord call : calls) {
-                addView(callCard(call, db), cardParams());
-            }
+            for (PendingCallRecord call : calls) addView(callCard(call, db), cardParams());
         } finally {
             db.close();
             store.close();
@@ -152,12 +149,11 @@ public final class PendingCallSectionView extends LinearLayout {
         if (customer != null) {
             card.addView(text(customer.relationStatus, 14f, R.color.primary, true), topMargin(9));
             String memo = CustomerInsightResolver.latestMemo(db, customer);
-            if (!memo.isEmpty()) {
-                TextView memoView = text("최근 메모 · " + memo, 14f, R.color.text_primary, false);
-                memoView.setMaxLines(2);
-                memoView.setLineSpacing(0f, 1.2f);
-                card.addView(memoView, topMargin(7));
-            }
+            TextView memoView = text(memo.isEmpty() ? "최근 메모 · 없음" : "최근 메모 · " + memo,
+                    14f, memo.isEmpty() ? R.color.text_muted : R.color.text_primary, false);
+            memoView.setMaxLines(2);
+            memoView.setLineSpacing(0f, 1.2f);
+            card.addView(memoView, topMargin(7));
         } else {
             card.addView(text("등록되지 않은 번호", 14f, R.color.text_secondary, false), topMargin(9));
         }
@@ -173,11 +169,11 @@ public final class PendingCallSectionView extends LinearLayout {
         callButton.setOnClickListener(v -> dial(call.phone));
         actions.addView(callButton, new LayoutParams(0, dp(46), 1f));
 
-        Button reviewButton = actionButton("할 일 등록", false);
-        reviewButton.setOnClickListener(v -> openReview(call));
-        LayoutParams reviewParams = new LayoutParams(0, dp(46), 1f);
-        reviewParams.leftMargin = dp(7);
-        actions.addView(reviewButton, reviewParams);
+        Button taskButton = actionButton("할 일 등록", false);
+        taskButton.setOnClickListener(v -> openTask(call));
+        LayoutParams taskParams = new LayoutParams(0, dp(46), 1f);
+        taskParams.leftMargin = dp(7);
+        actions.addView(taskButton, taskParams);
 
         Button deleteButton = actionButton("삭제", false);
         deleteButton.setTextColor(getContext().getColor(R.color.danger));
@@ -187,6 +183,32 @@ public final class PendingCallSectionView extends LinearLayout {
         actions.addView(deleteButton, deleteParams);
         card.addView(actions, topMargin(14));
         return card;
+    }
+
+    private void openTask(PendingCallRecord call) {
+        CallTagDbHelper db = new CallTagDbHelper(getContext());
+        try {
+            Customer customer = db.findByPhone(call.phone);
+            long customerId;
+            if (customer == null) {
+                String name = call.cachedName == null ? "" : call.cachedName.trim();
+                if (name.isEmpty()) {
+                    String normalized = PhoneNumberNormalizer.normalize(call.phone);
+                    String suffix = normalized.length() >= 4
+                            ? normalized.substring(normalized.length() - 4) : normalized;
+                    name = suffix.isEmpty() ? "새 고객" : "고객 " + suffix;
+                }
+                customerId = db.insertCustomer(name, call.phone, db.firstStage(), "");
+            } else {
+                customerId = customer.id;
+            }
+            getContext().startActivity(new Intent(getContext(), HomeTaskEditorActivity.class)
+                    .putExtra(HomeTaskEditorActivity.EXTRA_CUSTOMER_ID, customerId));
+        } catch (RuntimeException error) {
+            Toast.makeText(getContext(), "할 일 등록 화면을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
+        } finally {
+            db.close();
+        }
     }
 
     private void confirmDelete(PendingCallRecord call) {
@@ -207,31 +229,6 @@ public final class PendingCallSectionView extends LinearLayout {
                     }
                 })
                 .show();
-    }
-
-    private void openReview(PendingCallRecord call) {
-        if (!UiLaunchGuard.tryAcquire("pending_call_review:" + call.callLogId, 900L)) {
-            CrashTelemetryStore.record(getContext(), "pending_call_review",
-                    "duplicate_suppressed", String.valueOf(call.callLogId));
-            return;
-        }
-        Intent review = new Intent(getContext(), PostCallActivity.class)
-                .putExtra(PostCallActivity.EXTRA_PENDING_CALL_ID, call.callLogId)
-                .putExtra(PostCallActivity.EXTRA_CALL_LOG_ID, call.callLogId)
-                .putExtra(PostCallActivity.EXTRA_PHONE, call.phone)
-                .putExtra(PostCallActivity.EXTRA_CACHED_NAME, call.cachedName)
-                .putExtra(PostCallActivity.EXTRA_CALL_TYPE, call.type)
-                .putExtra(PostCallActivity.EXTRA_STARTED_AT, call.startedAt)
-                .putExtra(PostCallActivity.EXTRA_ENDED_AT,
-                        call.startedAt + Math.max(0L, call.durationSec) * 1000L)
-                .putExtra(PostCallActivity.EXTRA_DURATION_SEC, call.durationSec);
-        boolean opened = PostCallActivityLauncher.launch(getContext(), review);
-        CrashTelemetryStore.record(getContext(), "pending_call_review",
-                opened ? "launch_accepted" : "launch_failed", String.valueOf(call.callLogId));
-        if (!opened) {
-            UiLaunchGuard.release("pending_call_review:" + call.callLogId);
-            Toast.makeText(getContext(), "통화 정리 화면을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
-        }
     }
 
     private void dial(String phone) {
