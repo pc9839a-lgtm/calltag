@@ -22,20 +22,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          assert_absent() {
+            local pattern="$1"
+            shift
+            if grep -R -F -- "$pattern" "$@"; then
+              echo "::error::Forbidden pattern found: $pattern"
+              exit 1
+            fi
+          }
+
           grep -F 'versionCode 79' app/build.gradle
           grep -F "versionName '0.44.1'" app/build.gradle
           grep -F 'targetSdk 36' app/build.gradle
           grep -F 'android.permission.READ_CALL_LOG' app/src/main/AndroidManifest.xml
-          ! grep -F 'android.permission.WRITE_CALL_LOG' app/src/main/AndroidManifest.xml
+          assert_absent 'android.permission.WRITE_CALL_LOG' app/src/main/AndroidManifest.xml
           test ! -e app/src/main/java/kr/pagero/calltag/CallLogMemoSyncManager.java
-          ! grep -R -F 'CallLog.Calls.CACHED_NAME' app/src/main/java app/src/main/AndroidManifest.xml
-          ! grep -R -F 'CallLogMemoSyncManager' app/src/main/java app/src/androidTest
-          ! grep -R -F 'hasCallLogWrite' app/src/main/java
-          ! grep -R -F 'Manifest.permission.WRITE_CALL_LOG' app/src/main/java
-          ! grep -F 'addIfMissing(missing, Manifest.permission.WRITE_CONTACTS)' app/src/main/java/kr/pagero/calltag/InitialPermissionActivity.java
-          ! grep -F 'createAppRawContact' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
-          ! grep -F 'TYPE_KEEP_TOGETHER' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
-          ! grep -F 'StructuredName.DISPLAY_NAME' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
+          assert_absent 'values.put(CallLog.Calls.CACHED_NAME' app/src/main/java
+          assert_absent 'CallLogMemoSyncManager' app/src/main/java app/src/androidTest
+          assert_absent 'hasCallLogWrite' app/src/main/java
+          assert_absent 'Manifest.permission.WRITE_CALL_LOG' app/src/main/java
+          assert_absent 'addIfMissing(missing, Manifest.permission.WRITE_CONTACTS)' app/src/main/java/kr/pagero/calltag/InitialPermissionActivity.java
+          assert_absent 'createAppRawContact' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
+          assert_absent 'TYPE_KEEP_TOGETHER' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
+          assert_absent 'StructuredName.DISPLAY_NAME' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
           grep -F 'android.telecom.CallScreeningService' app/src/main/AndroidManifest.xml
           grep -F 'extends CallScreeningService' app/src/main/java/kr/pagero/calltag/CallTagScreeningService.java
           grep -F 'RoleManager.ROLE_CALL_SCREENING' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
