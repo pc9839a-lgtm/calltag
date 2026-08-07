@@ -28,7 +28,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:includeFontPadding="false"
-                android:text="캘린더"
+                android:text="통화 · 일정"
                 android:textColor="@color/text_primary"
                 android:textSize="22sp"
                 android:textStyle="bold" />
@@ -44,11 +44,17 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <kr.pagero.calltag.RecentCallHistoryView
+            android:id="@+id/recentCallHistory"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" />
+
         <LinearLayout
             android:id="@+id/consultationSummary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="22dp"
             android:orientation="vertical" />
     </LinearLayout>
 </ScrollView>
