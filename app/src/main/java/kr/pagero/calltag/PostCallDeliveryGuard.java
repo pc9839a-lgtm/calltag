@@ -61,8 +61,11 @@ public final class PostCallDeliveryGuard {
             Customer customer = db.findByPhone(phone);
             String memo = customer == null
                     ? "" : CustomerInsightResolver.latestMemo(db, customer);
-            CallPopupNotificationManager.showPostCall(
+            boolean posted = CallPopupNotificationManager.showPostCall(
                     context, record, customer, review, memo);
+            if (posted) {
+                PostCallRecoveryStore.markDelivered(context, callId);
+            }
         } finally {
             db.close();
         }
