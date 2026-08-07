@@ -5,54 +5,273 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="robots" content="noindex,nofollow,noarchive" />
   <meta name="theme-color" content="#ffffff" />
-  <meta name="description" content="콜태그 × 페이지로 추천 파트너의 서비스별 추천 실적, 수익, 정산 내역과 합계를 관리하는 정산 페이지" />
+  <meta name="description" content="콜태그 × 페이지로 파트너의 수익과 지급 상태를 한눈에 확인하는 정산 페이지" />
   <link rel="canonical" href="https://calltag.pagero.kr/web/settlement" />
-  <link rel="stylesheet" href="/web/settlement.css?v=4" />
+  <link rel="stylesheet" href="/web/settlement.css?v=5" />
   <title>콜태그 × 페이지로 정산</title>
 </head>
 <body>
-<header class="topbar"><div class="topbar-inner"><a class="brand" href="/"><span class="brand-mark">CP</span><span>콜태그 × 페이지로 정산</span></a><div class="top-actions"><span class="service-status" id="serviceStatus"><i></i><span>연결 확인 중</span></span><a class="home-link" href="/">홈</a></div></div></header>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="/"><span class="brand-mark">CP</span><span>콜태그 × 페이지로</span></a>
+    <div class="top-actions">
+      <span class="service-status" id="serviceStatus"><i></i><span>연결 확인 중</span></span>
+      <button class="nav-btn settings-btn" type="button" data-panel="payout">정산정보</button>
+      <a class="home-link" href="/">홈</a>
+    </div>
+  </div>
+</header>
+
 <div class="layout">
-  <aside class="sidebar" aria-label="정산 메뉴"><nav class="side-nav"><button class="nav-btn active" type="button" data-panel="overview">대시보드</button><button class="nav-btn" type="button" data-panel="referrals">추천 회원</button><button class="nav-btn" type="button" data-panel="earnings">수익 내역</button><button class="nav-btn" type="button" data-panel="settlements">정산 내역</button><button class="nav-btn" type="button" data-panel="payout">계좌·세금정보</button><button class="nav-btn" type="button" data-panel="standards">수익·정산 기준</button></nav></aside>
   <main class="main">
-    <div class="page-head"><div><p class="page-parent">콜태그 × 페이지로</p><h1 id="pageTitle">전체 정산 합계</h1></div><button class="sync-btn" id="syncBtn" type="button">새로고침</button></div>
-    <div class="alert" id="alertBox" role="status"></div>
-
-    <section class="combined-total" aria-label="전체 정산 합계">
-      <article><span>총 추천 회원</span><strong id="totalReferrals">—</strong></article>
-      <article><span>이번 달 총 예상</span><strong id="totalEstimated">—</strong></article>
-      <article><span>총 정산 가능</span><strong id="totalAvailable">—</strong></article>
-      <article><span>총 누적 지급</span><strong id="totalPaid">—</strong></article>
-    </section>
-
-    <div class="service-switch" role="tablist" aria-label="정산 서비스 선택">
-      <button class="service-tab active" type="button" role="tab" aria-selected="true" data-service="all"><strong>전체 합계</strong><span>콜태그 + 페이지로</span></button>
-      <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="calltag"><strong>콜태그 정산</strong><span>통화 후 고객관리</span></button>
-      <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="pagero"><strong>페이지로 정산</strong><span>랜딩페이지</span></button>
+    <div class="page-head">
+      <div>
+        <p class="page-parent">PARTNER PAYOUT</p>
+        <h1 id="pageTitle">전체 정산 합계</h1>
+      </div>
+      <button class="sync-btn" id="syncBtn" type="button">새로고침</button>
     </div>
 
-    <nav class="partner-policy-nav" aria-label="파트너 정책"><a href="/partner-terms/">파트너 이용약관</a><a href="/settlement-policy/">수익·정산정책</a><a href="/partner-privacy/">개인정보 처리 안내</a></nav>
+    <div class="alert" id="alertBox" role="status"></div>
+
+    <nav class="main-nav" aria-label="정산 메뉴">
+      <button class="nav-btn active" type="button" data-panel="overview"><span>정산 홈</span></button>
+      <button class="nav-btn" type="button" data-panel="earnings"><span>수익</span></button>
+      <button class="nav-btn" type="button" data-panel="referrals"><span>추천 회원</span></button>
+      <button class="nav-btn" type="button" data-panel="settlements"><span>정산</span></button>
+    </nav>
 
     <section class="panel active" id="panel-overview">
-      <article class="service-banner"><div><span id="serviceBadge">전체</span><strong id="serviceBannerTitle">콜태그 × 페이지로 전체 수익</strong><p id="serviceBannerCopy">두 서비스의 추천 수익을 합산해 표시합니다.</p></div></article>
-      <article class="referral-card"><div class="referral-grid"><div><div class="referral-label" id="referralLabel">통합 추천인 코드</div><div class="referral-code" id="referralCode">확인 중</div></div><div class="referral-actions"><button class="dark-btn" id="copyCodeBtn" type="button" disabled>코드 복사</button><button class="dark-btn" id="copyLinkBtn" type="button" disabled>링크 복사</button><button class="dark-btn primary" id="shareBtn" type="button" disabled>공유</button></div></div></article>
-      <div class="summary-grid"><article class="summary-cell"><div class="summary-label">추천 회원</div><div class="summary-value" id="metricReferrals">—</div></article><article class="summary-cell"><div class="summary-label">유료 전환</div><div class="summary-value" id="metricPaid">—</div></article><article class="summary-cell"><div class="summary-label">이번 달 예상</div><div class="summary-value" id="metricEstimated">—</div></article><article class="summary-cell"><div class="summary-label">정산 가능</div><div class="summary-value" id="metricConfirmed">—</div></article><article class="summary-cell"><div class="summary-label">누적 지급</div><div class="summary-value" id="metricPaidTotal">—</div></article><article class="summary-cell"><div class="summary-label">다음 지급일</div><div class="summary-value" id="metricNextDate">—</div><div id="metricNextNote" hidden></div></article></div>
-      <div class="quick-standard"><table><thead><tr><th>구분</th><th>수익률</th><th>최소 정산</th><th>지급일</th></tr></thead><tbody><tr><td id="quickService">전체 합계</td><td>20%</td><td>10,000원</td><td>익월 15일</td></tr></tbody></table></div>
-      <section class="section"><div class="section-head"><h2 id="recentEarningsTitle">전체 최근 수익</h2><button class="ghost-btn" type="button" data-go="earnings">전체 보기</button></div><div class="table-wrap"><table class="responsive-table"><thead><tr><th>발생일</th><th>서비스</th><th>추천 회원</th><th>상품</th><th>인정 매출</th><th>수익률</th><th>파트너 수익</th><th>상태</th></tr></thead><tbody id="recentEarningsBody"><tr><td class="empty-cell" colspan="8">수익 내역을 불러오고 있습니다.</td></tr></tbody></table></div></section>
+      <section class="balance-card" aria-label="정산 가능 금액">
+        <div class="balance-top">
+          <div>
+            <span class="balance-label">지금 받을 수 있는 금액</span>
+            <strong class="balance-value" id="metricConfirmed">—</strong>
+          </div>
+          <button class="balance-action" type="button" data-go="settlements">정산하기</button>
+        </div>
+        <div class="balance-date">
+          <span>다음 지급 예정</span>
+          <strong id="metricNextDate">—</strong>
+          <small id="metricNextNote">매월 15일 지급</small>
+        </div>
+      </section>
+
+      <div class="service-block">
+        <div class="section-title-row">
+          <div>
+            <p>서비스별 보기</p>
+            <h2>수익 범위</h2>
+          </div>
+        </div>
+        <div class="service-switch" role="tablist" aria-label="정산 서비스 선택">
+          <button class="service-tab active" type="button" role="tab" aria-selected="true" data-service="all"><strong>전체</strong><span>콜태그 + 페이지로</span></button>
+          <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="calltag"><strong>콜태그</strong><span>앱 구독</span></button>
+          <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="pagero"><strong>페이지로</strong><span>웹 구독</span></button>
+        </div>
+      </div>
+
+      <section class="summary-grid" aria-label="핵심 정산 지표">
+        <article class="summary-cell">
+          <div class="summary-label">이번 달 예상</div>
+          <div class="summary-value" id="metricEstimated">—</div>
+        </article>
+        <article class="summary-cell">
+          <div class="summary-label">누적 지급</div>
+          <div class="summary-value" id="metricPaidTotal">—</div>
+        </article>
+        <article class="summary-cell">
+          <div class="summary-label">추천 회원</div>
+          <div class="summary-value" id="metricReferrals">—</div>
+        </article>
+        <article class="summary-cell">
+          <div class="summary-label">유료 전환</div>
+          <div class="summary-value" id="metricPaid">—</div>
+        </article>
+      </section>
+
+      <article class="referral-card">
+        <div>
+          <span class="referral-label" id="referralLabel">통합 추천인 코드</span>
+          <strong class="referral-code" id="referralCode">확인 중</strong>
+        </div>
+        <div class="referral-actions">
+          <button class="dark-btn" id="copyCodeBtn" type="button" disabled>코드 복사</button>
+          <button class="dark-btn" id="copyLinkBtn" type="button" disabled>링크 복사</button>
+          <button class="dark-btn primary" id="shareBtn" type="button" disabled>공유</button>
+        </div>
+      </article>
+
+      <section class="section recent-section">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">RECENT</p>
+            <h2 id="recentEarningsTitle">전체 최근 수익</h2>
+          </div>
+          <button class="ghost-btn" type="button" data-go="earnings">전체 보기</button>
+        </div>
+        <div class="table-wrap">
+          <table class="responsive-table earnings-table">
+            <thead>
+              <tr><th>발생일</th><th>서비스</th><th>추천 회원</th><th>상품</th><th>인정 매출</th><th>수익률</th><th>파트너 수익</th><th>상태</th></tr>
+            </thead>
+            <tbody id="recentEarningsBody"><tr><td class="empty-cell" colspan="8">수익 내역을 불러오고 있습니다.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
     </section>
 
-    <section class="panel" id="panel-referrals"><section class="section"><div class="section-head"><h2 id="referralsTitle">전체 추천 회원</h2></div><div class="table-wrap"><table class="responsive-table"><thead><tr><th>서비스</th><th>회원</th><th>이메일</th><th>가입일</th><th>무료체험</th><th>첫 결제일</th><th>구독 상태</th><th>이번 달 인정액</th></tr></thead><tbody id="referralsBody"><tr><td class="empty-cell" colspan="8">로그인 연결이 필요합니다.</td></tr></tbody></table></div></section></section>
-    <section class="panel" id="panel-earnings"><section class="section"><div class="section-head"><h2 id="earningsTitle">전체 수익 내역</h2></div><div class="table-wrap"><table class="responsive-table"><thead><tr><th>발생일</th><th>서비스</th><th>추천 회원</th><th>상품</th><th>결제금액</th><th>인정 매출</th><th>수익률</th><th>파트너 수익</th><th>상태</th></tr></thead><tbody id="earningsBody"><tr><td class="empty-cell" colspan="9">로그인 연결이 필요합니다.</td></tr></tbody></table></div></section></section>
-    <section class="panel" id="panel-settlements"><section class="section"><div class="section-head"><h2 id="settlementsTitle">전체 정산 내역</h2></div><div class="request-card"><div><strong><span id="requestService">전체</span> 정산 가능 <span id="requestAmount">—</span></strong><p id="requestHelp">지급정보 확인 중</p></div><button class="dark-btn primary" id="requestBtn" type="button" disabled>지급 요청</button></div><label class="consent-row"><input id="settlementConsent" type="checkbox"><span><a href="/partner-terms/" target="_blank" rel="noopener">파트너 이용약관</a>과 <a href="/settlement-policy/" target="_blank" rel="noopener">정산정책</a>을 확인했고, 차감·상계·세금처리에 동의합니다.</span></label><div class="table-wrap"><table class="responsive-table"><thead><tr><th>정산번호</th><th>서비스</th><th>대상 기간</th><th>신청일</th><th>금액</th><th>지급일</th><th>상태</th></tr></thead><tbody id="settlementsBody"><tr><td class="empty-cell" colspan="7">로그인 연결이 필요합니다.</td></tr></tbody></table></div></section></section>
-    <section class="panel" id="panel-payout"><section class="section"><div class="section-head"><div><h2>공통 계좌·세금정보</h2><p class="section-copy">콜태그와 페이지로 정산에 동일하게 사용합니다.</p></div></div><form id="payoutForm"><div class="form-grid"><div class="field"><label for="payoutType">정산 유형</label><select id="payoutType" name="type"><option value="INDIVIDUAL">개인</option><option value="SOLE_PROPRIETOR">개인사업자</option><option value="CORPORATION">법인</option></select></div><div class="field"><label for="accountHolder">예금주</label><input id="accountHolder" name="accountHolder" /></div><div class="field"><label for="bankName">은행</label><input id="bankName" name="bankName" /></div><div class="field"><label for="accountNumber">계좌번호</label><input id="accountNumber" name="accountNumber" inputmode="numeric" placeholder="변경할 때만 입력" /></div><div class="field"><label for="settlementEmail">정산 이메일</label><input id="settlementEmail" name="settlementEmail" type="email" /></div><div class="field"><label for="phone">휴대전화번호</label><input id="phone" name="phone" type="tel" /></div><div class="field full" id="businessFields" hidden><label for="businessName">상호 또는 법인명</label><input id="businessName" name="businessName" /></div><div class="field" id="businessNumberField" hidden><label for="businessNumber">사업자등록번호</label><input id="businessNumber" name="businessNumber" /></div><div class="field" id="taxEmailField" hidden><label for="taxEmail">세금계산서 이메일</label><input id="taxEmail" name="taxEmail" type="email" /></div></div><label class="consent-row"><input id="partnerConsent" name="partnerConsent" type="checkbox" required><span><a href="/partner-terms/" target="_blank" rel="noopener">파트너 이용약관</a>, <a href="/settlement-policy/" target="_blank" rel="noopener">정산정책</a>, <a href="/partner-privacy/" target="_blank" rel="noopener">개인정보 처리 안내</a>에 동의합니다.</span></label><div class="form-actions"><button class="primary-btn" id="savePayoutBtn" type="submit" disabled>저장</button></div></form></section></section>
-
-    <section class="panel" id="panel-standards">
-      <section class="section"><div class="section-head"><h2 id="standardsTitle">전체 수익·정산 기준</h2></div><div class="table-wrap"><table class="compact-table"><tbody><tr><th>전체 합계</th><td>콜태그 수익 + 페이지로 수익</td></tr><tr><th>콜태그</th><td>콜태그 유료 구독 인정 매출 × 20%</td></tr><tr><th>페이지로</th><td>페이지로 유료 구독 인정 매출 × 20%</td></tr><tr><th>인정 매출</th><td>결제금액 - 부가세 - 할인·쿠폰 - 환불·취소·차지백</td></tr><tr><th>최소 정산</th><td>서비스별 또는 전체 확정금액 10,000원 이상</td></tr><tr><th>지급일</th><td>익월 15일 <span class="muted">(휴일이면 다음 영업일)</span></td></tr></tbody></table></div></section>
-      <section class="section"><div class="section-head"><h2>상태 기준</h2></div><div class="table-wrap"><table class="compact-table"><tbody><tr><th>예상</th><td>결제 완료, 환불·취소 확인 전</td></tr><tr><th>확정 대기</th><td>결제와 차감 항목 검증 중</td></tr><tr><th>정산 가능</th><td>월 마감과 검증 완료</td></tr><tr><th>보류</th><td>계정·결제·지급정보 확인 필요</td></tr><tr><th>차감</th><td>환불·취소·차지백 반영</td></tr></tbody></table></div></section>
-      <section class="section"><div class="section-head"><h2>계산 예시</h2></div><div class="table-wrap"><table class="example-table"><thead><tr><th>서비스</th><th>인정 매출</th><th>수익률</th><th>파트너 수익</th></tr></thead><tbody><tr><td>콜태그</td><td>5,000원</td><td>20%</td><td>1,000원</td></tr><tr><td>페이지로</td><td>3,182원</td><td>20%</td><td>636원</td></tr><tr><td><strong>전체 합계</strong></td><td><strong>8,182원</strong></td><td>—</td><td><strong>1,636원</strong></td></tr></tbody></table></div><div class="notice">자기 추천·허위 거래·결제 악용은 수익이 보류·차감·환수될 수 있습니다. <a href="/partner-terms/">파트너 약관</a>과 <a href="/settlement-policy/">전체 정산정책</a>이 우선 적용됩니다.</div></section>
+    <section class="panel" id="panel-earnings">
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">EARNINGS</p>
+            <h2 id="earningsTitle">전체 수익 내역</h2>
+          </div>
+        </div>
+        <div class="service-switch service-switch-inline" role="tablist" aria-label="수익 서비스 선택">
+          <button class="service-tab active" type="button" role="tab" aria-selected="true" data-service="all"><strong>전체</strong></button>
+          <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="calltag"><strong>콜태그</strong></button>
+          <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="pagero"><strong>페이지로</strong></button>
+        </div>
+        <div class="table-wrap">
+          <table class="responsive-table earnings-table">
+            <thead>
+              <tr><th>발생일</th><th>서비스</th><th>추천 회원</th><th>상품</th><th>결제금액</th><th>인정 매출</th><th>수익률</th><th>파트너 수익</th><th>상태</th></tr>
+            </thead>
+            <tbody id="earningsBody"><tr><td class="empty-cell" colspan="9">로그인 연결이 필요합니다.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
     </section>
+
+    <section class="panel" id="panel-referrals">
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">REFERRALS</p>
+            <h2 id="referralsTitle">전체 추천 회원</h2>
+          </div>
+        </div>
+        <div class="service-switch service-switch-inline" role="tablist" aria-label="추천 회원 서비스 선택">
+          <button class="service-tab active" type="button" role="tab" aria-selected="true" data-service="all"><strong>전체</strong></button>
+          <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="calltag"><strong>콜태그</strong></button>
+          <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="pagero"><strong>페이지로</strong></button>
+        </div>
+        <div class="table-wrap">
+          <table class="responsive-table">
+            <thead>
+              <tr><th>서비스</th><th>회원</th><th>이메일</th><th>가입일</th><th>무료체험</th><th>첫 결제일</th><th>구독 상태</th><th>이번 달 인정액</th></tr>
+            </thead>
+            <tbody id="referralsBody"><tr><td class="empty-cell" colspan="8">로그인 연결이 필요합니다.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" id="panel-settlements">
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">PAYOUT</p>
+            <h2 id="settlementsTitle">전체 정산 내역</h2>
+          </div>
+        </div>
+
+        <div class="service-switch service-switch-inline" role="tablist" aria-label="정산 서비스 선택">
+          <button class="service-tab active" type="button" role="tab" aria-selected="true" data-service="all"><strong>전체</strong></button>
+          <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="calltag"><strong>콜태그</strong></button>
+          <button class="service-tab" type="button" role="tab" aria-selected="false" data-service="pagero"><strong>페이지로</strong></button>
+        </div>
+
+        <div class="request-card">
+          <div>
+            <span>지급 가능한 금액</span>
+            <strong id="requestAmount">—</strong>
+            <p id="requestHelp">지급정보 확인 중</p>
+            <span id="requestService" hidden>전체</span>
+          </div>
+          <button class="dark-btn primary" id="requestBtn" type="button" disabled>지급 요청</button>
+        </div>
+
+        <label class="consent-row">
+          <input id="settlementConsent" type="checkbox">
+          <span><a href="/partner-terms/" target="_blank" rel="noopener">파트너 이용약관</a>과 <a href="/settlement-policy/" target="_blank" rel="noopener">정산정책</a>을 확인했고, 차감·상계·세금처리에 동의합니다.</span>
+        </label>
+
+        <div class="table-wrap">
+          <table class="responsive-table">
+            <thead>
+              <tr><th>정산번호</th><th>서비스</th><th>대상 기간</th><th>신청일</th><th>금액</th><th>지급일</th><th>상태</th></tr>
+            </thead>
+            <tbody id="settlementsBody"><tr><td class="empty-cell" colspan="7">로그인 연결이 필요합니다.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel" id="panel-payout">
+      <section class="section settings-section">
+        <div class="section-head">
+          <div>
+            <p class="section-kicker">SETTINGS</p>
+            <h2>계좌·세금정보</h2>
+            <p class="section-copy">콜태그와 페이지로 정산에 공통으로 사용합니다.</p>
+          </div>
+        </div>
+
+        <form id="payoutForm">
+          <div class="form-grid">
+            <div class="field"><label for="payoutType">정산 유형</label><select id="payoutType" name="type"><option value="INDIVIDUAL">개인</option><option value="SOLE_PROPRIETOR">개인사업자</option><option value="CORPORATION">법인</option></select></div>
+            <div class="field"><label for="accountHolder">예금주</label><input id="accountHolder" name="accountHolder" /></div>
+            <div class="field"><label for="bankName">은행</label><input id="bankName" name="bankName" /></div>
+            <div class="field"><label for="accountNumber">계좌번호</label><input id="accountNumber" name="accountNumber" inputmode="numeric" placeholder="변경할 때만 입력" /></div>
+            <div class="field"><label for="settlementEmail">정산 이메일</label><input id="settlementEmail" name="settlementEmail" type="email" /></div>
+            <div class="field"><label for="phone">휴대전화번호</label><input id="phone" name="phone" type="tel" /></div>
+            <div class="field full" id="businessFields" hidden><label for="businessName">상호 또는 법인명</label><input id="businessName" name="businessName" /></div>
+            <div class="field" id="businessNumberField" hidden><label for="businessNumber">사업자등록번호</label><input id="businessNumber" name="businessNumber" /></div>
+            <div class="field" id="taxEmailField" hidden><label for="taxEmail">세금계산서 이메일</label><input id="taxEmail" name="taxEmail" type="email" /></div>
+          </div>
+          <label class="consent-row">
+            <input id="partnerConsent" name="partnerConsent" type="checkbox" required>
+            <span><a href="/partner-terms/" target="_blank" rel="noopener">파트너 이용약관</a>, <a href="/settlement-policy/" target="_blank" rel="noopener">정산정책</a>, <a href="/partner-privacy/" target="_blank" rel="noopener">개인정보 처리 안내</a>에 동의합니다.</span>
+          </label>
+          <div class="form-actions"><button class="primary-btn" id="savePayoutBtn" type="submit" disabled>저장</button></div>
+        </form>
+
+        <div class="policy-shortcuts">
+          <a href="/partner-terms/">파트너 약관</a>
+          <a href="/settlement-policy/">수익·정산정책</a>
+          <a href="/partner-privacy/">개인정보 안내</a>
+        </div>
+      </section>
+    </section>
+
+    <div class="legacy-hooks" hidden aria-hidden="true">
+      <span id="totalReferrals">—</span>
+      <span id="totalEstimated">—</span>
+      <span id="totalAvailable">—</span>
+      <span id="totalPaid">—</span>
+      <span id="serviceBadge">전체</span>
+      <span id="serviceBannerTitle">콜태그 × 페이지로 전체 수익</span>
+      <span id="serviceBannerCopy">두 서비스의 추천 수익을 합산해 표시합니다.</span>
+      <span id="quickService">전체 합계</span>
+      <span id="standardsTitle">전체 수익·정산 기준</span>
+    </div>
   </main>
 </div>
-<footer class="footer"><div>© 2026 콜태그 × 페이지로 · 운영사 웨이지</div><nav><a href="/partner-terms/">파트너 약관</a><a href="/settlement-policy/">정산정책</a><a href="/partner-privacy/">개인정보 안내</a><a href="/support/">고객센터</a></nav></footer><div class="toast" id="toast" role="status"></div>
+
+<footer class="footer">
+  <div>© 2026 콜태그 × 페이지로 · 운영사 웨이지</div>
+  <nav>
+    <a href="/partner-terms/">파트너 약관</a>
+    <a href="/settlement-policy/">정산정책</a>
+    <a href="/partner-privacy/">개인정보 안내</a>
+    <a href="/support/">고객센터</a>
+  </nav>
+</footer>
+
+<div class="toast" id="toast" role="status"></div>
 <script src="/web/settlement.js?v=4" defer></script>
-</body></html>
+</body>
+</html>
