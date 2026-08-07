@@ -19,6 +19,8 @@ import android.telephony.PhoneStateListener;
 import android.telephony.TelephonyCallback;
 import android.telephony.TelephonyManager;
 
+import java.util.List;
+
 public final class CallMonitorService extends Service {
     public static final String ACTION_START = "kr.pagero.calltag.START_MONITOR";
     public static final String ACTION_STOP = "kr.pagero.calltag.STOP_MONITOR";
@@ -30,6 +32,10 @@ public final class CallMonitorService extends Service {
     };
     private static final long POST_CALL_SETTLE_DELAY_MS = 1_800L;
     private static final long CALL_MATCH_TOLERANCE_MS = 20_000L;
+    private static final long STARTUP_RECOVERY_DELAY_MS = 1_200L;
+    private static final long RECOVERY_LOOKBACK_MS = 12L * 60L * 60L * 1000L;
+    private static final long RECOVERY_GRACE_MS = 5L * 60L * 1000L;
+    private static final int RECOVERY_LIMIT = 40;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ContentObserver callLogObserver = new ContentObserver(handler) {
@@ -48,6 +54,7 @@ public final class CallMonitorService extends Service {
     private boolean lookupRunning;
     private boolean listenerRegistered;
     private boolean observerRegistered;
+    private boolean startupRecoveryScheduled;
     private long callEventStartedAt;
     private int lookupGeneration;
 
@@ -64,6 +71,7 @@ public final class CallMonitorService extends Service {
         startForegroundSafely();
         registerCallListener();
         registerCallLogObserver();
+        scheduleStartupRecovery();
     }
 
     @Override
@@ -81,7 +89,53 @@ public final class CallMonitorService extends Service {
         SettingsStore.setMonitorEnabled(this, true);
         if (!listenerRegistered) registerCallListener();
         if (!observerRegistered) registerCallLogObserver();
+        scheduleStartupRecovery();
         return START_STICKY;
+    }
+
+    private void scheduleStartupRecovery() {
+        if (startupRecoveryScheduled) return;
+        startupRecoveryScheduled = true;
+        handler.postDelayed(() -> {
+            startupRecoveryScheduled = false;
+            if (!canMonitor()) return;
+            PostCallRecoveryStore.recoverLatest(this, false);
+            recoverCallsAfterRestart();
+        }, STARTUP_RECOVERY_DELAY_MS);
+    }
+
+    /**
+     * Reconciles call-log rows that appeared while the process or foreground service was dead.
+     * A persistent ledger prevents the same row from running automation twice.
+     */
+    private void recoverCallsAfterRestart() {
+        if (!canMonitor()) return;
+        long now = System.currentTimeMillis();
+        long cursor = SettingsStore.callRecoveryCursorAt(this);
+        if (cursor <= 0L) {
+            cursor = Math.max(0L, now - 2L * 60L * 1000L);
+            SettingsStore.setCallRecoveryCursorAt(this, cursor);
+        }
+        long notBefore = Math.max(now - RECOVERY_LOOKBACK_MS,
+                Math.max(0L, cursor - CALL_MATCH_TOLERANCE_MS));
+        List<CallRecord> recent = CallLogRepository.findRecent(this, notBefore, RECOVERY_LIMIT);
+        long legacyLastId = SettingsStore.lastCallId(this);
+
+        for (CallRecord record : recent) {
+            if (record == null || record.id <= 0L) continue;
+
+            // The immediately previous build stored only one receipt. Import it into the new
+            // bounded ledger on first code80 reconciliation so an upgrade never duplicates it.
+            if (record.id == legacyLastId && !CallProcessingLedger.wasResolved(this, record.id)) {
+                CallProcessingLedger.markResolved(this, record.id);
+                SettingsStore.advanceCallRecoveryCursor(this, recoveryPoint(record));
+                continue;
+            }
+            resolveRecordOnce(record, "restart_recovery");
+        }
+
+        // Keep a grace window for OEMs that publish CallLog rows late after the IDLE callback.
+        SettingsStore.advanceCallRecoveryCursor(this, Math.max(0L, now - RECOVERY_GRACE_MS));
     }
 
     private void startForegroundSafely() {
@@ -173,6 +227,7 @@ public final class CallMonitorService extends Service {
         if (!lookupRunning || generation != lookupGeneration) return;
         if (attempt < 0 || attempt >= LOOKUP_DELAYS.length) {
             resetLookupState(generation);
+            scheduleStartupRecovery();
             return;
         }
         handler.postDelayed(() -> {
@@ -190,6 +245,7 @@ public final class CallMonitorService extends Service {
                     lookupCall(attempt + 1, generation);
                 } else {
                     resetLookupState(generation);
+                    scheduleStartupRecovery();
                 }
                 return;
             }
@@ -209,7 +265,7 @@ public final class CallMonitorService extends Service {
 
     private boolean matchesCurrentCall(CallRecord record) {
         if (record == null) return false;
-        if (record.id == SettingsStore.lastCallId(this)) return false;
+        if (CallProcessingLedger.wasResolved(this, record.id)) return false;
         long earliest = callEventStartedAt - CALL_MATCH_TOLERANCE_MS;
         long recordEndedAt = record.startedAt + Math.max(0L, record.durationSec) * 1000L;
         return record.startedAt >= earliest || recordEndedAt >= earliest;
@@ -217,9 +273,41 @@ public final class CallMonitorService extends Service {
 
     private void completeLookup(CallRecord record, int generation) {
         if (!lookupRunning || generation != lookupGeneration || record == null) return;
+        resolveRecordOnce(record, "live_call");
         SettingsStore.setLastCallId(this, record.id);
-        onCallResolved(record);
         resetLookupState(generation);
+    }
+
+    private boolean resolveRecordOnce(CallRecord record, String source) {
+        if (record == null || record.id <= 0L) return false;
+        if (PhoneNumberNormalizer.normalize(record.phone).length() < 8) {
+            CallProcessingLedger.markResolved(this, record.id);
+            SettingsStore.advanceCallRecoveryCursor(this, recoveryPoint(record));
+            return false;
+        }
+        if (CallProcessingLedger.wasResolved(this, record.id)) {
+            SettingsStore.advanceCallRecoveryCursor(this, recoveryPoint(record));
+            return false;
+        }
+
+        try {
+            onCallResolved(record);
+            CallProcessingLedger.markResolved(this, record.id);
+            SettingsStore.setLastCallId(this, record.id);
+            SettingsStore.advanceCallRecoveryCursor(this, recoveryPoint(record));
+            CrashTelemetryStore.record(this, "call_resolution", "resolved_once",
+                    source + ",call=" + record.id);
+            return true;
+        } catch (RuntimeException error) {
+            CrashTelemetryStore.record(this, "call_resolution", "failed",
+                    source + ",call=" + record.id + "," + error.getClass().getSimpleName());
+            return false;
+        }
+    }
+
+    private long recoveryPoint(CallRecord record) {
+        if (record == null) return 0L;
+        return Math.max(record.startedAt + 1L, record.endedAt() + 1L);
     }
 
     private void resetLookupState(int generation) {
@@ -249,8 +337,8 @@ public final class CallMonitorService extends Service {
         try {
             if (db.isExcluded(record.phone)) return;
 
-            boolean deferred = needsDeferredHandling(record);
-            boolean connected = !deferred && record.durationSec > 0L;
+            boolean deferred = CallDisposition.needsFollowUp(record);
+            boolean connected = CallDisposition.isConnected(record);
             if (phoneAccess && pendingStore != null) {
                 if (deferred) {
                     pendingStore.upsert(record);
@@ -268,8 +356,9 @@ public final class CallMonitorService extends Service {
             }
 
             if (phoneAccess) {
+                long pendingCallId = deferred ? record.id : -1L;
                 Intent review = new Intent(this, PostCallActivity.class)
-                        .putExtra(PostCallActivity.EXTRA_PENDING_CALL_ID, deferred ? record.id : -1L)
+                        .putExtra(PostCallActivity.EXTRA_PENDING_CALL_ID, pendingCallId)
                         .putExtra(PostCallActivity.EXTRA_CALL_LOG_ID, record.id)
                         .putExtra(PostCallActivity.EXTRA_PHONE, record.phone)
                         .putExtra(PostCallActivity.EXTRA_CACHED_NAME, record.cachedName)
@@ -283,6 +372,7 @@ public final class CallMonitorService extends Service {
                                 | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
                                 | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
 
+                PostCallRecoveryStore.arm(this, record, pendingCallId);
                 String memo = customer == null
                         ? "" : CustomerInsightResolver.latestMemo(db, customer);
                 openPostCallAfterPhoneUiSettles(record, customer, review, memo);
@@ -298,16 +388,11 @@ public final class CallMonitorService extends Service {
         handler.postDelayed(() -> {
             boolean launched = PostCallActivityLauncher.launch(this, review);
             if (!launched) {
-                CallPopupNotificationManager.showPostCall(
+                boolean posted = CallPopupNotificationManager.showPostCall(
                         this, record, customer, review, memo);
+                if (posted) PostCallRecoveryStore.markDelivered(this, record.id);
             }
         }, POST_CALL_SETTLE_DELAY_MS);
-    }
-
-    private boolean needsDeferredHandling(CallRecord record) {
-        return record.type == CallLog.Calls.MISSED_TYPE
-                || record.type == CallLog.Calls.REJECTED_TYPE
-                || (record.type == CallLog.Calls.OUTGOING_TYPE && record.durationSec == 0L);
     }
 
     private void sendPendingChanged() {

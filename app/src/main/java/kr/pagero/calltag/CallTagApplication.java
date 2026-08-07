@@ -36,7 +36,7 @@ public final class CallTagApplication extends Application implements Application
         CallTagSyncWorkScheduler.reconcile(this);
 
         // Upgrade migration only: remove CallTag-owned contacts created by older builds when the
-        // already-installed app still has legacy WRITE_CONTACTS. v0.44.1 never creates aliases.
+        // already-installed app still has legacy WRITE_CONTACTS. v0.44.2 never creates aliases.
         ContactNameSyncManager.disableAndRestore(this);
 
         new Thread(() -> {
@@ -47,6 +47,7 @@ public final class CallTagApplication extends Application implements Application
         }, "calltag-startup-recovery").start();
 
         if (AuthSessionStore.hasSession(this)) {
+            SetupRequirements.refreshScreeningRoleState(this);
             ReferralAutoApplyManager.applyIfNeeded(this);
             EntitlementRefreshManager.request(this, true);
             PageroLeadSyncManager.requestSync(this, true);
@@ -77,9 +78,14 @@ public final class CallTagApplication extends Application implements Application
         if (activity instanceof PostCallActivity) {
             CrashTelemetryStore.record(activity, "post_call", "visible", "");
             PostCallLaunchReceipt.markVisible(activity);
+            PostCallRecoveryStore.markDelivered(activity,
+                    activity.getIntent().getLongExtra(PostCallActivity.EXTRA_CALL_LOG_ID, -1L));
             PostCallPopupWindowInstaller.install(activity);
             routingToSetup = false;
             return;
+        }
+        if (AuthSessionStore.hasSession(activity)) {
+            SetupRequirements.refreshScreeningRoleState(activity);
         }
         if (activity instanceof CustomerQuickEditActivity) {
             CrashTelemetryStore.record(activity, "customer_quick_edit", "visible", "");
@@ -100,6 +106,9 @@ public final class CallTagApplication extends Application implements Application
                 if (EntitlementNoticeActivity.shouldOpen(activity)) {
                     activity.startActivity(new Intent(activity, EntitlementNoticeActivity.class));
                 }
+                // If Android killed CallTag between call end and popup delivery, recover the newest
+                // unresolved review as soon as the user returns to the app foreground.
+                PostCallRecoveryStore.recoverLatest(activity, true);
             }
         }
         if (activity instanceof ManualMessageActivity) {

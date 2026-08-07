@@ -12,6 +12,7 @@ import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.SystemClock;
+import android.provider.CallLog;
 import android.util.DisplayMetrics;
 import android.view.View;
 import android.view.ViewGroup;
@@ -116,17 +117,17 @@ public final class CrashRegressionTest {
         long tomorrowAt = atDayOffset(1, 10, 20);
         long todayCustomer = seedCustomer("01054789012");
         long tomorrowCustomer = seedCustomer("01065890123");
-        seedTask(todayCustomer, "오늘 회귀 0441", todayAt);
-        seedTask(tomorrowCustomer, "내일 회귀 0441", tomorrowAt);
+        seedTask(todayCustomer, "오늘 회귀 0442", todayAt);
+        seedTask(tomorrowCustomer, "내일 회귀 0442", tomorrowAt);
 
         ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class);
         try {
             scenario.onActivity(activity -> {
                 LinearLayout list = activity.findViewById(R.id.todayTaskList);
                 assertNotNull(list);
-                assertTrue("today task must stay visible", containsText(list, "오늘 회귀 0441"));
+                assertTrue("today task must stay visible", containsText(list, "오늘 회귀 0442"));
                 assertFalse("tomorrow task must not appear in today section",
-                        containsText(list, "내일 회귀 0441"));
+                        containsText(list, "내일 회귀 0442"));
             });
         } finally {
             scenario.close();
@@ -196,6 +197,77 @@ public final class CrashRegressionTest {
         assertTrue("launcher must receive a visible receipt",
                 PostCallLaunchReceipt.wasVisible(app, callId));
         finishResumed(PostCallActivity.class);
+    }
+
+    @Test
+    public void callProcessingLedger_keepsMultipleResolvedCalls() {
+        CallProcessingLedger.clearForTests(app);
+        long first = System.currentTimeMillis() + 200_000L;
+        long second = first + 1L;
+        CallProcessingLedger.markResolved(app, first);
+        CallProcessingLedger.markResolved(app, second);
+        assertTrue(CallProcessingLedger.wasResolved(app, first));
+        assertTrue(CallProcessingLedger.wasResolved(app, second));
+    }
+
+    @Test
+    public void postCallRecoveryStore_roundTripsUndeliveredCall() {
+        PostCallRecoveryStore.clearForTests(app);
+        long callId = System.currentTimeMillis() + 300_000L;
+        CallRecord record = new CallRecord(
+                callId, "01098123456", "복구 테스트",
+                CallLog.Calls.INCOMING_TYPE,
+                System.currentTimeMillis() - 20_000L,
+                12L);
+        PostCallRecoveryStore.arm(app, record, -1L);
+        assertTrue(PostCallRecoveryStore.hasPending(app, callId));
+        assertEquals(1, PostCallRecoveryStore.pendingCount(app));
+        PostCallRecoveryStore.markDelivered(app, callId);
+        assertFalse(PostCallRecoveryStore.hasPending(app, callId));
+        assertEquals(0, PostCallRecoveryStore.pendingCount(app));
+    }
+
+    @Test
+    public void callInteractionDeduper_preventsDuplicateInteractionRows() {
+        long customerId = seedCustomer("01019234567");
+        long startedAt = System.currentTimeMillis() + 400_000L;
+        long endedAt = startedAt + 11_000L;
+        CallTagDbHelper db = new CallTagDbHelper(app);
+        try {
+            long first = CallInteractionDeduper.insertOnce(
+                    db, customerId, "INCOMING_CALL", startedAt, endedAt,
+                    11L, "MEMO_SAVED", "중복 방지");
+            long second = CallInteractionDeduper.insertOnce(
+                    db, customerId, "INCOMING_CALL", startedAt, endedAt,
+                    11L, "MEMO_SAVED", "중복 방지");
+            assertTrue(first > 0L);
+            assertEquals("same call must reuse existing interaction", first, second);
+        } finally {
+            db.close();
+        }
+    }
+
+    @Test
+    public void callDisposition_separatesConnectedAndUnansweredCalls() {
+        long now = System.currentTimeMillis();
+        CallRecord missed = new CallRecord(1L, "01011112222", "",
+                CallLog.Calls.MISSED_TYPE, now, 0L);
+        CallRecord rejected = new CallRecord(2L, "01011112223", "",
+                CallLog.Calls.REJECTED_TYPE, now, 0L);
+        CallRecord outgoingZero = new CallRecord(3L, "01011112224", "",
+                CallLog.Calls.OUTGOING_TYPE, now, 0L);
+        CallRecord outgoingConnected = new CallRecord(4L, "01011112225", "",
+                CallLog.Calls.OUTGOING_TYPE, now, 15L);
+        CallRecord incomingConnected = new CallRecord(5L, "01011112226", "",
+                CallLog.Calls.INCOMING_TYPE, now, 15L);
+
+        assertTrue(CallDisposition.needsFollowUp(missed));
+        assertTrue(CallDisposition.needsFollowUp(rejected));
+        assertTrue(CallDisposition.needsFollowUp(outgoingZero));
+        assertFalse(CallDisposition.needsFollowUp(outgoingConnected));
+        assertFalse(CallDisposition.needsFollowUp(incomingConnected));
+        assertTrue(CallDisposition.isConnected(outgoingConnected));
+        assertTrue(CallDisposition.isConnected(incomingConnected));
     }
 
     private Intent postCallIntent(long callId, String phone) {
