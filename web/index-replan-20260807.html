@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#090a0d" />
+  <meta name="description" content="전화가 오면 고객이 보이고, 통화가 끝나면 기록이 남습니다. 고객·일정·문자·통계와 페이지로 문의 연동까지 한 번에 관리하는 Android 고객관리 앱 콜태그." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://calltag.pagero.kr/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="ko_KR" />
+  <meta property="og:site_name" content="콜태그" />
+  <meta property="og:title" content="콜태그 | 전화 한 통을 고객관리로" />
+  <meta property="og:description" content="전화 전 고객 확인부터 통화 후 메모·일정·문자까지. 페이지로 문의도 콜태그 고객으로 바로 연결됩니다." />
+  <meta property="og:url" content="https://calltag.pagero.kr/" />
+  <title>콜태그 | 전화 한 통을 고객관리로</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+  <style>
+    :root{
+      --bg:#090a0d;--surface:#12141a;--surface2:#181b22;--surface3:#20242d;
+      --line:rgba(255,255,255,.105);--line2:rgba(255,255,255,.18);
+      --text:#f7f8fb;--muted:#a4a9b4;--muted2:#737986;
+      --blue:#3b6fff;--blue2:#7c99ff;--blueSoft:rgba(59,111,255,.15);
+      --green:#32c879;--yellow:#f5b83d;--red:#ff6666;--max:1360px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{margin:0;min-width:320px;background:var(--bg);color:var(--text);font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;word-break:keep-all;-webkit-font-smoothing:antialiased}
+    a{color:inherit;text-decoration:none}button{font:inherit}.wrap{width:min(var(--max),calc(100% - 48px));margin:0 auto}
+    .header{position:fixed;inset:0 0 auto;z-index:100;height:72px;border-bottom:1px solid transparent;transition:.2s ease}
+    .header.scrolled{background:rgba(9,10,13,.92);border-color:var(--line);backdrop-filter:blur(18px)}
+    .header-inner{height:100%;display:flex;align-items:center;gap:32px}.logo{display:inline-flex;align-items:center;gap:10px;font-size:20px;font-weight:900;letter-spacing:-.045em}
+    .logo-mark{width:35px;height:35px;display:grid;place-items:center;border-radius:11px;background:var(--blue);font-weight:950}
+    .nav{margin-left:auto;display:flex;gap:26px}.nav a{color:var(--muted);font-size:14px;font-weight:760}.nav a:hover{color:#fff}
+    .header-cta{display:inline-flex;align-items:center;justify-content:center;height:42px;padding:0 17px;border-radius:12px;background:#fff;color:#0b0c10;font-size:13px;font-weight:900}
+
+    .hero{position:relative;overflow:hidden;padding:150px 0 118px;border-bottom:1px solid var(--line)}
+    .hero:before{content:"";position:absolute;width:980px;height:980px;top:-620px;left:50%;transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle,rgba(59,111,255,.25),rgba(59,111,255,0) 68%);pointer-events:none}
+    .hero-copy{text-align:center;position:relative;z-index:1}.kicker{margin:0 0 20px;color:var(--blue2);font-size:17px;font-weight:900;letter-spacing:-.03em}
+    .hero h1{margin:0;font-size:clamp(58px,8vw,112px);line-height:.96;letter-spacing:-.082em}.hero h1 span{color:var(--blue2)}
+    .hero-sub{max-width:760px;margin:27px auto 0;color:var(--muted);font-size:clamp(17px,1.7vw,22px);line-height:1.6;letter-spacing:-.025em}
+    .hero-actions{display:flex;justify-content:center;gap:10px;margin-top:30px}.btn{height:54px;display:inline-flex;align-items:center;justify-content:center;padding:0 22px;border-radius:15px;border:1px solid var(--line2);font-size:15px;font-weight:900}
+    .btn.primary{border-color:var(--blue);background:var(--blue);color:#fff}.btn.secondary{background:rgba(255,255,255,.03);color:#fff}.hero-note{margin-top:14px;color:var(--muted2);font-size:13px;font-weight:700}
+
+    .hero-stage{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:56px;align-items:center;margin-top:76px;padding:32px;border:1px solid var(--line2);border-radius:32px;background:linear-gradient(145deg,rgba(24,27,34,.96),rgba(13,15,19,.98));box-shadow:0 42px 120px rgba(0,0,0,.46);overflow:hidden}
+    .stage-copy{padding:8px 6px 8px 16px}.stage-label{display:flex;align-items:center;gap:10px;color:#b8c5ff;font-size:15px;font-weight:850}.stage-label i{width:9px;height:9px;border-radius:50%;background:var(--blue2);box-shadow:0 0 0 7px rgba(124,153,255,.11)}
+    .stage-copy h2{margin:25px 0 0;font-size:clamp(39px,4.7vw,68px);line-height:1.04;letter-spacing:-.07em}.stage-copy h2 span{color:var(--blue2)}
+    .stage-copy>p{margin:18px 0 0;max-width:640px;color:#d5d8df;font-size:20px;font-weight:760;line-height:1.55;letter-spacing:-.03em}
+    .stage-points{display:grid;gap:11px;margin-top:34px}.stage-point{display:grid;grid-template-columns:38px 1fr;gap:13px;align-items:center;min-height:70px;padding:12px 14px;border:1px solid var(--line);border-radius:15px;background:rgba(255,255,255,.025)}
+    .stage-point b{width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:var(--blueSoft);color:#aebcff;font-size:12px}.stage-point strong{display:block;font-size:16px}.stage-point span{display:block;margin-top:4px;color:var(--muted2);font-size:12px}
+
+    .phone{width:100%;min-height:720px;padding:10px;border:1px solid rgba(255,255,255,.18);border-radius:48px;background:#040507;box-shadow:0 32px 90px rgba(0,0,0,.56)}
+    .screen{min-height:698px;overflow:hidden;border-radius:38px;background:#f8fafc;color:#0f172a}.status{height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;color:#64748b;font-size:10px;font-weight:800;background:#fff}
+    .app{padding:15px 20px 26px}.app-title{font-size:22px;font-weight:900;letter-spacing:-.045em}.app-sub{margin-top:5px;color:#64748b;font-size:12px}.call-card{margin-top:20px;padding:18px;border:1px solid #e2e8f0;border-radius:18px;background:#fff;box-shadow:0 12px 28px rgba(15,23,42,.06)}
+    .person{display:flex;align-items:center;gap:12px}.avatar{width:48px;height:48px;display:grid;place-items:center;border-radius:50%;background:#eaf0ff;color:#315dff;font-size:13px;font-weight:950}.person strong{display:block;font-size:17px}.person small{display:block;margin-top:4px;color:#64748b;font-size:11px}.badge{display:inline-flex;margin-top:12px;padding:6px 9px;border-radius:999px;background:#eaf0ff;color:#315dff;font-size:11px;font-weight:900}
+    .memo{margin-top:13px;padding:14px;border-radius:13px;background:#f1f5f9}.memo b{display:block;font-size:11px;color:#64748b}.memo p{margin:6px 0 0;font-size:13px;line-height:1.5;font-weight:750}.last{margin-top:12px;color:#64748b;font-size:11px}.phone-action{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px}.phone-action span{height:44px;display:grid;place-items:center;border-radius:12px;background:#eff3f8;font-size:12px;font-weight:900}.phone-action .primary{background:#2563eb;color:#fff}
+    .incoming{margin-top:27px;padding:15px;border-radius:17px;background:#111827;color:#fff}.incoming small{color:#94a3b8}.incoming strong{display:block;margin-top:6px;font-size:15px}.incoming p{margin:8px 0 0;color:#cbd5e1;font-size:12px;line-height:1.5}
+
+    .section{padding:126px 0;border-bottom:1px solid var(--line)}.section-head{max-width:850px;margin-bottom:58px}.section-head.center{margin-left:auto;margin-right:auto;text-align:center}.section-kicker{margin:0;color:var(--blue2);font-size:14px;font-weight:900;letter-spacing:.02em}.section-title{margin:15px 0 0;font-size:clamp(42px,5.7vw,78px);line-height:1.03;letter-spacing:-.075em}.section-copy{margin:20px 0 0;color:var(--muted);font-size:18px;line-height:1.65}
+    .feature{display:grid;grid-template-columns:1fr 1.12fr;gap:42px;align-items:center;padding:28px;border:1px solid var(--line2);border-radius:30px;background:linear-gradient(145deg,#171a20,#101217)}
+    .feature+.feature{margin-top:26px}.feature.reverse{grid-template-columns:1.12fr 1fr}.feature.reverse .feature-copy{order:2}.feature-copy{padding:18px}.feature-copy h3{margin:0;font-size:clamp(34px,4vw,56px);line-height:1.08;letter-spacing:-.065em}.feature-copy p{margin:17px 0 0;color:var(--muted);font-size:17px;line-height:1.65}
+    .mini-list{display:grid;gap:10px;margin-top:25px}.mini{display:flex;align-items:center;gap:10px;min-height:54px;padding:0 14px;border:1px solid var(--line);border-radius:13px;background:rgba(255,255,255,.025);font-size:14px;font-weight:800}.mini i{width:8px;height:8px;border-radius:50%;background:var(--blue2)}
+    .panel{min-height:430px;padding:22px;border:1px solid var(--line);border-radius:23px;background:#0f1116}.panel.white{background:#f8fafc;color:#0f172a;border-color:#e2e8f0}.panel-title{display:flex;align-items:end;justify-content:space-between;gap:12px}.panel-title h4{margin:0;font-size:23px;letter-spacing:-.045em}.panel-title span{color:var(--muted2);font-size:11px}
+    .task-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:18px}.task-stat{padding:15px 12px;border-radius:14px;background:#181b22}.task-stat strong{display:block;font-size:26px}.task-stat span{display:block;margin-top:5px;color:var(--muted2);font-size:11px}.task-stat.over strong{color:var(--red)}
+    .tasks{display:grid;gap:9px;margin-top:16px}.task{display:grid;grid-template-columns:56px 1fr auto;gap:11px;align-items:center;padding:14px;border:1px solid var(--line);border-radius:14px;background:#14171d}.task time{color:var(--blue2);font-size:12px;font-weight:900}.task strong{display:block;font-size:13px}.task small{display:block;margin-top:4px;color:var(--muted2);font-size:11px}.task em{font-style:normal;padding:7px 9px;border-radius:9px;background:#20242d;color:#cbd2dd;font-size:10px;font-weight:900}
+    .memo-form{margin-top:18px}.field{margin-top:11px}.field label{display:block;margin-bottom:7px;color:#475569;font-size:11px;font-weight:900}.input{min-height:48px;padding:13px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;font-size:13px;font-weight:750}.input.big{min-height:100px}.save{height:48px;display:grid;place-items:center;margin-top:12px;border-radius:12px;background:#2563eb;color:#fff;font-size:13px;font-weight:900}
+    .message-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:20px}.message-card{padding:16px;border:1px solid var(--line);border-radius:15px;background:#15181e}.message-card b{display:block;font-size:14px}.message-card span{display:block;margin-top:7px;color:var(--muted2);font-size:11px;line-height:1.5}.toggle{width:34px;height:20px;margin-top:15px;padding:3px;border-radius:999px;background:#2563eb}.toggle:after{content:"";display:block;width:14px;height:14px;margin-left:auto;border-radius:50%;background:#fff}
+    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:18px}.stats-box{padding:16px;border-radius:14px;background:#181b22}.stats-box strong{display:block;font-size:25px}.stats-box span{display:block;margin-top:5px;color:var(--muted2);font-size:10px}.chart{height:150px;display:flex;align-items:end;gap:8px;margin-top:22px;padding:18px;border-radius:15px;background:#14171d}.bar{flex:1;min-height:15px;border-radius:7px 7px 3px 3px;background:linear-gradient(180deg,#7c99ff,#3b6fff)}
+
+    .pagero{padding:128px 0;background:#f6f8fc;color:#111827}.pagero .section-kicker{color:#315dff}.pagero .section-copy{color:#64748b}.pagero-flow{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:50px}.flow{position:relative;padding:22px 16px;border:1px solid #e2e8f0;border-radius:20px;background:#fff;box-shadow:0 12px 30px rgba(15,23,42,.05)}.flow:not(:last-child):after{content:"→";position:absolute;right:-20px;top:50%;z-index:3;transform:translateY(-50%);color:#94a3b8;font-size:23px;font-weight:900}.flow b{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:#eaf0ff;color:#315dff;font-size:12px}.flow strong{display:block;margin-top:18px;font-size:16px}.flow span{display:block;margin-top:7px;color:#64748b;font-size:12px;line-height:1.5}.bundle{display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center;margin-top:30px;padding:26px;border-radius:22px;background:#111827;color:#fff}.bundle h3{margin:0;font-size:27px;letter-spacing:-.045em}.bundle p{margin:7px 0 0;color:#94a3b8;font-size:13px}.bundle strong{font-size:34px}.bundle strong small{font-size:13px;color:#94a3b8}
+
+    .shots{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.shot{min-height:270px;padding:20px;border:1px solid var(--line);border-radius:20px;background:#14171d}.shot span{color:var(--blue2);font-size:11px;font-weight:900}.shot h4{margin:11px 0 0;font-size:21px}.shot p{margin:9px 0 0;color:var(--muted2);font-size:12px;line-height:1.6}.shot-ui{margin-top:22px;padding:15px;border-radius:15px;background:#f8fafc;color:#0f172a}.shot-ui div+div{margin-top:8px}.ui-row{padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;font-size:11px;font-weight:800}
+    .pricing-wrap{max-width:850px}.price{padding:34px;border:1px solid rgba(124,153,255,.38);border-radius:28px;background:linear-gradient(145deg,rgba(59,111,255,.16),rgba(18,20,26,.96));box-shadow:0 30px 90px rgba(0,0,0,.33)}.price-top{display:flex;justify-content:space-between;gap:20px;align-items:start}.price h3{margin:0;font-size:28px}.price-number strong{font-size:52px;letter-spacing:-.06em}.price-number span{color:var(--muted);font-size:13px}.price-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:26px}.price-item{padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.025);font-size:13px;font-weight:800}.trial{margin-top:18px;color:#b8c5ff;font-size:13px;font-weight:800}.price-btn{height:54px;display:grid;place-items:center;margin-top:20px;border-radius:14px;background:#fff;color:#0b0c10;font-size:15px;font-weight:950}
+    .faq-list{max-width:900px}.faq{border-top:1px solid var(--line)}.faq:last-child{border-bottom:1px solid var(--line)}.faq button{width:100%;display:flex;justify-content:space-between;gap:16px;padding:22px 0;border:0;background:none;color:#fff;text-align:left;font-size:17px;font-weight:850;cursor:pointer}.faq p{display:none;margin:0;padding:0 0 22px;color:var(--muted);font-size:14px;line-height:1.65}.faq.open p{display:block}
+    .partner{display:flex;justify-content:space-between;gap:30px;align-items:center;padding:30px;border:1px solid var(--line);border-radius:24px;background:#12141a}.partner h3{margin:0;font-size:28px}.partner p{margin:8px 0 0;color:var(--muted);font-size:14px}.partner a{height:48px;display:inline-flex;align-items:center;padding:0 18px;border-radius:12px;background:#fff;color:#111827;font-size:13px;font-weight:900;white-space:nowrap}
+    .footer{padding:38px 0 46px}.footer-inner{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;color:var(--muted2);font-size:12px}.footer strong{color:#fff;font-size:15px}.footer-links{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:14px}.footer a:hover{color:#fff}
+    .reveal{opacity:0;transform:translateY(18px);transition:.65s ease}.reveal.on{opacity:1;transform:none}
+
+    @media(max-width:980px){
+      .nav{display:none}.hero-stage,.feature,.feature.reverse{grid-template-columns:1fr}.feature.reverse .feature-copy{order:0}.phone{max-width:430px;margin:0 auto}.pagero-flow{grid-template-columns:1fr 1fr}.flow:not(:last-child):after{display:none}.stats-grid{grid-template-columns:1fr 1fr}.shots{grid-template-columns:1fr 1fr}
+    }
+    @media(max-width:640px){
+      .wrap{width:min(100% - 28px,var(--max))}.header{height:64px}.header-cta{height:38px;padding:0 13px}.hero{padding:118px 0 78px}.hero h1{font-size:clamp(48px,14vw,68px)}.hero-sub{font-size:16px}.hero-actions{flex-direction:column}.hero-actions .btn{width:100%}.hero-stage{margin-top:48px;padding:18px;border-radius:24px;gap:30px}.stage-copy{padding:4px}.stage-copy h2{font-size:40px}.stage-copy>p{font-size:16px}.stage-point{min-height:62px}.phone{min-height:0;border-radius:38px}.screen{min-height:610px;border-radius:29px}.section{padding:84px 0}.section-head{margin-bottom:34px}.section-title{font-size:42px}.section-copy{font-size:16px}.feature{padding:14px;border-radius:22px;gap:18px}.feature-copy{padding:10px}.feature-copy h3{font-size:36px}.panel{min-height:0;padding:16px}.task-stats,.message-grid,.price-grid{grid-template-columns:1fr}.stats-grid{grid-template-columns:1fr 1fr}.pagero{padding:86px 0}.pagero-flow{grid-template-columns:1fr}.bundle{grid-template-columns:1fr}.bundle strong{font-size:30px}.shots{grid-template-columns:1fr}.price{padding:24px}.price-top{display:block}.price-number{margin-top:14px}.partner{display:block}.partner a{margin-top:18px}.footer-inner{display:block}.footer-links{justify-content:flex-start;margin-top:18px}
+    }
+  </style>
+</head>
+<body>
+<header class="header" id="header">
+  <div class="wrap header-inner">
+    <a class="logo" href="#top"><span class="logo-mark">C</span><span>콜태그</span></a>
+    <nav class="nav" aria-label="주요 메뉴"><a href="#call">전화</a><a href="#manage">관리</a><a href="#message">문자</a><a href="#pagero">페이지로</a><a href="#pricing">요금</a><a href="#faq">FAQ</a></nav>
+    <a class="header-cta" href="#pricing">시작하기</a>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-copy reveal">
+        <p class="kicker">전화 기반 고객관리 앱</p>
+        <h1>전화가 오면 고객이 보이고,<br><span>통화가 끝나면 기록이 남습니다.</span></h1>
+        <p class="hero-sub">고객 확인부터 메모·오늘 할 일·일정·문자·통계까지.<br>전화 한 통을 고객관리로 끝내세요.</p>
+        <div class="hero-actions"><a class="btn primary" href="#pricing">무료로 시작하기</a><a class="btn secondary" href="#call">기능 보기</a></div>
+        <div class="hero-note">페이지로까지 함께 이용 · 통합 월 6,000원</div>
+      </div>
+
+      <div class="hero-stage reveal" id="call">
+        <div class="stage-copy">
+          <div class="stage-label"><i></i> 전화가 오는 순간</div>
+          <h2>누구였는지<br><span>기억할 필요 없습니다.</span></h2>
+          <p>등록된 고객이면 전화받기 전에 최근 메모와 고객 상태를 확인합니다.</p>
+          <div class="stage-points">
+            <div class="stage-point"><b>01</b><div><strong>고객명·전화번호</strong><span>저장된 고객을 바로 확인</span></div></div>
+            <div class="stage-point"><b>02</b><div><strong>고객 상태</strong><span>신규·상담·기존 등 현재 단계 확인</span></div></div>
+            <div class="stage-point"><b>03</b><div><strong>최근 메모</strong><span>지난 상담 내용을 전화 전에 확인</span></div></div>
+            <div class="stage-point"><b>04</b><div><strong>최근 연락</strong><span>마지막 연락 시점까지 한 번에</span></div></div>
+          </div>
+        </div>
+        <div class="phone" aria-label="콜태그 수신 고객정보 화면 예시">
+          <div class="screen">
+            <div class="status"><span>15:40</span><span>● ● ●</span></div>
+            <div class="app">
+              <div class="app-title">수신 고객정보</div><div class="app-sub">통화 전에 최근 고객 맥락을 확인하세요.</div>
+              <div class="incoming"><small>수신 전화</small><strong>김민수 고객 · 010-4821-****</strong><p>지난 상담에서 견적서 확인 후 금요일에 다시 연락하기로 했습니다.</p></div>
+              <div class="call-card">
+                <div class="person"><div class="avatar">김</div><div><strong>김민수 고객</strong><small>최근 연락 · 8월 6일 오후 4:20</small></div></div>
+                <span class="badge">계약 검토 중</span>
+                <div class="memo"><b>최근 메모</b><p>견적서 확인 후 배우자와 상의. 금요일 오전 재연락 요청.</p></div>
+                <div class="last">잠금화면 표시 범위는 설정에서 조정할 수 있습니다.</div>
+                <div class="phone-action"><span>닫기</span><span class="primary">고객 상세</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="manage">
+    <div class="wrap">
+      <div class="section-head reveal"><p class="section-kicker">통화 후 기록</p><h2 class="section-title">통화가 끝나면<br>필요한 것만 남기세요.</h2><p class="section-copy">복잡한 CRM 입력 대신 고객명과 메모를 바로 저장합니다. 통화 기록은 고객 이력에 연결됩니다.</p></div>
+      <article class="feature reveal">
+        <div class="feature-copy"><h3>고객명.<br>메모.<br>저장.</h3><p>통화 직후 화면에서 오래 머물 필요 없습니다. 중요한 내용만 남기고 바로 다음 업무로 넘어갑니다.</p><div class="mini-list"><div class="mini"><i></i>기존 고객이면 저장된 이름과 메모 불러오기</div><div class="mini"><i></i>새 번호면 고객으로 빠르게 등록</div><div class="mini"><i></i>같은 통화를 중복 저장하지 않도록 보호</div></div></div>
+        <div class="panel white"><div class="panel-title"><h4>통화 메모</h4><span>방금 전 통화</span></div><div class="memo-form"><div class="field"><label>고객명</label><div class="input">김민수 고객</div></div><div class="field"><label>메모</label><div class="input big">견적서 확인 후 금요일 오전에 다시 연락 요청</div></div><div class="save">저장</div></div></div>
+      </article>
+
+      <article class="feature reverse reveal">
+        <div class="feature-copy"><h3>기억하지 말고<br>오늘 할 일만 보세요.</h3><p>재연락, 방문, 자료 발송처럼 처리해야 할 업무를 날짜에 맞춰 확인합니다. 기한이 지나면 따로 표시됩니다.</p><div class="mini-list"><div class="mini"><i></i>오늘 할 일</div><div class="mini"><i></i>기한 지난 업무</div><div class="mini"><i></i>신규 고객</div></div></div>
+        <div class="panel"><div class="panel-title"><h4>홈</h4><span>8월 7일 금요일</span></div><div class="task-stats"><div class="task-stat"><strong>4</strong><span>오늘 할 일</span></div><div class="task-stat over"><strong>1</strong><span>기한 지남</span></div><div class="task-stat"><strong>3</strong><span>신규 고객</span></div></div><div class="tasks"><div class="task"><time>10:30</time><div><strong>김민수 고객 재연락</strong><small>견적 검토 결과 확인</small></div><em>전화</em></div><div class="task"><time>14:00</time><div><strong>이서연 고객 자료 발송</strong><small>소개서와 견적서 전달</small></div><em>문자</em></div><div class="task"><time>16:20</time><div><strong>박지훈 고객 방문 확인</strong><small>방문 시간 최종 확인</small></div><em>완료</em></div></div></div>
+      </article>
+
+      <article class="feature reveal">
+        <div class="feature-copy"><h3>전화번호가 아니라<br>고객을 관리합니다.</h3><p>통화, 메모, 일정, 문자와 문의 이력을 고객 한 명을 기준으로 이어서 봅니다.</p><div class="mini-list"><div class="mini"><i></i>고객명·전화번호 검색</div><div class="mini"><i></i>상태·기간 필터</div><div class="mini"><i></i>고객별 문자와 후속업무 연결</div></div></div>
+        <div class="panel"><div class="panel-title"><h4>고객</h4><span>전체 126명</span></div><div class="tasks"><div class="task"><time>기존</time><div><strong>김민수 고객</strong><small>견적 검토 중 · 최근 연락 오늘</small></div><em>문자</em></div><div class="task"><time>신규</time><div><strong>이서연 고객</strong><small>페이지로 문의 · 아직 미연락</small></div><em>전화</em></div><div class="task"><time>상담</time><div><strong>박지훈 고객</strong><small>방문 일정 · 내일 오전</small></div><em>상세</em></div></div></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="section" id="message">
+    <div class="wrap">
+      <div class="section-head reveal"><p class="section-kicker">문자 자동화</p><h2 class="section-title">통화가 끝난 뒤<br>문자까지 이어집니다.</h2><p class="section-copy">자주 쓰는 문구를 저장하고 통화 후·부재중·후속 시점에 맞춰 보낼 수 있습니다. 발송 제외와 중복발송 방지도 함께 확인합니다.</p></div>
+      <article class="feature reveal">
+        <div class="feature-copy"><h3>매번 같은 문자를<br>다시 쓰지 마세요.</h3><p>템플릿, 예약, 후속문자, 그룹·단체문자를 고객관리 안에서 이어서 사용합니다.</p><div class="mini-list"><div class="mini"><i></i>저장형 문자 템플릿</div><div class="mini"><i></i>고객별 문자 허용·비허용</div><div class="mini"><i></i>발송 제외·중복방지·회선 확인</div></div></div>
+        <div class="panel"><div class="panel-title"><h4>자동문자</h4><span>발송 설정</span></div><div class="message-grid"><div class="message-card"><b>통화 후</b><span>상담 종료 후 저장한 안내문 자동 발송</span><div class="toggle"></div></div><div class="message-card"><b>부재중</b><span>전화를 받지 못한 고객에게 안내</span><div class="toggle"></div></div><div class="message-card"><b>후속 예약</b><span>정해둔 날짜와 시간에 다시 안내</span><div class="toggle"></div></div></div><div class="tasks"><div class="task"><time>템플릿</time><div><strong>견적 안내</strong><small>안녕하세요, {고객명}님. 요청하신 자료를 보내드립니다.</small></div><em>기본</em></div><div class="task"><time>안전</time><div><strong>중복발송 방지</strong><small>같은 고객에게 최근 동일 문자 발송 여부 확인</small></div><em>켜짐</em></div></div></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head reveal"><p class="section-kicker">통계</p><h2 class="section-title">얼마나 전화했는지보다<br>얼마나 관리됐는지 봅니다.</h2><p class="section-copy">통화량, 신규 고객, 완료한 일과 페이지로 유입 고객의 연락 현황을 기간별로 확인합니다.</p></div>
+      <article class="feature reverse reveal">
+        <div class="feature-copy"><h3>오늘부터 30일까지<br>흐름을 확인하세요.</h3><p>전화와 고객관리 결과를 같은 화면에서 보고, 아직 연락하지 않은 문의도 빠르게 찾습니다.</p><div class="mini-list"><div class="mini"><i></i>오늘 / 7일 / 30일 / 직접 선택</div><div class="mini"><i></i>수신·발신·부재중·거절</div><div class="mini"><i></i>페이지로 유입·연락 완료·미연락</div></div></div>
+        <div class="panel"><div class="panel-title"><h4>통계</h4><span>최근 7일</span></div><div class="stats-grid"><div class="stats-box"><strong>86</strong><span>전체 통화</span></div><div class="stats-box"><strong>42</strong><span>연락 고객</span></div><div class="stats-box"><strong>18</strong><span>신규 고객</span></div><div class="stats-box"><strong>31</strong><span>완료한 일</span></div></div><div class="chart"><div class="bar" style="height:36%"></div><div class="bar" style="height:54%"></div><div class="bar" style="height:43%"></div><div class="bar" style="height:72%"></div><div class="bar" style="height:58%"></div><div class="bar" style="height:90%"></div><div class="bar" style="height:76%"></div></div></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="pagero" id="pagero">
+    <div class="wrap">
+      <div class="section-head reveal"><p class="section-kicker">페이지로 × 콜태그</p><h2 class="section-title">전화하기 전의 고객까지<br>콜태그로 들어옵니다.</h2><p class="section-copy">페이지로에서 문의를 받으면 고객정보가 콜태그에 등록되고 새 문의를 알려드립니다. 페이지로를 쓰지 않아도 콜태그의 전화·문자 기능은 그대로 사용할 수 있습니다.</p></div>
+      <div class="pagero-flow reveal"><div class="flow"><b>01</b><strong>페이지 제작</strong><span>페이지로에서 상담용 랜딩페이지를 만듭니다.</span></div><div class="flow"><b>02</b><strong>문의 접수</strong><span>고객이 이름·연락처·문의내용을 남깁니다.</span></div><div class="flow"><b>03</b><strong>실시간 알림</strong><span>앱을 닫아도 새 문의를 콜태그가 알려줍니다.</span></div><div class="flow"><b>04</b><strong>고객 등록</strong><span>같은 번호는 중복 없이 기존 고객에 연결합니다.</span></div><div class="flow"><b>05</b><strong>후속관리</strong><span>전화·메모·일정·문자로 바로 이어서 관리합니다.</span></div></div>
+      <div class="bundle reveal"><div><h3>고객을 받는 페이지로 + 고객을 관리하는 콜태그</h3><p>두 서비스는 따로 쓸 수 있고, 함께 쓰면 하나의 고객 흐름으로 연결됩니다.</p></div><strong>6,000원 <small>/ 월</small></strong></div>
+      <div style="margin-top:18px"><a class="btn primary" style="background:#111827;border-color:#111827" href="https://pagero.kr" target="_blank" rel="noopener">페이지로 자세히 보기</a></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="section-head center reveal"><p class="section-kicker">실제 사용 흐름</p><h2 class="section-title">콜태그 안에서<br>이렇게 이어집니다.</h2></div>
+      <div class="shots reveal">
+        <article class="shot"><span>01 전화</span><h4>수신 고객정보</h4><p>고객명, 상태, 최근 메모를 전화 전에 확인합니다.</p><div class="shot-ui"><div class="ui-row">김민수 고객 · 계약 검토 중</div><div class="ui-row">최근 메모 · 금요일 재연락</div></div></article>
+        <article class="shot"><span>02 통화 후</span><h4>빠른 메모</h4><p>고객명과 통화 메모만 남기고 바로 저장합니다.</p><div class="shot-ui"><div class="ui-row">고객명 · 김민수</div><div class="ui-row">메모 · 견적 확인 후 재연락</div></div></article>
+        <article class="shot"><span>03 관리</span><h4>오늘 할 일</h4><p>해야 할 재연락과 기한 지난 업무를 놓치지 않습니다.</p><div class="shot-ui"><div class="ui-row">10:30 · 김민수 재연락</div><div class="ui-row">14:00 · 이서연 자료발송</div></div></article>
+        <article class="shot"><span>04 고객</span><h4>고객 이력</h4><p>통화와 메모, 일정, 문자를 고객별로 이어서 관리합니다.</p><div class="shot-ui"><div class="ui-row">최근 연락 · 오늘</div><div class="ui-row">상태 · 상담 진행</div></div></article>
+        <article class="shot"><span>05 문자</span><h4>자동·후속문자</h4><p>통화 후, 부재중, 후속 예약 시점에 맞춰 문자를 보냅니다.</p><div class="shot-ui"><div class="ui-row">통화 후 자동문자 · 켜짐</div><div class="ui-row">중복발송 방지 · 켜짐</div></div></article>
+        <article class="shot"><span>06 통계</span><h4>업무 흐름 확인</h4><p>통화, 신규 고객, 완료한 일과 페이지로 유입을 확인합니다.</p><div class="shot-ui"><div class="ui-row">전체 통화 86 · 신규 18</div><div class="ui-row">페이지로 연락 완료 12</div></div></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="pricing">
+    <div class="wrap pricing-wrap">
+      <div class="section-head reveal"><p class="section-kicker">요금 안내</p><h2 class="section-title">복잡하게 나누지 않고<br>통합으로 시작하세요.</h2><p class="section-copy">콜태그 전화관리·문자자동화와 페이지로를 한 번에 이용합니다.</p></div>
+      <div class="price reveal"><div class="price-top"><div><h3>콜태그 통합</h3><div class="trial">기본 3일 무료 · 추천인 코드 등록 시 +5일</div></div><div class="price-number"><strong>6,000원</strong><span> / 월</span></div></div><div class="price-grid"><div class="price-item">수신 고객정보 표시</div><div class="price-item">통화 후 고객 메모</div><div class="price-item">고객·오늘 할 일·캘린더</div><div class="price-item">자동·예약·단체문자</div><div class="price-item">통계</div><div class="price-item">페이지로 문의 자동연동</div></div><a class="price-btn" href="https://play.google.com/store/apps/details?id=kr.pagero.calltag" target="_blank" rel="noopener">Google Play에서 시작하기</a></div>
+    </div>
+  </section>
+
+  <section class="section" id="faq">
+    <div class="wrap">
+      <div class="section-head reveal"><p class="section-kicker">FAQ</p><h2 class="section-title">필요한 것만<br>확인하세요.</h2></div>
+      <div class="faq-list reveal">
+        <div class="faq open"><button type="button">통화 내용을 녹음하거나 자동으로 수집하나요?<span>＋</span></button><p>아닙니다. 콜태그는 통화 음성을 녹음하거나 통화 내용을 AI로 자동 수집하는 앱이 아닙니다. 고객 메모는 사용자가 직접 저장합니다.</p></div>
+        <div class="faq"><button type="button">페이지로를 꼭 사용해야 하나요?<span>＋</span></button><p>아닙니다. 콜태그의 전화·고객·일정·문자 기능은 페이지로 없이도 사용할 수 있습니다. 페이지로를 함께 쓰면 랜딩페이지 문의가 콜태그 고객으로 자동 연결됩니다.</p></div>
+        <div class="faq"><button type="button">페이지로 문의는 앱을 닫아도 알림이 오나요?<span>＋</span></button><p>실시간 문의 알림이 준비된 기기에서는 앱이 종료되거나 화면이 잠겨 있어도 새 문의 알림을 받을 수 있습니다.</p></div>
+        <div class="faq"><button type="button">통화 후 매번 여러 단계를 입력해야 하나요?<span>＋</span></button><p>현재 통화 후 빠른 화면은 고객명과 메모 중심으로 간단하게 저장하도록 구성되어 있습니다.</p></div>
+        <div class="faq"><button type="button">요금은 얼마인가요?<span>＋</span></button><p>콜태그 통합 이용권은 월 6,000원이며 전화관리·문자자동화와 페이지로가 포함됩니다. 기본 무료 이용은 3일이고 추천인 코드를 등록하면 5일이 추가됩니다.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap"><div class="partner reveal"><div><h3>콜태그를 소개하고 리워드를 받아보세요.</h3><p>추천 고객의 유료 이용 현황과 예상 수익을 파트너 화면에서 확인할 수 있습니다.</p></div><a href="/settlement">파트너·정산 보기</a></div></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="wrap footer-inner"><div><strong>콜태그</strong><div style="margin-top:7px">전화 한 통을 고객관리로.</div></div><div class="footer-links"><a href="/terms/">이용약관</a><a href="/privacy/">개인정보처리방침</a><a href="/refund/">환불정책</a><a href="/support/">고객센터</a><a href="https://pagero.kr" target="_blank" rel="noopener">페이지로</a></div></div>
+</footer>
+
+<script>
+  const header=document.getElementById('header');
+  const onScroll=()=>header.classList.toggle('scrolled',window.scrollY>18);onScroll();window.addEventListener('scroll',onScroll,{passive:true});
+  const io=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('on');io.unobserve(e.target)}}),{threshold:.12});document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+  document.querySelectorAll('.faq button').forEach(btn=>btn.addEventListener('click',()=>{const item=btn.parentElement;document.querySelectorAll('.faq').forEach(x=>{if(x!==item)x.classList.remove('open')});item.classList.toggle('open')}));
+</script>
+</body>
+</html>
