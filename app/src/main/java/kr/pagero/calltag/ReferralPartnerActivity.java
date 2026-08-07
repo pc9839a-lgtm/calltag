@@ -1,20 +1,14 @@
 package kr.pagero.calltag;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
-import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.Bundle;
-import android.text.InputFilter;
 import android.view.Gravity;
-import android.view.View;
-import android.view.inputmethod.InputMethodManager;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -25,20 +19,9 @@ import org.json.JSONObject;
 import java.text.NumberFormat;
 import java.util.Locale;
 
-/** 더보기 > 친구 초대·파트너. */
+/** 더보기 > 친구 초대·파트너. 추천인 입력은 회원가입 화면에서만 허용한다. */
 public final class ReferralPartnerActivity extends Activity {
-    private static final int BLUE = Color.rgb(37, 99, 235);
-    private static final int TEXT = Color.rgb(15, 23, 42);
-    private static final int SUBTEXT = Color.rgb(71, 85, 105);
-    private static final int MUTED = Color.rgb(148, 163, 184);
-    private static final int SURFACE = Color.WHITE;
-    private static final int BACKGROUND = Color.rgb(248, 250, 252);
-    private static final int BORDER = Color.rgb(226, 232, 240);
-
     private TextView codeView;
-    private TextView benefitView;
-    private EditText referralInput;
-    private TextView applyButton;
     private TextView referredCount;
     private TextView activePaidCount;
     private TextView estimatedRevenue;
@@ -50,94 +33,78 @@ public final class ReferralPartnerActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(buildScreen());
-        String pending = PendingReferralStore.peek(this);
-        if (!pending.isEmpty()) referralInput.setText(pending);
         render();
         refresh(false);
     }
 
-    private View buildScreen() {
+    private ScrollView buildScreen() {
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
-        scroll.setBackgroundColor(BACKGROUND);
+        scroll.setBackgroundColor(getColor(R.color.background));
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(18), dp(20), dp(40));
+        root.setPadding(dp(18), dp(14), dp(18), dp(40));
         scroll.addView(root, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView back = button("‹", false);
-        back.setTextSize(28f);
+        TextView back = text("‹", 30f, R.color.text_primary, false);
+        back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> finish());
-        header.addView(back, new LinearLayout.LayoutParams(dp(44), dp(44)));
-        TextView title = text("친구 초대·파트너", 22f, TEXT, true);
-        title.setGravity(Gravity.CENTER_VERTICAL);
-        header.addView(title, new LinearLayout.LayoutParams(0, dp(44), 1f));
-        refreshButton = button("새로고침", false);
+        header.addView(back, new LinearLayout.LayoutParams(dp(44), dp(48)));
+        TextView title = text("친구 초대·파트너", 21f, R.color.text_primary, true);
+        header.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1f));
+        refreshButton = secondaryButton("새로고침");
         refreshButton.setOnClickListener(v -> refresh(true));
-        header.addView(refreshButton, new LinearLayout.LayoutParams(dp(86), dp(40)));
-        root.addView(header, full());
+        header.addView(refreshButton, new LinearLayout.LayoutParams(dp(88), dp(40)));
+        root.addView(header);
 
-        LinearLayout inviteCard = card();
-        inviteCard.addView(text("내 추천인 코드", 15f, SUBTEXT, true), full());
-        codeView = text("확인 중", 30f, TEXT, true);
+        LinearLayout invite = card();
+        invite.addView(text("내 추천인 코드", 14f, R.color.text_secondary, true));
+        codeView = text("확인 중", 28f, R.color.text_primary, true);
         codeView.setLetterSpacing(0.08f);
-        inviteCard.addView(codeView, top(10));
+        invite.addView(codeView, top(9));
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
-        TextView copy = button("복사", false);
+        TextView copy = secondaryButton("복사");
         copy.setOnClickListener(v -> copyCode());
-        actions.addView(copy, weighted(1f));
-        TextView share = button("공유", true);
+        actions.addView(copy, new LinearLayout.LayoutParams(0, dp(48), 1f));
+        TextView share = primaryButton("공유");
         share.setOnClickListener(v -> shareCode());
-        LinearLayout.LayoutParams shareParams = weighted(1f);
-        shareParams.leftMargin = dp(10);
+        LinearLayout.LayoutParams shareParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
+        shareParams.leftMargin = dp(8);
         actions.addView(share, shareParams);
-        inviteCard.addView(actions, fixedTop(48, 16));
-        inviteCard.addView(text(
-                "친구가 가입할 때 코드를 등록하면 무료 이용기간이 5일 더 늘어납니다.",
-                13f,
-                MUTED,
-                false), top(12));
-        root.addView(inviteCard, top(22));
+        invite.addView(actions, top(14));
 
-        LinearLayout applyCard = card();
-        applyCard.addView(text("추천인 코드가 있나요?", 18f, TEXT, true), full());
-        benefitView = text("등록하면 무료 이용기간이 5일 더 늘어납니다.", 14f, SUBTEXT, false);
-        applyCard.addView(benefitView, top(7));
-        referralInput = new EditText(this);
-        referralInput.setSingleLine(true);
-        referralInput.setHint("추천인 코드 입력");
-        referralInput.setTextSize(16f);
-        referralInput.setTextColor(TEXT);
-        referralInput.setHintTextColor(MUTED);
-        referralInput.setAllCaps(true);
-        referralInput.setFilters(new InputFilter[]{new InputFilter.LengthFilter(20)});
-        referralInput.setPadding(dp(14), 0, dp(14), 0);
-        referralInput.setBackground(round(SURFACE, BORDER, 14));
-        applyCard.addView(referralInput, fixedTop(50, 16));
-        applyButton = button("추천 혜택 받기", true);
-        applyButton.setOnClickListener(v -> applyReferral());
-        applyCard.addView(applyButton, fixedTop(50, 10));
-        root.addView(applyCard, top(14));
+        TextView benefit = text(
+                "친구가 회원가입할 때 추천인 코드를 입력하면 통합권 무료체험이 7일 추가되어 총 14일 적용됩니다.",
+                13f, R.color.text_secondary, false);
+        benefit.setLineSpacing(0f, 1.2f);
+        invite.addView(benefit, top(12));
+        root.addView(invite, top(14));
 
-        root.addView(sectionTitle("파트너 현황"), top(28));
+        TextView signupOnly = text(
+                "추천인 코드는 회원가입 시 1회만 입력할 수 있습니다.",
+                13f, R.color.text_secondary, false);
+        signupOnly.setBackgroundResource(R.drawable.bg_preview);
+        signupOnly.setPadding(dp(14), dp(12), dp(14), dp(12));
+        root.addView(signupOnly, top(10));
+
+        root.addView(text("파트너 현황", 17f, R.color.text_primary, true), top(24));
         LinearLayout summary = card();
         referredCount = metric(summary, "추천 회원", true);
         activePaidCount = metric(summary, "유료 이용 중", false);
         estimatedRevenue = metric(summary, "이번 달 예상 수익", false);
         confirmedRevenue = metric(summary, "누적 확정 수익", false);
-        summary.addView(text(
-                "직접 추천한 회원의 확정 결제금액을 기준으로 서버에서 계산합니다. 환불·할인·부가세는 제외됩니다.",
-                12f,
-                MUTED,
-                false), top(14));
         root.addView(summary, top(10));
+
+        TextView settlement = primaryButton("정산 페이지 열기");
+        settlement.setOnClickListener(v -> openSettlement());
+        root.addView(settlement, fixedTop(52, 12));
         return scroll;
     }
 
@@ -155,108 +122,29 @@ public final class ReferralPartnerActivity extends Activity {
                 JSONObject me = AuthApiClient.referralMe(session);
                 ReferralStateStore.saveMe(this, me);
                 success = true;
-            } catch (Exception ignored) {
-                // Summary can still load even if the code endpoint is temporarily unavailable.
-            }
+            } catch (Exception ignored) {}
             try {
                 JSONObject summary = AuthApiClient.referralSummary(session);
                 ReferralStateStore.saveSummary(this, summary);
                 success = true;
-            } catch (Exception ignored) {
-                // Keep the last cached partner summary.
-            }
+            } catch (Exception ignored) {}
             boolean loaded = success;
             runOnUiThread(() -> {
                 setWorking(false);
                 render();
-                if (notify) Toast.makeText(this,
-                        loaded ? "최신 추천 현황을 확인했어요."
-                                : "추천 현황을 확인하지 못했어요. 인터넷 연결을 확인해주세요.",
-                        loaded ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
+                if (notify) {
+                    Toast.makeText(this,
+                            loaded ? "최신 추천 현황을 확인했습니다."
+                                    : "추천 현황을 확인하지 못했습니다.",
+                            loaded ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
+                }
             });
         }, "calltag-referral-refresh").start();
-    }
-
-    private void applyReferral() {
-        if (working) return;
-        String code = referralInput.getText() == null
-                ? "" : referralInput.getText().toString().trim().toUpperCase(Locale.KOREA);
-        if (!code.matches("[A-Z0-9]{4,20}")) {
-            Toast.makeText(this, "추천인 코드를 정확히 입력해주세요.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        ReferralStateStore.Snapshot cached = ReferralStateStore.snapshot(this);
-        if (!cached.code.isEmpty() && cached.code.equalsIgnoreCase(code)) {
-            Toast.makeText(this, "본인 추천인 코드는 등록할 수 없습니다.", Toast.LENGTH_LONG).show();
-            return;
-        }
-        String session = AuthSessionStore.session(this);
-        if (session.isEmpty()) {
-            Toast.makeText(this, "로그인 정보를 다시 확인해주세요.", Toast.LENGTH_LONG).show();
-            return;
-        }
-        hideKeyboard();
-        setWorking(true);
-        new Thread(() -> {
-            try {
-                JSONObject response = AuthApiClient.applyReferral(session, code);
-                ReferralStateStore.saveMe(this, response);
-                PendingReferralStore.clear(this);
-                JSONObject entitlement = response.optJSONObject("entitlement");
-                if (entitlement != null) {
-                    FeatureEntitlementStore.saveServerEntitlement(this, response);
-                } else {
-                    try {
-                        FeatureEntitlementStore.saveServerEntitlement(
-                                this,
-                                AuthApiClient.billingEntitlements(session));
-                    } catch (Exception ignored) {
-                        // Referral success remains valid; entitlement refresh can retry later.
-                    }
-                }
-                runOnUiThread(() -> {
-                    setWorking(false);
-                    render();
-                    new AlertDialog.Builder(this)
-                            .setTitle("추천 혜택이 적용되었습니다")
-                            .setMessage("무료 이용기간이 5일 늘어났습니다.")
-                            .setPositiveButton("확인", null)
-                            .show();
-                });
-            } catch (AuthApiClient.ApiException error) {
-                runOnUiThread(() -> {
-                    setWorking(false);
-                    showApplyError(error.code);
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> {
-                    setWorking(false);
-                    Toast.makeText(this,
-                            "추천인 코드를 등록하지 못했어요. 잠시 후 다시 시도해주세요.",
-                            Toast.LENGTH_LONG).show();
-                });
-            }
-        }, "calltag-referral-apply").start();
     }
 
     private void render() {
         ReferralStateStore.Snapshot value = ReferralStateStore.snapshot(this);
         codeView.setText(value.code.isEmpty() ? "확인 필요" : value.code);
-        if (value.applied) {
-            benefitView.setText("추천인 등록 완료 · 추천 혜택 +" + Math.max(5, value.bonusDays) + "일 적용");
-            referralInput.setVisibility(View.GONE);
-            applyButton.setVisibility(View.GONE);
-        } else {
-            String pending = PendingReferralStore.peek(this);
-            benefitView.setText(pending.isEmpty()
-                    ? "등록하면 무료 이용기간이 5일 더 늘어납니다."
-                    : "추천 링크의 코드가 입력되었습니다. 등록하면 5일이 추가됩니다.");
-            if (!pending.isEmpty() && referralInput.getText().toString().trim().isEmpty()) {
-                referralInput.setText(pending);
-            }
-            referralInput.setVisibility(View.VISIBLE);
-            applyButton.setVisibility(View.VISIBLE);
-        }
         referredCount.setText(number(value.referredCount) + "명");
         activePaidCount.setText(number(value.activePaidCount) + "명");
         estimatedRevenue.setText(currency(value.estimatedRevenueKrw));
@@ -283,29 +171,21 @@ public final class ReferralPartnerActivity extends Activity {
             return;
         }
         StringBuilder message = new StringBuilder()
-                .append("콜태그 또는 페이지로 가입 시 추천인 코드를 등록하면 무료 이용기간이 5일 더 늘어나요.\n")
+                .append("콜태그 가입할 때 추천인 코드를 입력하면 통합권을 총 14일 무료로 이용할 수 있어요.\n")
                 .append("추천인 코드: ").append(value.code);
         if (!value.shareUrl.isEmpty()) message.append("\n").append(value.shareUrl);
-        Intent intent = new Intent(Intent.ACTION_SEND)
+        startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND)
                 .setType("text/plain")
-                .putExtra(Intent.EXTRA_TEXT, message.toString());
-        startActivity(Intent.createChooser(intent, "친구에게 공유"));
+                .putExtra(Intent.EXTRA_TEXT, message.toString()), "친구에게 공유"));
     }
 
-    private void showApplyError(String code) {
-        String message;
-        if ("SELF_REFERRAL".equals(code)) {
-            message = "본인 추천인 코드는 등록할 수 없습니다.";
-        } else if ("REFERRAL_ALREADY_APPLIED".equals(code)) {
-            message = "이미 추천인 등록을 완료했습니다.";
-        } else if ("PAID_CONVERSION_COMPLETED".equals(code)) {
-            message = "첫 유료 결제 이후에는 추천인 코드를 등록할 수 없습니다.";
-        } else if ("REFERRAL_CODE_NOT_FOUND".equals(code)) {
-            message = "존재하지 않는 추천인 코드입니다.";
-        } else {
-            message = "추천인 코드를 등록하지 못했어요. 입력한 코드를 확인해주세요.";
+    private void openSettlement() {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW,
+                    Uri.parse(PartnerSettlementActivity.SETTLEMENT_URL)));
+        } catch (RuntimeException error) {
+            Toast.makeText(this, "정산 페이지를 열지 못했습니다.", Toast.LENGTH_SHORT).show();
         }
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
 
     private void setWorking(boolean value) {
@@ -313,106 +193,80 @@ public final class ReferralPartnerActivity extends Activity {
         refreshButton.setEnabled(!value);
         refreshButton.setAlpha(value ? 0.55f : 1f);
         refreshButton.setText(value ? "확인 중…" : "새로고침");
-        applyButton.setEnabled(!value);
-        applyButton.setAlpha(value ? 0.55f : 1f);
-    }
-
-    private void hideKeyboard() {
-        InputMethodManager manager = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
-        if (manager != null && referralInput != null) {
-            manager.hideSoftInputFromWindow(referralInput.getWindowToken(), 0);
-        }
     }
 
     private TextView metric(LinearLayout parent, String label, boolean first) {
         LinearLayout row = new LinearLayout(this);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        TextView labelView = text(label, 14f, SUBTEXT, false);
+        TextView labelView = text(label, 14f, R.color.text_secondary, false);
         row.addView(labelView, new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        TextView value = text("0", 17f, TEXT, true);
-        row.addView(value, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT));
-        parent.addView(row, first ? full() : top(15));
+        TextView value = text("0", 17f, R.color.text_primary, true);
+        row.addView(value);
+        parent.addView(row, first ? wrap() : top(15));
         return value;
     }
 
     private LinearLayout card() {
-        LinearLayout value = new LinearLayout(this);
-        value.setOrientation(LinearLayout.VERTICAL);
-        value.setPadding(dp(18), dp(18), dp(18), dp(18));
-        value.setBackground(round(SURFACE, BORDER, 18));
-        return value;
+        LinearLayout view = new LinearLayout(this);
+        view.setOrientation(LinearLayout.VERTICAL);
+        view.setPadding(dp(18), dp(18), dp(18), dp(18));
+        view.setBackgroundResource(R.drawable.bg_card);
+        return view;
     }
 
-    private TextView sectionTitle(String value) {
-        return text(value, 16f, TEXT, true);
+    private TextView primaryButton(String value) {
+        TextView view = text(value, 14f, android.R.color.white, true);
+        view.setGravity(Gravity.CENTER);
+        view.setBackgroundResource(R.drawable.bg_primary_button);
+        return view;
+    }
+
+    private TextView secondaryButton(String value) {
+        TextView view = text(value, 14f, R.color.primary, true);
+        view.setGravity(Gravity.CENTER);
+        view.setBackgroundResource(R.drawable.bg_secondary_button);
+        return view;
     }
 
     private TextView text(String value, float size, int color, boolean bold) {
         TextView view = new TextView(this);
         view.setText(value);
         view.setTextSize(size);
-        view.setTextColor(color);
+        view.setTextColor(getColor(color));
         view.setIncludeFontPadding(false);
-        view.setLineSpacing(0f, 1.2f);
         if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         return view;
     }
 
-    private TextView button(String value, boolean primary) {
-        TextView view = text(value, 14f, primary ? Color.WHITE : TEXT, true);
-        view.setGravity(Gravity.CENTER);
-        view.setBackground(round(primary ? BLUE : SURFACE,
-                primary ? BLUE : BORDER,
-                14));
-        view.setClickable(true);
-        view.setFocusable(true);
-        return view;
-    }
-
-    private GradientDrawable round(int fill, int stroke, int radiusDp) {
-        GradientDrawable value = new GradientDrawable();
-        value.setColor(fill);
-        value.setCornerRadius(dp(radiusDp));
-        value.setStroke(dp(1), stroke);
-        return value;
-    }
-
-    private LinearLayout.LayoutParams full() {
+    private LinearLayout.LayoutParams wrap() {
         return new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
     }
 
     private LinearLayout.LayoutParams top(int margin) {
-        LinearLayout.LayoutParams value = full();
-        value.topMargin = dp(margin);
-        return value;
+        LinearLayout.LayoutParams params = wrap();
+        params.topMargin = dp(margin);
+        return params;
     }
 
     private LinearLayout.LayoutParams fixedTop(int height, int margin) {
-        LinearLayout.LayoutParams value = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(height));
-        value.topMargin = dp(margin);
-        return value;
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(height));
+        params.topMargin = dp(margin);
+        return params;
     }
 
-    private LinearLayout.LayoutParams weighted(float weight) {
-        return new LinearLayout.LayoutParams(0, dp(48), weight);
+    private String number(int value) {
+        return NumberFormat.getIntegerInstance(Locale.KOREA).format(Math.max(0, value));
+    }
+
+    private String currency(long value) {
+        return NumberFormat.getIntegerInstance(Locale.KOREA).format(Math.max(0L, value)) + "원";
     }
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    private String number(long value) {
-        return NumberFormat.getIntegerInstance(Locale.KOREA).format(Math.max(0L, value));
-    }
-
-    private String currency(long value) {
-        return number(value) + "원";
     }
 }
