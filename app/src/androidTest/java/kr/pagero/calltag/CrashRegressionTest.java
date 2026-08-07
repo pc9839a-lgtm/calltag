@@ -1,12 +1,16 @@
 package kr.pagero.calltag;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.os.SystemClock;
+import android.util.DisplayMetrics;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.LinearLayout;
 
 import androidx.test.core.app.ActivityScenario;
@@ -82,6 +86,40 @@ public final class CrashRegressionTest {
             assertTrue(CrashTelemetryStore.snapshot(app).contains("home_customer_card|launch_accepted"));
         } finally {
             finishResumed(CustomerQuickEditActivity.class);
+            scenario.close();
+        }
+    }
+
+    @Test
+    public void postCallPopup_isPartialAndDoesNotDimWholeScreen() {
+        Intent intent = new Intent(app, PostCallActivity.class)
+                .putExtra(PostCallActivity.EXTRA_CALL_LOG_ID, 987654321L)
+                .putExtra(PostCallActivity.EXTRA_PHONE, "01045678901")
+                .putExtra(PostCallActivity.EXTRA_CACHED_NAME, "부분 팝업 테스트")
+                .putExtra(PostCallActivity.EXTRA_STARTED_AT, System.currentTimeMillis() - 10_000L)
+                .putExtra(PostCallActivity.EXTRA_ENDED_AT, System.currentTimeMillis())
+                .putExtra(PostCallActivity.EXTRA_DURATION_SEC, 10L);
+
+        ActivityScenario<PostCallActivity> scenario = ActivityScenario.launch(intent);
+        try {
+            scenario.onActivity(activity -> {
+                PostCallPopupWindowInstaller.install(activity);
+                DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+                WindowManager.LayoutParams params = activity.getWindow().getAttributes();
+
+                assertTrue("popup width must be smaller than screen",
+                        params.width > 0 && params.width < metrics.widthPixels);
+                assertTrue("popup height must stay partial",
+                        params.height > 0 && params.height < Math.round(metrics.heightPixels * 0.60f));
+                assertEquals("whole-screen dim must be disabled", 0,
+                        params.flags & WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+                assertEquals(View.GONE, activity.findViewById(R.id.postCallPhone).getVisibility());
+                assertEquals(View.GONE, activity.findViewById(R.id.postCallMeta).getVisibility());
+                assertNotNull(activity.findViewById(R.id.postCallName));
+                assertNotNull(activity.findViewById(R.id.postCallNote));
+                assertNotNull(activity.findViewById(R.id.postCallSaveOnly));
+            });
+        } finally {
             scenario.close();
         }
     }

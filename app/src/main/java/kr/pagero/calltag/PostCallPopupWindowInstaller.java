@@ -11,12 +11,12 @@ import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
 
-/** Keeps PostCallActivity as a large centered memo popup, never a full-screen page. */
+/** Keeps PostCallActivity as a compact partial popup over the existing screen. */
 public final class PostCallPopupWindowInstaller {
-    private static final float HEIGHT_RATIO = 0.54f;
-    private static final int MAX_WIDTH_DP = 420;
-    private static final int MAX_HEIGHT_DP = 470;
-    private static final int MIN_HEIGHT_DP = 360;
+    private static final float HEIGHT_RATIO = 0.42f;
+    private static final int MAX_WIDTH_DP = 390;
+    private static final int MAX_HEIGHT_DP = 350;
+    private static final int MIN_HEIGHT_DP = 320;
 
     private PostCallPopupWindowInstaller() {}
 
@@ -27,24 +27,23 @@ public final class PostCallPopupWindowInstaller {
 
         activity.setFinishOnTouchOutside(false);
         window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
-        window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND
-                | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                | WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN
                 | WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
 
         View decor = window.getDecorView();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             decor.setOnApplyWindowInsetsListener((view, insets) -> {
-                int keyboardHeight = insets.isVisible(WindowInsets.Type.ime())
-                        ? insets.getInsets(WindowInsets.Type.ime()).bottom : 0;
-                applyBounds(activity, keyboardHeight);
+                applyBounds(activity);
                 return insets;
             });
             decor.requestApplyInsets();
         }
-        applyBounds(activity, 0);
+        applyBounds(activity);
+        decor.post(() -> applyBounds(activity));
 
         View root = activity.findViewById(R.id.postCallRoot);
         if (root != null) {
@@ -62,32 +61,28 @@ public final class PostCallPopupWindowInstaller {
         }
     }
 
-    private static void applyBounds(Activity activity, int keyboardHeight) {
+    private static void applyBounds(Activity activity) {
         if (activity.isFinishing()) return;
         Window window = activity.getWindow();
         if (window == null) return;
 
         DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
         int totalHorizontalMargin = dp(activity,
-                metrics.widthPixels < dp(activity, 360) ? 22 : 36);
-        int verticalReserved = dp(activity, 74);
+                metrics.widthPixels < dp(activity, 360) ? 20 : 28);
         int availableWidth = Math.max(dp(activity, 280),
                 metrics.widthPixels - totalHorizontalMargin);
-        int availableHeight = Math.max(dp(activity, 300),
-                metrics.heightPixels - verticalReserved - Math.max(0, keyboardHeight));
 
         int width = Math.min(availableWidth, dp(activity, MAX_WIDTH_DP));
         int preferredHeight = Math.round(metrics.heightPixels * HEIGHT_RATIO);
-        int height = Math.min(availableHeight,
-                Math.min(preferredHeight, dp(activity, MAX_HEIGHT_DP)));
-        int minimumHeight = Math.min(availableHeight, dp(activity, MIN_HEIGHT_DP));
-        height = Math.max(minimumHeight, height);
+        int maximumHeight = Math.min(preferredHeight, dp(activity, MAX_HEIGHT_DP));
+        int height = Math.max(dp(activity, MIN_HEIGHT_DP), maximumHeight);
+        height = Math.min(height, metrics.heightPixels - dp(activity, 96));
 
         WindowManager.LayoutParams params = window.getAttributes();
         params.width = width;
         params.height = height;
         params.gravity = Gravity.CENTER;
-        params.dimAmount = 0.46f;
+        params.dimAmount = 0f;
         params.windowAnimations = android.R.style.Animation_Dialog;
         window.setAttributes(params);
         window.setLayout(width, height);

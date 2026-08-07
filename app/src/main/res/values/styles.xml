@@ -45,12 +45,11 @@
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowDisablePreview">true</item>
-        <item name="android:backgroundDimEnabled">true</item>
-        <item name="android:backgroundDimAmount">0.68</item>
+        <item name="android:backgroundDimEnabled">false</item>
         <item name="android:windowCloseOnTouchOutside">false</item>
         <item name="android:colorAccent">@color/accent</item>
         <item name="android:alertDialogTheme">@style/Theme.CallTag.Dialog</item>
-        <item name="android:windowSoftInputMode">adjustResize</item>
+        <item name="android:windowSoftInputMode">adjustPan</item>
     </style>
 
     <style name="Theme.CallTag.Dialog" parent="android:style/Theme.Material.Dialog.Alert">

@@ -7,91 +7,63 @@
     android:focusable="true"
     android:focusableInTouchMode="true"
     android:orientation="vertical"
-    android:padding="18dp">
+    android:padding="16dp">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:layout_height="42dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <LinearLayout
+        <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:includeFontPadding="false"
-                android:text="통화 메모"
-                android:textColor="@color/text_primary"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="고객명과 메모만 빠르게 남기세요"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
-        </LinearLayout>
+            android:includeFontPadding="false"
+            android:text="통화 메모"
+            android:textColor="@color/text_primary"
+            android:textSize="19sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/postCallClose"
-            android:layout_width="42dp"
-            android:layout_height="42dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:background="@drawable/bg_secondary_button"
             android:gravity="center"
             android:text="×"
             android:textColor="@color/text_primary"
-            android:textSize="24sp" />
+            android:textSize="23sp" />
     </LinearLayout>
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:background="@drawable/bg_card"
-        android:orientation="vertical"
-        android:padding="14dp">
+    <TextView
+        android:id="@+id/postCallPhone"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone" />
 
-        <TextView
-            android:id="@+id/postCallPhone"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:includeFontPadding="false"
-            android:textColor="@color/text_primary"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/postCallMeta"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp" />
-    </LinearLayout>
+    <TextView
+        android:id="@+id/postCallMeta"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="8dp"
         android:text="고객명"
         android:textColor="@color/text_primary"
-        android:textSize="14sp"
+        android:textSize="13sp"
         android:textStyle="bold" />
 
     <EditText
         android:id="@+id/postCallName"
         android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:layout_marginTop="7dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
         android:background="@drawable/bg_input"
-        android:hint="고객명 또는 업체명"
+        android:hint="고객명"
         android:inputType="textCapWords"
         android:paddingLeft="14dp"
         android:paddingRight="14dp"
@@ -103,24 +75,22 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="15dp"
+        android:layout_marginTop="12dp"
         android:text="메모"
         android:textColor="@color/text_primary"
-        android:textSize="14sp"
+        android:textSize="13sp"
         android:textStyle="bold" />
 
     <EditText
         android:id="@+id/postCallNote"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="7dp"
-        android:layout_weight="1"
+        android:layout_height="100dp"
+        android:layout_marginTop="6dp"
         android:background="@drawable/bg_input"
         android:gravity="top|start"
-        android:hint="통화 내용이나 다음에 기억할 내용을 입력하세요"
+        android:hint="통화 내용을 메모하세요"
         android:inputType="textMultiLine|textCapSentences"
-        android:maxLines="6"
-        android:minHeight="112dp"
+        android:maxLines="5"
         android:padding="14dp"
         android:textColor="@color/text_primary"
         android:textColorHint="@color/text_muted"
@@ -129,8 +99,8 @@
     <Button
         android:id="@+id/postCallSaveOnly"
         android:layout_width="match_parent"
-        android:layout_height="52dp"
-        android:layout_marginTop="16dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="12dp"
         android:background="@drawable/bg_primary_button"
         android:text="저장"
         android:textAllCaps="false"
