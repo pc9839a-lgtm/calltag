@@ -40,6 +40,7 @@ jobs:
           if-no-files-found: error
 
       - name: Prepare release signing
+        id: signing
         env:
           KS_B64_1: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
           KS_B64_2: ${{ secrets.UPLOAD_KEYSTORE_BASE64 }}
@@ -61,8 +62,9 @@ jobs:
           KEY_ALIAS_VALUE="${ALIAS_1:-${ALIAS_2:-${ALIAS_3:-}}}"
           KEY_PASSWORD_VALUE="${KEY_PASS_1:-${KEY_PASS_2:-${KEY_PASS_3:-}}}"
           if [ -z "$KEYSTORE_B64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_ALIAS_VALUE" ] || [ -z "$KEY_PASSWORD_VALUE" ]; then
-            echo "Release signing secrets are missing."
-            exit 2
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Release signing secrets are missing; skipping AAB build."
+            exit 0
           fi
           KEYSTORE_PATH="$RUNNER_TEMP/calltag-upload.jks"
           printf '%s' "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE_PATH"
@@ -71,11 +73,14 @@ jobs:
           echo "CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
           echo "CALLTAG_UPLOAD_KEY_ALIAS=$KEY_ALIAS_VALUE" >> "$GITHUB_ENV"
           echo "CALLTAG_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD_VALUE" >> "$GITHUB_ENV"
+          echo "available=true" >> "$GITHUB_OUTPUT"
 
       - name: Build signed release AAB
+        if: steps.signing.outputs.available == 'true'
         run: gradle :app:bundleRelease --stacktrace
 
       - name: Upload release AAB
+        if: steps.signing.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: calltag-v0.43.5-code73-release-aab
