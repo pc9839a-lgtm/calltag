@@ -59,6 +59,18 @@ public final class AuthApiClient {
             String brandName,
             String industry,
             String password) throws Exception {
+        return register(name, phone, email, verificationCode, brandName, industry, password, "");
+    }
+
+    public static JSONObject register(
+            String name,
+            String phone,
+            String email,
+            String verificationCode,
+            String brandName,
+            String industry,
+            String password,
+            String referralCode) throws Exception {
         return post("/api/call/register", new JSONObject()
                 .put("name", clean(name))
                 .put("phone", clean(phone))
@@ -66,7 +78,8 @@ public final class AuthApiClient {
                 .put("token", clean(verificationCode))
                 .put("brandName", clean(brandName))
                 .put("industry", clean(industry))
-                .put("password", password == null ? "" : password), "");
+                .put("password", password == null ? "" : password)
+                .put("referralCode", clean(referralCode).toUpperCase()), "");
     }
 
     public static JSONObject requestVerification(String email, String purpose) throws Exception {
