@@ -199,7 +199,8 @@ public final class CustomerQuickEditActivity extends Activity {
         setSaving(true);
         try {
             db.updateCustomerProfile(latest.id, name, status, memo);
-            ContactNameSyncManager.requestSyncAll(this);
+            CallLogMemoSyncManager.requestSyncForCustomer(
+                    this, latest.primaryPhone, name, memo);
             Toast.makeText(this, "고객 정보를 수정했습니다.", Toast.LENGTH_SHORT).show();
             setResult(RESULT_OK);
             finish();
