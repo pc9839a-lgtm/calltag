@@ -4,12 +4,11 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
-    android:fitsSystemWindows="true"
     android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="52dp"
         android:background="@color/background"
         android:gravity="center_vertical"
         android:orientation="horizontal"
@@ -51,14 +50,14 @@
     <LinearLayout
         android:id="@+id/bottomNavigation"
         android:layout_width="match_parent"
-        android:layout_height="76dp"
+        android:layout_height="72dp"
         android:background="@color/surface_soft"
         android:gravity="center"
         android:orientation="horizontal"
         android:paddingLeft="2dp"
-        android:paddingTop="6dp"
+        android:paddingTop="4dp"
         android:paddingRight="2dp"
-        android:paddingBottom="3dp">
+        android:paddingBottom="2dp">
 
         <kr.pagero.calltag.NavItemTextView
             android:id="@+id/navCustomers"
