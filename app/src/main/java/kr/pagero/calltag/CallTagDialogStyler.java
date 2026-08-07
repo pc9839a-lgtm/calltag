@@ -59,10 +59,11 @@ public final class CallTagDialogStyler {
         if (button == null) return;
         button.setAllCaps(false);
         button.setTextColor(button.getContext().getColor(primary
-                ? R.color.primary : R.color.text_secondary));
+                ? android.R.color.white : R.color.text_primary));
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setTextSize(14f);
-        button.setBackgroundResource(R.drawable.bg_secondary_button);
+        button.setBackgroundResource(primary
+                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
     }
 
     private static int dp(AlertDialog dialog, int value) {
