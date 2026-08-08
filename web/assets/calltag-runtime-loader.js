@@ -28,7 +28,7 @@
     'calltag-industry-visual-v5.js?v=20260803-v5',
     'calltag-horizontal-impact.js?v=20260803-impact2',
     'calltag-section-motion.js?v=20260803-motion2',
-    'calltag-site-final-cleanup.js?v=20260804-footer2',
+    'calltag-site-final-cleanup.js?v=20260808-observer1',
     'calltag-horizontal-live-fix.js?v=20260803-live1',
     'calltag-mobile-clean-v2.js?v=20260804-clean3',
     'calltag-mobile-history-fix.js?v=20260804-history1',
