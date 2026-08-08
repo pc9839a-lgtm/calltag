@@ -91,14 +91,16 @@ public final class MessageGroupStore extends SQLiteOpenHelper {
     }
 
     public Group saveSmart(String groupId, String rawName, String statusFilter,
-                           int inactiveDays, boolean pendingOnly, String transactionMode) {
+                           int inactiveDays, boolean pendingOnly, String ignoredTransactionMode) {
         String id = cleanId(groupId);
         long now = System.currentTimeMillis();
         ContentValues values = baseValues(rawName, TYPE_SMART, now, id);
         values.put("status_filter", safe(statusFilter).trim());
         values.put("inactive_days", Math.max(0, inactiveDays));
         values.put("pending_only", pendingOnly ? 1 : 0);
-        values.put("transaction_mode", normalizeTransactionMode(transactionMode));
+        // 거래/미거래는 콜태그의 스마트그룹 조건으로 사용하지 않는다.
+        // 기존 DB 컬럼은 호환성을 위해 남기되 모든 저장값을 ANY로 정규화한다.
+        values.put("transaction_mode", TRANSACTION_ANY);
         getWritableDatabase().insertWithOnConflict("message_groups", null, values,
                 SQLiteDatabase.CONFLICT_REPLACE);
         getWritableDatabase().delete("message_group_members", "group_id=?", new String[]{id});
@@ -173,10 +175,6 @@ public final class MessageGroupStore extends SQLiteOpenHelper {
                         && !group.statusFilter.equals(customer.relationStatus)) continue;
                 if (group.inactiveDays > 0 && customer.lastContactAt > inactiveCutoff) continue;
                 if (group.pendingOnly && !pendingCustomers.contains(customer.id)) continue;
-                if (TRANSACTION_HAS.equals(group.transactionMode)
-                        && customer.firstTransactionAt == null) continue;
-                if (TRANSACTION_NONE.equals(group.transactionMode)
-                        && customer.firstTransactionAt != null) continue;
                 result.add(customer);
             }
             return result;
@@ -200,8 +198,6 @@ public final class MessageGroupStore extends SQLiteOpenHelper {
         if (!group.statusFilter.isEmpty()) parts.add("상태 " + group.statusFilter);
         if (group.inactiveDays > 0) parts.add(group.inactiveDays + "일 이상 미접촉");
         if (group.pendingOnly) parts.add("미완료 일정 있음");
-        if (TRANSACTION_HAS.equals(group.transactionMode)) parts.add("거래 고객");
-        if (TRANSACTION_NONE.equals(group.transactionMode)) parts.add("미거래 고객");
         return parts.isEmpty() ? "전체 고객 자동 포함" : String.join(" · ", parts);
     }
 
@@ -213,7 +209,7 @@ public final class MessageGroupStore extends SQLiteOpenHelper {
                 cursor.getString(cursor.getColumnIndexOrThrow("status_filter")),
                 cursor.getInt(cursor.getColumnIndexOrThrow("inactive_days")),
                 cursor.getInt(cursor.getColumnIndexOrThrow("pending_only")) == 1,
-                cursor.getString(cursor.getColumnIndexOrThrow("transaction_mode")),
+                TRANSACTION_ANY,
                 cursor.getLong(cursor.getColumnIndexOrThrow("created_at")),
                 cursor.getLong(cursor.getColumnIndexOrThrow("updated_at")));
     }
@@ -221,11 +217,6 @@ public final class MessageGroupStore extends SQLiteOpenHelper {
     private String cleanId(String id) {
         String value = safe(id).trim();
         return value.isEmpty() ? UUID.randomUUID().toString() : value;
-    }
-
-    private String normalizeTransactionMode(String value) {
-        if (TRANSACTION_HAS.equals(value) || TRANSACTION_NONE.equals(value)) return value;
-        return TRANSACTION_ANY;
     }
 
     private static String safe(String value) {
