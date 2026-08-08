@@ -1,6 +1,6 @@
 (()=>{
-  if(document.documentElement.dataset.ctRuntimeLoaderV5)return;
-  document.documentElement.dataset.ctRuntimeLoaderV5='1';
+  if(document.documentElement.dataset.ctRuntimeLoaderV6)return;
+  document.documentElement.dataset.ctRuntimeLoaderV6='1';
 
   const scripts=[
     'calltag-enhance.js?v=20260801-37',
@@ -31,7 +31,7 @@
     'calltag-horizontal-live-fix.js?v=20260803-live1',
     'calltag-mobile-clean-v2.js?v=20260804-clean3',
     'calltag-mobile-history-fix.js?v=20260804-history1',
-    'calltag-footer-links-v3.js?v=20260804-links5',
+    'calltag-footer-links-v3.js?v=20260808-links6',
     'calltag-section-order.js?v=20260807-coord3',
     'calltag-seo-runtime.js?v=20260805-seo1',
     'calltag-pagero-light-chapter.js?v=20260805-light2'
