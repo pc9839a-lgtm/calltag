@@ -1,13 +1,12 @@
 (()=>{
-  if(document.documentElement.dataset.ctRuntimeLoaderV4)return;
-  document.documentElement.dataset.ctRuntimeLoaderV4='1';
+  if(document.documentElement.dataset.ctRuntimeLoaderV5)return;
+  document.documentElement.dataset.ctRuntimeLoaderV5='1';
 
   const scripts=[
     'calltag-enhance.js?v=20260801-37',
     'calltag-copy-fix.js?v=20260801-37',
     'calltag-section-split.js?v=20260801-37',
-    'calltag-final-polish.js?v=20260801-37',
-    'calltag-interaction-fix.js?v=20260801-37',
+    'calltag-interaction-fix.js?v=20260808-interaction2',
     'calltag-benefits-flow.js?v=20260804-benefits2',
     'calltag-message-simple.js?v=20260801-37',
     'calltag-final-fix.js?v=20260801-37',
@@ -41,24 +40,9 @@
   const mount=()=>{
     const fragment=document.createDocumentFragment();
     let remaining=scripts.length;
-    const done=()=>{
-      remaining-=1;
-      if(remaining<=0)document.documentElement.classList.add('ct-layout-ready');
-    };
-    scripts.forEach(src=>{
-      const script=document.createElement('script');
-      script.src=`/assets/${src}`;
-      script.async=false;
-      script.onload=done;
-      script.onerror=()=>{
-        console.error('[CallTag] runtime asset failed:',src);
-        done();
-      };
-      fragment.appendChild(script);
-    });
+    const done=()=>{remaining-=1;if(remaining<=0)document.documentElement.classList.add('ct-layout-ready');};
+    scripts.forEach(src=>{const script=document.createElement('script');script.src=`/assets/${src}`;script.async=false;script.onload=done;script.onerror=()=>{console.error('[CallTag] runtime asset failed:',src);done();};fragment.appendChild(script);});
     document.body.appendChild(fragment);
   };
-
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});
-  else mount();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
 })();
