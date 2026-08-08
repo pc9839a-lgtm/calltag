@@ -2,7 +2,6 @@ package kr.pagero.calltag;
 
 import android.app.Activity;
 import android.app.DatePickerDialog;
-import android.app.TimePickerDialog;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -193,22 +192,13 @@ public final class HomeTaskEditorActivity extends Activity {
     }
 
     private void chooseTime(Customer customer, TaskTypeOption type, Calendar selected) {
-        Calendar now = Calendar.getInstance();
-        TimePickerDialog dialog = new TimePickerDialog(
-                this,
-                R.style.Theme_CallTag_PickerDialog,
-                (view, hourOfDay, minute) -> {
-                    selected.set(Calendar.HOUR_OF_DAY, hourOfDay);
-                    selected.set(Calendar.MINUTE, minute);
-                    selected.set(Calendar.SECOND, 0);
-                    selected.set(Calendar.MILLISECOND, 0);
-                    save(customer, type, selected.getTimeInMillis());
-                },
-                now.get(Calendar.HOUR_OF_DAY),
-                now.get(Calendar.MINUTE),
-                false);
-        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
-        dialog.show();
+        TaskTimeChoiceDialog.show(this, (hourOfDay, minute) -> {
+            selected.set(Calendar.HOUR_OF_DAY, hourOfDay);
+            selected.set(Calendar.MINUTE, minute);
+            selected.set(Calendar.SECOND, 0);
+            selected.set(Calendar.MILLISECOND, 0);
+            save(customer, type, selected.getTimeInMillis());
+        });
     }
 
     private void save(Customer customer, TaskTypeOption type, long dueAt) {
