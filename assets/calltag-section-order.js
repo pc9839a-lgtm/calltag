@@ -144,11 +144,11 @@
     apply();
     const observer=new MutationObserver(schedule);
     observer.observe(document.documentElement,{childList:true,subtree:true});
-    [50,150,400,900,1800,3500,7000,12000].forEach(delay=>setTimeout(apply,delay));
+    [250,1200,3500].forEach(delay=>setTimeout(apply,delay));
     setTimeout(()=>{
       apply();
       observer.disconnect();
-    },15000);
+    },5000);
   };
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
