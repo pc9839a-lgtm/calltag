@@ -5,6 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
@@ -24,7 +25,9 @@ public final class StatsTrendChartView extends View {
     private final Paint backgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint selectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint tooltipPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint tooltipStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint tooltipTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint tooltipDatePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     public StatsTrendChartView(Context context) {
         super(context);
@@ -66,14 +69,25 @@ public final class StatsTrendChartView extends View {
         pointPaint.setStyle(Paint.Style.FILL);
         backgroundPaint.setColor(getContext().getColor(R.color.surface));
 
-        selectionPaint.setColor(getContext().getColor(R.color.text_muted));
+        selectionPaint.setColor(getContext().getColor(R.color.text_secondary));
         selectionPaint.setStrokeWidth(dp(1));
         selectionPaint.setStyle(Paint.Style.STROKE);
 
-        tooltipPaint.setColor(getContext().getColor(R.color.text_primary));
+        // 툴팁은 차트 배경과 확실히 분리되는 어두운 패널 + 밝은 글자로 고정한다.
+        tooltipPaint.setColor(getContext().getColor(R.color.surface_soft));
         tooltipPaint.setStyle(Paint.Style.FILL);
-        tooltipTextPaint.setColor(getContext().getColor(android.R.color.white));
-        tooltipTextPaint.setTextSize(sp(11));
+        tooltipStrokePaint.setColor(getContext().getColor(R.color.primary));
+        tooltipStrokePaint.setStyle(Paint.Style.STROKE);
+        tooltipStrokePaint.setStrokeWidth(dp(1));
+
+        tooltipTextPaint.setColor(getContext().getColor(R.color.text_primary));
+        tooltipTextPaint.setTextSize(sp(12.5f));
+        tooltipTextPaint.setTypeface(Typeface.DEFAULT_BOLD);
+        tooltipTextPaint.setTextAlign(Paint.Align.CENTER);
+
+        tooltipDatePaint.setColor(getContext().getColor(R.color.text_secondary));
+        tooltipDatePaint.setTextSize(sp(10.5f));
+        tooltipDatePaint.setTextAlign(Paint.Align.CENTER);
     }
 
     public void setData(String[] labels, int[] calls, int[] leads) {
@@ -126,7 +140,7 @@ public final class StatsTrendChartView extends View {
 
         float left = dp(34);
         float right = width - dp(12);
-        float top = dp(42);
+        float top = dp(48);
         float bottom = height - dp(28);
         float chartWidth = Math.max(1f, right - left);
         float chartHeight = Math.max(1f, bottom - top);
@@ -191,16 +205,17 @@ public final class StatsTrendChartView extends View {
         float x = labels.length <= 1 ? left + chartWidth / 2f : left + step * index;
         canvas.drawLine(x, top, x, bottom, selectionPaint);
 
-        String detail = detailText(index);
-        float paddingX = dp(10);
-        float tooltipWidth = tooltipTextPaint.measureText(detail) + paddingX * 2f;
-        float maxWidth = getWidth() - dp(16);
-        tooltipWidth = Math.min(tooltipWidth, maxWidth);
-        float boxLeft = Math.max(dp(8), Math.min(x - tooltipWidth / 2f, getWidth() - dp(8) - tooltipWidth));
-        RectF box = new RectF(boxLeft, dp(30), boxLeft + tooltipWidth, dp(58));
-        canvas.drawRoundRect(box, dp(8), dp(8), tooltipPaint);
-        tooltipTextPaint.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText(detail, box.centerX(), box.centerY() + dp(4), tooltipTextPaint);
+        String valueLine = "통화 " + calls[index] + "건  ·  페이지로 " + leads[index] + "명";
+        float widest = Math.max(tooltipTextPaint.measureText(valueLine),
+                tooltipDatePaint.measureText(labels[index]));
+        float tooltipWidth = Math.min(getWidth() - dp(16), Math.max(dp(172), widest + dp(28)));
+        float boxLeft = Math.max(dp(8),
+                Math.min(x - tooltipWidth / 2f, getWidth() - dp(8) - tooltipWidth));
+        RectF box = new RectF(boxLeft, dp(30), boxLeft + tooltipWidth, dp(78));
+        canvas.drawRoundRect(box, dp(10), dp(10), tooltipPaint);
+        canvas.drawRoundRect(box, dp(10), dp(10), tooltipStrokePaint);
+        canvas.drawText(labels[index], box.centerX(), dp(48), tooltipDatePaint);
+        canvas.drawText(valueLine, box.centerX(), dp(68), tooltipTextPaint);
     }
 
     private String detailText(int index) {

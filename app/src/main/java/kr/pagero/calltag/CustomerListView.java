@@ -141,10 +141,10 @@ public final class CustomerListView extends LinearLayout {
         removeDetailButton(actions);
         if (!hasMessageButton(actions)) {
             final String customerPhone = phone;
-            Button message = compactButton("문자", true);
+            Button message = compactButton("문자 보내기", true);
             message.setTag("customer_message_button");
             message.setOnClickListener(v -> openCustomerMessage(customerPhone));
-            actions.addView(message, 0, new LinearLayout.LayoutParams(0, dp(42), 1f));
+            actions.addView(message, new LinearLayout.LayoutParams(0, dp(42), 1.2f));
         }
         for (int i = 0; i < actions.getChildCount(); i++) {
             View child = actions.getChildAt(i);

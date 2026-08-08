@@ -10,7 +10,6 @@ import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -27,7 +26,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-/** 수동그룹은 검색·전체선택을 지원하고 스마트그룹은 조건으로 계산한다. */
+/** 수동그룹은 검색·전체선택을 지원하고 스마트그룹은 실제 CRM 조건으로 계산한다. */
 public final class MessageGroupActivity extends Activity {
     private MessageGroupStore store;
     private LinearLayout listContainer;
@@ -52,13 +51,13 @@ public final class MessageGroupActivity extends Activity {
 
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(8), dp(6), dp(16), dp(6));
+        header.setPadding(dp(8), 0, dp(16), 0);
         TextView back = title("‹", 31f);
         back.setGravity(Gravity.CENTER);
         back.setClickable(true);
         back.setFocusable(true);
         back.setOnClickListener(v -> finish());
-        header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(52)));
         TextView screenTitle = title("고객 그룹", 21f);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -68,8 +67,8 @@ public final class MessageGroupActivity extends Activity {
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
-        actions.setPadding(dp(16), dp(6), dp(16), dp(8));
-        Button manual = button("수동 그룹 만들기", true);
+        actions.setPadding(dp(16), dp(8), dp(16), dp(8));
+        Button manual = button("수동 그룹", true);
         manual.setOnClickListener(v -> showManualEditor(null));
         actions.addView(manual, new LinearLayout.LayoutParams(0, dp(48), 1f));
         Button smart = button("스마트 그룹", false);
@@ -83,7 +82,7 @@ public final class MessageGroupActivity extends Activity {
         scroll.setFillViewport(true);
         listContainer = new LinearLayout(this);
         listContainer.setOrientation(LinearLayout.VERTICAL);
-        listContainer.setPadding(dp(16), 0, dp(16), dp(32));
+        listContainer.setPadding(dp(16), dp(2), dp(16), dp(32));
         scroll.addView(listContainer, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
@@ -215,6 +214,7 @@ public final class MessageGroupActivity extends Activity {
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setPadding(dp(4), dp(5), dp(4), dp(5));
+            row.setBackgroundResource(R.drawable.bg_clickable_row);
 
             CheckBox check = new CheckBox(this);
             check.setChecked(selectedIds.contains(customer.id));
@@ -244,7 +244,7 @@ public final class MessageGroupActivity extends Activity {
                 else selectedIds.remove(customer.id);
                 updateSelectedCount(selectedIds, selectedText);
             });
-            customerList.addView(row, matchWrap());
+            customerList.addView(row, topMargin(2));
         }
         updateSelectedCount(selectedIds, selectedText);
 
@@ -271,22 +271,24 @@ public final class MessageGroupActivity extends Activity {
                 .setPositiveButton("저장", null)
                 .setNegativeButton("취소", null)
                 .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
-                    if (selectedIds.isEmpty()) {
-                        Toast.makeText(this, "고객을 한 명 이상 선택해주세요.",
-                                Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    try {
-                        store.saveManual(current == null ? "" : current.id,
-                                name.getText().toString(), new ArrayList<>(selectedIds));
-                        dialog.dismiss();
-                        render();
-                    } catch (IllegalArgumentException error) {
-                        Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
-                    }
-                }));
+        dialog.setOnShowListener(ignored -> {
+            CallTagDialogStyler.apply(dialog);
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                if (selectedIds.isEmpty()) {
+                    Toast.makeText(this, "고객을 한 명 이상 선택해주세요.",
+                            Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                try {
+                    store.saveManual(current == null ? "" : current.id,
+                            name.getText().toString(), new ArrayList<>(selectedIds));
+                    dialog.dismiss();
+                    render();
+                } catch (IllegalArgumentException error) {
+                    Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+        });
         dialog.show();
     }
 
@@ -354,21 +356,16 @@ public final class MessageGroupActivity extends Activity {
         form.addView(inactive, fixedHeight(50, 6));
 
         Switch pending = new Switch(this);
-        pending.setText("미완료 일정이 있는 고객만");
+        pending.setText("미완료 할 일이 있는 고객만");
         pending.setTextColor(getColor(R.color.text_primary));
+        pending.setTextSize(14f);
         pending.setChecked(current != null && current.pendingOnly);
-        form.addView(pending, topMargin(12));
+        form.addView(pending, fixedHeight(52, 12));
 
-        List<String> transactionValues = List.of(
-                MessageGroupStore.TRANSACTION_ANY,
-                MessageGroupStore.TRANSACTION_HAS,
-                MessageGroupStore.TRANSACTION_NONE);
-        List<String> transactionLabels = List.of("거래 여부 전체", "거래 고객만", "미거래 고객만");
-        Spinner transaction = spinner(transactionLabels);
-        selectValue(transaction, transactionValues,
-                current == null ? MessageGroupStore.TRANSACTION_ANY : current.transactionMode);
-        form.addView(label("거래 여부"), topMargin(12));
-        form.addView(transaction, fixedHeight(50, 6));
+        TextView ruleNote = body("스마트 그룹은 고객 상태 · 최근 연락 · 미완료 할 일 조건으로 자동 갱신됩니다.");
+        ruleNote.setBackgroundResource(R.drawable.bg_soft_panel);
+        ruleNote.setPadding(dp(12), dp(10), dp(12), dp(10));
+        form.addView(ruleNote, topMargin(12));
 
         AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(current == null ? "스마트 그룹 만들기" : "스마트 그룹 수정")
@@ -376,46 +373,50 @@ public final class MessageGroupActivity extends Activity {
                 .setPositiveButton("저장", null)
                 .setNegativeButton("취소", null)
                 .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
-                    try {
-                        MessageGroupStore.Group saved = store.saveSmart(
-                                current == null ? "" : current.id,
-                                name.getText().toString(),
-                                statusValues.get(status.getSelectedItemPosition()),
-                                inactiveValues[inactive.getSelectedItemPosition()],
-                                pending.isChecked(),
-                                transactionValues.get(transaction.getSelectedItemPosition()));
-                        int count = store.countMembers(this, saved);
-                        dialog.dismiss();
-                        Toast.makeText(this, "현재 조건에 맞는 고객 " + count + "명",
-                                Toast.LENGTH_LONG).show();
-                        render();
-                    } catch (IllegalArgumentException error) {
-                        Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
-                    }
-                }));
+        dialog.setOnShowListener(ignored -> {
+            CallTagDialogStyler.apply(dialog);
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                try {
+                    MessageGroupStore.Group saved = store.saveSmart(
+                            current == null ? "" : current.id,
+                            name.getText().toString(),
+                            statusValues.get(status.getSelectedItemPosition()),
+                            inactiveValues[inactive.getSelectedItemPosition()],
+                            pending.isChecked(),
+                            MessageGroupStore.TRANSACTION_ANY);
+                    int count = store.countMembers(this, saved);
+                    dialog.dismiss();
+                    Toast.makeText(this, "현재 조건에 맞는 고객 " + count + "명",
+                            Toast.LENGTH_LONG).show();
+                    render();
+                } catch (IllegalArgumentException error) {
+                    Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
+                }
+            });
+        });
         dialog.show();
     }
 
     private void confirmDelete(MessageGroupStore.Group group) {
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("그룹 삭제")
-                .setMessage("‘" + group.name + "’ 그룹을 삭제할까요? 기존 캠페인 내역은 유지됩니다.")
+                .setMessage("‘" + group.name + "’ 그룹을 삭제할까요? 기존 단체문자 내역은 유지됩니다.")
                 .setNegativeButton("취소", null)
-                .setPositiveButton("삭제", (dialog, which) -> {
+                .setPositiveButton("삭제", (ignored, which) -> {
                     store.delete(group.id);
                     render();
                 })
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.show();
     }
 
     private Spinner spinner(List<String> labels) {
         Spinner spinner = new Spinner(this);
         spinner.setBackgroundResource(R.drawable.bg_secondary_button);
-        spinner.setPadding(dp(12), 0, dp(12), 0);
-        spinner.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_dropdown_item, labels));
+        spinner.setPadding(dp(8), 0, dp(8), 0);
+        spinner.setPopupBackgroundResource(R.drawable.bg_dialog_panel);
+        spinner.setAdapter(new CallTagSpinnerAdapter(this, labels));
         return spinner;
     }
 
@@ -475,6 +476,8 @@ public final class MessageGroupActivity extends Activity {
         button.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
         button.setMinWidth(0);
+        button.setMinHeight(0);
+        button.setPadding(dp(10), 0, dp(10), 0);
         return button;
     }
 
