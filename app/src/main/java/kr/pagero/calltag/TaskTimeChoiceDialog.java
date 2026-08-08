@@ -43,7 +43,7 @@ public final class TaskTimeChoiceDialog {
         root.addView(title, matchWrap());
         TextView helper = text(context, "오전·오후와 시간을 바로 눌러 선택하세요.",
                 12.5f, false, R.color.text_secondary);
-        root.addView(helper, top(6));
+        root.addView(helper, top(context, 6));
 
         TextView summary = text(context, "", 22f, true, R.color.primary);
         summary.setGravity(Gravity.CENTER);
@@ -58,10 +58,10 @@ public final class TaskTimeChoiceDialog {
         LinearLayout.LayoutParams pmParams = weighted(context, 1f);
         pmParams.leftMargin = dp(context, 8);
         periodRow.addView(pm, pmParams);
-        root.addView(label(context, "오전 / 오후"), top(16));
+        root.addView(label(context, "오전 / 오후"), top(context, 16));
         root.addView(periodRow, fixedTop(context, 46, 7));
 
-        root.addView(label(context, "시"), top(16));
+        root.addView(label(context, "시"), top(context, 16));
         LinearLayout hourRows = new LinearLayout(context);
         hourRows.setOrientation(LinearLayout.VERTICAL);
         List<TextView> hourButtons = new ArrayList<>();
@@ -82,9 +82,9 @@ public final class TaskTimeChoiceDialog {
             if (row > 0) lineParams.topMargin = dp(context, 6);
             hourRows.addView(line, lineParams);
         }
-        root.addView(hourRows, top(7));
+        root.addView(hourRows, top(context, 7));
 
-        root.addView(label(context, "분"), top(16));
+        root.addView(label(context, "분"), top(context, 16));
         LinearLayout minuteRows = new LinearLayout(context);
         minuteRows.setOrientation(LinearLayout.VERTICAL);
         List<TextView> minuteButtons = new ArrayList<>();
@@ -106,7 +106,7 @@ public final class TaskTimeChoiceDialog {
             if (row > 0) lineParams.topMargin = dp(context, 6);
             minuteRows.addView(line, lineParams);
         }
-        root.addView(minuteRows, top(7));
+        root.addView(minuteRows, top(context, 7));
 
         LinearLayout actions = new LinearLayout(context);
         actions.setOrientation(LinearLayout.HORIZONTAL);
@@ -215,9 +215,9 @@ public final class TaskTimeChoiceDialog {
                 LinearLayout.LayoutParams.WRAP_CONTENT);
     }
 
-    private static LinearLayout.LayoutParams top(int margin) {
+    private static LinearLayout.LayoutParams top(Context context, int margin) {
         LinearLayout.LayoutParams params = matchWrap();
-        params.topMargin = margin;
+        params.topMargin = dp(context, margin);
         return params;
     }
 
