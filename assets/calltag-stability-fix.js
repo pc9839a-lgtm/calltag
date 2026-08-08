@@ -1,11 +1,11 @@
 (()=>{
-  if(document.documentElement.dataset.ctStabilityFixV2)return;
-  document.documentElement.dataset.ctStabilityFixV2='1';
+  if(document.documentElement.dataset.ctStabilityFixV3)return;
+  document.documentElement.dataset.ctStabilityFixV3='1';
 
   const installStyles=()=>{
     if(document.querySelector('style[data-ct-stability-fix]'))return;
     const style=document.createElement('style');
-    style.dataset.ctStabilityFix='2';
+    style.dataset.ctStabilityFix='3';
     style.textContent=`
       .ct-horizontal-industries .ct-h-track,.ct-journey-horizontal .ct-j-track{backface-visibility:hidden;transform-style:preserve-3d}
       .ct-horizontal-industries .ct-h-panel,.ct-journey-horizontal .ct-j-panel{contain:layout paint style}
@@ -29,16 +29,29 @@
     }
   };
 
-  const stabilizeCtas=()=>{
-    const label='3일 무료체험 시작';
-    const ariaLabel='콜태그 3일 무료체험 시작';
+  const normalizeTrialCopy=()=>{
+    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+    let node;
+    while((node=walker.nextNode())){
+      const next=node.nodeValue
+        .replaceAll('7일 무료체험','3일 무료체험')
+        .replaceAll('7일 무료 체험','3일 무료 체험')
+        .replaceAll('7일 동안 무료','3일 동안 무료');
+      if(next!==node.nodeValue)node.nodeValue=next;
+    }
+    document.querySelectorAll('[aria-label],[title]').forEach(element=>{
+      ['aria-label','title'].forEach(name=>{
+        const value=element.getAttribute(name);
+        if(value&&value.includes('7일'))element.setAttribute(name,value.replaceAll('7일 무료체험','3일 무료체험').replaceAll('7일 무료 체험','3일 무료 체험'));
+      });
+    });
     document.querySelectorAll('.ad-sticky a').forEach(link=>{
-      if(link.textContent.trim()!==label)link.textContent=label;
-      if(link.getAttribute('aria-label')!==ariaLabel)link.setAttribute('aria-label',ariaLabel);
+      link.textContent='3일 무료체험 시작';
+      link.setAttribute('aria-label','콜태그 3일 무료체험 시작');
     });
   };
 
-  const apply=()=>{installStyles();cleanPlaceholderReviews();stabilizeCtas();};
+  const apply=()=>{installStyles();cleanPlaceholderReviews();normalizeTrialCopy();};
   const boot=()=>{
     apply();
     const observer=new MutationObserver(apply);
