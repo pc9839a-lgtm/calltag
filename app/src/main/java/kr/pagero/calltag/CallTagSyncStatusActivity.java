@@ -3,11 +3,12 @@ package kr.pagero.calltag;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
-import android.widget.Button;
+import android.view.View;
 import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -20,6 +21,7 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/** 더보기 > 데이터 보호·복구. 콜태그 공통 다크 카드 UI를 사용한다. */
 public final class CallTagSyncStatusActivity extends Activity {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -34,67 +36,81 @@ public final class CallTagSyncStatusActivity extends Activity {
     private TextView statusTitle;
     private TextView statusMessage;
     private TextView details;
-    private Button syncButton;
-    private Button devicesButton;
-    private Button eraseButton;
+    private TextView syncButton;
+    private TextView devicesButton;
+    private TextView eraseButton;
     private boolean binding;
     private boolean eraseRunning;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("데이터 보호·복구");
+        setContentView(buildScreen());
+    }
 
+    private View buildScreen() {
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
+        scroll.setBackgroundColor(getColor(R.color.background));
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(24), dp(20), dp(32));
-        root.setBackgroundColor(getColor(R.color.surface));
+        root.setPadding(dp(16), dp(10), dp(16), dp(36));
+        root.setBackgroundColor(getColor(R.color.background));
         scroll.addView(root, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
 
-        TextView title = text("앱을 다시 설치해도\n고객정보를 되찾습니다.", 25f, true,
-                R.color.text_primary);
-        root.addView(title);
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        TextView back = text("‹", 30f, false, R.color.text_primary);
+        back.setGravity(Gravity.CENTER);
+        back.setClickable(true);
+        back.setFocusable(true);
+        back.setOnClickListener(v -> finish());
+        header.addView(back, new LinearLayout.LayoutParams(dp(46), dp(46)));
+        TextView screenTitle = text("데이터 보호·복구", 21f, true, R.color.text_primary);
+        LinearLayout.LayoutParams screenTitleParams = new LinearLayout.LayoutParams(
+                0, dp(46), 1f);
+        screenTitleParams.leftMargin = dp(8);
+        screenTitle.setGravity(Gravity.CENTER_VERTICAL);
+        header.addView(screenTitle, screenTitleParams);
+        root.addView(header);
 
-        TextView intro = text(
-                "고객·상담·메모·후속 일정을 계정별로 암호화해 보관합니다. " +
-                        "통화 녹음, 휴대폰 전체 연락처와 전체 문자함은 올리지 않습니다.",
-                14f, false, R.color.text_secondary);
-        root.addView(intro, marginTop(12));
+        LinearLayout hero = card();
+        hero.addView(text("앱을 다시 설치해도 고객정보를 되찾습니다.",
+                18f, true, R.color.text_primary));
+        hero.addView(text(
+                "고객·상담·메모·후속 일정을 계정별로 암호화해 보관합니다. 통화 녹음과 휴대폰 전체 연락처·문자함은 올리지 않습니다.",
+                13.5f, false, R.color.text_secondary), marginTop(8));
+        root.addView(hero, marginTop(18));
 
         LinearLayout consentCard = card();
         enabledSwitch = new Switch(this);
         enabledSwitch.setText("데이터 보호 켜기");
-        enabledSwitch.setTextSize(16f);
+        enabledSwitch.setTextSize(15f);
         enabledSwitch.setTextColor(getColor(R.color.text_primary));
         enabledSwitch.setGravity(Gravity.CENTER_VERTICAL);
+        enabledSwitch.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         consentCard.addView(enabledSwitch, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(54)));
-        root.addView(consentCard, marginTop(22));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(52)));
+        root.addView(consentCard, marginTop(10));
 
         LinearLayout statusCard = card();
         statusTitle = text("대기 중", 17f, true, R.color.text_primary);
         statusCard.addView(statusTitle);
-        statusMessage = text("동기화 상태를 확인하고 있습니다.", 14f, false,
+        statusMessage = text("동기화 상태를 확인하고 있습니다.", 13.5f, false,
                 R.color.text_secondary);
-        statusCard.addView(statusMessage, marginTop(8));
-        details = text("", 13f, false, R.color.text_muted);
-        statusCard.addView(details, marginTop(12));
-        root.addView(statusCard, marginTop(14));
+        statusCard.addView(statusMessage, marginTop(7));
+        details = text("", 12.5f, false, R.color.text_muted);
+        details.setLineSpacing(dp(3), 1f);
+        statusCard.addView(details, marginTop(10));
+        root.addView(statusCard, marginTop(10));
 
-        syncButton = new Button(this);
-        syncButton.setText("지금 동기화");
-        syncButton.setTextSize(15f);
-        syncButton.setAllCaps(false);
+        syncButton = actionButton("지금 동기화", true, false);
         syncButton.setOnClickListener(v -> {
             if (!AuthSessionStore.hasSession(this)) {
-                new AlertDialog.Builder(this)
-                        .setMessage("로그인 후 사용할 수 있습니다.")
-                        .setPositiveButton("확인", null)
-                        .show();
+                showMessage("로그인 후 사용할 수 있습니다.");
                 return;
             }
             if (!CallTagSyncPreferenceStore.isEnabled(this)) {
@@ -104,45 +120,35 @@ public final class CallTagSyncStatusActivity extends Activity {
             CallTagSyncManager.request(this, true);
             refresh();
         });
-        root.addView(syncButton, marginTopHeight(16, 50));
+        root.addView(syncButton, marginTopHeight(14, 50));
 
-        devicesButton = new Button(this);
-        devicesButton.setText("연결된 기기 관리");
-        devicesButton.setTextSize(15f);
-        devicesButton.setAllCaps(false);
+        devicesButton = actionButton("연결된 기기 관리", false, false);
         devicesButton.setOnClickListener(v -> {
             if (!AuthSessionStore.hasSession(this)) {
-                new AlertDialog.Builder(this)
-                        .setMessage("로그인 후 사용할 수 있습니다.")
-                        .setPositiveButton("확인", null)
-                        .show();
+                showMessage("로그인 후 사용할 수 있습니다.");
                 return;
             }
             startActivity(new Intent(this, CallTagSyncDevicesActivity.class));
         });
-        root.addView(devicesButton, marginTopHeight(10, 50));
+        root.addView(devicesButton, marginTopHeight(8, 50));
 
         LinearLayout deleteCard = card();
-        deleteCard.addView(text("서버 복구본 관리", 16f, true, R.color.text_primary));
+        deleteCard.addView(text("서버 복구본 관리", 15f, true, R.color.text_primary));
         deleteCard.addView(text(
-                "데이터 보호를 끄는 것과 서버 복구본 삭제는 다릅니다. 보호를 끄면 서버 복구본은 유지되고, 아래 삭제를 실행해야 서버에서 완전히 제거됩니다.",
-                13f, false, R.color.text_secondary), marginTop(8));
-        eraseButton = new Button(this);
-        eraseButton.setText("서버 복구본 삭제");
-        eraseButton.setTextSize(14f);
-        eraseButton.setAllCaps(false);
+                "데이터 보호를 끄면 서버 복구본은 유지됩니다. 서버에서 완전히 지우려면 아래 삭제를 실행해야 합니다.",
+                13f, false, R.color.text_secondary), marginTop(7));
+        eraseButton = actionButton("서버 복구본 삭제", false, true);
         eraseButton.setOnClickListener(v -> confirmErase());
         deleteCard.addView(eraseButton, marginTopHeight(12, 48));
         root.addView(deleteCard, marginTop(16));
 
         TextView localNote = text(
-                "서버 연결에 실패해도 기기 안의 고객정보는 삭제되지 않습니다. " +
-                        "기존 암호화 백업 파일 기능도 함께 유지됩니다.",
-                13f, false, R.color.text_muted);
-        root.addView(localNote, marginTop(18));
+                "서버 연결에 실패해도 이 기기의 고객정보는 삭제되지 않습니다. 기존 암호화 백업 파일 기능도 유지됩니다.",
+                12.5f, false, R.color.text_muted);
+        root.addView(localNote, marginTop(16));
 
         enabledSwitch.setOnCheckedChangeListener(this::onEnabledChanged);
-        setContentView(scroll);
+        return scroll;
     }
 
     private void onEnabledChanged(CompoundButton button, boolean checked) {
@@ -159,53 +165,44 @@ public final class CallTagSyncStatusActivity extends Activity {
     }
 
     private void requestEnable() {
-        new AlertDialog.Builder(this)
-                .setTitle("데이터 보호를 켤까요?")
-                .setMessage("고객 이름·전화번호·메모·상담 기록·후속 일정이 계정별 암호화 상태로 서버에 보관됩니다. 통화 녹음과 전체 연락처는 전송하지 않습니다.")
-                .setNegativeButton("취소", null)
-                .setPositiveButton("켜기", (dialog, which) -> {
+        showConfirm(
+                "데이터 보호를 켤까요?",
+                "고객 이름·전화번호·메모·상담 기록·후속 일정이 계정별 암호화 상태로 서버에 보관됩니다. 통화 녹음과 전체 연락처는 전송하지 않습니다.",
+                "켜기",
+                () -> {
                     CallTagSyncPreferenceStore.setEnabled(this, true);
                     binding = true;
                     enabledSwitch.setChecked(true);
                     binding = false;
                     CallTagSyncManager.request(this, true);
                     refresh();
-                })
-                .show();
+                });
     }
 
     private void confirmErase() {
         if (eraseRunning) return;
         if (!AuthSessionStore.hasSession(this)) {
-            new AlertDialog.Builder(this)
-                    .setMessage("로그인 후 서버 복구본을 삭제할 수 있습니다.")
-                    .setPositiveButton("확인", null)
-                    .show();
+            showMessage("로그인 후 서버 복구본을 삭제할 수 있습니다.");
             return;
         }
-        new AlertDialog.Builder(this)
-                .setTitle("서버 복구본을 삭제할까요?")
-                .setMessage("서버에 보관된 고객·상담·메모·후속 일정 복구본이 삭제됩니다. 이 휴대폰 안의 고객정보는 삭제되지 않습니다.")
-                .setNegativeButton("취소", null)
-                .setPositiveButton("계속", (dialog, which) -> confirmEraseAgain())
-                .show();
+        showConfirm(
+                "서버 복구본을 삭제할까요?",
+                "서버에 보관된 고객·상담·메모·후속 일정 복구본이 삭제됩니다. 이 휴대폰 안의 고객정보는 삭제되지 않습니다.",
+                "계속",
+                this::confirmEraseAgain);
     }
 
     private void confirmEraseAgain() {
-        new AlertDialog.Builder(this)
-                .setTitle("삭제 후 되돌릴 수 없습니다")
-                .setMessage("다른 기기에서도 복구할 수 없게 됩니다. 현재 휴대폰의 데이터는 그대로 남습니다.")
-                .setNegativeButton("취소", null)
-                .setPositiveButton("서버 복구본 삭제", (dialog, which) -> eraseServerCopy())
-                .show();
+        showConfirm(
+                "삭제 후 되돌릴 수 없습니다",
+                "다른 기기에서도 복구할 수 없게 됩니다. 현재 휴대폰의 데이터는 그대로 남습니다.",
+                "서버 복구본 삭제",
+                this::eraseServerCopy);
     }
 
     private void eraseServerCopy() {
         if (!CallTagSyncManager.beginMaintenance()) {
-            new AlertDialog.Builder(this)
-                    .setMessage("현재 데이터 보호 작업이 진행 중입니다. 완료된 뒤 다시 시도해주세요.")
-                    .setPositiveButton("확인", null)
-                    .show();
+            showMessage("현재 데이터 보호 작업이 진행 중입니다. 완료된 뒤 다시 시도해주세요.");
             return;
         }
         eraseRunning = true;
@@ -234,21 +231,13 @@ public final class CallTagSyncStatusActivity extends Activity {
 
                 handler.post(() -> {
                     eraseRunning = false;
-                    new AlertDialog.Builder(this)
-                            .setTitle("삭제 완료")
-                            .setMessage("서버 복구본을 삭제했습니다. 이 휴대폰의 고객정보는 그대로 유지됩니다. 다시 데이터 보호를 켜면 새 복구본이 생성됩니다.")
-                            .setPositiveButton("확인", null)
-                            .show();
+                    showMessage("서버 복구본을 삭제했습니다. 이 휴대폰의 고객정보는 그대로 유지됩니다. 다시 데이터 보호를 켜면 새 복구본이 생성됩니다.");
                     refresh();
                 });
             } catch (Exception error) {
                 handler.post(() -> {
                     eraseRunning = false;
-                    new AlertDialog.Builder(this)
-                            .setTitle("삭제하지 못했습니다")
-                            .setMessage(userMessage(error))
-                            .setPositiveButton("확인", null)
-                            .show();
+                    showMessage(userMessage(error));
                     refresh();
                 });
             } finally {
@@ -294,9 +283,9 @@ public final class CallTagSyncStatusActivity extends Activity {
         details.setText("마지막 완료  " + time(state.lastSuccessAt)
                 + "\n대기 중 변경  " + state.pendingCount + "건"
                 + "\n서버 보관  " + state.serverRecords + "건");
-        syncButton.setEnabled(loggedIn && !running && !maintenance && !eraseRunning);
-        devicesButton.setEnabled(loggedIn && !eraseRunning);
-        eraseButton.setEnabled(loggedIn && !running && !maintenance && !eraseRunning);
+        setEnabled(syncButton, loggedIn && !running && !maintenance && !eraseRunning);
+        setEnabled(devicesButton, loggedIn && !eraseRunning);
+        setEnabled(eraseButton, loggedIn && !running && !maintenance && !eraseRunning);
         syncButton.setText(running
                 ? "동기화 중…" : enabled ? "지금 동기화" : "데이터 보호 켜기");
         eraseButton.setText(eraseRunning ? "삭제 중…" : "서버 복구본 삭제");
@@ -311,6 +300,42 @@ public final class CallTagSyncStatusActivity extends Activity {
         if ("ERROR".equals(status)) return "다시 확인이 필요합니다";
         if ("AUTH_REQUIRED".equals(status)) return "로그인을 다시 확인해주세요";
         return "데이터 보호 대기 중";
+    }
+
+    private void showMessage(String message) {
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setMessage(message)
+                .setPositiveButton("확인", null)
+                .create();
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.show();
+    }
+
+    private void showConfirm(String title, String message, String positive, Runnable action) {
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setNegativeButton("취소", null)
+                .setPositiveButton(positive, (ignored, which) -> action.run())
+                .create();
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.show();
+    }
+
+    private TextView actionButton(String value, boolean primary, boolean danger) {
+        TextView view = text(value, 14f, true,
+                danger ? R.color.danger : primary ? android.R.color.white : R.color.text_primary);
+        view.setGravity(Gravity.CENTER);
+        view.setBackgroundResource(primary
+                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        view.setClickable(true);
+        view.setFocusable(true);
+        return view;
+    }
+
+    private void setEnabled(TextView view, boolean enabled) {
+        view.setEnabled(enabled);
+        view.setAlpha(enabled ? 1f : 0.45f);
     }
 
     private String time(long millis) {
@@ -332,8 +357,7 @@ public final class CallTagSyncStatusActivity extends Activity {
         view.setTextSize(size);
         view.setTextColor(getColor(color));
         view.setIncludeFontPadding(false);
-        if (bold) view.setTypeface(android.graphics.Typeface.DEFAULT,
-                android.graphics.Typeface.BOLD);
+        if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         return view;
     }
 
