@@ -110,6 +110,13 @@
 
   let queued=false;
   const queue=()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply()})};
-  const boot=()=>{apply();const observer=new MutationObserver(queue);observer.observe(document.documentElement,{childList:true,subtree:true});setTimeout(apply,400);setTimeout(apply,1200);setTimeout(apply,3000)};
+  const boot=()=>{
+    apply();
+    const observer=new MutationObserver(queue);
+    observer.observe(document.documentElement,{childList:true,subtree:true});
+    const timers=[400,1200,3000].map(delay=>setTimeout(apply,delay));
+    const stopTimer=setTimeout(()=>{apply();observer.disconnect();},5000);
+    window.addEventListener('pagehide',()=>{timers.forEach(clearTimeout);clearTimeout(stopTimer);observer.disconnect();},{once:true});
+  };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
