@@ -1,9 +1,14 @@
 (()=>{
-  if(document.documentElement.dataset.ctLayoutCoordinatorV4)return;
-  document.documentElement.dataset.ctLayoutCoordinatorV4='1';
+  if(document.documentElement.dataset.ctLayoutCoordinatorV5)return;
+  document.documentElement.dataset.ctLayoutCoordinatorV5='1';
   const unique=nodes=>[...new Set(nodes.filter(Boolean))];
   const moveAfter=(anchor,node)=>{if(!anchor||!node||anchor===node)return anchor;if(anchor.nextElementSibling!==node)anchor.insertAdjacentElement('afterend',node);return node;};
-  const installBaseStyle=()=>{if(document.querySelector('style[data-ct-layout-coordinator]'))return;const style=document.createElement('style');style.dataset.ctLayoutCoordinator='4';style.textContent=`#app .ct-calltag-brand{margin:0 0 10px;color:var(--blue-2);font-size:18px;font-weight:950;letter-spacing:.12em;text-align:center}.ct-feature-only-title span{color:var(--blue-2)}.ct-horizontal-industries-clean .ct-horizontal-clean__copy,.ct-industries-static .ct-horizontal-clean__copy{display:none!important}@media(max-width:900px){.ct-feature-only-title{text-align:center}}@media(max-width:640px){#app .ct-calltag-brand{margin-bottom:8px;font-size:15px}}`;document.head.append(style);};
+  const installBaseStyle=()=>{if(document.querySelector('style[data-ct-layout-coordinator]'))return;const style=document.createElement('style');style.dataset.ctLayoutCoordinator='5';style.textContent=`
+    #app .ct-calltag-brand{margin:0 0 10px;color:var(--blue-2);font-size:18px;font-weight:950;letter-spacing:.12em;text-align:center}.ct-feature-only-title span{color:var(--blue-2)}.ct-horizontal-industries-clean .ct-horizontal-clean__copy,.ct-industries-static .ct-horizontal-clean__copy{display:none!important}
+    .ct-product-switch{display:flex;align-items:center;gap:3px;padding:4px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#11141a}.ct-product-switch a{display:block;padding:8px 11px;border-radius:8px;color:#777f8d;font-size:11px;font-weight:800;line-height:1;white-space:nowrap;transition:.2s ease}.ct-product-switch a.active{background:#252b38;color:#fff}.ct-product-switch a:not(.active):hover{color:#fff;background:rgba(255,255,255,.04)}
+    @media(max-width:900px){.ct-feature-only-title{text-align:center}}@media(max-width:760px){.header-inner{gap:12px!important}.ct-product-switch{margin-left:auto}.ct-product-switch a{padding:7px 9px;font-size:10px}.header .nav{display:none!important}}@media(max-width:640px){#app .ct-calltag-brand{margin-bottom:8px;font-size:15px}}@media(max-width:390px){.logo{font-size:0!important}.logo-mark{margin-right:0!important}.ct-product-switch a{padding:7px 8px}}
+  `;document.head.append(style);};
+  const installProductSwitch=()=>{const header=document.querySelector('.header-inner');if(!header||header.querySelector('.ct-product-switch'))return;const logo=header.querySelector('.logo');const nav=document.createElement('nav');nav.className='ct-product-switch';nav.setAttribute('aria-label','제품 전환');nav.innerHTML='<a class="active" href="/">콜태그</a><a href="https://pagero.kr/app">페이지로</a>';if(logo)logo.insertAdjacentElement('afterend',nav);else header.prepend(nav);};
   const installBrand=()=>{const heading=document.querySelector('#app .hero-heading');const kicker=heading?.querySelector('.hero-kicker');if(!heading||!kicker)return;let brand=heading.querySelector(':scope > .ct-calltag-brand');if(!brand){brand=document.createElement('p');brand.className='ct-calltag-brand';brand.textContent='콜태그';heading.insertBefore(brand,kicker);}};
   const findCallStory=()=>document.querySelector('#how.ct-story-section')||[...document.querySelectorAll('.ct-story-section')].find(section=>{const text=(section.textContent||'').replace(/\s+/g,' ').trim();return text.includes('통화가 끝나면')&&text.includes('태그만 하세요');})||null;
   const applyFixedCopy=()=>{
@@ -16,7 +21,7 @@
     document.querySelectorAll('a[href="#faq"]').forEach(link=>link.setAttribute('aria-label','콜태그 자주 묻는 질문으로 이동'));
   };
   const apply=()=>{
-    const main=document.querySelector('main#top'),app=document.querySelector('#app');if(!main||!app)return false;installBaseStyle();installBrand();if(main.firstElementChild!==app)main.prepend(app);let cursor=app;
+    const main=document.querySelector('main#top'),app=document.querySelector('#app');if(!main||!app)return false;installBaseStyle();installProductSwitch();installBrand();if(main.firstElementChild!==app)main.prepend(app);let cursor=app;
     const story=findCallStory();if(story){cursor=moveAfter(cursor,story);story.dataset.ctPinnedAfterApp='1';}
     const intro=document.querySelector('#ct-pagero-intro');const benefits=document.querySelector('.ct-benefit-section')||document.querySelector('.ad-benefits')?.closest('.ad-section');
     unique([document.querySelector('#what'),document.querySelector('#tasks'),document.querySelector('#messages'),document.querySelector('#web'),benefits,document.querySelector('#targets'),document.querySelector('#strengths')]).filter(section=>section!==story&&section!==app&&section!==intro).forEach(section=>{cursor=moveAfter(cursor,section);});
