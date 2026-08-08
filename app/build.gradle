@@ -1,22 +1,3 @@
-plugins {
-    id 'com.android.application'
-}
-
-def envString = { String key ->
-    String value = System.getenv(key) ?: ''
-    return value.replace('\\', '\\\\').replace('"', '\\"')
-}
-
-def uploadStorePath = System.getenv('CALLTAG_UPLOAD_KEYSTORE_PATH') ?: ''
-def uploadStorePassword = System.getenv('CALLTAG_UPLOAD_STORE_PASSWORD') ?: ''
-def uploadKeyAlias = System.getenv('CALLTAG_UPLOAD_KEY_ALIAS') ?: ''
-def uploadKeyPassword = System.getenv('CALLTAG_UPLOAD_KEY_PASSWORD') ?: ''
-def releaseSigningConfigured = !uploadStorePath.trim().isEmpty()
-        && !uploadStorePassword.trim().isEmpty()
-        && !uploadKeyAlias.trim().isEmpty()
-        && !uploadKeyPassword.trim().isEmpty()
-        && file(uploadStorePath).isFile()
-
 android {
     namespace 'kr.pagero.calltag'
     compileSdk 36
@@ -25,8 +6,8 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        versionCode 83
-        versionName '0.44.5'
+        versionCode 84
+        versionName '0.44.6'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
@@ -41,55 +22,43 @@ android {
 
     signingConfigs {
         release {
-            if (releaseSigningConfigured) {
-                storeFile file(uploadStorePath)
-                storePassword uploadStorePassword
-                keyAlias uploadKeyAlias
-                keyPassword uploadKeyPassword
+            def storePath = System.getenv('CALLTAG_KEYSTORE_PATH') ?: ''
+            if (!storePath.isEmpty()) {
+                storeFile file(storePath)
+                storePassword System.getenv('CALLTAG_KEYSTORE_PASSWORD') ?: ''
+                keyAlias System.getenv('CALLTAG_KEY_ALIAS') ?: ''
+                keyPassword System.getenv('CALLTAG_KEY_PASSWORD') ?: ''
             }
         }
     }
 
     buildTypes {
         release {
-            if (releaseSigningConfigured) {
-                signingConfig signingConfigs.release
-            }
-            debuggable false
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (!((System.getenv('CALLTAG_KEYSTORE_PATH') ?: '').isEmpty())) {
+                signingConfig signingConfigs.release
+            }
         }
-    }
-
-    compileOptions {
-        coreLibraryDesugaringEnabled true
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
     }
 }
 
-gradle.taskGraph.whenReady { graph ->
-    boolean releaseRequested = graph.allTasks.any { task ->
-        task.path == ':app:bundleRelease' || task.path == ':app:assembleRelease'
-    }
-    if (releaseRequested && !releaseSigningConfigured) {
-        throw new GradleException(
-                'Release signing is not configured. Set CALLTAG_UPLOAD_KEYSTORE_PATH, ' +
-                        'CALLTAG_UPLOAD_STORE_PASSWORD, CALLTAG_UPLOAD_KEY_ALIAS and ' +
-                        'CALLTAG_UPLOAD_KEY_PASSWORD.')
-    }
+def envString(String name) {
+    def value = System.getenv(name)
+    return value == null ? '' : value.replace('\\', '\\\\').replace('"', '\\"')
 }
 
 dependencies {
-    implementation 'androidx.core:core:1.15.0'
-    implementation 'androidx.work:work-runtime:2.11.2'
-    implementation 'com.google.firebase:firebase-messaging:25.1.1'
+    implementation 'androidx.core:core:1.17.0'
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'androidx.activity:activity:1.11.0'
+    implementation 'androidx.work:work-runtime:2.10.5'
+    implementation 'com.google.android.material:material:1.13.0'
+    implementation 'com.google.firebase:firebase-messaging:25.0.1'
     implementation 'com.android.billingclient:billing:9.1.0'
-
-    androidTestImplementation 'androidx.test:core:1.6.1'
-    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
-    androidTestImplementation 'androidx.test:runner:1.6.2'
-
-    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
+    androidTestImplementation 'androidx.test:core:1.7.0'
+    androidTestImplementation 'androidx.test:runner:1.7.0'
+    androidTestImplementation 'androidx.test:rules:1.7.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
 }
