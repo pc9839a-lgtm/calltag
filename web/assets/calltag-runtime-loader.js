@@ -1,13 +1,12 @@
 (()=>{
-  if(document.documentElement.dataset.ctRuntimeLoaderV4)return;
-  document.documentElement.dataset.ctRuntimeLoaderV4='1';
+  if(document.documentElement.dataset.ctRuntimeLoaderV5)return;
+  document.documentElement.dataset.ctRuntimeLoaderV5='1';
 
   const scripts=[
     'calltag-enhance.js?v=20260801-37',
     'calltag-copy-fix.js?v=20260801-37',
     'calltag-section-split.js?v=20260801-37',
-    'calltag-final-polish.js?v=20260801-37',
-    'calltag-interaction-fix.js?v=20260801-37',
+    'calltag-interaction-fix.js?v=20260808-interaction2',
     'calltag-benefits-flow.js?v=20260804-benefits2',
     'calltag-message-simple.js?v=20260801-37',
     'calltag-final-fix.js?v=20260801-37',
