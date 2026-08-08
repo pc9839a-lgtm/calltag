@@ -1,31 +1,24 @@
 (()=>{
-  if(document.documentElement.dataset.ctInteractionFix)return;
-  document.documentElement.dataset.ctInteractionFix='1';
-
+  if(document.documentElement.dataset.ctInteractionFixV2)return;
+  document.documentElement.dataset.ctInteractionFixV2='1';
   const q=(s,r=document)=>r.querySelector(s);
   const qa=(s,r=document)=>[...r.querySelectorAll(s)];
 
   const run=()=>{
-    /* Original app demo: remove step 04 and connect hover directly to phone screens. */
+    const heroTitle=q('.hero-heading h1');
+    if(heroTitle)heroTitle.innerHTML='통화 후 <span>고객관리.</span>';
+    qa('.hero-heading .ad-actions,.hero-heading .ad-offer').forEach(el=>el.remove());
+
     const stage=q('#app .phone-stage');
     if(stage){
       const items=qa('.step-item',stage);
       const screens=qa('.app-screen',stage);
       const progress=q('#phoneProgress',stage);
       const visibleCount=3;
-
-      if(items[3]){
-        items[3].style.display='none';
-        items[3].setAttribute('aria-hidden','true');
-      }
-      if(screens[3]){
-        screens[3].style.display='none';
-        screens[3].setAttribute('aria-hidden','true');
-      }
-
-      let lockedIndex=-1;
-      let applying=false;
-      const activate=(index)=>{
+      if(items[3]){items[3].style.display='none';items[3].setAttribute('aria-hidden','true');}
+      if(screens[3]){screens[3].style.display='none';screens[3].setAttribute('aria-hidden','true');}
+      let lockedIndex=-1,applying=false;
+      const activate=index=>{
         if(index<0||index>=visibleCount)return;
         applying=true;
         items.forEach((item,i)=>item.classList.toggle('active',i===index));
@@ -33,76 +26,46 @@
         if(progress)progress.style.width=`${((index+1)/visibleCount)*100}%`;
         requestAnimationFrame(()=>{applying=false;});
       };
-
       items.slice(0,visibleCount).forEach((item,index)=>{
-        item.style.cursor='pointer';
-        item.tabIndex=0;
-        item.addEventListener('mouseenter',()=>{
-          lockedIndex=index;
-          activate(index);
-        });
-        item.addEventListener('mouseleave',()=>{
-          lockedIndex=-1;
-        });
-        item.addEventListener('focus',()=>{
-          lockedIndex=index;
-          activate(index);
-        });
-        item.addEventListener('blur',()=>{
-          lockedIndex=-1;
-        });
+        item.style.cursor='pointer';item.tabIndex=0;
+        item.addEventListener('mouseenter',()=>{lockedIndex=index;activate(index);});
+        item.addEventListener('mouseleave',()=>{lockedIndex=-1;});
+        item.addEventListener('focus',()=>{lockedIndex=index;activate(index);});
+        item.addEventListener('blur',()=>{lockedIndex=-1;});
         item.addEventListener('click',()=>activate(index));
       });
-
-      /* The legacy automatic demo still runs. Keep hover selection fixed and block removed step 04. */
       const observer=new MutationObserver(()=>{
         if(applying)return;
-        if(lockedIndex>=0){
-          activate(lockedIndex);
-          return;
-        }
+        if(lockedIndex>=0){activate(lockedIndex);return;}
         const activeIndex=screens.findIndex(screen=>screen.classList.contains('active'));
         if(activeIndex<0||activeIndex>=visibleCount)activate(0);
       });
       [...items,...screens].forEach(node=>observer.observe(node,{attributes:true,attributeFilter:['class']}));
-
       activate(Math.min(Math.max(items.findIndex(item=>item.classList.contains('active')),0),visibleCount-1));
+      window.addEventListener('pagehide',()=>observer.disconnect(),{once:true});
     }
 
-    /* Remove the redundant generated hover menu. The real 01–03 list controls the phone. */
-    qa('.ct-hover-menu').forEach(menu=>menu.remove());
-
-    /* Industry section: endless horizontal marquee instead of paged carousel. */
+    qa('.ct-hover-menu,.ct-carousel-controls').forEach(el=>el.remove());
     const targets=q('#targets');
     const title=q('.ad-title',targets||document);
     const viewport=q('.ad-targets',targets||document);
     if(title)title.textContent='이런 업종에 필요합니다.';
-
     if(targets&&viewport&&!viewport.classList.contains('ct-marquee-viewport')){
-      qa('.ct-carousel-controls',targets).forEach(control=>control.remove());
       const cards=qa('.ad-target',viewport);
       if(cards.length){
         viewport.className='ad-targets ct-marquee-viewport';
         viewport.removeAttribute('style');
-
-        const rail=document.createElement('div');
-        rail.className='ct-marquee-rail';
-        const makeGroup=(hidden=false)=>{
-          const group=document.createElement('div');
-          group.className='ct-marquee-group';
-          if(hidden)group.setAttribute('aria-hidden','true');
-          cards.forEach(card=>group.appendChild(hidden?card.cloneNode(true):card));
-          return group;
-        };
-        rail.append(makeGroup(false),makeGroup(true));
-        viewport.replaceChildren(rail);
+        const rail=document.createElement('div');rail.className='ct-marquee-rail';
+        const makeGroup=hidden=>{const group=document.createElement('div');group.className='ct-marquee-group';if(hidden)group.setAttribute('aria-hidden','true');cards.forEach(card=>group.appendChild(hidden?card.cloneNode(true):card));return group;};
+        rail.append(makeGroup(false),makeGroup(true));viewport.replaceChildren(rail);
       }
     }
 
     if(!q('style[data-ct-interaction-fix]')){
-      const style=document.createElement('style');
-      style.dataset.ctInteractionFix='1';
+      const style=document.createElement('style');style.dataset.ctInteractionFix='2';
       style.textContent=`
+        .hero-heading h1{white-space:nowrap!important}
+        .hero-heading .ad-actions,.hero-heading .ad-offer{display:none!important}
         #app .step-item:nth-child(4),#app .app-screen[data-screen="3"]{display:none!important}
         #app .step-item{cursor:pointer}
         #app .step-item:hover,#app .step-item:focus-visible{border-color:rgba(59,111,255,.58);background:var(--blue-soft);transform:translateX(8px);outline:none}
@@ -118,22 +81,11 @@
         #targets .ct-marquee-group .ad-target h3{margin-top:24px!important;font-size:clamp(32px,3.5vw,48px)!important;line-height:1.08!important}
         #targets .ct-marquee-group .ad-target b{margin-top:36px!important;font-size:15px!important}
         @keyframes ctIndustryFlow{from{transform:translate3d(0,0,0)}to{transform:translate3d(-50%,0,0)}}
-        @media(max-width:700px){
-          #targets .ad-title{font-size:clamp(29px,9vw,43px)!important;letter-spacing:-.065em!important}
-          #targets .ct-marquee-group{gap:14px;padding-right:14px}
-          #targets .ct-marquee-group .ad-target{flex-basis:82vw!important;width:82vw!important;min-height:290px!important;padding:34px 28px!important}
-          #targets .ct-marquee-group .ad-target h3{font-size:34px!important}
-          #targets .ct-marquee-rail{animation-duration:28s}
-        }
-        @media(prefers-reduced-motion:reduce){
-          #targets .ct-marquee-viewport{overflow-x:auto!important;mask-image:none;-webkit-mask-image:none}
-          #targets .ct-marquee-rail{animation:none!important}
-        }
+        @media(max-width:700px){.hero-heading h1{white-space:normal!important}#targets .ad-title{font-size:clamp(29px,9vw,43px)!important;letter-spacing:-.065em!important}#targets .ct-marquee-group{gap:14px;padding-right:14px}#targets .ct-marquee-group .ad-target{flex-basis:82vw!important;width:82vw!important;min-height:290px!important;padding:34px 28px!important}#targets .ct-marquee-group .ad-target h3{font-size:34px!important}#targets .ct-marquee-rail{animation-duration:28s}}
+        @media(prefers-reduced-motion:reduce){#targets .ct-marquee-viewport{overflow-x:auto!important;mask-image:none;-webkit-mask-image:none}#targets .ct-marquee-rail{animation:none!important}}
       `;
       document.head.append(style);
     }
   };
-
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});
-  else requestAnimationFrame(run);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});else requestAnimationFrame(run);
 })();
