@@ -39,7 +39,12 @@ public final class MessageSectionView extends LinearLayout {
             getContext().startActivity(new Intent(
                     getContext(), CustomerMessagePickerActivity.class));
         });
-        addView(primary, new LayoutParams(LayoutParams.MATCH_PARENT, dp(52)));
+        addView(primary, new LayoutParams(LayoutParams.MATCH_PARENT, dp(56)));
+
+        LinearLayout automation = automationCard();
+        LayoutParams automationParams = new LayoutParams(LayoutParams.MATCH_PARENT, dp(82));
+        automationParams.topMargin = dp(10);
+        addView(automation, automationParams);
 
         TextView section = label("문자 관리");
         addView(section, topMargin(20));
@@ -48,14 +53,45 @@ public final class MessageSectionView extends LinearLayout {
         menu.setOrientation(VERTICAL);
         menu.setPadding(dp(4), dp(4), dp(4), dp(4));
         menu.setBackgroundResource(R.drawable.bg_card);
-        addMenuRow(menu, "문자 템플릿", MessageTemplateLibraryActivity.class, false);
-        addMenuRow(menu, "통화 후 자동문자", MessageAutomationSettingsActivity.class, false);
-        addMenuRow(menu, "그룹·단체문자", GroupCampaignHubActivity.class, true);
-        addMenuRow(menu, "발송 내역", MessageHistoryActivity.class, false);
+        addMenuRow(menu, "문자 템플릿", "자주 쓰는 문구와 이미지", MessageTemplateLibraryActivity.class, false);
+        addMenuRow(menu, "그룹·단체문자", "여러 고객에게 한 번에 발송", GroupCampaignHubActivity.class, true);
+        addMenuRow(menu, "발송 내역", "보낸 문자와 처리 상태 확인", MessageHistoryActivity.class, false);
         addView(menu, topMargin(8));
     }
 
-    private void addMenuRow(LinearLayout parent, String title,
+    private LinearLayout automationCard() {
+        LinearLayout card = new LinearLayout(getContext());
+        card.setOrientation(HORIZONTAL);
+        card.setGravity(Gravity.CENTER_VERTICAL);
+        card.setPadding(dp(17), 0, dp(11), 0);
+        card.setBackgroundResource(R.drawable.bg_selected_row);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(v -> {
+            if (!requireMessageAccess()) return;
+            getContext().startActivity(new Intent(
+                    getContext(), MessageAutomationSettingsActivity.class));
+        });
+
+        LinearLayout labels = new LinearLayout(getContext());
+        labels.setOrientation(VERTICAL);
+        TextView title = text("통화 후 자동문자", 17f, true);
+        labels.addView(title, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        TextView subtitle = text("통화가 끝난 뒤 조건에 맞춰 자동으로 문자 발송", 12.5f, false);
+        subtitle.setTextColor(getContext().getColor(R.color.text_secondary));
+        LayoutParams subParams = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        subParams.topMargin = dp(5);
+        labels.addView(subtitle, subParams);
+        card.addView(labels, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView arrow = text("›", 27f, false);
+        arrow.setTextColor(getContext().getColor(R.color.primary));
+        arrow.setGravity(Gravity.CENTER);
+        card.addView(arrow, new LayoutParams(dp(32), dp(52)));
+        return card;
+    }
+
+    private void addMenuRow(LinearLayout parent, String title, String subtitle,
                             Class<?> destination, boolean accessRequired) {
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(HORIZONTAL);
@@ -69,14 +105,23 @@ public final class MessageSectionView extends LinearLayout {
             getContext().startActivity(new Intent(getContext(), destination));
         });
 
-        TextView titleView = text(title, 15f, true);
-        row.addView(titleView, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout labels = new LinearLayout(getContext());
+        labels.setOrientation(VERTICAL);
+        labels.addView(text(title, 15f, true), new LayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        TextView sub = text(subtitle, 12f, false);
+        sub.setTextColor(getContext().getColor(R.color.text_secondary));
+        LayoutParams subParams = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        subParams.topMargin = dp(3);
+        labels.addView(sub, subParams);
+        row.addView(labels, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+
         TextView arrow = text("›", 23f, false);
         arrow.setTextColor(getContext().getColor(R.color.text_muted));
         arrow.setGravity(Gravity.CENTER);
         row.addView(arrow, new LayoutParams(dp(30), dp(48)));
 
-        LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, dp(54));
+        LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, dp(62));
         params.bottomMargin = dp(2);
         parent.addView(row, params);
     }
