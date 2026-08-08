@@ -26,13 +26,14 @@ import java.util.Map;
 /** 더보기 > 이용권·결제. */
 public final class BillingEntitlementActivity extends Activity
         implements PlayBillingManager.Listener {
-    private static final int BLUE = Color.rgb(37, 99, 235);
-    private static final int TEXT = Color.rgb(15, 23, 42);
-    private static final int SUBTEXT = Color.rgb(71, 85, 105);
-    private static final int MUTED = Color.rgb(148, 163, 184);
-    private static final int SURFACE = Color.WHITE;
-    private static final int BACKGROUND = Color.rgb(248, 250, 252);
-    private static final int BORDER = Color.rgb(226, 232, 240);
+    // 콜태그 공통 다크 팔레트와 동일하게 유지한다.
+    private static final int BLUE = Color.rgb(67, 137, 255);
+    private static final int TEXT = Color.rgb(244, 245, 247);
+    private static final int SUBTEXT = Color.rgb(168, 173, 181);
+    private static final int MUTED = Color.rgb(116, 122, 132);
+    private static final int SURFACE = Color.rgb(28, 30, 34);
+    private static final int BACKGROUND = Color.rgb(16, 17, 19);
+    private static final int BORDER = Color.rgb(41, 44, 49);
 
     private TextView stateTitle;
     private TextView stateDetail;
@@ -72,7 +73,7 @@ public final class BillingEntitlementActivity extends Activity
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(20), dp(18), dp(20), dp(40));
+        root.setPadding(dp(16), dp(10), dp(16), dp(40));
         scroll.addView(root, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
@@ -80,12 +81,13 @@ public final class BillingEntitlementActivity extends Activity
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
         TextView back = button("‹", false);
-        back.setTextSize(28f);
+        back.setTextSize(30f);
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> finish());
-        header.addView(back, new LinearLayout.LayoutParams(dp(44), dp(44)));
-        TextView title = text("이용권·결제", 22f, TEXT, true);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, dp(44), 1f);
+        header.addView(back, new LinearLayout.LayoutParams(dp(46), dp(46)));
+        TextView title = text("이용권·결제", 21f, TEXT, true);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, dp(46), 1f);
+        titleParams.leftMargin = dp(8);
         title.setGravity(Gravity.CENTER_VERTICAL);
         header.addView(title, titleParams);
         refreshButton = button("새로고침", false);
@@ -94,30 +96,30 @@ public final class BillingEntitlementActivity extends Activity
         root.addView(header, full());
 
         LinearLayout statusCard = card();
-        stateTitle = text("이용권 확인 중", 20f, TEXT, true);
-        stateDetail = text("현재 이용 상태를 확인하고 있어요.", 15f, SUBTEXT, false);
+        stateTitle = text("이용권 확인 중", 19f, TEXT, true);
+        stateDetail = text("현재 이용 상태를 확인하고 있어요.", 14f, SUBTEXT, false);
         stateMeta = text("", 13f, MUTED, false);
         statusCard.addView(stateTitle, full());
-        statusCard.addView(stateDetail, top(9));
-        statusCard.addView(stateMeta, top(8));
-        root.addView(statusCard, top(22));
+        statusCard.addView(stateDetail, top(8));
+        statusCard.addView(stateMeta, top(7));
+        root.addView(statusCard, top(18));
 
         LinearLayout billingNotice = card();
-        billingNoticeTitle = text("앱 결제 준비 상태", 16f, TEXT, true);
-        billingNoticeDetail = text("결제 가능 여부를 확인하고 있어요.", 14f, SUBTEXT, false);
+        billingNoticeTitle = text("앱 결제 상태", 15f, TEXT, true);
+        billingNoticeDetail = text("결제 가능 여부를 확인하고 있어요.", 13.5f, SUBTEXT, false);
         billingNotice.addView(billingNoticeTitle, full());
-        billingNotice.addView(billingNoticeDetail, top(8));
-        root.addView(billingNotice, top(12));
+        billingNotice.addView(billingNoticeDetail, top(7));
+        root.addView(billingNotice, top(10));
 
-        root.addView(sectionTitle("이용할 상품"), top(28));
+        root.addView(sectionTitle("이용할 상품"), top(24));
         LinearLayout bundle = productCard(
                 "통합권",
                 "월 6,000원",
                 "전화관리 · 문자자동화 · 페이지로",
                 true);
         bundleButton = productButton("통합권 결제", FeatureEntitlementStore.PLAN_BUNDLE);
-        bundle.addView(bundleButton, fixedTop(48, 16));
-        root.addView(bundle, top(10));
+        bundle.addView(bundleButton, fixedTop(48, 14));
+        root.addView(bundle, top(9));
 
         LinearLayout phone = productCard(
                 "전화관리",
@@ -125,8 +127,8 @@ public final class BillingEntitlementActivity extends Activity
                 "수신 고객 표시 · 통화 후 고객관리",
                 false);
         phoneButton = productButton("전화관리 결제", FeatureEntitlementStore.PLAN_PHONE);
-        phone.addView(phoneButton, fixedTop(48, 16));
-        root.addView(phone, top(12));
+        phone.addView(phoneButton, fixedTop(48, 14));
+        root.addView(phone, top(10));
 
         LinearLayout message = productCard(
                 "문자자동화",
@@ -134,8 +136,8 @@ public final class BillingEntitlementActivity extends Activity
                 "통화 후 자동문자 · 템플릿 · 발송관리",
                 false);
         messageButton = productButton("문자자동화 결제", FeatureEntitlementStore.PLAN_MESSAGE);
-        message.addView(messageButton, fixedTop(48, 16));
-        root.addView(message, top(12));
+        message.addView(messageButton, fixedTop(48, 14));
+        root.addView(message, top(10));
 
         restoreButton = button("Google Play 구매 복원", false);
         restoreButton.setOnClickListener(v -> {
@@ -146,26 +148,26 @@ public final class BillingEntitlementActivity extends Activity
             }
             billing.restore();
         });
-        root.addView(restoreButton, fixedTop(50, 18));
+        root.addView(restoreButton, fixedTop(50, 16));
 
         manageButton = button("Google Play 구독 관리", false);
         manageButton.setOnClickListener(v -> openPlaySubscriptions());
-        root.addView(manageButton, fixedTop(50, 10));
+        root.addView(manageButton, fixedTop(50, 8));
 
         LinearLayout pagero = card();
-        pagero.addView(text("랜딩페이지만 필요하신가요?", 16f, TEXT, true), full());
+        pagero.addView(text("페이지로 단독 이용", 15f, TEXT, true), full());
         pagero.addView(text(
-                "페이지로 단독 이용권은 페이지로 웹에서 관리합니다. 이미 웹에서 통합권을 이용 중이면 앱 결제는 자동으로 차단됩니다.",
-                14f,
+                "페이지로 단독 이용권은 페이지로 웹에서 관리합니다. 웹 통합권 이용 중에는 앱에서 중복 결제되지 않습니다.",
+                13.5f,
                 SUBTEXT,
-                false), top(8));
-        root.addView(pagero, top(24));
+                false), top(7));
+        root.addView(pagero, top(20));
 
         root.addView(text(
-                "무료 이용은 기본 3일이며, 추천인 코드를 등록하면 5일이 추가됩니다. 무료기간 종료 후 자동 결제되지 않습니다.",
+                "신규 가입은 통합권 7일 무료 · 가입 시 추천인 코드 입력 시 +7일, 총 14일 무료입니다. 무료기간 종료 후 자동 결제되지 않습니다.",
                 13f,
                 MUTED,
-                false), top(18));
+                false), top(16));
         return scroll;
     }
 
@@ -265,7 +267,7 @@ public final class BillingEntitlementActivity extends Activity
                     ? "통합 기능을 " + value.remainingDays + "일 더 사용할 수 있어요."
                     : "통합 기능을 무료로 이용하고 있어요.");
             stateMeta.setText(value.endsAt.isEmpty()
-                    ? "기본 3일 · 추천 등록 시 +5일"
+                    ? "기본 7일 · 추천인 입력 시 +7일 · 총 14일"
                     : "무료 이용 종료일  " + displayDate(value.endsAt));
         } else if (value.isWebSubscription()) {
             stateTitle.setText("페이지로에서 통합권 이용 중");
@@ -391,11 +393,13 @@ public final class BillingEntitlementActivity extends Activity
     }
 
     private void showBlocked(String title, String message) {
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle(title)
                 .setMessage(message)
                 .setPositiveButton("확인", null)
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.show();
     }
 
     private void openPlaySubscriptions() {
@@ -416,7 +420,7 @@ public final class BillingEntitlementActivity extends Activity
         LinearLayout value = card();
         LinearLayout line = new LinearLayout(this);
         line.setGravity(Gravity.CENTER_VERTICAL);
-        TextView nameView = text(name, 18f, TEXT, true);
+        TextView nameView = text(name, 17f, TEXT, true);
         line.addView(nameView, new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         if (recommended) {
@@ -426,21 +430,21 @@ public final class BillingEntitlementActivity extends Activity
             line.addView(badge, new LinearLayout.LayoutParams(dp(48), dp(28)));
         }
         value.addView(line, full());
-        value.addView(text(price, 24f, BLUE, true), top(9));
-        value.addView(text(detail, 14f, SUBTEXT, false), top(7));
+        value.addView(text(price, 23f, BLUE, true), top(8));
+        value.addView(text(detail, 13.5f, SUBTEXT, false), top(6));
         return value;
     }
 
     private LinearLayout card() {
         LinearLayout value = new LinearLayout(this);
         value.setOrientation(LinearLayout.VERTICAL);
-        value.setPadding(dp(18), dp(18), dp(18), dp(18));
-        value.setBackground(round(SURFACE, BORDER, 18));
+        value.setPadding(dp(16), dp(15), dp(16), dp(15));
+        value.setBackground(round(SURFACE, BORDER, 16));
         return value;
     }
 
     private TextView sectionTitle(String value) {
-        return text(value, 16f, TEXT, true);
+        return text(value, 15f, TEXT, true);
     }
 
     private TextView text(String value, float size, int color, boolean bold) {
@@ -449,7 +453,7 @@ public final class BillingEntitlementActivity extends Activity
         view.setTextSize(size);
         view.setTextColor(color);
         view.setIncludeFontPadding(false);
-        view.setLineSpacing(0f, 1.2f);
+        view.setLineSpacing(0f, 1.18f);
         if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         return view;
     }
