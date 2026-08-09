@@ -1,9 +1,9 @@
 (()=>{
-  if(document.documentElement.dataset.ctSectionMotionV3)return;
-  document.documentElement.dataset.ctSectionMotionV3='1';
+  if(document.documentElement.dataset.ctSectionMotionV4)return;
+  document.documentElement.dataset.ctSectionMotionV4='1';
   const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
   const style=document.createElement('style');
-  style.dataset.ctSectionMotionV3='1';
+  style.dataset.ctSectionMotionV4='1';
   style.textContent=`
     .section{padding-top:clamp(190px,13vw,250px)!important;padding-bottom:clamp(190px,13vw,250px)!important}.feature-block+.feature-block{margin-top:clamp(220px,16vw,300px)!important}.hero-web{padding-top:clamp(150px,11vw,205px)!important;padding-bottom:clamp(160px,12vw,220px)!important}.audience{padding-top:clamp(170px,12vw,220px)!important;padding-bottom:clamp(180px,13vw,240px)!important}#ct-pagero-intro .ct-v8-hero{padding-top:clamp(175px,12vw,230px)!important;padding-bottom:clamp(145px,10vw,195px)!important}#ct-pagero-intro .ct-v8-nocode{padding-top:clamp(180px,13vw,240px)!important;padding-bottom:clamp(180px,13vw,240px)!important}.ct-industries-static.ct-industries-static{padding-top:clamp(120px,9vw,170px)!important;padding-bottom:clamp(130px,10vw,180px)!important}
     .ct-motion-section{position:relative;isolation:isolate}.ct-motion-section:before{content:'';position:absolute;z-index:-1;left:50%;top:0;width:min(1180px,78vw);height:1px;transform:translateX(-50%) scaleX(.18);transform-origin:center;background:linear-gradient(90deg,transparent,rgba(117,148,255,.55),transparent);opacity:0;transition:transform 1.1s cubic-bezier(.16,1,.3,1),opacity .8s ease}.ct-motion-section.is-motion-visible:before{transform:translateX(-50%) scaleX(1);opacity:1}
@@ -24,10 +24,8 @@
   const registerElement=(element,type,delay=0,extra='')=>{if(!element||seen.has(element)||element.closest('.ct-journey-clean'))return;seen.add(element);element.dataset.ctMotion=type;element.style.setProperty('--ct-delay',`${delay}ms`);if(extra)element.classList.add(extra);if(reduce)element.classList.add('is-visible','visible');else observer.observe(element);};
   const registerSections=()=>{document.querySelectorAll('.section,.hero-web,.audience,#ct-pagero-intro .ct-v8-hero,#ct-pagero-intro .ct-v8-nocode,.ct-industries-static').forEach(section=>{if(sectionSeen.has(section)||section.closest('.ct-journey-clean'))return;sectionSeen.add(section);section.classList.add('ct-motion-section');if(reduce)section.classList.add('is-motion-visible');else sectionObserver.observe(section);});};
   const register=()=>{registerSections();document.querySelectorAll('.hero-heading,.web-heading-copy,.section-title,.ad-title,.ct-convert-head h2,.ct-auto-message-copy h2,#ct-pagero-intro .ct-v8-head,#ct-pagero-intro .ct-v8-nocode-copy').forEach((element,index)=>registerElement(element,'heading',Math.min(index,2)*50));document.querySelectorAll('.phone-stage,.web-demo,.ct-v8-stage,.ct-v8-flow,.ct-convert-stage,.ct-auto-message-layout,.ct-benefit-flow,.ct-suite-flow').forEach(element=>registerElement(element,'rise',110,'ct-motion-panel'));document.querySelectorAll('.feature-block').forEach(block=>{if(block.closest('.ct-journey-clean'))return;const reverse=block.classList.contains('reverse');const copy=block.querySelector('.feature-copy');const visual=block.querySelector('.product-panel');registerElement(copy,reverse?'right':'left',30);registerElement(visual,reverse?'left':'right',120,'ct-motion-panel');block.querySelectorAll('.point-card,.today-card,.timeline-row,.calendar-day[data-event]').forEach((card,index)=>registerElement(card,'card',170+Math.min(index,6)*55,'ct-motion-card'));});document.querySelectorAll('.ct-strength-grid > *,.ad-strengths > *,.ct-price-card,.ad-price,.faq-item,.fact,.review-card,.audience-list span,.ct-industries-static .ct-industry-card').forEach((card,index)=>registerElement(card,'card',Math.min(index%6,5)*65,'ct-motion-card'));document.querySelectorAll('.pricing-wrap,.faq-list,.reviews-grid,.audience-list,.footer-inner').forEach(element=>registerElement(element,'rise',90));};
-  let timer=0;const queue=()=>{clearTimeout(timer);timer=setTimeout(register,50);};
   register();
-  const mutation=new MutationObserver(queue);mutation.observe(document.body,{childList:true,subtree:true});
+  const timers=[250,1000,1800].map(delay=>setTimeout(register,delay));
   addEventListener('load',register,{once:true});
-  const stopTimer=setTimeout(()=>{register();mutation.disconnect();},5000);
-  window.addEventListener('pagehide',()=>{clearTimeout(timer);clearTimeout(stopTimer);mutation.disconnect();observer?.disconnect();sectionObserver?.disconnect();},{once:true});
+  window.addEventListener('pagehide',()=>{timers.forEach(clearTimeout);observer?.disconnect();sectionObserver?.disconnect();},{once:true});
 })();
