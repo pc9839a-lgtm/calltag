@@ -1,0 +1,210 @@
+name: Apply CallTag 0.44.8 calendar time picker patch
+
+on:
+  push:
+    branches:
+      - agent/calltag-v0448-calendar-timepicker
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/calltag-v0448-calendar-timepicker
+          fetch-depth: 0
+
+      - name: Apply focused source patch
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              if old in text:
+                  text = text.replace(old, new, 1)
+                  p.write_text(text, encoding='utf-8')
+                  return
+              if new in text:
+                  return
+              raise SystemExit(f'Expected source block not found in {path}')
+
+          main = 'app/src/main/java/kr/pagero/calltag/MainActivity.java'
+          time_choice = 'app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java'
+          gradle = 'app/build.gradle'
+          ci = '.github/workflows/calltag-hotfix-build.yml'
+
+          replace_once(main,
+              'import android.app.TimePickerDialog;\n',
+              '')
+
+          replace_once(main,
+'''    private void showNewTaskTimePicker(Customer customer, String title, String taskType) {
+        new TimePickerDialog(this, (view, hourOfDay, minute) -> {
+            Calendar due = (Calendar) selectedCalendarDate.clone();
+            due.set(Calendar.HOUR_OF_DAY, hourOfDay);
+            due.set(Calendar.MINUTE, minute);
+            due.set(Calendar.SECOND, 0);
+            due.set(Calendar.MILLISECOND, 0);
+            db.insertFollowUpTask(customer.id, 0L, taskType, title, due.getTimeInMillis());
+            long now = System.currentTimeMillis();
+            db.insertInteraction(customer.id, "SCHEDULE_CREATE", now, now, 0L,
+                    "SCHEDULED", title);
+            Toast.makeText(this, "할 일을 추가했습니다.", Toast.LENGTH_SHORT).show();
+            refreshAll();
+        }, 10, 0, false).show();
+    }
+''',
+'''    private void showNewTaskTimePicker(Customer customer, String title, String taskType) {
+        TaskTimeChoiceDialog.show(this, 10, 0, "이 시간으로 등록", (hourOfDay, minute) -> {
+            Calendar due = (Calendar) selectedCalendarDate.clone();
+            due.set(Calendar.HOUR_OF_DAY, hourOfDay);
+            due.set(Calendar.MINUTE, minute);
+            due.set(Calendar.SECOND, 0);
+            due.set(Calendar.MILLISECOND, 0);
+            db.insertFollowUpTask(customer.id, 0L, taskType, title, due.getTimeInMillis());
+            long now = System.currentTimeMillis();
+            db.insertInteraction(customer.id, "SCHEDULE_CREATE", now, now, 0L,
+                    "SCHEDULED", title);
+            Toast.makeText(this, "할 일을 추가했습니다.", Toast.LENGTH_SHORT).show();
+            refreshAll();
+        });
+    }
+''')
+
+          replace_once(main,
+'''            new TimePickerDialog(this, (timeView, hourOfDay, minute) -> {
+                changed.set(Calendar.HOUR_OF_DAY, hourOfDay);
+                changed.set(Calendar.MINUTE, minute);
+                db.updateTaskDue(task.id, changed.getTimeInMillis());
+                selectedCalendarDate.setTimeInMillis(changed.getTimeInMillis());
+                visibleCalendarMonth.setTimeInMillis(changed.getTimeInMillis());
+                visibleCalendarMonth.set(Calendar.DAY_OF_MONTH, 1);
+                clearTime(visibleCalendarMonth);
+                long now = System.currentTimeMillis();
+                db.insertInteraction(task.customerId, "SCHEDULE_CHANGE", now, now, 0L,
+                        "SCHEDULED", task.title + " 일정 변경");
+                Toast.makeText(this, "일정을 변경했습니다.", Toast.LENGTH_SHORT).show();
+                refreshAll();
+            }, current.get(Calendar.HOUR_OF_DAY), current.get(Calendar.MINUTE), false).show();
+''',
+'''            TaskTimeChoiceDialog.show(this,
+                    current.get(Calendar.HOUR_OF_DAY), current.get(Calendar.MINUTE),
+                    "이 시간으로 변경", (hourOfDay, minute) -> {
+                changed.set(Calendar.HOUR_OF_DAY, hourOfDay);
+                changed.set(Calendar.MINUTE, minute);
+                db.updateTaskDue(task.id, changed.getTimeInMillis());
+                selectedCalendarDate.setTimeInMillis(changed.getTimeInMillis());
+                visibleCalendarMonth.setTimeInMillis(changed.getTimeInMillis());
+                visibleCalendarMonth.set(Calendar.DAY_OF_MONTH, 1);
+                clearTime(visibleCalendarMonth);
+                long now = System.currentTimeMillis();
+                db.insertInteraction(task.customerId, "SCHEDULE_CHANGE", now, now, 0L,
+                        "SCHEDULED", task.title + " 일정 변경");
+                Toast.makeText(this, "일정을 변경했습니다.", Toast.LENGTH_SHORT).show();
+                refreshAll();
+            });
+''')
+
+          replace_once(time_choice,
+'''    public static void show(Context context, Listener listener) {
+        Calendar now = Calendar.getInstance();
+        int hour24 = now.get(Calendar.HOUR_OF_DAY);
+        int minute = ((now.get(Calendar.MINUTE) + 9) / 10) * 10;
+        if (minute >= 60) {
+            minute = 0;
+            hour24 = (hour24 + 1) % 24;
+        }
+
+        State state = new State();
+        state.pm = hour24 >= 12;
+        int hour12 = hour24 % 12;
+        state.hour = hour12 == 0 ? 12 : hour12;
+        state.minute = minute;
+''',
+'''    public static void show(Context context, Listener listener) {
+        Calendar now = Calendar.getInstance();
+        show(context, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE),
+                "이 시간으로 등록", listener);
+    }
+
+    public static void show(Context context, int initialHourOfDay, int initialMinute,
+                            String actionLabel, Listener listener) {
+        int hour24 = Math.max(0, Math.min(23, initialHourOfDay));
+        int minute = ((Math.max(0, Math.min(59, initialMinute)) + 5) / 10) * 10;
+        if (minute >= 60) {
+            minute = 0;
+            hour24 = (hour24 + 1) % 24;
+        }
+
+        State state = new State();
+        state.pm = hour24 >= 12;
+        int hour12 = hour24 % 12;
+        state.hour = hour12 == 0 ? 12 : hour12;
+        state.minute = minute;
+''')
+
+          replace_once(time_choice,
+              '        TextView done = action(context, "이 시간으로 등록", true);\n',
+              '        String doneLabel = actionLabel == null || actionLabel.trim().isEmpty()\n'
+              '                ? "확인" : actionLabel.trim();\n'
+              '        TextView done = action(context, doneLabel, true);\n')
+
+          replace_once(gradle, '        versionCode 85\n', '        versionCode 86\n')
+          replace_once(gradle, "        versionName '0.44.7'\n", "        versionName '0.44.8'\n")
+
+          replace_once(ci,
+              'name: CallTag 0.44.7 post-call compact regression\n',
+              'name: CallTag 0.44.8 calendar time picker regression\n')
+          replace_once(ci,
+              '      - name: Verify 0.44.7 contracts\n',
+              '      - name: Verify 0.44.8 contracts\n')
+          replace_once(ci,
+              "          grep -F 'versionCode 85' app/build.gradle\n          grep -F \"versionName '0.44.7'\" app/build.gradle\n",
+              "          grep -F 'versionCode 86' app/build.gradle\n          grep -F \"versionName '0.44.8'\" app/build.gradle\n")
+          replace_once(ci,
+'''          # Task time selection uses CallTag chips, never the system AM/PM TimePicker in Home editor.
+          test -e app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
+          grep -F 'TaskTimeChoiceDialog.show' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
+          assert_absent 'TimePickerDialog' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
+          grep -F 'TextView am = choice(context, "오전")' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
+          grep -F 'TextView pm = choice(context, "오후")' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
+''',
+'''          # Task time selection uses CallTag chips everywhere; system TimePicker is forbidden.
+          test -e app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
+          grep -F 'TaskTimeChoiceDialog.show' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
+          grep -F 'TaskTimeChoiceDialog.show(this, 10, 0, "이 시간으로 등록"' app/src/main/java/kr/pagero/calltag/MainActivity.java
+          grep -F '"이 시간으로 변경"' app/src/main/java/kr/pagero/calltag/MainActivity.java
+          assert_absent 'TimePickerDialog' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java app/src/main/java/kr/pagero/calltag/MainActivity.java
+          grep -F 'TextView am = choice(context, "오전")' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
+          grep -F 'TextView pm = choice(context, "오후")' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
+          grep -F 'public static void show(Context context, int initialHourOfDay, int initialMinute' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
+''')
+          replace_once(ci,
+              '          name: calltag-v0.44.7-code85-debug-apk\n',
+              '          name: calltag-v0.44.8-code86-debug-apk\n')
+          replace_once(ci,
+              '          name: calltag-v0.44.7-code85-instrumentation-results\n',
+              '          name: calltag-v0.44.8-code86-instrumentation-results\n')
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No patch changes required"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/build.gradle \
+            app/src/main/java/kr/pagero/calltag/MainActivity.java \
+            app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java \
+            .github/workflows/calltag-hotfix-build.yml
+          git commit -m "Unify calendar time selection with CallTag UI"
+          git push origin HEAD:agent/calltag-v0448-calendar-timepicker
