@@ -232,7 +232,7 @@ public final class ManualMessageActivity extends Activity {
         wrapper.setPadding(dp(20), dp(8), dp(20), 0);
         wrapper.addView(days, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(52)));
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("후속문자 예약")
                 .setMessage("몇 일 후에 보낼까요?")
                 .setView(wrapper)

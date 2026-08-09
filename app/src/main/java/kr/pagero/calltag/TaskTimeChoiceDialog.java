@@ -5,6 +5,7 @@ import android.content.Context;
 import android.graphics.Typeface;
 import android.view.Gravity;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -54,7 +55,9 @@ public final class TaskTimeChoiceDialog {
         TextView summary = text(context, "", 22f, true, R.color.primary);
         summary.setGravity(Gravity.CENTER);
         summary.setBackgroundResource(R.drawable.bg_soft_panel);
-        root.addView(summary, fixedTop(context, 58, 14));
+        summary.setMinHeight(dp(context, 58));
+        summary.setPadding(dp(context, 8), dp(context, 10), dp(context, 8), dp(context, 10));
+        root.addView(summary, top(context, 14));
 
         LinearLayout periodRow = new LinearLayout(context);
         periodRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -65,7 +68,7 @@ public final class TaskTimeChoiceDialog {
         pmParams.leftMargin = dp(context, 8);
         periodRow.addView(pm, pmParams);
         root.addView(label(context, "오전 / 오후"), top(context, 16));
-        root.addView(periodRow, fixedTop(context, 46, 7));
+        root.addView(periodRow, top(context, 7));
 
         root.addView(label(context, "시"), top(context, 16));
         LinearLayout hourRows = new LinearLayout(context);
@@ -83,8 +86,7 @@ public final class TaskTimeChoiceDialog {
                 if (col > 0) p.leftMargin = dp(context, 6);
                 line.addView(button, p);
             }
-            LinearLayout.LayoutParams lineParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dp(context, 42));
+            LinearLayout.LayoutParams lineParams = matchWrap();
             if (row > 0) lineParams.topMargin = dp(context, 6);
             hourRows.addView(line, lineParams);
         }
@@ -107,8 +109,7 @@ public final class TaskTimeChoiceDialog {
                 if (col > 0) p.leftMargin = dp(context, 6);
                 line.addView(button, p);
             }
-            LinearLayout.LayoutParams lineParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dp(context, 42));
+            LinearLayout.LayoutParams lineParams = matchWrap();
             if (row > 0) lineParams.topMargin = dp(context, 6);
             minuteRows.addView(line, lineParams);
         }
@@ -124,10 +125,14 @@ public final class TaskTimeChoiceDialog {
         LinearLayout.LayoutParams doneParams = weighted(context, 1.4f);
         doneParams.leftMargin = dp(context, 8);
         actions.addView(done, doneParams);
-        root.addView(actions, fixedTop(context, 50, 18));
+        root.addView(actions, top(context, 18));
 
-        AlertDialog dialog = new AlertDialog.Builder(context)
-                .setView(root)
+        ScrollView scroll = new ScrollView(context);
+        scroll.setFillViewport(true);
+        scroll.addView(root, matchWrap());
+
+        AlertDialog dialog = new AlertDialog.Builder(context, R.style.Theme_CallTag_Dialog)
+                .setView(scroll)
                 .create();
 
         Runnable render = () -> {
@@ -186,6 +191,8 @@ public final class TaskTimeChoiceDialog {
         TextView view = text(context, value, 14f, true, R.color.text_primary);
         view.setGravity(Gravity.CENTER);
         view.setBackgroundResource(R.drawable.bg_secondary_button);
+        view.setMinHeight(dp(context, 44));
+        view.setPadding(dp(context, 6), dp(context, 8), dp(context, 6), dp(context, 8));
         view.setClickable(true);
         view.setFocusable(true);
         return view;
@@ -197,6 +204,8 @@ public final class TaskTimeChoiceDialog {
         view.setGravity(Gravity.CENTER);
         view.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        view.setMinHeight(dp(context, 46));
+        view.setPadding(dp(context, 8), dp(context, 8), dp(context, 8), dp(context, 8));
         view.setClickable(true);
         view.setFocusable(true);
         return view;
@@ -229,15 +238,8 @@ public final class TaskTimeChoiceDialog {
         return params;
     }
 
-    private static LinearLayout.LayoutParams fixedTop(Context context, int height, int margin) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(context, height));
-        params.topMargin = dp(context, margin);
-        return params;
-    }
-
     private static LinearLayout.LayoutParams weighted(Context context, float weight) {
-        return new LinearLayout.LayoutParams(0, dp(context, 46), weight);
+        return new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, weight);
     }
 
     private static int dp(Context context, int value) {

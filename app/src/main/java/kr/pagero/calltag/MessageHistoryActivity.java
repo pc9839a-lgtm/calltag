@@ -200,7 +200,7 @@ public final class MessageHistoryActivity extends Activity {
     }
 
     private void confirmForceResend(MessageRecord record) {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("다시 보내기")
                 .setMessage("중복방지를 무시하고 다시 발송합니다. 문자요금이 다시 발생할 수 있습니다.")
                 .setNegativeButton("취소", null)

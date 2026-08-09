@@ -1,7 +1,6 @@
 package kr.pagero.calltag;
 
 import android.app.Activity;
-import android.app.DatePickerDialog;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -175,20 +174,12 @@ public final class HomeTaskEditorActivity extends Activity {
 
     private void chooseDate(Customer customer, TaskTypeOption type) {
         Calendar selected = Calendar.getInstance();
-        DatePickerDialog dialog = new DatePickerDialog(
-                this,
-                R.style.Theme_CallTag_PickerDialog,
-                (view, year, month, dayOfMonth) -> {
-                    selected.set(Calendar.YEAR, year);
-                    selected.set(Calendar.MONTH, month);
-                    selected.set(Calendar.DAY_OF_MONTH, dayOfMonth);
-                    chooseTime(customer, type, selected);
-                },
-                selected.get(Calendar.YEAR),
-                selected.get(Calendar.MONTH),
-                selected.get(Calendar.DAY_OF_MONTH));
-        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
-        dialog.show();
+        TaskDateChoiceDialog.show(this, selected, "이 날짜로 선택", (year, month, dayOfMonth) -> {
+            selected.set(Calendar.YEAR, year);
+            selected.set(Calendar.MONTH, month);
+            selected.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+            chooseTime(customer, type, selected);
+        });
     }
 
     private void chooseTime(Customer customer, TaskTypeOption type, Calendar selected) {

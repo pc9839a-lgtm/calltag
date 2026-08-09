@@ -144,7 +144,7 @@ public final class TemplateImageActivity extends Activity {
 
     private void confirmRemove() {
         if (template == null || safe(template.imageRef).isEmpty()) return;
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("첨부 이미지 제거")
                 .setMessage("‘" + template.name + "’ 템플릿의 이미지를 제거할까요?")
                 .setNegativeButton("취소", null)

@@ -9,7 +9,6 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -188,7 +187,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
 
     private void showDelayPicker() {
         String[] choices = {"1일 후", "3일 후", "5일 후", "7일 후", "직접 입력"};
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("후속문자 발송 시점")
                 .setItems(choices, (dialog, which) -> {
                     if (which == 4) {
@@ -212,15 +211,16 @@ public final class MessageAutomationSettingsActivity extends Activity {
         container.addView(input, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(50)));
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("발송일까지 입력")
                 .setMessage("1일부터 30일까지 선택할 수 있습니다.")
                 .setView(container)
                 .setNegativeButton("취소", null)
                 .setPositiveButton("적용", null)
                 .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
+        dialog.setOnShowListener(ignored -> {
+            CallTagDialogStyler.apply(dialog);
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                     int value = parse(input, -1);
                     if (value < 1 || value > 30) {
                         Toast.makeText(this, "1~30일 사이로 입력해주세요.", Toast.LENGTH_SHORT).show();
@@ -229,7 +229,8 @@ public final class MessageAutomationSettingsActivity extends Activity {
                     delayDaysValue = value;
                     renderValues();
                     dialog.dismiss();
-                }));
+                });
+        });
         dialog.show();
     }
 
@@ -278,8 +279,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
         List<String> labels = new ArrayList<>();
         for (SimProfileManager.Profile profile : profiles) labels.add(profile.label());
         if (labels.isEmpty()) labels.add("기본 문자 회선");
-        line.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_dropdown_item, labels));
+        line.setAdapter(new CallTagSpinnerAdapter(this, labels));
         line.setBackgroundResource(R.drawable.bg_secondary_button);
         line.setPadding(dp(12), 0, dp(12), 0);
         for (int i = 0; i < profiles.size(); i++) {
@@ -290,7 +290,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
         }
         panel.addView(line, topMarginHeight(6, 50));
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("공통 발송 설정")
                 .setView(panel)
                 .setNegativeButton("취소", null)

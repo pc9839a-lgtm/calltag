@@ -165,7 +165,7 @@ public final class TaskTypeSettingsActivity extends Activity {
             @Override public void afterTextChanged(Editable s) {}
         });
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle(option == null ? "일정 종류 추가" : "일정 종류 수정")
                 .setView(content)
                 .setNegativeButton("취소", null)
@@ -214,7 +214,7 @@ public final class TaskTypeSettingsActivity extends Activity {
     }
 
     private void confirmDelete(TaskTypeOption option) {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("일정 종류 삭제")
                 .setMessage("기존 일정의 제목은 유지되고 종류 색상만 기본값으로 표시됩니다.")
                 .setNegativeButton("취소", null)

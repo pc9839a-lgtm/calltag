@@ -227,7 +227,7 @@ public final class CallerIdSetupActivity extends Activity {
             super.onBackPressed();
             return;
         }
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("설정을 마치지 않고 나갈까요?")
                 .setMessage("수신 고객정보를 표시하려면 발신자 정보 역할을 설정해주세요.")
                 .setNegativeButton("계속 설정", null)

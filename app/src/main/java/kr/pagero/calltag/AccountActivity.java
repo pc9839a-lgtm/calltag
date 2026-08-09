@@ -94,7 +94,7 @@ public final class AccountActivity extends Activity {
 
     private void confirmLogout() {
         if (working) return;
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("로그아웃")
                 .setMessage("자동문자와 새 문의 알림이 멈춥니다. 이 휴대전화의 고객·일정·발송 기록은 그대로 유지됩니다.")
                 .setNegativeButton("취소", null)
@@ -118,7 +118,7 @@ public final class AccountActivity extends Activity {
 
     private void confirmDeleteAccount() {
         if (working) return;
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("회원탈퇴")
                 .setMessage("콜태그 계정과 이 휴대전화의 고객정보·통화기록·상담메모·일정·문자 발송기록을 모두 삭제합니다. 되돌릴 수 없습니다.")
                 .setNegativeButton("취소", null)
@@ -127,7 +127,7 @@ public final class AccountActivity extends Activity {
     }
 
     private void confirmDeleteAgain() {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("정말 탈퇴하시겠습니까?")
                 .setMessage("콜태그 계정과 앱 데이터를 영구 삭제합니다.")
                 .setNegativeButton("취소", null)

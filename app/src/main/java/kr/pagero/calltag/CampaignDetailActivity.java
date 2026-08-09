@@ -243,7 +243,7 @@ public final class CampaignDetailActivity extends Activity {
     }
 
     private void confirmPause() {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("단체문자 일시정지")
                 .setMessage("아직 발송되지 않은 예약을 해제합니다. 발송 중인 한 건은 중단되지 않을 수 있습니다.")
                 .setNegativeButton("닫기", null)
@@ -269,7 +269,7 @@ public final class CampaignDetailActivity extends Activity {
     }
 
     private void confirmCancel() {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("남은 발송 취소")
                 .setMessage("아직 전송되지 않은 수신자의 예약만 취소합니다.")
                 .setNegativeButton("닫기", null)
@@ -293,7 +293,7 @@ public final class CampaignDetailActivity extends Activity {
     }
 
     private void confirmDelete() {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("단체문자 내역 삭제")
                 .setMessage("단체문자와 수신자별 진행 내역을 삭제할까요? 개별 문자 발송내역은 유지됩니다.")
                 .setNegativeButton("취소", null)

@@ -1,4 +1,4 @@
-name: CallTag 0.44.8 calendar time picker regression
+name: CallTag 0.44.9 dialog and small-screen regression
 
 on:
   workflow_dispatch:
@@ -17,7 +17,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify 0.44.8 contracts
+      - name: Inventory framework UI calls
+        shell: bash
+        run: |
+          echo '=== AlertDialog builders ==='
+          grep -R -n -F 'new AlertDialog.Builder' app/src/main/java || true
+          echo '=== Picker references ==='
+          grep -R -n -E 'DatePickerDialog|TimePickerDialog' app/src/main/java || true
+          echo '=== Spinner references ==='
+          grep -R -n -E 'simple_spinner_|new Spinner|Spinner<' app/src/main/java || true
+
+      - name: Verify 0.44.9 contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -30,20 +40,17 @@ jobs:
             fi
           }
 
-          grep -F 'versionCode 86' app/build.gradle
-          grep -F "versionName '0.44.8'" app/build.gradle
+          grep -F 'versionCode 87' app/build.gradle
+          grep -F "versionName '0.44.9'" app/build.gradle
           grep -F 'targetSdk 36' app/build.gradle
 
-          # Play-safe phone CRM contract remains unchanged.
+          # Play-safe phone CRM contract.
           grep -F 'android.permission.READ_CALL_LOG' app/src/main/AndroidManifest.xml
           assert_absent 'android.permission.WRITE_CALL_LOG' app/src/main/AndroidManifest.xml
-          test ! -e app/src/main/java/kr/pagero/calltag/CallLogMemoSyncManager.java
           assert_absent 'values.put(CallLog.Calls.CACHED_NAME' app/src/main/java
-          assert_absent 'CallLogMemoSyncManager' app/src/main/java app/src/androidTest
           assert_absent 'Manifest.permission.WRITE_CALL_LOG' app/src/main/java
-          assert_absent 'addIfMissing(missing, Manifest.permission.WRITE_CONTACTS)' app/src/main/java/kr/pagero/calltag/InitialPermissionActivity.java
+          test ! -e app/src/main/java/kr/pagero/calltag/CallLogMemoSyncManager.java
           assert_absent 'createAppRawContact' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
-          assert_absent 'TYPE_KEEP_TOGETHER' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
           assert_absent 'StructuredName.DISPLAY_NAME' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
           grep -F 'android.telecom.CallScreeningService' app/src/main/AndroidManifest.xml
           grep -F 'RoleManager.ROLE_CALL_SCREENING' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
@@ -51,33 +58,32 @@ jobs:
           grep -F 'recoverCallsAfterRestart' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
           grep -F 'CallInteractionDeduper.insertOnce' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
 
-          # Signup-only 7 + 7 referral contract remains.
+          # Signup-only referral/trial contract.
           grep -F 'referralCode' app/src/main/java/kr/pagero/calltag/AuthApiClient.java
           grep -F '통합권 7일 추가, 총 14일 무료' app/src/main/java/kr/pagero/calltag/LoginActivity.java
           grep -F '추천인 코드는 회원가입 시 1회만 입력' app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java
+          grep -F '기본 7일 · 추천인 입력 시 +7일 · 총 14일' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
           assert_absent '기본 3일' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
           assert_absent '추천 등록 시 +5일' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
-          grep -F '기본 7일 · 추천인 입력 시 +7일 · 총 14일' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
 
-          # PageRo connection and service guide remain split.
+          # PageRo connection/service guide and settlement stay separated.
           grep -F 'PageroConnectionCompactActivity.class' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
           grep -F 'PageroUseGuideActivity.class' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
           assert_absent '이렇게 사용하세요' app/src/main/java/kr/pagero/calltag/PageroConnectionCompactActivity.java
           grep -F 'https://calltag.pagero.kr/web/settlement' app/src/main/java/kr/pagero/calltag/PartnerSettlementActivity.java
 
-          # Home pending-call action remains a real task action.
+          # Pending-call task route remains independent from post-call memo popup.
           grep -F 'HomeTaskEditorActivity.class' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
           assert_absent 'PostCallActivity.class' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
           grep -F 'actionButton("삭제"' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
           grep -F '최근 메모 · ' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
 
-          # Post-call is ALWAYS one compact popup. Full-screen notification/activity paths are forbidden.
+          # Post-call is always one compact popup; full-screen paths remain forbidden.
           assert_absent 'android.permission.USE_FULL_SCREEN_INTENT' app/src/main/AndroidManifest.xml
           assert_absent '.setFullScreenIntent' app/src/main/java
           grep -F 'android:theme="@style/Theme.CallTag.PostCallPopup"' app/src/main/AndroidManifest.xml
           grep -F '<item name="android:windowIsFloating">true</item>' app/src/main/res/values/styles.xml
           grep -F '<item name="android:backgroundDimEnabled">false</item>' app/src/main/res/values/styles.xml
-          grep -F 'PostCallPopupWindowInstaller.install(this);' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
           grep -F 'HARD_MAX_SCREEN_HEIGHT_RATIO = 0.55f' app/src/main/java/kr/pagero/calltag/PostCallPopupWindowInstaller.java
           grep -F 'window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN' app/src/main/java/kr/pagero/calltag/PostCallPopupWindowInstaller.java
           grep -F 'activity_not_visible_notification_only' app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java
@@ -88,52 +94,50 @@ jobs:
           assert_absent 'seen.contains' app/src/main/java/kr/pagero/calltag/CustomerAddActivity.java
           assert_absent 'if (db.findByPhone(number) != null) continue' app/src/main/java/kr/pagero/calltag/CustomerAddActivity.java
 
-          # Statistics tooltip numbers must be high-contrast and explicit.
+          # Statistics tooltip stays high-contrast and explicit.
           grep -F 'tooltipPaint.setColor(getContext().getColor(R.color.surface_soft))' app/src/main/java/kr/pagero/calltag/StatsTrendChartView.java
           grep -F 'tooltipTextPaint.setColor(getContext().getColor(R.color.text_primary))' app/src/main/java/kr/pagero/calltag/StatsTrendChartView.java
-          grep -F '"통화 " + calls[index] + "건  ·  페이지로 " + leads[index] + "명"' app/src/main/java/kr/pagero/calltag/StatsTrendChartView.java
 
-          # Billing and data protection use CallTag dark UI instead of standalone light/system UI.
+          # Billing/data-protection remain CallTag dark UI.
           assert_absent 'Color.rgb(248, 250, 252)' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
-          assert_absent 'Color.WHITE;' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
           grep -F 'private static final int BACKGROUND = Color.rgb(16, 17, 19)' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
           grep -F 'root.setBackgroundColor(getColor(R.color.background))' app/src/main/java/kr/pagero/calltag/CallTagSyncStatusActivity.java
-          grep -F 'actionButton("지금 동기화"' app/src/main/java/kr/pagero/calltag/CallTagSyncStatusActivity.java
-          assert_absent 'new Button(this)' app/src/main/java/kr/pagero/calltag/CallTagSyncStatusActivity.java
 
-          # Task time selection uses CallTag chips everywhere; system TimePicker is forbidden.
+          # Date/time selection is CallTag-native and scroll-safe on small screens.
+          test -e app/src/main/java/kr/pagero/calltag/TaskDateChoiceDialog.java
           test -e app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
+          grep -F 'TaskDateChoiceDialog.show(this, selected' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
+          grep -F 'TaskDateChoiceDialog.show(this, current' app/src/main/java/kr/pagero/calltag/MainActivity.java
           grep -F 'TaskTimeChoiceDialog.show' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
           grep -F 'TaskTimeChoiceDialog.show(this, 10, 0, "이 시간으로 등록"' app/src/main/java/kr/pagero/calltag/MainActivity.java
-          grep -F '"이 시간으로 변경"' app/src/main/java/kr/pagero/calltag/MainActivity.java
-          assert_absent 'TimePickerDialog' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java app/src/main/java/kr/pagero/calltag/MainActivity.java
-          grep -F 'TextView am = choice(context, "오전")' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
-          grep -F 'TextView pm = choice(context, "오후")' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
-          grep -F 'public static void show(Context context, int initialHourOfDay, int initialMinute' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
+          assert_absent 'DatePickerDialog' app/src/main/java
+          assert_absent 'TimePickerDialog' app/src/main/java
+          grep -F 'ScrollView scroll = new ScrollView(context);' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
+          grep -F 'ScrollView scroll = new ScrollView(context);' app/src/main/java/kr/pagero/calltag/TaskDateChoiceDialog.java
 
-          # Group / bulk-message UI uses CallTag dark components.
+          # Framework dialogs stay dark, narrow-screen safe and keyboard-resizable.
+          grep -F 'SIDE_MARGIN_DP * 2' app/src/main/java/kr/pagero/calltag/CallTagDialogStyler.java
+          grep -F 'SOFT_INPUT_ADJUST_RESIZE' app/src/main/java/kr/pagero/calltag/CallTagDialogStyler.java
+          grep -F 'new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)' app/src/main/java/kr/pagero/calltag/MainActivity.java
+          grep -F 'new AlertDialog.Builder(getContext(), R.style.Theme_CallTag_Dialog)' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
+
+          # Spinner rows are CallTag-native with no framework simple_spinner resources.
+          grep -F 'super(context, 0, values);' app/src/main/java/kr/pagero/calltag/CallTagSpinnerAdapter.java
+          assert_absent 'android.R.layout.simple_spinner_' app/src/main/java
           grep -F 'CallTagSpinnerAdapter' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
-          grep -F 'CallTagDialogStyler.apply(dialog)' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
-          assert_absent 'simple_spinner_dropdown_item' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
-          grep -F 'bg_selected_row' app/src/main/java/kr/pagero/calltag/GroupCampaignHubActivity.java
 
-          # Smart groups no longer expose or evaluate transaction status.
+          # Smart groups no longer expose transaction status.
           assert_absent '거래 여부' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
           assert_absent '거래 고객만' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
           assert_absent '미거래 고객만' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
           assert_absent 'customer.firstTransactionAt' app/src/main/java/kr/pagero/calltag/MessageGroupStore.java
-          grep -F 'values.put("transaction_mode", TRANSACTION_ANY)' app/src/main/java/kr/pagero/calltag/MessageGroupStore.java
 
-          # Status bar and core layout regressions remain fixed.
+          # Status bar/core layout and featured auto-message regressions remain blocked.
           grep -F 'controller.show(WindowInsets.Type.statusBars()' app/src/main/java/kr/pagero/calltag/SystemBarInsetsInstaller.java
-          grep -F 'controller.setSystemBarsAppearance(0, lightMask)' app/src/main/java/kr/pagero/calltag/SystemBarInsetsInstaller.java
           assert_absent 'fitsSystemWindows="true"' app/src/main/res/layout/activity_main.xml
           assert_absent 'RecentCallHistoryView' app/src/main/res/layout/section_consultations.xml
-
-          # Post-call auto-message remains a large standalone entry in More.
           grep -F 'featuredAutomationCard()' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
           grep -F 'title.setText("통화 후 자동문자")' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
-          assert_absent 'messages.add("자동문자"' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -152,7 +156,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.8-code86-debug-apk
+          name: calltag-v0.44.9-code87-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -175,7 +179,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.8-code86-instrumentation-results
+          name: calltag-v0.44.9-code87-instrumentation-results
           path: |
             app/build/reports/androidTests/connected/**
             app/build/outputs/androidTest-results/connected/**

@@ -3,7 +3,6 @@ package kr.pagero.calltag;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.DatePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -225,13 +224,15 @@ public final class MainActivity extends Activity {
             startMonitorService();
             return;
         }
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("통화 감지 권한")
                 .setMessage("발신·수신·부재중 통화를 할 일과 연결하는 데 필요합니다.")
                 .setNegativeButton("취소", null)
-                .setPositiveButton("권한 허용", (dialog, which) -> requestPermissions(
+                .setPositiveButton("권한 허용", (value, which) -> requestPermissions(
                         missing.toArray(new String[0]), REQUEST_MONITOR_PERMISSIONS))
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.show();
     }
 
     @Override
@@ -865,7 +866,7 @@ public final class MainActivity extends Activity {
     private void showRescheduleDatePicker(FollowUpTask task) {
         Calendar current = Calendar.getInstance();
         current.setTimeInMillis(task.dueAt);
-        new DatePickerDialog(this, (view, year, month, dayOfMonth) -> {
+        TaskDateChoiceDialog.show(this, current, "이 날짜로 변경", (year, month, dayOfMonth) -> {
             Calendar changed = Calendar.getInstance();
             changed.set(year, month, dayOfMonth,
                     current.get(Calendar.HOUR_OF_DAY), current.get(Calendar.MINUTE), 0);
@@ -886,7 +887,7 @@ public final class MainActivity extends Activity {
                 Toast.makeText(this, "일정을 변경했습니다.", Toast.LENGTH_SHORT).show();
                 refreshAll();
             });
-        }, current.get(Calendar.YEAR), current.get(Calendar.MONTH), current.get(Calendar.DAY_OF_MONTH)).show();
+        });
     }
 
     private void completeCalendarTask(FollowUpTask task, String resultMessage) {
@@ -899,16 +900,18 @@ public final class MainActivity extends Activity {
     }
 
     private void confirmDeleteTask(FollowUpTask task) {
-        new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("할 일 삭제")
                 .setMessage("‘" + task.title + "’ 일정을 삭제합니다.")
                 .setNegativeButton("취소", null)
-                .setPositiveButton("삭제", (dialog, which) -> {
+                .setPositiveButton("삭제", (value, which) -> {
                     db.deleteTask(task.id);
                     Toast.makeText(this, "삭제했습니다.", Toast.LENGTH_SHORT).show();
                     refreshAll();
                 })
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.show();
     }
 
     private void renderMoreMenu() {

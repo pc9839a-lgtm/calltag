@@ -303,7 +303,7 @@ public final class CallTagSyncStatusActivity extends Activity {
     }
 
     private void showMessage(String message) {
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setMessage(message)
                 .setPositiveButton("확인", null)
                 .create();
@@ -312,7 +312,7 @@ public final class CallTagSyncStatusActivity extends Activity {
     }
 
     private void showConfirm(String title, String message, String positive, Runnable action) {
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle(title)
                 .setMessage(message)
                 .setNegativeButton("취소", null)

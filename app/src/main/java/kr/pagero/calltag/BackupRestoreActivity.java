@@ -109,7 +109,7 @@ public final class BackupRestoreActivity extends Activity {
         form.addView(password, matchWrap());
         form.addView(confirm, topMargin(8));
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("백업 암호 설정")
                 .setMessage("암호는 저장되지 않습니다. 잊으면 복원할 수 없습니다.")
                 .setView(form)
@@ -187,7 +187,7 @@ public final class BackupRestoreActivity extends Activity {
         LinearLayout form = dialogForm();
         EditText password = passwordField("백업 암호");
         form.addView(password, matchWrap());
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("백업 암호 입력")
                 .setView(form)
                 .setNegativeButton("취소", (ignored, which) -> pendingRestoreUri = null)
@@ -211,7 +211,7 @@ public final class BackupRestoreActivity extends Activity {
     private void confirmRestore(char[] password) {
         Uri source = pendingRestoreUri;
         pendingRestoreUri = null;
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("현재 데이터를 교체할까요?")
                 .setMessage("현재 고객·일정·문자·캠페인 데이터가 백업 시점으로 교체됩니다. 실패하면 복원 전 데이터로 자동 롤백합니다.")
                 .setNegativeButton("취소", (dialog, which) -> Arrays.fill(password, '\0'))
@@ -232,7 +232,7 @@ public final class BackupRestoreActivity extends Activity {
                 runOnUiThread(() -> {
                     setWorking(false, "");
                     renderStatus();
-                    new AlertDialog.Builder(this)
+                    new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                             .setTitle("백업 완료")
                             .setMessage(result.summary())
                             .setPositiveButton("확인", null)
@@ -270,7 +270,7 @@ public final class BackupRestoreActivity extends Activity {
                     if (result.missingImageCount > 0) {
                         message += "\n이미지 누락 " + result.missingImageCount + "개";
                     }
-                    new AlertDialog.Builder(this)
+                    new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                             .setTitle("복원 완료")
                             .setMessage(message)
                             .setCancelable(false)
@@ -312,7 +312,7 @@ public final class BackupRestoreActivity extends Activity {
     private void showError(String title, Exception error) {
         String message = error == null ? "알 수 없는 오류" : error.getMessage();
         if (message == null || message.trim().isEmpty()) message = "알 수 없는 오류";
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle(title)
                 .setMessage(message)
                 .setPositiveButton("확인", null)

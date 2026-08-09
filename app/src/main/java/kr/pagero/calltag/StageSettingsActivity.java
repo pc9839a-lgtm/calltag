@@ -190,7 +190,7 @@ public final class StageSettingsActivity extends Activity {
             @Override public void afterTextChanged(Editable s) {}
         });
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle(stage == null ? "사용자 상태 추가" : "상태 수정")
                 .setView(content)
                 .setNegativeButton("취소", null)
@@ -268,7 +268,7 @@ public final class StageSettingsActivity extends Activity {
     }
 
     private void confirmDelete(StageOption stage) {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("사용자 상태 삭제")
                 .setMessage("‘" + stage.name + "’ 상태의 고객은 첫 번째 기본 상태로 이동합니다.")
                 .setNegativeButton("취소", null)
