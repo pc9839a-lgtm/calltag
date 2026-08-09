@@ -11,9 +11,10 @@ import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
 
-/** Keeps PostCallActivity as a compact partial popup over the existing screen. */
+/** Keeps PostCallActivity as one compact partial popup over the existing screen. */
 public final class PostCallPopupWindowInstaller {
-    private static final float HEIGHT_RATIO = 0.42f;
+    private static final float PREFERRED_HEIGHT_RATIO = 0.42f;
+    private static final float HARD_MAX_SCREEN_HEIGHT_RATIO = 0.55f;
     private static final int MAX_WIDTH_DP = 390;
     private static final int MAX_HEIGHT_DP = 350;
     private static final int MIN_HEIGHT_DP = 320;
@@ -27,7 +28,9 @@ public final class PostCallPopupWindowInstaller {
 
         activity.setFinishOnTouchOutside(false);
         window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-        window.clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+        // Post-call must never become a full-screen surface, even if an OEM changes window flags.
+        window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN
+                | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                 | WindowManager.LayoutParams.FLAG_DIM_BEHIND);
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
@@ -73,10 +76,15 @@ public final class PostCallPopupWindowInstaller {
                 metrics.widthPixels - totalHorizontalMargin);
 
         int width = Math.min(availableWidth, dp(activity, MAX_WIDTH_DP));
-        int preferredHeight = Math.round(metrics.heightPixels * HEIGHT_RATIO);
+        int preferredHeight = Math.round(metrics.heightPixels * PREFERRED_HEIGHT_RATIO);
         int maximumHeight = Math.min(preferredHeight, dp(activity, MAX_HEIGHT_DP));
         int height = Math.max(dp(activity, MIN_HEIGHT_DP), maximumHeight);
-        height = Math.min(height, metrics.heightPixels - dp(activity, 96));
+
+        // Absolute guardrail: a post-call window may never occupy most/all of the display.
+        int ratioCap = Math.max(1,
+                Math.round(metrics.heightPixels * HARD_MAX_SCREEN_HEIGHT_RATIO));
+        int systemMarginCap = Math.max(1, metrics.heightPixels - dp(activity, 96));
+        height = Math.min(height, Math.min(ratioCap, systemMarginCap));
 
         WindowManager.LayoutParams params = window.getAttributes();
         params.width = width;
