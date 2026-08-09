@@ -1,0 +1,32 @@
+name: Push CallTag 0.44.9 source patch
+
+on:
+  pull_request:
+    branches:
+      - agent/play-internal-v0430-run2
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'agent/calltag-v0449-dialog-small-screen'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/calltag-v0449-dialog-small-screen
+          fetch-depth: 0
+      - name: Apply source patch
+        shell: bash
+        run: |
+          python .github/scripts/apply_v0449.py
+          git checkout -- .github/workflows/calltag-hotfix-build.yml
+      - name: Commit source only
+        shell: bash
+        run: |
+          git config user.name "calltag-patch-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add app
+          git commit -m "Unify dialogs and harden small-screen UI for 0.44.9"
+          git push origin HEAD:agent/calltag-v0449-dialog-small-screen
