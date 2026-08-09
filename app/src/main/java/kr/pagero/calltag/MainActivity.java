@@ -4,7 +4,6 @@ import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
-import android.app.TimePickerDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -836,7 +835,7 @@ public final class MainActivity extends Activity {
     }
 
     private void showNewTaskTimePicker(Customer customer, String title, String taskType) {
-        new TimePickerDialog(this, (view, hourOfDay, minute) -> {
+        TaskTimeChoiceDialog.show(this, 10, 0, "이 시간으로 등록", (hourOfDay, minute) -> {
             Calendar due = (Calendar) selectedCalendarDate.clone();
             due.set(Calendar.HOUR_OF_DAY, hourOfDay);
             due.set(Calendar.MINUTE, minute);
@@ -848,7 +847,7 @@ public final class MainActivity extends Activity {
                     "SCHEDULED", title);
             Toast.makeText(this, "할 일을 추가했습니다.", Toast.LENGTH_SHORT).show();
             refreshAll();
-        }, 10, 0, false).show();
+        });
     }
 
     private void showTaskOptions(FollowUpTask task) {
@@ -871,7 +870,9 @@ public final class MainActivity extends Activity {
             changed.set(year, month, dayOfMonth,
                     current.get(Calendar.HOUR_OF_DAY), current.get(Calendar.MINUTE), 0);
             changed.set(Calendar.MILLISECOND, 0);
-            new TimePickerDialog(this, (timeView, hourOfDay, minute) -> {
+            TaskTimeChoiceDialog.show(this,
+                    current.get(Calendar.HOUR_OF_DAY), current.get(Calendar.MINUTE),
+                    "이 시간으로 변경", (hourOfDay, minute) -> {
                 changed.set(Calendar.HOUR_OF_DAY, hourOfDay);
                 changed.set(Calendar.MINUTE, minute);
                 db.updateTaskDue(task.id, changed.getTimeInMillis());
@@ -884,7 +885,7 @@ public final class MainActivity extends Activity {
                         "SCHEDULED", task.title + " 일정 변경");
                 Toast.makeText(this, "일정을 변경했습니다.", Toast.LENGTH_SHORT).show();
                 refreshAll();
-            }, current.get(Calendar.HOUR_OF_DAY), current.get(Calendar.MINUTE), false).show();
+            });
         }, current.get(Calendar.YEAR), current.get(Calendar.MONTH), current.get(Calendar.DAY_OF_MONTH)).show();
     }
 

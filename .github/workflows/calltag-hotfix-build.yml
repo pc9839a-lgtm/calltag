@@ -1,4 +1,4 @@
-name: CallTag 0.44.7 post-call compact regression
+name: CallTag 0.44.8 calendar time picker regression
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify 0.44.7 contracts
+      - name: Verify 0.44.8 contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -30,8 +30,8 @@ jobs:
             fi
           }
 
-          grep -F 'versionCode 85' app/build.gradle
-          grep -F "versionName '0.44.7'" app/build.gradle
+          grep -F 'versionCode 86' app/build.gradle
+          grep -F "versionName '0.44.8'" app/build.gradle
           grep -F 'targetSdk 36' app/build.gradle
 
           # Play-safe phone CRM contract remains unchanged.
@@ -101,12 +101,15 @@ jobs:
           grep -F 'actionButton("지금 동기화"' app/src/main/java/kr/pagero/calltag/CallTagSyncStatusActivity.java
           assert_absent 'new Button(this)' app/src/main/java/kr/pagero/calltag/CallTagSyncStatusActivity.java
 
-          # Task time selection uses CallTag chips, never the system AM/PM TimePicker in Home editor.
+          # Task time selection uses CallTag chips everywhere; system TimePicker is forbidden.
           test -e app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
           grep -F 'TaskTimeChoiceDialog.show' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
-          assert_absent 'TimePickerDialog' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
+          grep -F 'TaskTimeChoiceDialog.show(this, 10, 0, "이 시간으로 등록"' app/src/main/java/kr/pagero/calltag/MainActivity.java
+          grep -F '"이 시간으로 변경"' app/src/main/java/kr/pagero/calltag/MainActivity.java
+          assert_absent 'TimePickerDialog' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java app/src/main/java/kr/pagero/calltag/MainActivity.java
           grep -F 'TextView am = choice(context, "오전")' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
           grep -F 'TextView pm = choice(context, "오후")' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
+          grep -F 'public static void show(Context context, int initialHourOfDay, int initialMinute' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
 
           # Group / bulk-message UI uses CallTag dark components.
           grep -F 'CallTagSpinnerAdapter' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
@@ -149,7 +152,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.7-code85-debug-apk
+          name: calltag-v0.44.8-code86-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -172,7 +175,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.7-code85-instrumentation-results
+          name: calltag-v0.44.8-code86-instrumentation-results
           path: |
             app/build/reports/androidTests/connected/**
             app/build/outputs/androidTest-results/connected/**
