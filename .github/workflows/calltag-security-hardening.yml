@@ -10,34 +10,73 @@ permissions:
   contents: read
 
 jobs:
-  security-inventory:
+  security-gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Inventory Android attack surface
+      - name: Verify Android security boundaries
         shell: bash
         run: |
-          set -u
-          echo '=== manifest exported/permissions ==='
-          grep -n -E 'uses-permission|android:exported="true"|allowBackup|usesCleartextTraffic|networkSecurityConfig' app/src/main/AndroidManifest.xml || true
-          echo '=== overlay ==='
-          grep -R -n -E 'SYSTEM_ALERT_WINDOW|TYPE_APPLICATION_OVERLAY|canDrawOverlays|ACTION_MANAGE_OVERLAY_PERMISSION' app/src/main || true
-          echo '=== PendingIntent ==='
-          grep -R -n -E 'PendingIntent\.get|FLAG_MUTABLE|FLAG_IMMUTABLE' app/src/main/java || true
-          echo '=== WebView ==='
-          grep -R -n -E 'WebView|setJavaScriptEnabled|addJavascriptInterface|setAllowFileAccess' app/src/main/java || true
-          echo '=== TLS overrides ==='
-          grep -R -n -E 'HostnameVerifier|TrustManager|SSLContext|setHostnameVerifier|X509TrustManager' app/src/main/java || true
-          echo '=== cleartext URLs ==='
-          grep -R -n -E 'http://' app/src/main/java app/src/main/res || true
-          echo '=== logging ==='
-          grep -R -n -E 'Log\.(d|i|v|w|e)|printStackTrace' app/src/main/java || true
-          echo '=== world-readable prefs/files ==='
-          grep -R -n -E 'MODE_WORLD_|setReadable\(|setWritable\(' app/src/main/java || true
-          echo '=== external intents / URI grants ==='
-          grep -R -n -E 'ACTION_VIEW|FLAG_GRANT_READ_URI_PERMISSION|FLAG_GRANT_WRITE_URI_PERMISSION|setClipData' app/src/main/java || true
-          echo '=== SQL raw queries ==='
-          grep -R -n -E 'rawQuery\(|execSQL\(' app/src/main/java || true
+          set -euo pipefail
+          absent() {
+            local pattern="$1"
+            shift
+            if grep -R -F -- "$pattern" "$@"; then
+              echo "::error::Forbidden security pattern: $pattern"
+              exit 1
+            fi
+          }
+
+          grep -F 'versionCode 88' app/build.gradle
+          grep -F "versionName '0.44.10'" app/build.gradle
+          grep -F 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
+          grep -F 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
+          grep -F 'android:networkSecurityConfig="@xml/network_security_config"' app/src/main/AndroidManifest.xml
+          grep -F 'cleartextTrafficPermitted="false"' app/src/main/res/xml/network_security_config.xml
+
+          absent 'android.permission.WRITE_CONTACTS' app/src/main/AndroidManifest.xml
+          absent 'android.permission.WRITE_CALL_LOG' app/src/main/AndroidManifest.xml
+          absent 'android.permission.USE_FULL_SCREEN_INTENT' app/src/main/AndroidManifest.xml
+          grep -A2 -F 'android:name=".LoginActivity"' app/src/main/AndroidManifest.xml | grep -F 'android:exported="false"'
+          grep -F 'android:name=".GoogleAuthCallbackActivity"' app/src/main/AndroidManifest.xml
+          grep -F 'GoogleAuthFlowStore.begin(this)' app/src/main/java/kr/pagero/calltag/LoginActivity.java
+          grep -F 'GoogleAuthFlowStore.consumeIfActive(this)' app/src/main/java/kr/pagero/calltag/GoogleAuthCallbackActivity.java
+          grep -F 'android:name=".BootReceiver" android:enabled="true" android:exported="false"' app/src/main/AndroidManifest.xml
+          grep -F 'Intent.ACTION_BOOT_COMPLETED.equals(action)' app/src/main/java/kr/pagero/calltag/BootReceiver.java
+          grep -F 'Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)' app/src/main/java/kr/pagero/calltag/BootReceiver.java
+          grep -F 'WindowManager.LayoutParams.FLAG_SECURE' app/src/main/java/kr/pagero/calltag/CallerOverlayManager.java
+
+          absent 'getStringExtra("referralCode")' app/src/main/java/kr/pagero/calltag/PendingReferralStore.java
+          absent '"http".equals' app/src/main/java/kr/pagero/calltag/PendingReferralStore.java
+          absent 'android:scheme="calltag" android:host="referral"' app/src/main/AndroidManifest.xml
+          grep -F '!"https".equalsIgnoreCase(uri.getScheme())' app/src/main/java/kr/pagero/calltag/PendingReferralStore.java
+          grep -F '"[A-Z0-9]{4,20}"' app/src/main/java/kr/pagero/calltag/PendingReferralStore.java
+
+          absent 'String.valueOf(error.getMessage())' app/src/main/java/kr/pagero/calltag/CrashTelemetryStore.java
+          absent '"customer=" + customer.id' app/src/main/java/kr/pagero/calltag/CallerOverlayManager.java
+          absent 'Unable to reject invalid PageRo lead " + lead.id' app/src/main/java/kr/pagero/calltag/PageroLeadSyncManager.java
+          absent 'Log.e(TAG, "PageRo lead sync failed", error)' app/src/main/java/kr/pagero/calltag/PageroLeadSyncManager.java
+
+          absent 'FLAG_MUTABLE' app/src/main/java
+          absent 'addJavascriptInterface' app/src/main/java
+          absent 'HostnameVerifier' app/src/main/java
+          absent 'X509TrustManager' app/src/main/java
+          absent 'MODE_WORLD_' app/src/main/java
+          absent 'http://' app/src/main/java
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Compile security-hardened debug build
+        run: gradle :app:assembleDebug --stacktrace
