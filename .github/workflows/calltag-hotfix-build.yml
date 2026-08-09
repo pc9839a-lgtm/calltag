@@ -1,4 +1,4 @@
-name: CallTag 0.44.6 UI consistency regression
+name: CallTag 0.44.7 post-call compact regression
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify 0.44.6 contracts
+      - name: Verify 0.44.7 contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -30,8 +30,8 @@ jobs:
             fi
           }
 
-          grep -F 'versionCode 84' app/build.gradle
-          grep -F "versionName '0.44.6'" app/build.gradle
+          grep -F 'versionCode 85' app/build.gradle
+          grep -F "versionName '0.44.7'" app/build.gradle
           grep -F 'targetSdk 36' app/build.gradle
 
           # Play-safe phone CRM contract remains unchanged.
@@ -71,8 +71,15 @@ jobs:
           grep -F 'actionButton("삭제"' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
           grep -F '최근 메모 · ' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
 
-          # Post-call UI remains one compact popup only.
+          # Post-call is ALWAYS one compact popup. Full-screen notification/activity paths are forbidden.
+          assert_absent 'android.permission.USE_FULL_SCREEN_INTENT' app/src/main/AndroidManifest.xml
+          assert_absent '.setFullScreenIntent' app/src/main/java
+          grep -F 'android:theme="@style/Theme.CallTag.PostCallPopup"' app/src/main/AndroidManifest.xml
+          grep -F '<item name="android:windowIsFloating">true</item>' app/src/main/res/values/styles.xml
+          grep -F '<item name="android:backgroundDimEnabled">false</item>' app/src/main/res/values/styles.xml
           grep -F 'PostCallPopupWindowInstaller.install(this);' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
+          grep -F 'HARD_MAX_SCREEN_HEIGHT_RATIO = 0.55f' app/src/main/java/kr/pagero/calltag/PostCallPopupWindowInstaller.java
+          grep -F 'window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN' app/src/main/java/kr/pagero/calltag/PostCallPopupWindowInstaller.java
           grep -F 'activity_not_visible_notification_only' app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java
           assert_absent 'app.startActivity' app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java
 
@@ -94,7 +101,7 @@ jobs:
           grep -F 'actionButton("지금 동기화"' app/src/main/java/kr/pagero/calltag/CallTagSyncStatusActivity.java
           assert_absent 'new Button(this)' app/src/main/java/kr/pagero/calltag/CallTagSyncStatusActivity.java
 
-          # Task time selection uses CallTag chips, never the system AM/PM TimePicker.
+          # Task time selection uses CallTag chips, never the system AM/PM TimePicker in Home editor.
           test -e app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
           grep -F 'TaskTimeChoiceDialog.show' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
           assert_absent 'TimePickerDialog' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
@@ -142,7 +149,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.6-code84-debug-apk
+          name: calltag-v0.44.7-code85-debug-apk
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -165,7 +172,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.6-code84-instrumentation-results
+          name: calltag-v0.44.7-code85-instrumentation-results
           path: |
             app/build/reports/androidTests/connected/**
             app/build/outputs/androidTest-results/connected/**
