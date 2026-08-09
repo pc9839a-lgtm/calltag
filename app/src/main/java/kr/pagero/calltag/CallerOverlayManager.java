@@ -69,7 +69,7 @@ public final class CallerOverlayManager {
         HANDLER.post(() -> {
             boolean shown = showOnMain(app, customer, memo, stageColor, false);
             CrashTelemetryStore.record(app, "caller_overlay",
-                    shown ? "shown" : "show_failed", "customer=" + customer.id);
+                    shown ? "shown" : "show_failed", "");
             if (callback != null) callback.onResult(shown);
         });
         return true;
@@ -119,7 +119,8 @@ public final class CallerOverlayManager {
                             : WindowManager.LayoutParams.TYPE_PHONE,
                     WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                             | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-                            | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                            | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                            | WindowManager.LayoutParams.FLAG_SECURE,
                     PixelFormat.TRANSLUCENT);
             params.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
             params.y = dp(context, 54);

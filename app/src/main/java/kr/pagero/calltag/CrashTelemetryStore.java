@@ -86,8 +86,7 @@ public final class CrashTelemetryStore {
         @Override
         public void uncaughtException(Thread thread, Throwable error) {
             String threadName = thread == null ? "unknown" : thread.getName();
-            String detail = error == null ? "unknown"
-                    : error.getClass().getSimpleName() + ": " + String.valueOf(error.getMessage());
+            String detail = error == null ? "unknown" : error.getClass().getSimpleName();
             record(app, "uncaught:" + threadName, "crash", detail);
             if (delegate != null) delegate.uncaughtException(thread, error);
         }
