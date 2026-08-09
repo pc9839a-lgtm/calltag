@@ -1,0 +1,43 @@
+name: CallTag Android security hardening
+
+on:
+  pull_request:
+    branches:
+      - agent/play-internal-v0430-run2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security-inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inventory Android attack surface
+        shell: bash
+        run: |
+          set -u
+          echo '=== manifest exported/permissions ==='
+          grep -n -E 'uses-permission|android:exported="true"|allowBackup|usesCleartextTraffic|networkSecurityConfig' app/src/main/AndroidManifest.xml || true
+          echo '=== overlay ==='
+          grep -R -n -E 'SYSTEM_ALERT_WINDOW|TYPE_APPLICATION_OVERLAY|canDrawOverlays|ACTION_MANAGE_OVERLAY_PERMISSION' app/src/main || true
+          echo '=== PendingIntent ==='
+          grep -R -n -E 'PendingIntent\.get|FLAG_MUTABLE|FLAG_IMMUTABLE' app/src/main/java || true
+          echo '=== WebView ==='
+          grep -R -n -E 'WebView|setJavaScriptEnabled|addJavascriptInterface|setAllowFileAccess' app/src/main/java || true
+          echo '=== TLS overrides ==='
+          grep -R -n -E 'HostnameVerifier|TrustManager|SSLContext|setHostnameVerifier|X509TrustManager' app/src/main/java || true
+          echo '=== cleartext URLs ==='
+          grep -R -n -E 'http://' app/src/main/java app/src/main/res || true
+          echo '=== logging ==='
+          grep -R -n -E 'Log\.(d|i|v|w|e)|printStackTrace' app/src/main/java || true
+          echo '=== world-readable prefs/files ==='
+          grep -R -n -E 'MODE_WORLD_|setReadable\(|setWritable\(' app/src/main/java || true
+          echo '=== external intents / URI grants ==='
+          grep -R -n -E 'ACTION_VIEW|FLAG_GRANT_READ_URI_PERMISSION|FLAG_GRANT_WRITE_URI_PERMISSION|setClipData' app/src/main/java || true
+          echo '=== SQL raw queries ==='
+          grep -R -n -E 'rawQuery\(|execSQL\(' app/src/main/java || true
