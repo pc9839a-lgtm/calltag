@@ -1,12 +1,10 @@
 (()=>{
-  if(document.documentElement.dataset.ctHorizontalImpact)return;
-  document.documentElement.dataset.ctHorizontalImpact='1';
-
+  if(document.documentElement.dataset.ctHorizontalImpactV4)return;
+  document.documentElement.dataset.ctHorizontalImpactV4='1';
   const desktop=matchMedia('(min-width:901px) and (prefers-reduced-motion:no-preference)');
   const clamp=(value,min=0,max=1)=>Math.min(max,Math.max(min,value));
-
   const style=document.createElement('style');
-  style.dataset.ctHorizontalImpact='1';
+  style.dataset.ctHorizontalImpact='4';
   style.textContent=`
     @media(min-width:901px) and (prefers-reduced-motion:no-preference){
       .ct-horizontal-clean__panel{--ct-glow:0;--ct-copy-x:0px;--ct-copy-y:0px;--ct-copy-scale:1;--ct-copy-opacity:1;--ct-copy-blur:0px;--ct-visual-x:0px;--ct-visual-rotate:0deg;--ct-visual-scale:1;--ct-visual-opacity:1;--ct-visual-brightness:1;--ct-visual-saturation:1;--ct-visual-blur:0px;perspective:1500px}
@@ -35,10 +33,11 @@
   const triggerHit=(item,index)=>{const panel=item.panels[index];if(!panel)return;item.panels.forEach(node=>node.classList.remove('ct-impact-hit'));const oldTimer=hitTimers.get(panel);if(oldTimer)clearTimeout(oldTimer);void panel.offsetWidth;panel.classList.add('ct-impact-hit');hitTimers.set(panel,setTimeout(()=>panel.classList.remove('ct-impact-hit'),620));};
   const render=()=>{raf=0;if(!desktop.matches){metrics.forEach(item=>item.panels.forEach(resetPanel));return;}metrics.forEach(item=>{const progress=clamp((scrollY-item.top)/item.range);const position=progress*(item.panels.length-1);const activeIndex=Math.min(item.panels.length-1,Math.max(0,Math.round(position)));const inView=scrollY>=item.top-innerHeight*.12&&scrollY<=item.top+item.range+innerHeight*.12;item.panels.forEach((panel,index)=>{const distance=index-position;const focus=clamp(1-Math.abs(distance)*.92);const side=clamp(distance,-1.15,1.15);panel.style.setProperty('--ct-glow',(focus*.72).toFixed(4));panel.style.setProperty('--ct-copy-x',`${(side*-76).toFixed(2)}px`);panel.style.setProperty('--ct-copy-y',`${((1-focus)*24).toFixed(2)}px`);panel.style.setProperty('--ct-copy-scale',(.9+focus*.1).toFixed(4));panel.style.setProperty('--ct-copy-opacity',(.12+focus*.88).toFixed(4));panel.style.setProperty('--ct-copy-blur',`${((1-focus)*2).toFixed(2)}px`);panel.style.setProperty('--ct-visual-x',`${(side*108).toFixed(2)}px`);panel.style.setProperty('--ct-visual-rotate',`${(side*-9).toFixed(2)}deg`);panel.style.setProperty('--ct-visual-scale',(.84+focus*.16).toFixed(4));panel.style.setProperty('--ct-visual-opacity',(.22+focus*.78).toFixed(4));panel.style.setProperty('--ct-visual-brightness',(.54+focus*.46).toFixed(4));panel.style.setProperty('--ct-visual-saturation',(.72+focus*.28).toFixed(4));panel.style.setProperty('--ct-visual-blur',`${((1-focus)*1.5).toFixed(2)}px`);});if(!inView){item.activeIndex=-1;return;}if(activeIndex!==item.activeIndex){item.activeIndex=activeIndex;triggerHit(item,activeIndex);}});};
   const request=()=>{if(!raf)raf=requestAnimationFrame(render);};
+  const onResize=()=>requestAnimationFrame(measure);
   addEventListener('scroll',request,{passive:true});
-  addEventListener('resize',()=>requestAnimationFrame(measure),{passive:true});
+  addEventListener('resize',onResize,{passive:true});
   addEventListener('load',measure,{once:true});
   desktop.addEventListener?.('change',measure);
-  const boot=()=>{measure();if(metrics.length)return;const observer=new MutationObserver(()=>{measure();if(metrics.length)observer.disconnect();});observer.observe(document.documentElement,{childList:true,subtree:true});setTimeout(()=>observer.disconnect(),5000);};
+  const boot=()=>{measure();const timers=[100,350,900,1800].map(delay=>setTimeout(measure,delay));window.addEventListener('pagehide',()=>{timers.forEach(clearTimeout);removeEventListener('scroll',request);removeEventListener('resize',onResize);desktop.removeEventListener?.('change',measure);if(raf)cancelAnimationFrame(raf);},{once:true});};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
