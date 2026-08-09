@@ -1,37 +1,140 @@
-name: TEMP CallTag code88 security patch runner
+name: CallTag 0.44.10 security and UI regression
 
 on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/play-internal-v0430-run2
   pull_request:
     branches:
       - agent/play-internal-v0430-run2
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch-code88:
-    if: github.event.pull_request.head.ref == 'agent/calltag-v04410-security-hardening'
+  android-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 50
     steps:
-      - name: Checkout security branch
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: agent/calltag-v04410-security-hardening
-          fetch-depth: 0
-      - name: Apply code88 hardening and restore canonical CI
-        run: python3 scripts/run_security_patch_code88.py
-      - name: Commit hardened source without workflow mutations
+
+      - name: Verify 0.44.10 release contracts
         shell: bash
         run: |
           set -euo pipefail
-          git restore --source=HEAD -- \
-            .github/workflows/calltag-hotfix-build.yml \
-            .github/workflows/calltag-security-hardening.yml \
-            .github/workflows/v04410-security-patch.yml \
-            .github/workflows/v04410-security-trigger.yml
-          git config user.name 'openai-agent'
-          git config user.email 'actions@users.noreply.github.com'
-          git add -A
-          git diff --cached --check
-          git commit -m 'Harden Android security boundaries for code88'
-          git push origin HEAD:agent/calltag-v04410-security-hardening
+          absent() {
+            local pattern="$1"
+            shift
+            if grep -R -F -- "$pattern" "$@"; then
+              echo "::error::Forbidden regression pattern: $pattern"
+              exit 1
+            fi
+          }
+
+          grep -F 'versionCode 88' app/build.gradle
+          grep -F "versionName '0.44.10'" app/build.gradle
+          grep -F 'targetSdk 36' app/build.gradle
+
+          # Android attack-surface hardening.
+          grep -F 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
+          grep -F 'android:networkSecurityConfig="@xml/network_security_config"' app/src/main/AndroidManifest.xml
+          grep -F 'cleartextTrafficPermitted="false"' app/src/main/res/xml/network_security_config.xml
+          absent 'android.permission.WRITE_CONTACTS' app/src/main/AndroidManifest.xml
+          absent 'android.permission.WRITE_CALL_LOG' app/src/main/AndroidManifest.xml
+          absent 'android.permission.USE_FULL_SCREEN_INTENT' app/src/main/AndroidManifest.xml
+          grep -A2 -F 'android:name=".LoginActivity"' app/src/main/AndroidManifest.xml | grep -F 'android:exported="false"'
+          grep -F 'android:name=".GoogleAuthCallbackActivity"' app/src/main/AndroidManifest.xml
+          grep -F 'GoogleAuthFlowStore.begin(this)' app/src/main/java/kr/pagero/calltag/LoginActivity.java
+          grep -F 'GoogleAuthFlowStore.consumeIfActive(this)' app/src/main/java/kr/pagero/calltag/GoogleAuthCallbackActivity.java
+          grep -F 'android:name=".BootReceiver" android:enabled="true" android:exported="false"' app/src/main/AndroidManifest.xml
+          grep -F 'Intent.ACTION_BOOT_COMPLETED.equals(action)' app/src/main/java/kr/pagero/calltag/BootReceiver.java
+          grep -F 'WindowManager.LayoutParams.FLAG_SECURE' app/src/main/java/kr/pagero/calltag/CallerOverlayManager.java
+          absent 'getStringExtra("referralCode")' app/src/main/java/kr/pagero/calltag/PendingReferralStore.java
+          absent 'String.valueOf(error.getMessage())' app/src/main/java/kr/pagero/calltag/CrashTelemetryStore.java
+          absent 'FLAG_MUTABLE' app/src/main/java
+          absent 'addJavascriptInterface' app/src/main/java
+          absent 'HostnameVerifier' app/src/main/java
+          absent 'X509TrustManager' app/src/main/java
+          absent 'MODE_WORLD_' app/src/main/java
+          absent 'http://' app/src/main/java
+
+          # Play-safe phone CRM boundaries.
+          grep -F 'android.permission.READ_CALL_LOG' app/src/main/AndroidManifest.xml
+          absent 'values.put(CallLog.Calls.CACHED_NAME' app/src/main/java
+          absent 'Manifest.permission.WRITE_CALL_LOG' app/src/main/java
+          absent 'createAppRawContact' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
+          absent 'StructuredName.DISPLAY_NAME' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
+          grep -F 'android.telecom.CallScreeningService' app/src/main/AndroidManifest.xml
+          grep -F 'RoleManager.ROLE_CALL_SCREENING' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
+
+          # One compact post-call popup only.
+          absent '.setFullScreenIntent' app/src/main/java
+          grep -F 'android:theme="@style/Theme.CallTag.PostCallPopup"' app/src/main/AndroidManifest.xml
+          grep -F '<item name="android:windowIsFloating">true</item>' app/src/main/res/values/styles.xml
+          grep -F '<item name="android:backgroundDimEnabled">false</item>' app/src/main/res/values/styles.xml
+          grep -F 'HARD_MAX_SCREEN_HEIGHT_RATIO = 0.55f' app/src/main/java/kr/pagero/calltag/PostCallPopupWindowInstaller.java
+          grep -F 'activity_not_visible_notification_only' app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java
+          absent 'app.startActivity' app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java
+
+          # Existing navigation, referral and UI contracts stay intact.
+          grep -F '통합권 7일 추가, 총 14일 무료' app/src/main/java/kr/pagero/calltag/LoginActivity.java
+          grep -F '기본 7일 · 추천인 입력 시 +7일 · 총 14일' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
+          grep -F 'PageroConnectionCompactActivity.class' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
+          grep -F 'PageroUseGuideActivity.class' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
+          grep -F 'HomeTaskEditorActivity.class' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
+          absent 'PostCallActivity.class' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
+          grep -F 'CallLog.Calls.DATE + " DESC"' app/src/main/java/kr/pagero/calltag/CustomerAddActivity.java
+          absent 'DatePickerDialog' app/src/main/java
+          absent 'TimePickerDialog' app/src/main/java
+          absent 'android.R.layout.simple_spinner_' app/src/main/java
+          grep -F 'ScrollView scroll = new ScrollView(context);' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
+          grep -F 'ScrollView scroll = new ScrollView(context);' app/src/main/java/kr/pagero/calltag/TaskDateChoiceDialog.java
+          absent '거래 여부' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Assemble debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: calltag-v0.44.10-code88-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run phone CRM regression tests on Android 16
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: gradle :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Upload instrumentation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: calltag-v0.44.10-code88-instrumentation-results
+          path: |
+            app/build/reports/androidTests/connected/**
+            app/build/outputs/androidTest-results/connected/**
+          if-no-files-found: ignore
