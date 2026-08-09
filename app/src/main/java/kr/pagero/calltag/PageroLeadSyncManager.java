@@ -110,12 +110,12 @@ public final class PageroLeadSyncManager {
                 sendResult(appContext, true, result, successMessage(result), "");
             } catch (PageroLeadApiClient.ApiException error) {
                 String message = safeMessage(error);
-                Log.w(TAG, "PageRo sync API unavailable: " + error.status + "/" + error.code);
+                Log.w(TAG, "PageRo sync API unavailable");
                 PageroConnectionStatusStore.markFailure(appContext, message, error.code);
                 sendResult(appContext, false, new SyncResult(), message, error.code);
             } catch (Exception error) {
                 String message = safeMessage(error);
-                Log.e(TAG, "PageRo lead sync failed", error);
+                Log.e(TAG, "PageRo lead sync failed: " + error.getClass().getSimpleName());
                 PageroConnectionStatusStore.markFailure(
                         appContext, message, error.getClass().getSimpleName());
                 sendResult(appContext, false, new SyncResult(), message,
@@ -166,7 +166,7 @@ public final class PageroLeadSyncManager {
                             PageroLeadApiClient.acknowledgeRejected(
                                     session, lead.id, safeMessage(invalid));
                         } catch (Exception ackError) {
-                            Log.w(TAG, "Unable to reject invalid PageRo lead " + lead.id, ackError);
+                            Log.w(TAG, "Unable to reject invalid PageRo lead");
                         }
                     }
                 }

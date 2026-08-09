@@ -10,8 +10,11 @@ import android.os.Build;
 public final class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
+        if (context == null || intent == null) return;
+        String action = intent.getAction();
+        if (!Intent.ACTION_BOOT_COMPLETED.equals(action)
+                && !Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) return;
         Context app = context.getApplicationContext();
-        String action = intent == null ? "" : intent.getAction();
         boolean packageReplaced = Intent.ACTION_MY_PACKAGE_REPLACED.equals(action);
         String recoveryTrigger = packageReplaced
                 ? MessageRecoveryManager.TRIGGER_PACKAGE_REPLACED
