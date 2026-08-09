@@ -23,11 +23,12 @@ public final class CallTagDialogStyler {
             window.setBackgroundDrawableResource(R.drawable.bg_dialog_panel);
             WindowManager.LayoutParams params = window.getAttributes();
             int displayWidth = dialog.getContext().getResources().getDisplayMetrics().widthPixels;
-            int width = Math.min(displayWidth - dp(dialog, SIDE_MARGIN_DP), dp(dialog, MAX_WIDTH_DP));
-            params.width = Math.max(dp(dialog, 280), width);
+            int availableWidth = Math.max(1, displayWidth - dp(dialog, SIDE_MARGIN_DP * 2));
+            params.width = Math.min(availableWidth, dp(dialog, MAX_WIDTH_DP));
             params.dimAmount = 0.72f;
             window.setAttributes(params);
             window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
             window.setLayout(params.width, WindowManager.LayoutParams.WRAP_CONTENT);
         }
 
@@ -62,11 +63,17 @@ public final class CallTagDialogStyler {
                 ? android.R.color.white : R.color.text_primary));
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setTextSize(14f);
+        button.setMinHeight(dp(button, 44));
+        button.setPadding(dp(button, 12), dp(button, 6), dp(button, 12), dp(button, 6));
         button.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
     }
 
     private static int dp(AlertDialog dialog, int value) {
         return Math.round(value * dialog.getContext().getResources().getDisplayMetrics().density);
+    }
+
+    private static int dp(View view, int value) {
+        return Math.round(value * view.getResources().getDisplayMetrics().density);
     }
 }

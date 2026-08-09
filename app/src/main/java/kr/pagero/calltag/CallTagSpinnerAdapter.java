@@ -13,8 +13,7 @@ import java.util.List;
 /** Spinner의 기본 흰색 시스템 행 대신 콜태그 다크 행을 사용한다. */
 public final class CallTagSpinnerAdapter extends ArrayAdapter<String> {
     public CallTagSpinnerAdapter(Context context, List<String> values) {
-        super(context, android.R.layout.simple_spinner_item, values);
-        setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        super(context, 0, values);
     }
 
     @Override

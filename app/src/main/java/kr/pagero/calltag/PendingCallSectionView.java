@@ -212,11 +212,11 @@ public final class PendingCallSectionView extends LinearLayout {
     }
 
     private void confirmDelete(PendingCallRecord call) {
-        new AlertDialog.Builder(getContext())
+        AlertDialog dialog = new AlertDialog.Builder(getContext(), R.style.Theme_CallTag_Dialog)
                 .setTitle("확인할 통화 삭제")
                 .setMessage("콜태그의 확인할 통화 목록에서만 삭제합니다. 휴대폰 기본 통화기록은 삭제하지 않습니다.")
                 .setNegativeButton("취소", null)
-                .setPositiveButton("삭제", (dialog, which) -> {
+                .setPositiveButton("삭제", (value, which) -> {
                     try (PendingCallStore store = new PendingCallStore(getContext())) {
                         if (store.deletePending(call.callLogId)) {
                             CrashTelemetryStore.record(getContext(), "pending_call", "deleted",
@@ -228,7 +228,9 @@ public final class PendingCallSectionView extends LinearLayout {
                         }
                     }
                 })
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.show();
     }
 
     private void dial(String phone) {
