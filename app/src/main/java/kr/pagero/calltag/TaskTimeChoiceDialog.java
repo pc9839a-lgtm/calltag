@@ -21,8 +21,14 @@ public final class TaskTimeChoiceDialog {
 
     public static void show(Context context, Listener listener) {
         Calendar now = Calendar.getInstance();
-        int hour24 = now.get(Calendar.HOUR_OF_DAY);
-        int minute = ((now.get(Calendar.MINUTE) + 9) / 10) * 10;
+        show(context, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE),
+                "이 시간으로 등록", listener);
+    }
+
+    public static void show(Context context, int initialHourOfDay, int initialMinute,
+                            String actionLabel, Listener listener) {
+        int hour24 = Math.max(0, Math.min(23, initialHourOfDay));
+        int minute = ((Math.max(0, Math.min(59, initialMinute)) + 5) / 10) * 10;
         if (minute >= 60) {
             minute = 0;
             hour24 = (hour24 + 1) % 24;
@@ -111,7 +117,9 @@ public final class TaskTimeChoiceDialog {
         LinearLayout actions = new LinearLayout(context);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         TextView cancel = action(context, "취소", false);
-        TextView done = action(context, "이 시간으로 등록", true);
+        String doneLabel = actionLabel == null || actionLabel.trim().isEmpty()
+                ? "확인" : actionLabel.trim();
+        TextView done = action(context, doneLabel, true);
         actions.addView(cancel, weighted(context, 0.8f));
         LinearLayout.LayoutParams doneParams = weighted(context, 1.4f);
         doneParams.leftMargin = dp(context, 8);
