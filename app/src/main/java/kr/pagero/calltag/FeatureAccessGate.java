@@ -16,7 +16,7 @@ public final class FeatureAccessGate {
             context.startActivity(new Intent(context, destination));
             return;
         }
-        new AlertDialog.Builder(context)
+        new AlertDialog.Builder(context, R.style.Theme_CallTag_Dialog)
                 .setTitle("이용권이 필요합니다")
                 .setMessage(message(feature))
                 .setNegativeButton("취소", null)

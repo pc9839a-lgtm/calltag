@@ -99,7 +99,7 @@ public final class CustomerMessagePolicyView extends LinearLayout {
                 getContext(), customer.primaryPhone);
         int checked = rule != null && rule.flags != 0 ? 1 : 0;
         String[] items = {"허용", "비허용"};
-        new AlertDialog.Builder(getContext())
+        new AlertDialog.Builder(getContext(), R.style.Theme_CallTag_Dialog)
                 .setTitle("문자 발송")
                 .setSingleChoiceItems(items, checked, null)
                 .setNegativeButton("취소", null)

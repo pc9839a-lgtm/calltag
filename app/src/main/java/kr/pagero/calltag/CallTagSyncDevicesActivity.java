@@ -153,7 +153,7 @@ public final class CallTagSyncDevicesActivity extends Activity {
     }
 
     private void confirmRevoke(String deviceKey, String label) {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("기기 연결을 해제할까요?")
                 .setMessage((label == null || label.trim().isEmpty() ? "선택한 기기" : label)
                         + "에서는 이후 고객정보를 동기화하거나 복구할 수 없습니다. 이 휴대폰의 데이터는 삭제되지 않습니다.")
@@ -175,7 +175,7 @@ public final class CallTagSyncDevicesActivity extends Activity {
                         CallTagSyncDeviceStore.deviceId(this),
                         deviceKey);
                 main.post(() -> {
-                    new AlertDialog.Builder(this)
+                    new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                             .setMessage("선택한 기기의 데이터 보호 연결을 해제했습니다.")
                             .setPositiveButton("확인", null)
                             .show();

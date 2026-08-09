@@ -187,7 +187,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
 
     private void showDelayPicker() {
         String[] choices = {"1일 후", "3일 후", "5일 후", "7일 후", "직접 입력"};
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("후속문자 발송 시점")
                 .setItems(choices, (dialog, which) -> {
                     if (which == 4) {
@@ -211,7 +211,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
         container.addView(input, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(50)));
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("발송일까지 입력")
                 .setMessage("1일부터 30일까지 선택할 수 있습니다.")
                 .setView(container)

@@ -113,7 +113,7 @@ public final class MessageExclusionActivity extends Activity {
     }
 
     private void confirmRemove(MessageExclusionStore.Rule rule) {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("문자 발송 제외 해제")
                 .setMessage((rule.displayName == null || rule.displayName.trim().isEmpty()
                         ? rule.phone : rule.displayName) + " 고객의 문자 제외 설정을 해제합니다.")

@@ -94,7 +94,7 @@ public final class MainExitGuard {
         AlertDialog existing = DIALOGS.get(activity);
         if (existing != null && existing.isShowing()) return;
 
-        AlertDialog dialog = new AlertDialog.Builder(activity)
+        AlertDialog dialog = new AlertDialog.Builder(activity, R.style.Theme_CallTag_Dialog)
                 .setTitle("앱을 닫을까요?")
                 .setMessage("실수로 종료되지 않도록 확인합니다. 통화 감지와 예약 기능은 계속 유지됩니다.")
                 .setNegativeButton("계속 사용", null)

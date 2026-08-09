@@ -265,7 +265,7 @@ public final class MessageGroupActivity extends Activity {
                 ScrollView.LayoutParams.WRAP_CONTENT));
         content.addView(listScroll, fixedHeight(360, 8));
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle(current == null ? "수동 그룹 만들기" : "수동 그룹 수정")
                 .setView(content)
                 .setPositiveButton("저장", null)
@@ -367,7 +367,7 @@ public final class MessageGroupActivity extends Activity {
         ruleNote.setPadding(dp(12), dp(10), dp(12), dp(10));
         form.addView(ruleNote, topMargin(12));
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle(current == null ? "스마트 그룹 만들기" : "스마트 그룹 수정")
                 .setView(form)
                 .setPositiveButton("저장", null)
@@ -398,7 +398,7 @@ public final class MessageGroupActivity extends Activity {
     }
 
     private void confirmDelete(MessageGroupStore.Group group) {
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("그룹 삭제")
                 .setMessage("‘" + group.name + "’ 그룹을 삭제할까요? 기존 단체문자 내역은 유지됩니다.")
                 .setNegativeButton("취소", null)

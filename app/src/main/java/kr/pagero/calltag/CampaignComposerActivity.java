@@ -132,7 +132,7 @@ public final class CampaignComposerActivity extends Activity {
     private void chooseGroup() {
         List<MessageGroupStore.Group> rows = groups.list();
         if (rows.isEmpty()) {
-            new AlertDialog.Builder(this)
+            new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                     .setTitle("고객 그룹이 없습니다")
                     .setMessage("먼저 고객 그룹을 만들어주세요.")
                     .setNegativeButton("취소", null)
@@ -146,7 +146,7 @@ public final class CampaignComposerActivity extends Activity {
             MessageGroupStore.Group group = rows.get(i);
             labels[i] = group.name + " · " + groups.countMembers(this, group) + "명";
         }
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("수신자 그룹")
                 .setItems(labels, (dialog, which) -> {
                     selectedGroupId = rows.get(which).id;
@@ -211,7 +211,7 @@ public final class CampaignComposerActivity extends Activity {
             Toast.makeText(this, "문자 내용을 입력해주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("단체문자를 만들까요?")
                 .setMessage(group.name + "의 현재 고객 " + count
                         + "명을 기준으로 발송 작업을 만듭니다. 제외·중복·변수 오류 고객은 발송하지 않습니다.")

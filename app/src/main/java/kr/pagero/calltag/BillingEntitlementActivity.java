@@ -393,7 +393,7 @@ public final class BillingEntitlementActivity extends Activity
     }
 
     private void showBlocked(String title, String message) {
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle(title)
                 .setMessage(message)
                 .setPositiveButton("확인", null)

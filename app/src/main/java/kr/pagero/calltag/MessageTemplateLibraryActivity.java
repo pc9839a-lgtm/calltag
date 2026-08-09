@@ -225,7 +225,7 @@ public final class MessageTemplateLibraryActivity extends Activity {
         content.addView(duplicate, fixedHeight(50, 0));
         content.addView(delete, fixedHeight(50, 8));
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle(template.name)
                 .setView(content)
                 .setNegativeButton("닫기", null)
@@ -283,7 +283,7 @@ public final class MessageTemplateLibraryActivity extends Activity {
                     Toast.LENGTH_LONG).show();
             return;
         }
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("템플릿 삭제")
                 .setMessage("‘" + template.name + "’을 삭제합니다.")
                 .setNegativeButton("취소", null)

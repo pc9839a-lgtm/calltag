@@ -182,7 +182,7 @@ public final class DiagnosticActivity extends Activity {
 
     private void confirmRepair() {
         if (working) return;
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("데이터 정합성 복구")
                 .setMessage("잘못된 참조와 남은 알람을 정리합니다. 누락 문자를 만들거나 자동 재발송하지 않습니다.")
                 .setNegativeButton("취소", null)
@@ -239,7 +239,7 @@ public final class DiagnosticActivity extends Activity {
     }
 
     private void confirmResetChecklist() {
-        new AlertDialog.Builder(this)
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("체크 초기화")
                 .setMessage("이 기기에 저장된 체크 상태를 모두 해제할까요?")
                 .setNegativeButton("취소", null)
