@@ -1,12 +1,12 @@
 (()=>{
-  if(document.documentElement.dataset.ctMobileCleanV3)return;
-  document.documentElement.dataset.ctMobileCleanV3='1';
+  if(document.documentElement.dataset.ctMobileCleanV4)return;
+  document.documentElement.dataset.ctMobileCleanV4='1';
 
   const mobile=matchMedia('(max-width:900px)');
   const qa=(selector,root=document)=>[...root.querySelectorAll(selector)];
 
   const style=document.createElement('style');
-  style.dataset.ctMobileCleanV3='1';
+  style.dataset.ctMobileCleanV4='1';
   style.textContent=`
     @media(max-width:900px){
       :root{--ct-m-gutter:20px;--ct-m-section:56px;--ct-m-card:18px}
@@ -60,17 +60,15 @@
   const normalize=()=>{
     if(!mobile.matches)return;
     qa('.phone-stage .app-screen,.ct-story-step,.ct-story-step .ct-screen,.ct-journey-clean .ct-horizontal-clean__panel,.ct-industry-v5__card,#strengths .ad-strength,.ct-strength-grid article').forEach(node=>{
-      node.style.removeProperty('opacity');
-      node.style.removeProperty('transform');
-      node.style.removeProperty('filter');
-      node.style.removeProperty('height');
-      node.style.removeProperty('min-height');
+      node.style.removeProperty('opacity');node.style.removeProperty('transform');node.style.removeProperty('filter');node.style.removeProperty('height');node.style.removeProperty('min-height');
     });
     qa('.phone-stage .app-screen').forEach(node=>node.classList.add('active'));
     qa('.scroll-top,.back-to-top,.to-top,.top-button,.scrollTop,#scrollTop,.ct-scroll-top,[data-scroll-top],[aria-label*="맨 위"],[aria-label*="위로"],[title*="맨 위"],[title*="위로"]').forEach(node=>node.remove());
   };
 
-  let queued=false;const apply=()=>{queued=false;normalize()};const queue=()=>{if(queued)return;queued=true;requestAnimationFrame(apply)};
-  const observer=new MutationObserver(queue);observer.observe(document.documentElement,{childList:true,subtree:true});mobile.addEventListener?.('change',queue);addEventListener('resize',queue,{passive:true});
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply,{once:true});else apply();[120,400,900,1800,3500].forEach(delay=>setTimeout(apply,delay));
+  let queued=false;const apply=()=>{queued=false;normalize();};const queue=()=>{if(queued)return;queued=true;requestAnimationFrame(apply);};
+  const observer=new MutationObserver(queue);observer.observe(document.documentElement,{childList:true,subtree:true});const onResize=queue;addEventListener('resize',onResize,{passive:true});mobile.addEventListener?.('change',queue);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply,{once:true});else apply();
+  const timers=[120,400,900,1800,3500].map(delay=>setTimeout(apply,delay));const stopTimer=setTimeout(()=>{apply();observer.disconnect();},5000);
+  window.addEventListener('pagehide',()=>{timers.forEach(clearTimeout);clearTimeout(stopTimer);observer.disconnect();removeEventListener('resize',onResize);mobile.removeEventListener?.('change',queue);},{once:true});
 })();
