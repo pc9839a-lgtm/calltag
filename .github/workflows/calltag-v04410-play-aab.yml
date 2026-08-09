@@ -1,0 +1,162 @@
+name: CallTag 0.44.10 signed Play AAB
+# Artifact-only workflow. Never merge this branch into product.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - agent/play-internal-v0430-run2
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  signed-play-aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify code88 security release contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          absent() {
+            local pattern="$1"
+            shift
+            if grep -R -F -- "$pattern" "$@"; then
+              echo "::error::Forbidden release pattern found: $pattern"
+              exit 1
+            fi
+          }
+
+          grep -F 'versionCode 88' app/build.gradle
+          grep -F "versionName '0.44.10'" app/build.gradle
+          grep -F 'targetSdk 36' app/build.gradle
+
+          grep -F 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
+          grep -F 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
+          grep -F 'android:networkSecurityConfig="@xml/network_security_config"' app/src/main/AndroidManifest.xml
+          grep -F 'cleartextTrafficPermitted="false"' app/src/main/res/xml/network_security_config.xml
+          absent 'android.permission.WRITE_CONTACTS' app/src/main/AndroidManifest.xml
+          absent 'android.permission.WRITE_CALL_LOG' app/src/main/AndroidManifest.xml
+          absent 'android.permission.USE_FULL_SCREEN_INTENT' app/src/main/AndroidManifest.xml
+          grep -A2 -F 'android:name=".LoginActivity"' app/src/main/AndroidManifest.xml | grep -F 'android:exported="false"'
+          grep -F 'android:name=".GoogleAuthCallbackActivity"' app/src/main/AndroidManifest.xml
+          grep -F 'GoogleAuthFlowStore.begin(this)' app/src/main/java/kr/pagero/calltag/LoginActivity.java
+          grep -F 'GoogleAuthFlowStore.consumeIfActive(this)' app/src/main/java/kr/pagero/calltag/GoogleAuthCallbackActivity.java
+          grep -F 'android:name=".BootReceiver" android:enabled="true" android:exported="false"' app/src/main/AndroidManifest.xml
+          grep -F 'WindowManager.LayoutParams.FLAG_SECURE' app/src/main/java/kr/pagero/calltag/CallerOverlayManager.java
+          absent 'getStringExtra("referralCode")' app/src/main/java/kr/pagero/calltag/PendingReferralStore.java
+          absent 'FLAG_MUTABLE' app/src/main/java
+          absent 'addJavascriptInterface' app/src/main/java
+          absent 'HostnameVerifier' app/src/main/java
+          absent 'X509TrustManager' app/src/main/java
+          absent 'MODE_WORLD_' app/src/main/java
+          absent 'http://' app/src/main/java
+
+          grep -F 'android.permission.READ_CALL_LOG' app/src/main/AndroidManifest.xml
+          absent 'values.put(CallLog.Calls.CACHED_NAME' app/src/main/java
+          absent 'Manifest.permission.WRITE_CALL_LOG' app/src/main/java
+          absent 'createAppRawContact' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
+          absent 'StructuredName.DISPLAY_NAME' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
+
+          absent '.setFullScreenIntent' app/src/main/java
+          grep -F 'android:theme="@style/Theme.CallTag.PostCallPopup"' app/src/main/AndroidManifest.xml
+          grep -F 'HARD_MAX_SCREEN_HEIGHT_RATIO = 0.55f' app/src/main/java/kr/pagero/calltag/PostCallPopupWindowInstaller.java
+          grep -F 'activity_not_visible_notification_only' app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java
+          absent 'app.startActivity' app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java
+
+          absent 'DatePickerDialog' app/src/main/java
+          absent 'TimePickerDialog' app/src/main/java
+          absent 'android.R.layout.simple_spinner_' app/src/main/java
+          grep -F '통합권 7일 추가, 총 14일 무료' app/src/main/java/kr/pagero/calltag/LoginActivity.java
+          grep -F '기본 7일 · 추천인 입력 시 +7일 · 총 14일' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Restore verified Play upload key
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SECRET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
+          SECRET_UPLOAD_STORE_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_STORE_PASSWORD }}
+          SECRET_UPLOAD_KEY_ALIAS: ${{ secrets.CALLTAG_UPLOAD_KEY_ALIAS }}
+          SECRET_UPLOAD_KEY_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_KEY_PASSWORD }}
+          ORIGINAL_UPLOAD_KEY_ARTIFACT_ID: '8922836146'
+          EXPECTED_UPLOAD_KEY_SHA256: 'C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7'
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/calltag-upload.jks"
+          configured=0
+          for value in "$SECRET_UPLOAD_KEYSTORE_BASE64" "$SECRET_UPLOAD_STORE_PASSWORD" "$SECRET_UPLOAD_KEY_ALIAS" "$SECRET_UPLOAD_KEY_PASSWORD"
+          do
+            [ -n "$value" ] && configured=$((configured + 1))
+          done
+          if [ "$configured" -ne 0 ] && [ "$configured" -ne 4 ]; then
+            echo '::error::Upload-key Secrets are only partially configured.'
+            exit 1
+          fi
+          if [ "$configured" -eq 4 ]; then
+            printf '%s' "$SECRET_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+            STORE_PASSWORD="$SECRET_UPLOAD_STORE_PASSWORD"
+            KEY_ALIAS="$SECRET_UPLOAD_KEY_ALIAS"
+            KEY_PASSWORD="$SECRET_UPLOAD_KEY_PASSWORD"
+          else
+            mkdir -p "$RUNNER_TEMP/original-upload-key"
+            gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ORIGINAL_UPLOAD_KEY_ARTIFACT_ID}/zip" > "$RUNNER_TEMP/original-upload-key.zip"
+            unzip -q "$RUNNER_TEMP/original-upload-key.zip" -d "$RUNNER_TEMP/original-upload-key"
+            cp "$RUNNER_TEMP/original-upload-key/calltag-upload.jks" "$KEYSTORE"
+            CREDENTIALS="$RUNNER_TEMP/original-upload-key/CALLTAG_UPLOAD_KEY_CREDENTIALS.txt"
+            STORE_PASSWORD="$(grep '^CALLTAG_UPLOAD_STORE_PASSWORD=' "$CREDENTIALS" | cut -d= -f2-)"
+            KEY_ALIAS="$(grep '^CALLTAG_UPLOAD_KEY_ALIAS=' "$CREDENTIALS" | cut -d= -f2-)"
+            KEY_PASSWORD="$(grep '^CALLTAG_UPLOAD_KEY_PASSWORD=' "$CREDENTIALS" | cut -d= -f2-)"
+          fi
+          test -s "$KEYSTORE"
+          echo "::add-mask::$STORE_PASSWORD"
+          echo "::add-mask::$KEY_PASSWORD"
+          chmod 600 "$KEYSTORE"
+          keytool -list -v -keystore "$KEYSTORE" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" \
+            | grep -E 'Alias name:|Owner:|SHA1:|SHA256:' > "$RUNNER_TEMP/upload-key-fingerprints.txt"
+          grep -F "SHA256: $EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/upload-key-fingerprints.txt"
+          {
+            echo "CALLTAG_UPLOAD_KEYSTORE_PATH=$KEYSTORE"
+            echo "CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD"
+            echo "CALLTAG_UPLOAD_KEY_ALIAS=$KEY_ALIAS"
+            echo "CALLTAG_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Build signed Play release AAB
+        run: gradle :app:bundleRelease --no-daemon --stacktrace
+
+      - name: Verify and stage signed AAB
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAB='app/build/outputs/bundle/release/app-release.aab'
+          test -s "$AAB"
+          jarsigner -verify -certs "$AAB"
+          OUT="$RUNNER_TEMP/calltag-v0.44.10-play"
+          mkdir -p "$OUT"
+          cp "$AAB" "$OUT/CallTag-v0.44.10-code88.aab"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04410_AAB_SHA256.txt"
+          cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
+
+      - name: Upload Play Console AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: calltag-v0.44.10-code88-play-aab
+          path: ${{ runner.temp }}/calltag-v0.44.10-play
+          retention-days: 90
+          if-no-files-found: error
