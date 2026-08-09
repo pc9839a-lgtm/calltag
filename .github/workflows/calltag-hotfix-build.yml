@@ -1,170 +1,107 @@
-name: Apply CallTag 0.44.8 calendar time picker patch
+name: CallTag 0.44.8 calendar time picker regression
 
 on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/play-internal-v0430-run2
   pull_request:
     branches:
       - agent/play-internal-v0430-run2
 
-permissions:
-  contents: write
-
 jobs:
-  apply-patch:
+  android-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 50
     steps:
-      - name: Checkout feature branch
+      - name: Checkout
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          fetch-depth: 0
 
-      - name: Restore base CI and apply focused patch
+      - name: Verify 0.44.8 contracts
         shell: bash
         run: |
           set -euo pipefail
-          git fetch origin agent/play-internal-v0430-run2
-          git show origin/agent/play-internal-v0430-run2:.github/workflows/calltag-hotfix-build.yml > /tmp/base-ci.yml
-          cp /tmp/base-ci.yml .github/workflows/calltag-hotfix-build.yml
-          python3 - <<'PY'
-          from pathlib import Path
+          assert_absent() {
+            local pattern="$1"
+            shift
+            if grep -R -F -- "$pattern" "$@"; then
+              echo "::error::Forbidden pattern found: $pattern"
+              exit 1
+            fi
+          }
 
-          def replace_once(path, old, new):
-              p = Path(path)
-              text = p.read_text(encoding='utf-8')
-              if old not in text:
-                  raise SystemExit(f'Expected source block not found: {path}')
-              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+          grep -F 'versionCode 86' app/build.gradle
+          grep -F "versionName '0.44.8'" app/build.gradle
+          grep -F 'targetSdk 36' app/build.gradle
 
-          main = 'app/src/main/java/kr/pagero/calltag/MainActivity.java'
-          time_choice = 'app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java'
-          gradle = 'app/build.gradle'
-          ci = '.github/workflows/calltag-hotfix-build.yml'
+          # Play-safe phone CRM contract remains unchanged.
+          grep -F 'android.permission.READ_CALL_LOG' app/src/main/AndroidManifest.xml
+          assert_absent 'android.permission.WRITE_CALL_LOG' app/src/main/AndroidManifest.xml
+          test ! -e app/src/main/java/kr/pagero/calltag/CallLogMemoSyncManager.java
+          assert_absent 'values.put(CallLog.Calls.CACHED_NAME' app/src/main/java
+          assert_absent 'CallLogMemoSyncManager' app/src/main/java app/src/androidTest
+          assert_absent 'Manifest.permission.WRITE_CALL_LOG' app/src/main/java
+          assert_absent 'addIfMissing(missing, Manifest.permission.WRITE_CONTACTS)' app/src/main/java/kr/pagero/calltag/InitialPermissionActivity.java
+          assert_absent 'createAppRawContact' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
+          assert_absent 'TYPE_KEEP_TOGETHER' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
+          assert_absent 'StructuredName.DISPLAY_NAME' app/src/main/java/kr/pagero/calltag/ContactNameSyncManager.java
+          grep -F 'android.telecom.CallScreeningService' app/src/main/AndroidManifest.xml
+          grep -F 'RoleManager.ROLE_CALL_SCREENING' app/src/main/java/kr/pagero/calltag/CallerIdSetupActivity.java
+          grep -F 'CallProcessingLedger' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
+          grep -F 'recoverCallsAfterRestart' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
+          grep -F 'CallInteractionDeduper.insertOnce' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
 
-          replace_once(main, 'import android.app.TimePickerDialog;\n', '')
+          # Signup-only 7 + 7 referral contract remains.
+          grep -F 'referralCode' app/src/main/java/kr/pagero/calltag/AuthApiClient.java
+          grep -F '통합권 7일 추가, 총 14일 무료' app/src/main/java/kr/pagero/calltag/LoginActivity.java
+          grep -F '추천인 코드는 회원가입 시 1회만 입력' app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java
+          assert_absent '기본 3일' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
+          assert_absent '추천 등록 시 +5일' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
+          grep -F '기본 7일 · 추천인 입력 시 +7일 · 총 14일' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
 
-          replace_once(main, '''    private void showNewTaskTimePicker(Customer customer, String title, String taskType) {
-        new TimePickerDialog(this, (view, hourOfDay, minute) -> {
-            Calendar due = (Calendar) selectedCalendarDate.clone();
-            due.set(Calendar.HOUR_OF_DAY, hourOfDay);
-            due.set(Calendar.MINUTE, minute);
-            due.set(Calendar.SECOND, 0);
-            due.set(Calendar.MILLISECOND, 0);
-            db.insertFollowUpTask(customer.id, 0L, taskType, title, due.getTimeInMillis());
-            long now = System.currentTimeMillis();
-            db.insertInteraction(customer.id, "SCHEDULE_CREATE", now, now, 0L,
-                    "SCHEDULED", title);
-            Toast.makeText(this, "할 일을 추가했습니다.", Toast.LENGTH_SHORT).show();
-            refreshAll();
-        }, 10, 0, false).show();
-    }
-''', '''    private void showNewTaskTimePicker(Customer customer, String title, String taskType) {
-        TaskTimeChoiceDialog.show(this, 10, 0, "이 시간으로 등록", (hourOfDay, minute) -> {
-            Calendar due = (Calendar) selectedCalendarDate.clone();
-            due.set(Calendar.HOUR_OF_DAY, hourOfDay);
-            due.set(Calendar.MINUTE, minute);
-            due.set(Calendar.SECOND, 0);
-            due.set(Calendar.MILLISECOND, 0);
-            db.insertFollowUpTask(customer.id, 0L, taskType, title, due.getTimeInMillis());
-            long now = System.currentTimeMillis();
-            db.insertInteraction(customer.id, "SCHEDULE_CREATE", now, now, 0L,
-                    "SCHEDULED", title);
-            Toast.makeText(this, "할 일을 추가했습니다.", Toast.LENGTH_SHORT).show();
-            refreshAll();
-        });
-    }
-''')
+          # PageRo connection and service guide remain split.
+          grep -F 'PageroConnectionCompactActivity.class' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
+          grep -F 'PageroUseGuideActivity.class' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
+          assert_absent '이렇게 사용하세요' app/src/main/java/kr/pagero/calltag/PageroConnectionCompactActivity.java
+          grep -F 'https://calltag.pagero.kr/web/settlement' app/src/main/java/kr/pagero/calltag/PartnerSettlementActivity.java
 
-          replace_once(main, '''            new TimePickerDialog(this, (timeView, hourOfDay, minute) -> {
-                changed.set(Calendar.HOUR_OF_DAY, hourOfDay);
-                changed.set(Calendar.MINUTE, minute);
-                db.updateTaskDue(task.id, changed.getTimeInMillis());
-                selectedCalendarDate.setTimeInMillis(changed.getTimeInMillis());
-                visibleCalendarMonth.setTimeInMillis(changed.getTimeInMillis());
-                visibleCalendarMonth.set(Calendar.DAY_OF_MONTH, 1);
-                clearTime(visibleCalendarMonth);
-                long now = System.currentTimeMillis();
-                db.insertInteraction(task.customerId, "SCHEDULE_CHANGE", now, now, 0L,
-                        "SCHEDULED", task.title + " 일정 변경");
-                Toast.makeText(this, "일정을 변경했습니다.", Toast.LENGTH_SHORT).show();
-                refreshAll();
-            }, current.get(Calendar.HOUR_OF_DAY), current.get(Calendar.MINUTE), false).show();
-''', '''            TaskTimeChoiceDialog.show(this,
-                    current.get(Calendar.HOUR_OF_DAY), current.get(Calendar.MINUTE),
-                    "이 시간으로 변경", (hourOfDay, minute) -> {
-                changed.set(Calendar.HOUR_OF_DAY, hourOfDay);
-                changed.set(Calendar.MINUTE, minute);
-                db.updateTaskDue(task.id, changed.getTimeInMillis());
-                selectedCalendarDate.setTimeInMillis(changed.getTimeInMillis());
-                visibleCalendarMonth.setTimeInMillis(changed.getTimeInMillis());
-                visibleCalendarMonth.set(Calendar.DAY_OF_MONTH, 1);
-                clearTime(visibleCalendarMonth);
-                long now = System.currentTimeMillis();
-                db.insertInteraction(task.customerId, "SCHEDULE_CHANGE", now, now, 0L,
-                        "SCHEDULED", task.title + " 일정 변경");
-                Toast.makeText(this, "일정을 변경했습니다.", Toast.LENGTH_SHORT).show();
-                refreshAll();
-            });
-''')
+          # Home pending-call action remains a real task action.
+          grep -F 'HomeTaskEditorActivity.class' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
+          assert_absent 'PostCallActivity.class' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
+          grep -F 'actionButton("삭제"' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
+          grep -F '최근 메모 · ' app/src/main/java/kr/pagero/calltag/PendingCallSectionView.java
 
-          replace_once(time_choice, '''    public static void show(Context context, Listener listener) {
-        Calendar now = Calendar.getInstance();
-        int hour24 = now.get(Calendar.HOUR_OF_DAY);
-        int minute = ((now.get(Calendar.MINUTE) + 9) / 10) * 10;
-        if (minute >= 60) {
-            minute = 0;
-            hour24 = (hour24 + 1) % 24;
-        }
+          # Post-call is ALWAYS one compact popup. Full-screen notification/activity paths are forbidden.
+          assert_absent 'android.permission.USE_FULL_SCREEN_INTENT' app/src/main/AndroidManifest.xml
+          assert_absent '.setFullScreenIntent' app/src/main/java
+          grep -F 'android:theme="@style/Theme.CallTag.PostCallPopup"' app/src/main/AndroidManifest.xml
+          grep -F '<item name="android:windowIsFloating">true</item>' app/src/main/res/values/styles.xml
+          grep -F '<item name="android:backgroundDimEnabled">false</item>' app/src/main/res/values/styles.xml
+          grep -F 'PostCallPopupWindowInstaller.install(this);' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
+          grep -F 'HARD_MAX_SCREEN_HEIGHT_RATIO = 0.55f' app/src/main/java/kr/pagero/calltag/PostCallPopupWindowInstaller.java
+          grep -F 'window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN' app/src/main/java/kr/pagero/calltag/PostCallPopupWindowInstaller.java
+          grep -F 'activity_not_visible_notification_only' app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java
+          assert_absent 'app.startActivity' app/src/main/java/kr/pagero/calltag/PostCallDeliveryGuard.java
 
-        State state = new State();
-        state.pm = hour24 >= 12;
-        int hour12 = hour24 % 12;
-        state.hour = hour12 == 0 ? 12 : hour12;
-        state.minute = minute;
-''', '''    public static void show(Context context, Listener listener) {
-        Calendar now = Calendar.getInstance();
-        show(context, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE),
-                "이 시간으로 등록", listener);
-    }
+          # Customer Add mirrors raw device CallLog order.
+          grep -F 'CallLog.Calls.DATE + " DESC"' app/src/main/java/kr/pagero/calltag/CustomerAddActivity.java
+          assert_absent 'seen.contains' app/src/main/java/kr/pagero/calltag/CustomerAddActivity.java
+          assert_absent 'if (db.findByPhone(number) != null) continue' app/src/main/java/kr/pagero/calltag/CustomerAddActivity.java
 
-    public static void show(Context context, int initialHourOfDay, int initialMinute,
-                            String actionLabel, Listener listener) {
-        int hour24 = Math.max(0, Math.min(23, initialHourOfDay));
-        int minute = ((Math.max(0, Math.min(59, initialMinute)) + 5) / 10) * 10;
-        if (minute >= 60) {
-            minute = 0;
-            hour24 = (hour24 + 1) % 24;
-        }
+          # Statistics tooltip numbers must be high-contrast and explicit.
+          grep -F 'tooltipPaint.setColor(getContext().getColor(R.color.surface_soft))' app/src/main/java/kr/pagero/calltag/StatsTrendChartView.java
+          grep -F 'tooltipTextPaint.setColor(getContext().getColor(R.color.text_primary))' app/src/main/java/kr/pagero/calltag/StatsTrendChartView.java
+          grep -F '"통화 " + calls[index] + "건  ·  페이지로 " + leads[index] + "명"' app/src/main/java/kr/pagero/calltag/StatsTrendChartView.java
 
-        State state = new State();
-        state.pm = hour24 >= 12;
-        int hour12 = hour24 % 12;
-        state.hour = hour12 == 0 ? 12 : hour12;
-        state.minute = minute;
-''')
+          # Billing and data protection use CallTag dark UI instead of standalone light/system UI.
+          assert_absent 'Color.rgb(248, 250, 252)' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
+          assert_absent 'Color.WHITE;' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
+          grep -F 'private static final int BACKGROUND = Color.rgb(16, 17, 19)' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
+          grep -F 'root.setBackgroundColor(getColor(R.color.background))' app/src/main/java/kr/pagero/calltag/CallTagSyncStatusActivity.java
+          grep -F 'actionButton("지금 동기화"' app/src/main/java/kr/pagero/calltag/CallTagSyncStatusActivity.java
+          assert_absent 'new Button(this)' app/src/main/java/kr/pagero/calltag/CallTagSyncStatusActivity.java
 
-          replace_once(time_choice,
-              '        TextView done = action(context, "이 시간으로 등록", true);\n',
-              '        String doneLabel = actionLabel == null || actionLabel.trim().isEmpty()\n'
-              '                ? "확인" : actionLabel.trim();\n'
-              '        TextView done = action(context, doneLabel, true);\n')
-
-          replace_once(gradle, '        versionCode 85\n', '        versionCode 86\n')
-          replace_once(gradle, "        versionName '0.44.7'\n", "        versionName '0.44.8'\n")
-
-          replace_once(ci, 'name: CallTag 0.44.7 post-call compact regression\n',
-                           'name: CallTag 0.44.8 calendar time picker regression\n')
-          replace_once(ci, '      - name: Verify 0.44.7 contracts\n',
-                           '      - name: Verify 0.44.8 contracts\n')
-          replace_once(ci,
-              "          grep -F 'versionCode 85' app/build.gradle\n          grep -F \"versionName '0.44.7'\" app/build.gradle\n",
-              "          grep -F 'versionCode 86' app/build.gradle\n          grep -F \"versionName '0.44.8'\" app/build.gradle\n")
-          replace_once(ci, '''          # Task time selection uses CallTag chips, never the system AM/PM TimePicker in Home editor.
-          test -e app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
-          grep -F 'TaskTimeChoiceDialog.show' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
-          assert_absent 'TimePickerDialog' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
-          grep -F 'TextView am = choice(context, "오전")' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
-          grep -F 'TextView pm = choice(context, "오후")' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
-''', '''          # Task time selection uses CallTag chips everywhere; system TimePicker is forbidden.
+          # Task time selection uses CallTag chips everywhere; system TimePicker is forbidden.
           test -e app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
           grep -F 'TaskTimeChoiceDialog.show' app/src/main/java/kr/pagero/calltag/HomeTaskEditorActivity.java
           grep -F 'TaskTimeChoiceDialog.show(this, 10, 0, "이 시간으로 등록"' app/src/main/java/kr/pagero/calltag/MainActivity.java
@@ -173,18 +110,73 @@ jobs:
           grep -F 'TextView am = choice(context, "오전")' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
           grep -F 'TextView pm = choice(context, "오후")' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
           grep -F 'public static void show(Context context, int initialHourOfDay, int initialMinute' app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java
-''')
-          replace_once(ci, '          name: calltag-v0.44.7-code85-debug-apk\n',
-                           '          name: calltag-v0.44.8-code86-debug-apk\n')
-          replace_once(ci, '          name: calltag-v0.44.7-code85-instrumentation-results\n',
-                           '          name: calltag-v0.44.8-code86-instrumentation-results\n')
-          PY
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add app/build.gradle \
-            app/src/main/java/kr/pagero/calltag/MainActivity.java \
-            app/src/main/java/kr/pagero/calltag/TaskTimeChoiceDialog.java \
-            .github/workflows/calltag-hotfix-build.yml
-          git commit -m "Unify calendar time selection with CallTag UI"
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+          # Group / bulk-message UI uses CallTag dark components.
+          grep -F 'CallTagSpinnerAdapter' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
+          grep -F 'CallTagDialogStyler.apply(dialog)' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
+          assert_absent 'simple_spinner_dropdown_item' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
+          grep -F 'bg_selected_row' app/src/main/java/kr/pagero/calltag/GroupCampaignHubActivity.java
+
+          # Smart groups no longer expose or evaluate transaction status.
+          assert_absent '거래 여부' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
+          assert_absent '거래 고객만' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
+          assert_absent '미거래 고객만' app/src/main/java/kr/pagero/calltag/MessageGroupActivity.java
+          assert_absent 'customer.firstTransactionAt' app/src/main/java/kr/pagero/calltag/MessageGroupStore.java
+          grep -F 'values.put("transaction_mode", TRANSACTION_ANY)' app/src/main/java/kr/pagero/calltag/MessageGroupStore.java
+
+          # Status bar and core layout regressions remain fixed.
+          grep -F 'controller.show(WindowInsets.Type.statusBars()' app/src/main/java/kr/pagero/calltag/SystemBarInsetsInstaller.java
+          grep -F 'controller.setSystemBarsAppearance(0, lightMask)' app/src/main/java/kr/pagero/calltag/SystemBarInsetsInstaller.java
+          assert_absent 'fitsSystemWindows="true"' app/src/main/res/layout/activity_main.xml
+          assert_absent 'RecentCallHistoryView' app/src/main/res/layout/section_consultations.xml
+
+          # Post-call auto-message remains a large standalone entry in More.
+          grep -F 'featuredAutomationCard()' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
+          grep -F 'title.setText("통화 후 자동문자")' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
+          assert_absent 'messages.add("자동문자"' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Assemble debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: calltag-v0.44.8-code86-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run phone CRM regression tests on Android 16
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: gradle :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Upload instrumentation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: calltag-v0.44.8-code86-instrumentation-results
+          path: |
+            app/build/reports/androidTests/connected/**
+            app/build/outputs/androidTest-results/connected/**
+          if-no-files-found: ignore
