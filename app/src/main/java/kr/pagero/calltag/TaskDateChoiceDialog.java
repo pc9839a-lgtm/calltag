@@ -13,7 +13,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Locale;
 
-/** CallTag 전용 날짜 선택 UI. OEM DatePickerDialog를 사용하지 않는다. */
+/** CallTag 전용 날짜 선택 UI. OEM 날짜 선택기를 사용하지 않는다. */
 public final class TaskDateChoiceDialog {
     public interface Listener {
         void onSelected(int year, int month, int dayOfMonth);
@@ -22,8 +22,18 @@ public final class TaskDateChoiceDialog {
     private TaskDateChoiceDialog() {}
 
     public static void show(Context context, Calendar initial, String actionLabel, Listener listener) {
+        show(context, initial, null, actionLabel, listener);
+    }
+
+    public static void show(Context context, Calendar initial, Calendar maximumDate,
+                            String actionLabel, Listener listener) {
         Calendar safeInitial = initial == null ? Calendar.getInstance() : (Calendar) initial.clone();
         clearTime(safeInitial);
+        Calendar safeMaximum = maximumDate == null ? null : (Calendar) maximumDate.clone();
+        if (safeMaximum != null) clearTime(safeMaximum);
+        if (safeMaximum != null && safeInitial.after(safeMaximum)) {
+            safeInitial.setTimeInMillis(safeMaximum.getTimeInMillis());
+        }
 
         State state = new State();
         state.selected = (Calendar) safeInitial.clone();
@@ -125,19 +135,24 @@ public final class TaskDateChoiceDialog {
                     clearTime(date);
                     boolean selected = sameDay(date, state.selected);
                     boolean isToday = sameDay(date, today);
+                    boolean disabled = safeMaximum != null && date.after(safeMaximum);
 
                     TextView day = choice(context, String.valueOf(dayNumber));
-                    day.setTextColor(context.getColor(selected
-                            ? android.R.color.white
+                    day.setTextColor(context.getColor(disabled
+                            ? R.color.text_muted
+                            : selected ? android.R.color.white
                             : column == 0 ? R.color.danger
                             : column == 6 ? R.color.primary : R.color.text_primary));
+                    day.setAlpha(disabled ? 0.45f : 1f);
                     day.setBackgroundResource(selected
                             ? R.drawable.bg_primary_button
                             : isToday ? R.drawable.bg_selected_row : R.drawable.bg_secondary_button);
-                    day.setOnClickListener(v -> {
-                        state.selected.setTimeInMillis(date.getTimeInMillis());
-                        render[0].run();
-                    });
+                    if (!disabled) {
+                        day.setOnClickListener(v -> {
+                            state.selected.setTimeInMillis(date.getTimeInMillis());
+                            render[0].run();
+                        });
+                    }
                     LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, wrap(), 1f);
                     if (column > 0) params.leftMargin = dp(context, 4);
                     row.addView(day, params);

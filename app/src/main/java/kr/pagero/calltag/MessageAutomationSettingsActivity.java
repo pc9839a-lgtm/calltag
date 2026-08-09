@@ -9,7 +9,6 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -219,8 +218,9 @@ public final class MessageAutomationSettingsActivity extends Activity {
                 .setNegativeButton("취소", null)
                 .setPositiveButton("적용", null)
                 .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
+        dialog.setOnShowListener(ignored -> {
+            CallTagDialogStyler.apply(dialog);
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                     int value = parse(input, -1);
                     if (value < 1 || value > 30) {
                         Toast.makeText(this, "1~30일 사이로 입력해주세요.", Toast.LENGTH_SHORT).show();
@@ -229,7 +229,8 @@ public final class MessageAutomationSettingsActivity extends Activity {
                     delayDaysValue = value;
                     renderValues();
                     dialog.dismiss();
-                }));
+                });
+        });
         dialog.show();
     }
 
@@ -278,8 +279,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
         List<String> labels = new ArrayList<>();
         for (SimProfileManager.Profile profile : profiles) labels.add(profile.label());
         if (labels.isEmpty()) labels.add("기본 문자 회선");
-        line.setAdapter(new ArrayAdapter<>(this,
-                android.R.layout.simple_spinner_dropdown_item, labels));
+        line.setAdapter(new CallTagSpinnerAdapter(this, labels));
         line.setBackgroundResource(R.drawable.bg_secondary_button);
         line.setPadding(dp(12), 0, dp(12), 0);
         for (int i = 0; i < profiles.size(); i++) {
@@ -290,7 +290,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
         }
         panel.addView(line, topMarginHeight(6, 50));
 
-        AlertDialog dialog = new AlertDialog.Builder(this)
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("공통 발송 설정")
                 .setView(panel)
                 .setNegativeButton("취소", null)

@@ -2,7 +2,6 @@ package kr.pagero.calltag;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.DatePickerDialog;
 import android.content.Context;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
@@ -255,14 +254,15 @@ public final class CustomerStatsView extends LinearLayout {
             endButton.setText(dateRowText("종료일", end.getTimeInMillis()));
         }));
 
-        AlertDialog dialog = new AlertDialog.Builder(activity)
+        AlertDialog dialog = new AlertDialog.Builder(activity, R.style.Theme_CallTag_Dialog)
                 .setTitle("조회 기간 선택")
                 .setView(panel)
                 .setNegativeButton("취소", null)
                 .setPositiveButton("적용", null)
                 .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
+        dialog.setOnShowListener(ignored -> {
+            CallTagDialogStyler.apply(dialog);
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                     if (end.before(start)) {
                         showRangeWarning("종료일은 시작일보다 빠를 수 없습니다.");
                         return;
@@ -278,7 +278,8 @@ public final class CustomerStatsView extends LinearLayout {
                     selectedDays = -1;
                     dialog.dismiss();
                     renderDashboard();
-                }));
+                });
+        });
         dialog.show();
     }
 
@@ -299,22 +300,25 @@ public final class CustomerStatsView extends LinearLayout {
     }
 
     private void openDatePicker(Activity activity, Calendar initial, DateSelected listener) {
-        DatePickerDialog picker = new DatePickerDialog(activity, (view, year, month, day) -> {
-            Calendar selected = Calendar.getInstance();
-            selected.set(year, month, day, 0, 0, 0);
-            selected.set(Calendar.MILLISECOND, 0);
-            listener.onSelected(selected.getTimeInMillis());
-        }, initial.get(Calendar.YEAR), initial.get(Calendar.MONTH), initial.get(Calendar.DAY_OF_MONTH));
-        picker.getDatePicker().setMaxDate(System.currentTimeMillis());
-        picker.show();
+        Calendar maximum = Calendar.getInstance();
+        setEndOfDay(maximum);
+        TaskDateChoiceDialog.show(activity, initial, maximum, "이 날짜로 선택",
+                (year, month, day) -> {
+                    Calendar selected = Calendar.getInstance();
+                    selected.set(year, month, day, 0, 0, 0);
+                    selected.set(Calendar.MILLISECOND, 0);
+                    listener.onSelected(selected.getTimeInMillis());
+                });
     }
 
     private void showRangeWarning(String message) {
-        new AlertDialog.Builder(getContext())
+        AlertDialog dialog = new AlertDialog.Builder(getContext(), R.style.Theme_CallTag_Dialog)
                 .setTitle("조회 기간 확인")
                 .setMessage(message)
                 .setPositiveButton("확인", null)
-                .show();
+                .create();
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.show();
     }
 
     private void addHeroCard(int calls, int contacted, int newCustomers, int completed) {
