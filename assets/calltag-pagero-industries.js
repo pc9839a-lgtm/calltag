@@ -1,6 +1,6 @@
 (()=>{
-  if(document.documentElement.dataset.ctPageroIndustriesV2)return;
-  document.documentElement.dataset.ctPageroIndustriesV2='1';
+  if(document.documentElement.dataset.ctPageroIndustriesV3)return;
+  document.documentElement.dataset.ctPageroIndustriesV3='1';
 
   const css=`
     .ct-industry-showcase{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:28px!important;width:100%!important;max-width:1100px!important;min-height:0!important;margin:0 auto!important;padding:0!important;overflow:visible!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;text-align:left!important}
@@ -29,8 +29,8 @@
     const target=document.querySelector('#ct-pagero-intro .ct-v8-nocode .ct-pagero-builder,#ct-pagero-intro .ct-v8-nocode .ct-v8-flow,#ct-pagero-intro .ct-v8-nocode .ct-industry-showcase');
     if(!target)return false;
     document.querySelectorAll('style[data-ct-pagero-industries]').forEach(el=>el.remove());
-    const style=document.createElement('style');style.dataset.ctPageroIndustries='2';style.textContent=css;document.head.append(style);
+    const style=document.createElement('style');style.dataset.ctPageroIndustries='3';style.textContent=css;document.head.append(style);
     target.className='ct-industry-showcase';target.innerHTML=html;return true;
   };
-  if(!mount()){const observer=new MutationObserver(()=>{if(mount())observer.disconnect()});observer.observe(document.documentElement,{childList:true,subtree:true});setTimeout(()=>observer.disconnect(),10000)}
+  if(!mount()){const observer=new MutationObserver(()=>{if(mount())observer.disconnect();});observer.observe(document.documentElement,{childList:true,subtree:true});const timer=setTimeout(()=>observer.disconnect(),5000);window.addEventListener('pagehide',()=>{clearTimeout(timer);observer.disconnect();},{once:true});}
 })();
