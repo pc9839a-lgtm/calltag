@@ -1,0 +1,30 @@
+name: Trigger robust CallTag 0.44.9 patch
+
+on:
+  pull_request:
+    branches:
+      - agent/play-internal-v0430-run2
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'agent/calltag-v0449-dialog-small-screen'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/calltag-v0449-dialog-small-screen
+          fetch-depth: 0
+      - name: Apply patch
+        run: python .github/scripts/apply_v0449.py
+      - name: Commit patched source
+        shell: bash
+        run: |
+          git config user.name "calltag-patch-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git rm .github/workflows/v0449-apply-dialog-patch.yml .github/workflows/v0449-pr-trigger.yml .github/workflows/v0449-pr-trigger2.yml .github/scripts/apply_v0449.py
+          git add app .github/workflows/calltag-hotfix-build.yml
+          git commit -m "Unify dialogs and harden small-screen UI for 0.44.9"
+          git push origin HEAD:agent/calltag-v0449-dialog-small-screen
