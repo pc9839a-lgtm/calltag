@@ -1,0 +1,29 @@
+name: Run CallTag 0.44.9 AlertDialog theme sweep
+
+on:
+  pull_request:
+    branches:
+      - agent/play-internal-v0430-run2
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'agent/calltag-v0449-dialog-small-screen'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/calltag-v0449-dialog-small-screen
+          fetch-depth: 0
+      - name: Theme unstyled AlertDialogs
+        run: python .github/scripts/theme_alertdialogs_v0449.py
+      - name: Commit app source only
+        shell: bash
+        run: |
+          git config user.name "calltag-patch-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add app
+          git commit -m "Theme remaining AlertDialogs with CallTag dark UI"
+          git push origin HEAD:agent/calltag-v0449-dialog-small-screen
