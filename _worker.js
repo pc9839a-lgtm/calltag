@@ -2,8 +2,8 @@ const CANONICAL='https://calltag.pagero.kr/';
 const SEO_TITLE='콜태그 | 통화 후 고객관리·자동문자·페이지로 문의 연동';
 const SEO_DESCRIPTION='통화가 끝나면 고객을 태그하고 상담 상태·다음 할 일·재연락 일정을 관리하세요. 페이지로 랜딩페이지 문의 자동등록과 안내·후속문자까지 연결하는 Android 고객관리 서비스입니다.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
-const WORKER_VERSION='v125-runtime39';
-const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260809-runtime39';
+const WORKER_VERSION='v126-runtime40';
+const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260809-runtime40';
 
 const SEO_SCHEMA={
   '@context':'https://schema.org',
