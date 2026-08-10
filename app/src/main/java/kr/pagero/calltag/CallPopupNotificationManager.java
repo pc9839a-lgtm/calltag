@@ -74,7 +74,7 @@ public final class CallPopupNotificationManager {
         }
     }
 
-    public static boolean isPopupReady(Context context, String channelId) {
+    public static boolean canNotify(Context context, String channelId) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -83,6 +83,14 @@ public final class CallPopupNotificationManager {
         ensureChannels(context);
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager == null || !manager.areNotificationsEnabled()) return false;
+        NotificationChannel channel = manager.getNotificationChannel(channelId);
+        return channel != null && channel.getImportance() != NotificationManager.IMPORTANCE_NONE;
+    }
+
+    public static boolean isPopupReady(Context context, String channelId) {
+        if (!canNotify(context, channelId)) return false;
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager == null) return false;
         NotificationChannel channel = manager.getNotificationChannel(channelId);
         return channel != null && channel.getImportance() >= NotificationManager.IMPORTANCE_HIGH;
     }
@@ -173,7 +181,12 @@ public final class CallPopupNotificationManager {
             return true;
         }
 
-        ensureChannels(context);
+        if (!canNotify(context, POST_CALL_CHANNEL_ID)) {
+            CrashTelemetryStore.record(context, "post_call_notification", "not_deliverable",
+                    "call=" + record.id);
+            return false;
+        }
+
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager == null) return false;
 
