@@ -24,6 +24,6 @@
     <color name="success_soft">#1C1E22</color>
     <color name="warning">#A8ADB5</color>
     <color name="warning_soft">#1C1E22</color>
-    <color name="danger">#A8ADB5</color>
-    <color name="danger_soft">#1C1E22</color>
+    <color name="danger">#FF7A7A</color>
+    <color name="danger_soft">#2A2022</color>
 </resources>
