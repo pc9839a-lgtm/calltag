@@ -89,18 +89,24 @@ public final class PostCallRecoveryStore {
     }
 
     /**
-     * Re-delivers the newest undelivered review. In foreground we prefer the compact popup;
-     * from a background/service context we leave a high-priority notification instead.
+     * Re-delivers the newest undelivered review. A foreground Activity may safely open the compact
+     * review popup directly; a background/service context must use the notification-only route.
      */
     public static synchronized boolean recoverLatest(Context context, boolean preferActivity) {
         PendingReview pending = newestValid(context);
         if (pending == null) return false;
 
         Intent review = pending.reviewIntent(context);
-        if (preferActivity && PostCallActivityLauncher.launch(context, review)) {
-            CrashTelemetryStore.record(context, "post_call_recovery", "activity_retry",
-                    "call=" + pending.record.id);
-            return true;
+        if (preferActivity) {
+            try {
+                context.startActivity(PostCallActivityLauncher.prepareTarget(review));
+                CrashTelemetryStore.record(context, "post_call_recovery", "foreground_activity_retry",
+                        "call=" + pending.record.id);
+                return true;
+            } catch (RuntimeException error) {
+                CrashTelemetryStore.record(context, "post_call_recovery", "foreground_activity_failed",
+                        "call=" + pending.record.id + "," + error.getClass().getSimpleName());
+            }
         }
 
         CallTagDbHelper db = new CallTagDbHelper(context);
