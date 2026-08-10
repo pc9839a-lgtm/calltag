@@ -203,7 +203,7 @@ public final class PostCallExclusionActivity extends Activity {
         button.setTextColor(getColor(primary
                 ? R.color.button_primary_text : R.color.text_primary));
         button.setBackgroundResource(primary
-                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+                ? R.drawable.bg_primary_button_soft : R.drawable.bg_secondary_button);
         return button;
     }
 
