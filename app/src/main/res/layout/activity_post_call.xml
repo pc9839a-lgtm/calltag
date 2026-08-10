@@ -140,7 +140,7 @@
             android:layout_width="0dp"
             android:layout_height="48dp"
             android:layout_weight="0.58"
-            android:background="@drawable/bg_primary_button"
+            android:background="@drawable/bg_primary_button_soft"
             android:text="저장"
             android:textAllCaps="false"
             android:textColor="@color/button_primary_text"
