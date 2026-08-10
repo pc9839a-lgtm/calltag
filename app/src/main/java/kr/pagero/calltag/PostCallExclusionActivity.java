@@ -49,12 +49,13 @@ public final class PostCallExclusionActivity extends Activity {
         Button back = button("‹", false);
         back.setTextSize(28f);
         back.setTextColor(getColor(R.color.text_secondary));
+        back.setBackgroundResource(android.R.color.transparent);
         back.setOnClickListener(v -> finish());
-        header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
+        header.addView(back, new LinearLayout.LayoutParams(dp(44), dp(48)));
         TextView title = title("통화 후 팝업 제외", 22f);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        titleParams.leftMargin = dp(12);
+        titleParams.leftMargin = dp(8);
         header.addView(title, titleParams);
         root.addView(header, matchWrap());
 
