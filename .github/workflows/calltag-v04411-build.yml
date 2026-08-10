@@ -35,7 +35,14 @@ jobs:
           grep -F 'postCallExclude' app/src/main/res/layout/activity_post_call.xml
           grep -F '"통화 후 팝업 제외"' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
           grep -F 'PostCallExclusionActivity' app/src/main/AndroidManifest.xml
-          grep -F '#9198A2' app/src/main/res/drawable/bg_secondary_button.xml
+          grep -F '#343940' app/src/main/res/drawable/bg_secondary_button.xml
+          grep -F 'bg_primary_button_soft' app/src/main/res/layout/activity_post_call.xml
+          grep -F 'bg_blue_outline_button' app/src/main/res/layout/activity_post_call.xml
+          grep -F 'R.color.primary_muted' app/src/main/java/kr/pagero/calltag/PostCallExclusionActivity.java
+          if grep -F 'R.color.danger' app/src/main/java/kr/pagero/calltag/PostCallExclusionActivity.java; then
+            echo '::error::New popup-exclusion buttons must not use red danger styling.'
+            exit 1
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
