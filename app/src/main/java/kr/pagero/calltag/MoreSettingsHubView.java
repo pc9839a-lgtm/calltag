@@ -65,6 +65,10 @@ public final class MoreSettingsHubView extends LinearLayout {
         automationParams.topMargin = dp(14);
         addView(automation, automationParams);
 
+        Section calls = section("통화");
+        calls.add("통화 후 팝업 제외", "팝업 제외 번호 목록 차단 안뜨게",
+                PostCallExclusionActivity.class);
+
         Section messages = section("문자");
         messages.add("문자 문구·이미지", "자주 쓰는 안내문과 이미지", MessageTemplateLibraryActivity.class);
         messages.add("그룹·단체문자", "여러 고객에게 한 번에 보내기",
