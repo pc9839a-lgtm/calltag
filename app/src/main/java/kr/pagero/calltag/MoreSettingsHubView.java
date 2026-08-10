@@ -56,6 +56,10 @@ public final class MoreSettingsHubView extends LinearLayout {
         });
         addView(search, new LayoutParams(LayoutParams.MATCH_PARENT, dp(46)));
 
+        Section calls = section("통화");
+        calls.add("통화 후 팝업 제외", "통화 종료 팝업 제외 번호 목록 차단 안뜨게",
+                PostCallExclusionActivity.class);
+
         Section messages = section("문자");
         messages.add("문자 문구·이미지", "자주 쓰는 안내문과 이미지", MessageTemplateLibraryActivity.class);
         messages.add("자동문자", "통화 후 필요한 문자를 자동으로 보내기",
