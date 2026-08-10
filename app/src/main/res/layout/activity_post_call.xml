@@ -29,7 +29,7 @@
             android:id="@+id/postCallClose"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="@drawable/bg_secondary_button"
+            android:background="@android:color/transparent"
             android:gravity="center"
             android:text="×"
             android:textColor="@color/text_secondary"
