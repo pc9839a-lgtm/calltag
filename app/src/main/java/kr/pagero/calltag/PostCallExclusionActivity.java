@@ -84,13 +84,17 @@ public final class PostCallExclusionActivity extends Activity {
         phoneInput.setTextSize(15f);
         phoneInput.setBackgroundResource(R.drawable.bg_input);
         phoneInput.setPadding(dp(14), 0, dp(14), 0);
-        addCard.addView(phoneInput, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(48)) {{ topMargin = dp(12); }});
+        LinearLayout.LayoutParams phoneParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
+        phoneParams.topMargin = dp(12);
+        addCard.addView(phoneInput, phoneParams);
 
         Button add = button("팝업 제외에 추가", true);
         add.setOnClickListener(v -> addPhone());
-        addCard.addView(add, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(48)) {{ topMargin = dp(10); }});
+        LinearLayout.LayoutParams addParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(48));
+        addParams.topMargin = dp(10);
+        addCard.addView(add, addParams);
         root.addView(addCard, topMargin(16));
 
         TextView listTitle = title("제외 목록", 16f);
