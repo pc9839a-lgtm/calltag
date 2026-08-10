@@ -188,15 +188,20 @@ public final class CrashRegressionTest {
     }
 
     @Test
-    public void postCallLauncher_fromApplicationContext_reachesPopup() {
+    public void postCallLauncher_fromApplicationContext_defersToNotification() {
         long callId = System.currentTimeMillis() + 100_000L;
-        Intent intent = postCallIntent(callId, "01087012345");
-        assertTrue("background-style launcher request must be accepted",
+        String phone = "01087012345";
+        PostCallExclusionStore.remove(app, phone);
+        Intent intent = postCallIntent(callId, phone);
+
+        assertFalse("background launcher must defer to the compact notification",
                 PostCallActivityLauncher.launch(app, intent));
-        assertResumed(PostCallActivity.class);
-        assertTrue("launcher must receive a visible receipt",
+        SystemClock.sleep(150L);
+        Activity resumed = resumedActivity();
+        assertFalse("post-call Activity must not auto-open from the background",
+                resumed instanceof PostCallActivity);
+        assertFalse("notification-only routing must not forge an Activity visibility receipt",
                 PostCallLaunchReceipt.wasVisible(app, callId));
-        finishResumed(PostCallActivity.class);
     }
 
     @Test
