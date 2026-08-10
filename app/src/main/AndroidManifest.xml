@@ -49,6 +49,7 @@
         <activity android:name=".TemplateImageActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".MmsComposeActivity" android:excludeFromRecents="true" android:exported="false" android:noHistory="true" android:theme="@style/Theme.CallTag" />
         <activity android:name=".MessageExclusionActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".PostCallExclusionActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".ManualMessageActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".MessageHistoryActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".MessageGroupActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
@@ -109,9 +110,7 @@
             android:launchMode="singleTop"
             android:noHistory="false"
             android:screenOrientation="portrait"
-            android:showWhenLocked="true"
             android:theme="@style/Theme.CallTag.PostCallPopup"
-            android:turnScreenOn="true"
             android:windowSoftInputMode="adjustResize" />
         <activity android:name=".MainActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
 
@@ -183,6 +182,7 @@
 
         <receiver android:name=".ScheduledMessageReceiver" android:enabled="true" android:exported="false" />
         <receiver android:name=".SmsStatusReceiver" android:enabled="true" android:exported="false" />
+        <receiver android:name=".PostCallExclusionReceiver" android:enabled="true" android:exported="false" />
         <receiver android:name=".BootReceiver" android:enabled="true" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
