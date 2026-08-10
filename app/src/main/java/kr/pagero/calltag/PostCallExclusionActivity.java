@@ -48,6 +48,7 @@ public final class PostCallExclusionActivity extends Activity {
         header.setGravity(Gravity.CENTER_VERTICAL);
         Button back = button("‹", false);
         back.setTextSize(28f);
+        back.setTextColor(getColor(R.color.text_secondary));
         back.setOnClickListener(v -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(52), dp(52)));
         TextView title = title("통화 후 팝업 제외", 22f);
@@ -150,7 +151,8 @@ public final class PostCallExclusionActivity extends Activity {
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
             Button remove = button("해제", false);
-            remove.setTextColor(getColor(R.color.danger));
+            remove.setBackgroundResource(R.drawable.bg_blue_outline_button);
+            remove.setTextColor(getColor(R.color.primary_muted));
             remove.setOnClickListener(v -> confirmRemove(entry));
             row.addView(remove, new LinearLayout.LayoutParams(dp(78), dp(42)));
             card.addView(row, matchWrap());
@@ -198,7 +200,8 @@ public final class PostCallExclusionActivity extends Activity {
         button.setAllCaps(false);
         button.setTextSize(14f);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setTextColor(getColor(R.color.text_primary));
+        button.setTextColor(getColor(primary
+                ? R.color.button_primary_text : R.color.text_primary));
         button.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
         return button;
