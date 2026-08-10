@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#4389FF</color>
-    <color name="primary_dark">#2F73E8</color>
-    <color name="primary_soft">#17263B</color>
-    <color name="accent">#4389FF</color>
+    <color name="primary">#6F9FDF</color>
+    <color name="primary_dark">#5A86C2</color>
+    <color name="primary_soft">#182536</color>
+    <color name="primary_muted">#8BB3EA</color>
+    <color name="accent">#6F9FDF</color>
+    <color name="button_primary_surface">#EAF2FD</color>
+    <color name="button_primary_pressed">#DCE9FA</color>
+    <color name="button_primary_disabled">#AAB7C7</color>
+    <color name="button_primary_text">#173456</color>
 
     <color name="surface">#1C1E22</color>
     <color name="surface_soft">#16181B</color>
@@ -19,6 +24,6 @@
     <color name="success_soft">#1C1E22</color>
     <color name="warning">#A8ADB5</color>
     <color name="warning_soft">#1C1E22</color>
-    <color name="danger">#FF7A7A</color>
-    <color name="danger_soft">#2A2022</color>
+    <color name="danger">#A8ADB5</color>
+    <color name="danger_soft">#1C1E22</color>
 </resources>
