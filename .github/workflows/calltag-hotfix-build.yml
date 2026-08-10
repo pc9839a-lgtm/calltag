@@ -40,6 +40,8 @@ jobs:
           grep -F 'targetSdk 36' app/build.gradle
           grep -F 'android.permission.READ_CALL_LOG' app/src/main/AndroidManifest.xml
           assert_absent 'android.permission.WRITE_CALL_LOG' app/src/main/AndroidManifest.xml
+          assert_absent 'android.permission.USE_FULL_SCREEN_INTENT' app/src/main/AndroidManifest.xml
+          assert_absent 'android.permission.SYSTEM_ALERT_WINDOW' app/src/main/AndroidManifest.xml
           test ! -e app/src/main/java/kr/pagero/calltag/CallLogMemoSyncManager.java
           assert_absent 'values.put(CallLog.Calls.CACHED_NAME' app/src/main/java
           assert_absent 'CallLogMemoSyncManager' app/src/main/java app/src/androidTest
@@ -56,6 +58,7 @@ jobs:
           grep -F 'CallInteractionDeduper.insertOnce' app/src/main/java/kr/pagero/calltag/PostCallActivity.java
           grep -F 'CallDisposition.needsFollowUp' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
           grep -F 'postCallFieldsScroll' app/src/main/res/layout/activity_post_call.xml
+          grep -F 'android:visibility="gone"' app/src/main/res/layout/activity_post_call.xml
           grep -F 'todayWindow()' app/src/main/java/kr/pagero/calltag/MainActivityCardInteractionFix.java
           grep -F 'referralCode' app/src/main/java/kr/pagero/calltag/AuthApiClient.java
           grep -F '통합권 7일 추가, 총 14일 무료' app/src/main/java/kr/pagero/calltag/LoginActivity.java
@@ -75,14 +78,17 @@ jobs:
           assert_absent 'RecentCallHistoryView' app/src/main/res/layout/section_consultations.xml
           grep -F 'onTouchEvent(MotionEvent event)' app/src/main/java/kr/pagero/calltag/StatsTrendChartView.java
 
-          # v0.44.4 post-call policy and recovery contracts.
-          grep -F 'notification_only' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
-          assert_absent 'pending.send(' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
-          assert_absent 'context.startActivity(prepareTarget' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
+          # v0.44.4 post-call contract: automatic compact popup is primary; notification is fallback only.
+          grep -F 'auto_popup_attempt' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
+          grep -F 'pending.send(' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
+          grep -F 'setPendingIntentBackgroundActivityStartMode' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
+          grep -F 'setPendingIntentCreatorBackgroundActivityStartMode' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
+          grep -F 'PostCallDeliveryGuard.schedule' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
           grep -F 'PostCallExclusionStore.contains' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
           grep -F 'PostCallExclusionStore.contains' app/src/main/java/kr/pagero/calltag/CallPopupNotificationManager.java
           grep -F 'canNotify(context, POST_CALL_CHANNEL_ID)' app/src/main/java/kr/pagero/calltag/CallPopupNotificationManager.java
           grep -F 'foreground_activity_retry' app/src/main/java/kr/pagero/calltag/PostCallRecoveryStore.java
+          grep -F 'postCallLauncher_fromApplicationContext_reachesCompactPopup' app/src/androidTest/java/kr/pagero/calltag/CrashRegressionTest.java
           grep -F 'postCallNotification_blockedChannelKeepsRecoveryPending' app/src/androidTest/java/kr/pagero/calltag/CrashRegressionTest.java
           grep -F 'postCallRecovery_foregroundOpensCompactPopup' app/src/androidTest/java/kr/pagero/calltag/CrashRegressionTest.java
           grep -F 'postCallExclusion_blocksBackgroundDeliveryAndClearsRecovery' app/src/androidTest/java/kr/pagero/calltag/CrashRegressionTest.java
