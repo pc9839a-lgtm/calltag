@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#6F9FDF</color>
-    <color name="primary_dark">#5A86C2</color>
-    <color name="primary_soft">#182536</color>
+    <color name="primary">#4389FF</color>
+    <color name="primary_dark">#2F73E8</color>
+    <color name="primary_soft">#17263B</color>
     <color name="primary_muted">#8BB3EA</color>
-    <color name="accent">#6F9FDF</color>
+    <color name="accent">#4389FF</color>
     <color name="button_primary_surface">#EAF2FD</color>
     <color name="button_primary_pressed">#DCE9FA</color>
     <color name="button_primary_disabled">#AAB7C7</color>
