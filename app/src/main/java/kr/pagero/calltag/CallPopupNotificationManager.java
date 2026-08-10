@@ -55,9 +55,9 @@ public final class CallPopupNotificationManager {
 
         NotificationChannel postCall = new NotificationChannel(
                 POST_CALL_CHANNEL_ID,
-                "통화 종료 정리 화면",
+                "통화 종료 작은 팝업",
                 NotificationManager.IMPORTANCE_HIGH);
-        postCall.setDescription("통화가 끝난 뒤 메모와 다음 할 일을 남기는 정리 화면을 엽니다.");
+        postCall.setDescription("통화가 끝난 뒤 작은 알림으로 메모 화면을 열 수 있습니다.");
         postCall.enableVibration(true);
         postCall.setVibrationPattern(new long[]{0L, 140L, 80L, 140L});
         postCall.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION), audio);
@@ -161,10 +161,18 @@ public final class CallPopupNotificationManager {
         }
     }
 
-    /** Posts a fallback notification when Android blocks the direct post-call activity launch. */
+    /** Posts the compact notification used for every post-call review. */
     public static boolean showPostCall(Context context, CallRecord record, Customer customer,
                                        Intent reviewIntent, String memo) {
         if (record == null || reviewIntent == null) return false;
+
+        if (PostCallExclusionStore.contains(context, record.phone)) {
+            PostCallRecoveryStore.markDelivered(context, record.id);
+            CrashTelemetryStore.record(context, "post_call_notification", "excluded",
+                    "call=" + record.id);
+            return true;
+        }
+
         ensureChannels(context);
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager == null) return false;
@@ -188,7 +196,7 @@ public final class CallPopupNotificationManager {
         if (customer == null) {
             content = needsDeferredHandling(record)
                     ? "다시 전화하거나 할 일을 등록하세요."
-                    : "통화 메모와 다음 할 일을 남기세요.";
+                    : "통화 메모를 남기세요.";
             expanded = record.phone + "\n" + content;
         } else {
             String stage = safe(customer.relationStatus, "상태 미지정");
@@ -197,12 +205,32 @@ public final class CallPopupNotificationManager {
                     ? "" : "\n최근 메모 · " + safe(memo, compactMemo));
         }
 
+        Intent exclude = new Intent(context, PostCallExclusionReceiver.class)
+                .setAction(PostCallExclusionReceiver.ACTION_EXCLUDE)
+                .putExtra(PostCallExclusionReceiver.EXTRA_PHONE, record.phone)
+                .putExtra(PostCallExclusionReceiver.EXTRA_NAME, person)
+                .putExtra(PostCallExclusionReceiver.EXTRA_CALL_ID, record.id)
+                .putExtra(PostCallExclusionReceiver.EXTRA_NOTIFICATION_ID, notificationId);
+        int excludeRequestCode = (int) ((record.id ^ 0x5A5A5A5AL) & 0x7fffffff);
+        PendingIntent excludePending = PendingIntent.getBroadcast(
+                context,
+                excludeRequestCode,
+                exclude,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        Notification.Action excludeAction = new Notification.Action.Builder(
+                android.R.drawable.ic_menu_close_clear_cancel,
+                "팝업 제외",
+                excludePending)
+                .build();
+
         Notification notification = new Notification.Builder(context, POST_CALL_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.sym_action_call)
                 .setContentTitle(title)
                 .setContentText(content)
                 .setStyle(new Notification.BigTextStyle().bigText(expanded))
                 .setContentIntent(pending)
+                .addAction(excludeAction)
                 .setAutoCancel(true)
                 .setTimeoutAfter(120_000L)
                 .setCategory(Notification.CATEGORY_REMINDER)
