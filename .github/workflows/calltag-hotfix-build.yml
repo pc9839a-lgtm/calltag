@@ -75,12 +75,17 @@ jobs:
           assert_absent 'RecentCallHistoryView' app/src/main/res/layout/section_consultations.xml
           grep -F 'onTouchEvent(MotionEvent event)' app/src/main/java/kr/pagero/calltag/StatsTrendChartView.java
 
-          # v0.44.4 post-call policy contracts.
+          # v0.44.4 post-call policy and recovery contracts.
           grep -F 'notification_only' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
           assert_absent 'pending.send(' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
           assert_absent 'context.startActivity(prepareTarget' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
           grep -F 'PostCallExclusionStore.contains' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
           grep -F 'PostCallExclusionStore.contains' app/src/main/java/kr/pagero/calltag/CallPopupNotificationManager.java
+          grep -F 'canNotify(context, POST_CALL_CHANNEL_ID)' app/src/main/java/kr/pagero/calltag/CallPopupNotificationManager.java
+          grep -F 'foreground_activity_retry' app/src/main/java/kr/pagero/calltag/PostCallRecoveryStore.java
+          grep -F 'postCallNotification_blockedChannelKeepsRecoveryPending' app/src/androidTest/java/kr/pagero/calltag/CrashRegressionTest.java
+          grep -F 'postCallRecovery_foregroundOpensCompactPopup' app/src/androidTest/java/kr/pagero/calltag/CrashRegressionTest.java
+          grep -F 'postCallExclusion_blocksBackgroundDeliveryAndClearsRecovery' app/src/androidTest/java/kr/pagero/calltag/CrashRegressionTest.java
           grep -F '"팝업 제외"' app/src/main/java/kr/pagero/calltag/CallPopupNotificationManager.java
           grep -F 'PostCallExclusionReceiver' app/src/main/AndroidManifest.xml
           grep -F 'PostCallExclusionActivity' app/src/main/AndroidManifest.xml
@@ -182,6 +187,7 @@ jobs:
             echo "CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD"
             echo "CALLTAG_UPLOAD_KEY_ALIAS=$KEY_ALIAS"
             echo "CALLTAG_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD"
+            echo "CALLTAG_EXPECTED_UPLOAD_KEY_SHA256=$EXPECTED_UPLOAD_KEY_SHA256"
           } >> "$GITHUB_ENV"
 
       - name: Build signed release APK and Play AAB
@@ -195,7 +201,19 @@ jobs:
           AAB='app/build/outputs/bundle/release/app-release.aab'
           test -s "$APK"
           test -s "$AAB"
+
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          APK_VERIFY="$RUNNER_TEMP/apk-verify.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$APK_VERIFY"
+          EXPECTED_APK_CERT="$(printf '%s' "$CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          grep -i -F "Signer #1 certificate SHA-256 digest: $EXPECTED_APK_CERT" "$APK_VERIFY"
+
           jarsigner -verify -certs "$AAB"
+          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/aab-cert.txt"
+          grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/aab-cert.txt"
+
           OUT="$RUNNER_TEMP/calltag-v0.44.4-release"
           mkdir -p "$OUT"
           cp "$APK" "$OUT/CallTag-v0.44.4-code82-release.apk"
@@ -203,6 +221,8 @@ jobs:
           sha256sum "$APK" > "$OUT/CALLTAG_V0444_APK_SHA256.txt"
           sha256sum "$AAB" > "$OUT/CALLTAG_V0444_AAB_SHA256.txt"
           cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
+          cp "$RUNNER_TEMP/apk-verify.txt" "$OUT/CALLTAG_V0444_APK_SIGNATURE_VERIFY.txt"
+          cp "$RUNNER_TEMP/aab-cert.txt" "$OUT/CALLTAG_V0444_AAB_CERTIFICATE.txt"
 
       - name: Upload signed update artifacts
         uses: actions/upload-artifact@v4
