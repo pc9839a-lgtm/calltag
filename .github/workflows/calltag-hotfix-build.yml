@@ -208,7 +208,8 @@ jobs:
           APK_VERIFY="$RUNNER_TEMP/apk-verify.txt"
           "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$APK_VERIFY"
           EXPECTED_APK_CERT="$(printf '%s' "$CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
-          grep -i -F "Signer #1 certificate SHA-256 digest: $EXPECTED_APK_CERT" "$APK_VERIFY"
+          ACTUAL_APK_CERT="$(grep -i 'certificate SHA-256 digest:' "$APK_VERIFY" | head -n 1 | sed 's/.*digest: //' | tr '[:upper:]' '[:lower:]')"
+          test "$ACTUAL_APK_CERT" = "$EXPECTED_APK_CERT"
 
           jarsigner -verify -certs "$AAB"
           keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/aab-cert.txt"
