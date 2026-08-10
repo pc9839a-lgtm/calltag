@@ -1,4 +1,4 @@
-name: CallTag 0.44.12 code101 signed update
+name: CallTag 0.44.13 code1786345980 signed update
 
 on:
   workflow_dispatch:
@@ -25,8 +25,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -F 'versionCode 101' app/build.gradle
-          grep -F "versionName '0.44.12'" app/build.gradle
+          grep -F 'versionCode 1786345980' app/build.gradle
+          grep -F "versionName '0.44.13'" app/build.gradle
           grep -F "applicationId 'kr.pagero.calltag'" app/build.gradle
           grep -F 'minSdk 26' app/build.gradle
           grep -F 'targetSdk 36' app/build.gradle
@@ -70,7 +70,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.12-code101-instrumentation-results
+          name: calltag-v0.44.13-code1786345980-instrumentation-results
           path: |
             app/build/reports/androidTests/connected/**
             app/build/outputs/androidTest-results/connected/**
@@ -150,20 +150,20 @@ jobs:
           jarsigner -verify -certs "$AAB"
           keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/aab-cert.txt"
           grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/aab-cert.txt"
-          OUT="$RUNNER_TEMP/calltag-v0.44.12-code101-release"
+          OUT="$RUNNER_TEMP/calltag-v0.44.13-code1786345980-release"
           mkdir -p "$OUT"
-          cp "$APK" "$OUT/CallTag-v0.44.12-code101-release.apk"
-          cp "$AAB" "$OUT/CallTag-v0.44.12-code101.aab"
-          sha256sum "$APK" > "$OUT/CALLTAG_V04412_APK_SHA256.txt"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V04412_AAB_SHA256.txt"
+          cp "$APK" "$OUT/CallTag-v0.44.13-code1786345980-release.apk"
+          cp "$AAB" "$OUT/CallTag-v0.44.13-code1786345980.aab"
+          sha256sum "$APK" > "$OUT/CALLTAG_V04413_APK_SHA256.txt"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04413_AAB_SHA256.txt"
           cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
-          cp "$RUNNER_TEMP/apk-verify.txt" "$OUT/CALLTAG_V04412_APK_SIGNATURE_VERIFY.txt"
-          cp "$RUNNER_TEMP/aab-cert.txt" "$OUT/CALLTAG_V04412_AAB_CERTIFICATE.txt"
+          cp "$RUNNER_TEMP/apk-verify.txt" "$OUT/CALLTAG_V04413_APK_SIGNATURE_VERIFY.txt"
+          cp "$RUNNER_TEMP/aab-cert.txt" "$OUT/CALLTAG_V04413_AAB_CERTIFICATE.txt"
 
       - name: Upload signed update artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.12-code101-signed-update
-          path: ${{ runner.temp }}/calltag-v0.44.12-code101-release
+          name: calltag-v0.44.13-code1786345980-signed-update
+          path: ${{ runner.temp }}/calltag-v0.44.13-code1786345980-release
           retention-days: 90
           if-no-files-found: error
