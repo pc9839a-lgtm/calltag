@@ -7,6 +7,8 @@ import static org.junit.Assert.assertTrue;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -202,6 +204,84 @@ public final class CrashRegressionTest {
                 resumed instanceof PostCallActivity);
         assertFalse("notification-only routing must not forge an Activity visibility receipt",
                 PostCallLaunchReceipt.wasVisible(app, callId));
+    }
+
+    @Test
+    public void postCallExclusion_blocksBackgroundDeliveryAndClearsRecovery() {
+        PostCallRecoveryStore.clearForTests(app);
+        String phone = "01087012346";
+        long callId = System.currentTimeMillis() + 150_000L;
+        CallRecord record = new CallRecord(
+                callId, phone, "제외 테스트", CallLog.Calls.INCOMING_TYPE,
+                System.currentTimeMillis() - 15_000L, 10L);
+        PostCallExclusionStore.add(app, "제외 테스트", phone);
+        try {
+            PostCallRecoveryStore.arm(app, record, -1L);
+            assertTrue(PostCallRecoveryStore.hasPending(app, callId));
+            assertTrue("excluded number must be treated as intentionally delivered",
+                    PostCallActivityLauncher.launch(app, postCallIntent(callId, phone)));
+            assertFalse("excluded number must not remain in recovery queue",
+                    PostCallRecoveryStore.hasPending(app, callId));
+        } finally {
+            PostCallExclusionStore.remove(app, phone);
+            PostCallRecoveryStore.clearForTests(app);
+        }
+    }
+
+    @Test
+    public void postCallNotification_blockedChannelKeepsRecoveryPending() {
+        PostCallRecoveryStore.clearForTests(app);
+        String phone = "01087012347";
+        long callId = System.currentTimeMillis() + 175_000L;
+        PostCallExclusionStore.remove(app, phone);
+        NotificationManager manager = app.getSystemService(NotificationManager.class);
+        assertNotNull(manager);
+        manager.deleteNotificationChannel(CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
+        manager.createNotificationChannel(new NotificationChannel(
+                CallPopupNotificationManager.POST_CALL_CHANNEL_ID,
+                "회귀 테스트 차단 채널",
+                NotificationManager.IMPORTANCE_NONE));
+
+        CallRecord record = new CallRecord(
+                callId, phone, "알림 차단 테스트", CallLog.Calls.INCOMING_TYPE,
+                System.currentTimeMillis() - 12_000L, 8L);
+        PostCallRecoveryStore.arm(app, record, -1L);
+        try {
+            assertFalse("blocked notification channel must not count as delivered",
+                    CallPopupNotificationManager.showPostCall(
+                            app, record, null, postCallIntent(callId, phone), ""));
+            assertTrue("undeliverable post-call review must remain recoverable",
+                    PostCallRecoveryStore.hasPending(app, callId));
+        } finally {
+            manager.deleteNotificationChannel(CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
+            CallPopupNotificationManager.ensureChannels(app);
+            PostCallRecoveryStore.clearForTests(app);
+        }
+    }
+
+    @Test
+    public void postCallRecovery_foregroundOpensCompactPopup() {
+        PostCallRecoveryStore.clearForTests(app);
+        String phone = "01087012348";
+        long callId = System.currentTimeMillis() + 190_000L;
+        PostCallExclusionStore.remove(app, phone);
+        CallRecord record = new CallRecord(
+                callId, phone, "전경 복구 테스트", CallLog.Calls.INCOMING_TYPE,
+                System.currentTimeMillis() - 20_000L, 15L);
+        PostCallRecoveryStore.arm(app, record, -1L);
+
+        ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class);
+        try {
+            scenario.onActivity(activity -> assertTrue(
+                    PostCallRecoveryStore.recoverLatest(activity, true)));
+            assertResumed(PostCallActivity.class);
+            assertFalse("foreground popup visibility must clear the recovery queue",
+                    PostCallRecoveryStore.hasPending(app, callId));
+        } finally {
+            finishResumed(PostCallActivity.class);
+            PostCallRecoveryStore.clearForTests(app);
+            scenario.close();
+        }
     }
 
     @Test
