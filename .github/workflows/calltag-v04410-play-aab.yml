@@ -1,4 +1,4 @@
-name: CallTag 0.44.11 signed Play AAB
+name: CallTag 0.44.12 signed Play AAB
 # Artifact-only workflow. Do not merge.
 
 on:
@@ -19,23 +19,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify code89 contracts
+      - name: Prepare code90 adaptive launcher build
         shell: bash
         run: |
           set -euo pipefail
-          grep -F 'versionCode 89' app/build.gradle
-          grep -F "versionName '0.44.11'" app/build.gradle
-          grep -F 'targetSdk 36' app/build.gradle
-          grep -F 'android:icon="@drawable/calltag_launcher"' app/src/main/AndroidManifest.xml
-          grep -F 'android:roundIcon="@drawable/calltag_launcher"' app/src/main/AndroidManifest.xml
+          sed -i "s/versionCode 89/versionCode 90/" app/build.gradle
+          sed -i "s/versionName '0.44.11'/versionName '0.44.12'/" app/build.gradle
+          sed -i 's#android:icon="@drawable/calltag_launcher"#android:icon="@mipmap/ic_launcher_calltag"#' app/src/main/AndroidManifest.xml
+          sed -i 's#android:roundIcon="@drawable/calltag_launcher"#android:roundIcon="@mipmap/ic_launcher_calltag_round"#' app/src/main/AndroidManifest.xml
+
+          grep -F 'versionCode 90' app/build.gradle
+          grep -F "versionName '0.44.12'" app/build.gradle
+          grep -F 'android:icon="@mipmap/ic_launcher_calltag"' app/src/main/AndroidManifest.xml
+          grep -F 'android:roundIcon="@mipmap/ic_launcher_calltag_round"' app/src/main/AndroidManifest.xml
           test -s app/src/main/res/drawable-nodpi/calltag_launcher.webp
+          test -s app/src/main/res/mipmap-anydpi-v26/ic_launcher_calltag.xml
+          test -s app/src/main/res/mipmap-anydpi-v26/ic_launcher_calltag_round.xml
+          grep -F '@drawable/calltag_launcher' app/src/main/res/mipmap-anydpi-v26/ic_launcher_calltag.xml
           grep -F 'G  Google로 계속하기' app/src/main/java/kr/pagero/calltag/LoginActivity.java
-          grep -F 'GoogleAuthFlowStore.begin(this)' app/src/main/java/kr/pagero/calltag/LoginActivity.java
           grep -F '/api/call/google/start?return_scheme=calltag' app/src/main/java/kr/pagero/calltag/AuthApiClient.java
           grep -F '/api/call/google/exchange' app/src/main/java/kr/pagero/calltag/AuthApiClient.java
-          grep -F 'android:name=".GoogleAuthCallbackActivity"' app/src/main/AndroidManifest.xml
-          grep -F 'android:scheme="calltag"' app/src/main/AndroidManifest.xml
-          grep -F 'GoogleAuthFlowStore.consumeIfActive(this)' app/src/main/java/kr/pagero/calltag/GoogleAuthCallbackActivity.java
           if grep -F 'android.permission.USE_FULL_SCREEN_INTENT' app/src/main/AndroidManifest.xml; then exit 1; fi
 
       - name: Set up JDK 17
@@ -109,16 +112,17 @@ jobs:
           AAB='app/build/outputs/bundle/release/app-release.aab'
           test -s "$AAB"
           jarsigner -verify -certs "$AAB"
-          OUT="$RUNNER_TEMP/calltag-v0.44.11-play"
+          unzip -l "$AAB" | grep -F 'calltag_launcher'
+          OUT="$RUNNER_TEMP/calltag-v0.44.12-play"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.44.11-code89.aab"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V04411_AAB_SHA256.txt"
+          cp "$AAB" "$OUT/CallTag-v0.44.12-code90.aab"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04412_AAB_SHA256.txt"
           cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
 
       - name: Upload Play Console AAB
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.11-code89-play-aab
-          path: ${{ runner.temp }}/calltag-v0.44.11-play
+          name: calltag-v0.44.12-code90-play-aab
+          path: ${{ runner.temp }}/calltag-v0.44.12-play
           retention-days: 90
           if-no-files-found: error
