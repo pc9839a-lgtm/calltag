@@ -1,8 +1,8 @@
 (()=>{
-  if(document.documentElement.dataset.ctRuntimeLoaderV56)return;
-  document.documentElement.dataset.ctRuntimeLoaderV56='1';
+  if(document.documentElement.dataset.ctRuntimeLoaderV57)return;
+  document.documentElement.dataset.ctRuntimeLoaderV57='1';
   const scripts=[
-    'calltag-suite-pricing.js?v=20260811-suite8','calltag-pagero-intro.js?v=20260811-intro10','calltag-horizontal-guard.js?v=20260811-coord5','calltag-industry-visual-v5.js?v=20260811-v6'
+    'calltag-suite-pricing.js?v=20260811-suite8','calltag-pagero-intro.js?v=20260811-intro11','calltag-horizontal-guard.js?v=20260811-coord5'
   ];
   const mountFoundation=()=>{
     if(document.documentElement.dataset.ctAdBootstrapV6)return true;
