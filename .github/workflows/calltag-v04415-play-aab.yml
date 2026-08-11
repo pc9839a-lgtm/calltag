@@ -1,4 +1,4 @@
-name: CallTag 0.44.16 signed Play AAB
+name: CallTag 0.44.17 signed Play AAB
 
 on:
   workflow_dispatch:
@@ -22,8 +22,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -F 'versionCode 2026081202' app/build.gradle
-          grep -F "versionName '0.44.16'" app/build.gradle
+          grep -F 'versionCode 2026081203' app/build.gradle
+          grep -F "versionName '0.44.17'" app/build.gradle
           grep -F 'applicationId '\''kr.pagero.calltag'\''' app/build.gradle
           grep -F 'minSdk 26' app/build.gradle
           grep -F 'targetSdk 36' app/build.gradle
@@ -140,16 +140,16 @@ jobs:
           test -s "$AAB"
           jarsigner -verify -certs "$AAB"
           unzip -l "$AAB" | grep -F 'calltag_launcher_artwork'
-          OUT="$RUNNER_TEMP/calltag-v0.44.16-play"
+          OUT="$RUNNER_TEMP/calltag-v0.44.17-play"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.44.16-code2026081202.aab"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V04416_AAB_SHA256.txt"
+          cp "$AAB" "$OUT/CallTag-v0.44.17-code2026081203.aab"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04417_AAB_SHA256.txt"
           cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
 
       - name: Upload Play Console AAB
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.16-code2026081202-play-aab
-          path: ${{ runner.temp }}/calltag-v0.44.16-play
+          name: calltag-v0.44.17-code2026081203-play-aab
+          path: ${{ runner.temp }}/calltag-v0.44.17-play
           retention-days: 90
           if-no-files-found: error
