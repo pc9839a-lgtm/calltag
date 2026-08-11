@@ -1,0 +1,1 @@
+(()=>{const s=document.createElement('script');s.src='/assets/calltag-core-runtime.js?v=20260811-core1';s.async=false;document.head.appendChild(s);})();
