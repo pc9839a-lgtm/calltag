@@ -165,135 +165,42 @@
 (()=>{
   if(document.documentElement.dataset.ctIndustryVisualV6)return;
   document.documentElement.dataset.ctIndustryVisualV6='1';
-
-  const data=[
-    ['보험','상담 신청','insurance','xl',38,54,1,0,-170,120,-8,-120,-145,-8],
-    ['병원','진료 예약','clinic','xl',63,53,.98,.06,175,110,8,130,-155,9],
-    ['부동산','매물 문의','estate','md',15,31,.84,.14,-165,-75,-9,-145,-90,-10],
-    ['학원','상담 예약','academy','sm',84,28,.68,.22,160,-85,10,150,-105,11],
-    ['미용실','시술 예약','salon','sm',10,72,.62,.28,-165,110,-11,-160,-70,-12],
-    ['자동차','정비 문의','auto','md',86,70,.82,.18,180,100,9,155,-85,10],
-    ['쇼핑몰','상품 문의','shop','md',49,83,.88,.11,0,180,2,18,-175,4],
-    ['인테리어','견적 신청','interior','sm',73,83,.7,.3,115,155,7,110,-130,8]
-  ];
-
-  const ui={
-    insurance:'<div class="v5-ui insurance"><div class="v5-row"><span>월 예상 보험료</span><b>84,000원</b></div><div class="v5-bars"><i></i><i></i><i></i><i></i></div><em>보장 분석 완료</em></div>',
-    clinic:'<div class="v5-ui clinic"><div class="v5-profile"><i></i><span><b>김온유 원장</b><small>진료 예약</small></span></div><div class="v5-days"><i>2</i><i class="on">3</i><i>4</i><i>5</i><i>6</i></div><em>오전 10:30 예약 가능</em></div>',
-    estate:'<div class="v5-ui estate"><div class="v5-house"><i></i><i></i><i></i></div><div class="v5-row"><span>시티뷰 리버파크</span><b>8억 4,000</b></div></div>',
-    academy:'<div class="v5-ui academy"><div class="v5-avatars"><i></i><i></i><i></i></div><div class="v5-row"><span>수학 상담</span><b>18:30</b></div><em>상담 일정 확정</em></div>',
-    salon:'<div class="v5-ui salon"><div class="v5-tiles"><i></i><i></i><i></i></div><div class="v5-row"><span>커트 · 컬러</span><b>예약</b></div></div>',
-    auto:'<div class="v5-ui auto"><div class="v5-car"><i></i><span></span></div><div class="v5-checks"><span>● 엔진오일</span><span>● 타이어</span></div><em>정비 접수 완료</em></div>',
-    shop:'<div class="v5-ui shop"><div class="v5-tiles"><i></i><i></i><i></i></div><div class="v5-row"><span>상품 문의 3건</span><b>확인</b></div></div>',
-    interior:'<div class="v5-ui interior"><div class="v5-room"><i></i><i></i><i></i></div><div class="v5-row"><span>32평 견적</span><b>상담 요청</b></div></div>'
-  };
-
+  const data=[['보험','상담 신청','insurance','xl',38,54,1,0,-170,120,-8,-120,-145,-8],['병원','진료 예약','clinic','xl',63,53,.98,.06,175,110,8,130,-155,9],['부동산','매물 문의','estate','md',15,31,.84,.14,-165,-75,-9,-145,-90,-10],['학원','상담 예약','academy','sm',84,28,.68,.22,160,-85,10,150,-105,11],['미용실','시술 예약','salon','sm',10,72,.62,.28,-165,110,-11,-160,-70,-12],['자동차','정비 문의','auto','md',86,70,.82,.18,180,100,9,155,-85,10],['쇼핑몰','상품 문의','shop','md',49,83,.88,.11,0,180,2,18,-175,4],['인테리어','견적 신청','interior','sm',73,83,.7,.3,115,155,7,110,-130,8]];
+  const ui={insurance:'<div class="v5-ui insurance"><div class="v5-row"><span>월 예상 보험료</span><b>84,000원</b></div><div class="v5-bars"><i></i><i></i><i></i><i></i></div><em>보장 분석 완료</em></div>',clinic:'<div class="v5-ui clinic"><div class="v5-profile"><i></i><span><b>김온유 원장</b><small>진료 예약</small></span></div><div class="v5-days"><i>2</i><i class="on">3</i><i>4</i><i>5</i><i>6</i></div><em>오전 10:30 예약 가능</em></div>',estate:'<div class="v5-ui estate"><div class="v5-house"><i></i><i></i><i></i></div><div class="v5-row"><span>시티뷰 리버파크</span><b>8억 4,000</b></div></div>',academy:'<div class="v5-ui academy"><div class="v5-avatars"><i></i><i></i><i></i></div><div class="v5-row"><span>수학 상담</span><b>18:30</b></div><em>상담 일정 확정</em></div>',salon:'<div class="v5-ui salon"><div class="v5-tiles"><i></i><i></i><i></i></div><div class="v5-row"><span>커트 · 컬러</span><b>예약</b></div></div>',auto:'<div class="v5-ui auto"><div class="v5-car"><i></i><span></span></div><div class="v5-checks"><span>● 엔진오일</span><span>● 타이어</span></div><em>정비 접수 완료</em></div>',shop:'<div class="v5-ui shop"><div class="v5-tiles"><i></i><i></i><i></i></div><div class="v5-row"><span>상품 문의 3건</span><b>확인</b></div></div>',interior:'<div class="v5-ui interior"><div class="v5-room"><i></i><i></i><i></i></div><div class="v5-row"><span>32평 견적</span><b>상담 요청</b></div></div>'};
   const markup=`<div class="ct-industry-v5__sticky"><div class="ct-industry-v5__head"><h2>업종별 문의 화면</h2></div><div class="ct-industry-v5__stage">${data.map((item,index)=>`<article class="ct-industry-v5__card ${item[3]}" style="--x:${item[4]}%;--y:${item[5]}%;--alpha:${item[6]};--float-duration:${5.5+(index%4)*.55}s;--float-delay:${-((index%5)*.72)}s" data-alpha="${item[6]}" data-delay="${item[7]}" data-dx="${item[8]}" data-dy="${item[9]}" data-rot="${item[10]}" data-ex="${item[11]}" data-ey="${item[12]}" data-er="${item[13]}"><div class="ct-industry-v5__inner"><div class="ct-industry-v5__thumb">${ui[item[2]]}</div><div class="ct-industry-v5__meta"><span>${item[0]}</span><strong>${item[1]}</strong></div></div></article>`).join('')}</div></div>`;
-
-  let section=null;
-  let sticky=null;
-  let head=null;
-  let cards=[];
-  let raf=0;
-  const mobile=matchMedia('(max-width:900px)');
-  const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
-  const clamp=value=>Math.max(0,Math.min(1,value));
-  const easeOut=value=>1-Math.pow(1-value,3);
-  const easeIn=value=>value*value*value;
-
-  const mount=()=>{
-    const target=document.querySelector('#ct-pagero-intro .ct-industry-v4,#ct-pagero-intro .ct-industry-visual-section,#ct-pagero-intro .ct-industry-float-section,#ct-pagero-intro .ct-industries-static,#ct-pagero-intro .ct-horizontal-industries-clean');
-    if(!target)return false;
-    if(target.dataset.ctIndustryV5Mounted!=='1'){
-      target.className='ct-industry-v5';
-      target.removeAttribute('style');
-      target.innerHTML=markup;
-      target.dataset.ctIndustryV5Mounted='1';
-    }
-    section=target;
-    sticky=target.querySelector('.ct-industry-v5__sticky');
-    head=target.querySelector('.ct-industry-v5__head');
-    cards=[...target.querySelectorAll('.ct-industry-v5__card')];
-    if(!sticky||!head||!cards.length)return false;
-    if(reduce){
-      cards.forEach(card=>{card.style.opacity=card.dataset.alpha||'1';card.classList.add('settled');});
-      head.style.opacity='1';
-      head.style.transform='none';
-    }else requestRender();
-    dispatchEvent(new Event('resize'));
-    return true;
-  };
-
-  const getProgress=()=>{
-    if(!section)return 0;
-    const rect=section.getBoundingClientRect();
-    const vh=innerHeight||document.documentElement.clientHeight;
-    if(mobile.matches)return clamp((vh*.92-rect.top)/(vh*.92+rect.height*.72));
-    const top=rect.top+scrollY;
-    const range=Math.max(1,section.offsetHeight-(sticky?.offsetHeight||innerHeight));
-    return clamp((scrollY-top)/range);
-  };
-
-  const render=()=>{
-    raf=0;
-    if(!section||!cards.length||!head)return;
-    const p=getProgress();
-    const isMobile=mobile.matches;
-    const titleIn=easeOut(clamp(p/.16));
-    const titleOut=easeIn(clamp((p-.8)/.18));
-    head.style.opacity=(titleIn*(1-titleOut)).toFixed(3);
-    head.style.transform=`translate3d(0,${((1-titleIn)*28-titleOut*38).toFixed(2)}px,0) scale(${(.96+titleIn*.04-titleOut*.03).toFixed(4)})`;
-
-    cards.forEach(card=>{
-      const alpha=parseFloat(card.dataset.alpha||'.8');
-      const delay=parseFloat(card.dataset.delay||'0');
-      const dx=parseFloat(card.dataset.dx||'0');
-      const dy=parseFloat(card.dataset.dy||'80');
-      const rot=parseFloat(card.dataset.rot||'0');
-      const ex=parseFloat(card.dataset.ex||'0');
-      const ey=parseFloat(card.dataset.ey||'-120');
-      const er=parseFloat(card.dataset.er||'0');
-      const enter=easeOut(clamp((p-delay)/.34));
-      const leave=easeIn(clamp((p-.72)/.28));
-      const visibility=enter*(1-leave);
-      const lift=clamp((p-.2)/.48)*(isMobile?12:34);
-      const x=isMobile?0:dx*(1-enter)+ex*leave;
-      const y=isMobile?(1-enter)*36-leave*42:dy*(1-enter)-lift+ey*leave;
-      const rotation=isMobile?0:rot*(1-enter)+er*leave;
-      const startScale=isMobile ? .97 : .86;
-      const scale=startScale+(1-startScale)*enter-.1*leave;
-      const blur=(1-enter)*2.4+leave*3.2;
-      card.style.opacity=(alpha*visibility).toFixed(3);
-      card.style.filter=`blur(${blur.toFixed(2)}px) brightness(${(.8+enter*.2-leave*.14).toFixed(3)})`;
-      card.style.transform=isMobile
-        ?`translate3d(${x.toFixed(2)}px,${y.toFixed(2)}px,0) scale(${scale.toFixed(4)})`
-        :`translate(-50%,-50%) translate3d(${x.toFixed(2)}px,${y.toFixed(2)}px,0) rotate(${rotation.toFixed(2)}deg) scale(${scale.toFixed(4)})`;
-      card.classList.toggle('settled',enter>.96&&leave<.04);
-    });
-  };
-
+  let section=null,sticky=null,head=null,cards=[],raf=0;const mobile=matchMedia('(max-width:900px)'),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,clamp=value=>Math.max(0,Math.min(1,value)),easeOut=value=>1-Math.pow(1-value,3),easeIn=value=>value*value*value;
+  const mount=()=>{const target=document.querySelector('#ct-pagero-intro .ct-industry-v4,#ct-pagero-intro .ct-industry-visual-section,#ct-pagero-intro .ct-industry-float-section,#ct-pagero-intro .ct-industries-static,#ct-pagero-intro .ct-horizontal-industries-clean');if(!target)return false;if(target.dataset.ctIndustryV5Mounted!=='1'){target.className='ct-industry-v5';target.removeAttribute('style');target.innerHTML=markup;target.dataset.ctIndustryV5Mounted='1';}section=target;sticky=target.querySelector('.ct-industry-v5__sticky');head=target.querySelector('.ct-industry-v5__head');cards=[...target.querySelectorAll('.ct-industry-v5__card')];if(!sticky||!head||!cards.length)return false;if(reduce){cards.forEach(card=>{card.style.opacity=card.dataset.alpha||'1';card.classList.add('settled');});head.style.opacity='1';head.style.transform='none';}else requestRender();dispatchEvent(new Event('resize'));return true;};
+  const getProgress=()=>{if(!section)return 0;const rect=section.getBoundingClientRect(),vh=innerHeight||document.documentElement.clientHeight;if(mobile.matches)return clamp((vh*.92-rect.top)/(vh*.92+rect.height*.72));const top=rect.top+scrollY,range=Math.max(1,section.offsetHeight-(sticky?.offsetHeight||innerHeight));return clamp((scrollY-top)/range);};
+  const render=()=>{raf=0;if(!section||!cards.length||!head)return;const p=getProgress(),isMobile=mobile.matches,titleIn=easeOut(clamp(p/.16)),titleOut=easeIn(clamp((p-.8)/.18));head.style.opacity=(titleIn*(1-titleOut)).toFixed(3);head.style.transform=`translate3d(0,${((1-titleIn)*28-titleOut*38).toFixed(2)}px,0) scale(${(.96+titleIn*.04-titleOut*.03).toFixed(4)})`;cards.forEach(card=>{const alpha=parseFloat(card.dataset.alpha||'.8'),delay=parseFloat(card.dataset.delay||'0'),dx=parseFloat(card.dataset.dx||'0'),dy=parseFloat(card.dataset.dy||'80'),rot=parseFloat(card.dataset.rot||'0'),ex=parseFloat(card.dataset.ex||'0'),ey=parseFloat(card.dataset.ey||'-120'),er=parseFloat(card.dataset.er||'0'),enter=easeOut(clamp((p-delay)/.34)),leave=easeIn(clamp((p-.72)/.28)),visibility=enter*(1-leave),lift=clamp((p-.2)/.48)*(isMobile?12:34),x=isMobile?0:dx*(1-enter)+ex*leave,y=isMobile?(1-enter)*36-leave*42:dy*(1-enter)-lift+ey*leave,rotation=isMobile?0:rot*(1-enter)+er*leave,startScale=isMobile?.97:.86,scale=startScale+(1-startScale)*enter-.1*leave,blur=(1-enter)*2.4+leave*3.2;card.style.opacity=(alpha*visibility).toFixed(3);card.style.filter=`blur(${blur.toFixed(2)}px) brightness(${(.8+enter*.2-leave*.14).toFixed(3)})`;card.style.transform=isMobile?`translate3d(${x.toFixed(2)}px,${y.toFixed(2)}px,0) scale(${scale.toFixed(4)})`:`translate(-50%,-50%) translate3d(${x.toFixed(2)}px,${y.toFixed(2)}px,0) rotate(${rotation.toFixed(2)}deg) scale(${scale.toFixed(4)})`;card.classList.toggle('settled',enter>.96&&leave<.04);});};
   const requestRender=()=>{if(!raf&&!reduce)raf=requestAnimationFrame(render);};
-  const boot=()=>{
-    const onScroll=requestRender;
-    const onResize=requestRender;
-    const onPageShow=()=>{mount();requestRender();};
-    const onMedia=()=>{mount();requestRender();};
-    addEventListener('scroll',onScroll,{passive:true});
-    addEventListener('resize',onResize,{passive:true});
-    addEventListener('pageshow',onPageShow,{passive:true});
-    mobile.addEventListener?.('change',onMedia);
-    mount();
-    const timers=[100,350,800,1600,3000].map(delay=>setTimeout(()=>{mount();requestRender();},delay));
-    window.addEventListener('pagehide',()=>{
-      timers.forEach(clearTimeout);
-      removeEventListener('scroll',onScroll);
-      removeEventListener('resize',onResize);
-      removeEventListener('pageshow',onPageShow);
-      mobile.removeEventListener?.('change',onMedia);
-      if(raf)cancelAnimationFrame(raf);
-    },{once:true});
-  };
+  const boot=()=>{const onScroll=requestRender,onResize=requestRender,onPageShow=()=>{mount();requestRender();},onMedia=()=>{mount();requestRender();};addEventListener('scroll',onScroll,{passive:true});addEventListener('resize',onResize,{passive:true});addEventListener('pageshow',onPageShow,{passive:true});mobile.addEventListener?.('change',onMedia);mount();const timers=[100,350,800,1600,3000].map(delay=>setTimeout(()=>{mount();requestRender();},delay));window.addEventListener('pagehide',()=>{timers.forEach(clearTimeout);removeEventListener('scroll',onScroll);removeEventListener('resize',onResize);removeEventListener('pageshow',onPageShow);mobile.removeEventListener?.('change',onMedia);if(raf)cancelAnimationFrame(raf);},{once:true});};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+})();
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
-  else boot();
+(()=>{
+  if(document.documentElement.dataset.ctHorizontalCoordinatorV5)return;
+  document.documentElement.dataset.ctHorizontalCoordinatorV5='1';
+  const desktop=matchMedia('(min-width:901px)');
+  const impactDesktop=matchMedia('(min-width:901px) and (prefers-reduced-motion:no-preference)');
+  const clamp=(value,min=0,max=1)=>Math.min(max,Math.max(min,value));
+  const impactProperties=['--ct-glow','--ct-copy-x','--ct-copy-y','--ct-copy-scale','--ct-copy-opacity','--ct-copy-blur','--ct-visual-x','--ct-visual-rotate','--ct-visual-scale','--ct-visual-opacity','--ct-visual-brightness','--ct-visual-saturation','--ct-visual-blur'];
+  const industryTitles=['상담 신청부터 고객 등록까지','날짜와 시간까지 그대로','매물 문의가 바로 다음 할 일로'];
+  const industryMarkup=`<article class="ct-industry-card ct-insurance"><div class="ct-industry-label"><i>01</i><span>보험료 진단형</span></div><div class="ct-industry-phone"><div class="ct-industry-screen"><div class="ct-ins-head"><strong>보험톡.</strong><span>1분 진단</span></div><section class="ct-ins-copy"><small>내 보험료 셀프 체크</small><h3>매달 내는 보험료,<br>적정한지 확인해보세요.</h3><p>현재 보험료를 선택하면 절감 가능 금액을 바로 보여드립니다.</p></section><div class="ct-ins-calc"><small>월 납입 보험료</small><b>320,000원</b><div class="ct-ins-range"><i></i></div><div class="ct-ins-options"><span>10만원 이하</span><span>10~30만원</span><span>30만원 이상</span></div></div><div class="ct-ins-result"><small>예상 절감 가능 금액</small><strong>월 84,000원</strong><p>전문가가 보장 중복과 불필요한 특약을 확인합니다.</p><div class="ct-ins-form"><div class="ct-ins-field">이름</div><div class="ct-ins-field">연락처</div><div class="ct-ins-submit">무료 진단 결과 받기</div></div></div></div></div><div class="ct-industry-auto"><i>●</i> 진단 신청은 콜태그로 자동 등록</div></article><article class="ct-industry-card ct-hospital"><div class="ct-industry-label"><i>02</i><span>진료 예약형</span></div><div class="ct-industry-phone"><div class="ct-industry-screen"><div class="ct-hos-head"><strong>온유의원</strong><span>＋</span></div><div class="ct-hos-doctor"><div class="ct-hos-photo"></div><div class="ct-hos-info"><small>내과 전문의</small><h3>김온유 원장</h3><p>생활습관 질환·건강검진<br>평일 야간진료</p></div></div><h4 class="ct-hos-title">예약 날짜를 선택하세요</h4><div class="ct-hos-days"><div class="ct-hos-day"><b>2</b><small>월</small></div><div class="ct-hos-day on"><b>3</b><small>화</small></div><div class="ct-hos-day"><b>4</b><small>수</small></div><div class="ct-hos-day"><b>5</b><small>목</small></div><div class="ct-hos-day"><b>6</b><small>금</small></div></div><h4 class="ct-hos-title">예약 가능 시간</h4><div class="ct-hos-times"><span>10:00</span><span class="on">10:30</span><span>11:00</span><span>14:00</span><span>15:30</span><span>17:00</span></div><div class="ct-hos-summary"><span>8월 3일 화요일</span><b>오전 10:30</b></div><div class="ct-hos-submit">진료 예약 신청</div></div></div><div class="ct-industry-auto"><i>●</i> 예약 정보는 콜태그로 자동 등록</div></article><article class="ct-industry-card ct-estate"><div class="ct-industry-label"><i>03</i><span>매물 탐색형</span></div><div class="ct-industry-phone"><div class="ct-industry-screen"><div class="ct-est-head"><strong>하우스픽.</strong><span>♡</span></div><div class="ct-est-photo"><span class="ct-est-badge">추천 매물</span><span class="ct-est-dots">1 / 8</span></div><section class="ct-est-body"><div class="ct-est-meta"><small>아파트 · 매매</small><span>신축 3년</span></div><h3>시티뷰 리버파크 84㎡</h3><div class="ct-est-price">매매 <em>8억 4,000</em></div><div class="ct-est-address">서울 강동구 · 역 도보 4분</div><div class="ct-est-chips"><span>방 3</span><span>욕실 2</span><span>남향</span><span>주차 1.4대</span></div><div class="ct-est-map"></div><div class="ct-est-agent"><i>박</i><span><b>박현우 공인중개사</b><small>응답률 98% · 평균 3분</small></span><em>상담 가능</em></div><div class="ct-est-submit">이 매물 문의하기</div></section></div></div><div class="ct-industry-auto"><i>●</i> 매물 문의는 콜태그로 자동 등록</div></article>`;
+  const makeProgress=count=>`<div class="ct-horizontal-clean__progress" style="grid-template-columns:repeat(${count},1fr)">${Array.from({length:count},()=>'<i></i>').join('')}</div>`;
+  const journeyMarkup=`<section class="ct-horizontal-clean ct-journey-clean"><div class="ct-horizontal-clean__sticky"><div class="ct-horizontal-clean__track"><article class="ct-horizontal-clean__panel"><div class="ct-horizontal-clean__copy"><h2>문의가<br>들어옵니다.</h2></div><div class="ct-horizontal-clean__visual"><div class="ct-j-scene-clean"><div class="ct-j-windowbar"><i></i><i></i><i></i><span></span></div><div class="ct-j-body"><div class="ct-j-bigstatus"><div><small>새 상담 신청</small><strong>김민수 고객</strong></div><em>접수 완료</em></div><div class="ct-j-form"><div><span>연락처</span><b>010-1234-5678</b></div><div><span>문의 내용</span><b>보험 상담 요청</b></div><div><span>유입 페이지</span><b>보험료 진단 랜딩</b></div></div><div class="ct-j-complete">✓ 콜태그로 전달됐습니다.</div></div></div></div></article><article class="ct-horizontal-clean__panel"><div class="ct-horizontal-clean__copy"><h2>앱에서<br>바로 뜹니다.</h2></div><div class="ct-horizontal-clean__visual"><div class="ct-j-scene-clean"><div class="ct-j-windowbar"><i></i><i></i><i></i><span></span></div><div class="ct-j-body"><div class="ct-j-bigstatus"><div><small>콜태그 고객함</small><strong>신규 문의 1</strong></div><em>지금</em></div><div class="ct-j-phone"><div class="ct-j-phone-screen"><div class="ct-j-phone-head"><b>CALLTAG</b><span>● 1</span></div><div class="ct-j-alert"><small>페이지로 신규 문의</small><b>김민수 고객</b><small>보험 상담 요청 · 지금</small></div><div class="ct-j-actions"><span>전화</span><span>문자</span><span class="on">고객카드</span></div><div class="ct-j-timeline"><div><i>✓</i><span><b>자동 등록 완료</b><small>연락처·문의 저장</small></span></div><div><i>!</i><span><b>오늘 할 일</b><small>신규 문의 확인</small></span></div></div></div></div></div></div></div></article><article class="ct-horizontal-clean__panel"><div class="ct-horizontal-clean__copy"><h2>전화가 끝나면<br>정리도 끝.</h2></div><div class="ct-horizontal-clean__visual"><div class="ct-j-scene-clean"><div class="ct-j-windowbar"><i></i><i></i><i></i><span></span></div><div class="ct-j-body"><div class="ct-j-bigstatus"><div><small>통화 종료</small><strong>김민수 고객</strong></div><em>02:18</em></div><div class="ct-j-form"><div><span>고객 구분</span><b>신규 문의</b></div><div><span>상담 상태</span><b>견적 전달</b></div><div><span>다음 할 일</span><b>3일 뒤 연락</b></div></div><div class="ct-j-actions"><span>문자</span><span>일정</span><span class="on">저장</span></div></div></div></div></article><article class="ct-horizontal-clean__panel"><div class="ct-horizontal-clean__copy"><h2>다시 연락할<br>고객만 보입니다.</h2></div><div class="ct-horizontal-clean__visual"><div class="ct-j-scene-clean"><div class="ct-j-windowbar"><i></i><i></i><i></i><span></span></div><div class="ct-j-body"><div class="ct-j-bigstatus"><div><small>오늘의 고객관리</small><strong>재연락 8건</strong></div><em>진행 중</em></div><div class="ct-j-stats"><article><small>신규</small><b>24</b></article><article><small>완료</small><b>17</b></article><article><small>예정</small><b>6</b></article></div><div class="ct-j-bars"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="ct-j-complete">✓ 후속관리까지 연결됐습니다.</div></div></div></div></article></div>${makeProgress(4)}</div></section>`;
+  let section=null,track=null,panels=[],bars=[],raf=0,activeImpactIndex=-1;const impactTimers=new Set();
+  const ensureIndustryCards=()=>{const nocode=document.querySelector('#ct-pagero-intro .ct-v8-nocode');if(!nocode)return false;let target=nocode.querySelector('.ct-industry-showcase,.ct-pagero-builder,.ct-v8-flow');if(!target)return false;if(!target.classList.contains('ct-industry-showcase')){target.className='ct-industry-showcase';target.innerHTML=industryMarkup;}return target.querySelectorAll('.ct-industry-card').length===3;};
+  const buildIndustries=()=>{const nocode=document.querySelector('#ct-pagero-intro .ct-v8-nocode'),cards=nocode?[...nocode.querySelectorAll('.ct-industry-showcase .ct-industry-card')]:[];if(!nocode||cards.length!==3)return null;nocode.className='ct-horizontal-clean ct-horizontal-industries-clean';nocode.style.height='230svh';nocode.innerHTML=`<div class="ct-horizontal-clean__sticky"><div class="ct-horizontal-clean__track"></div>${makeProgress(3)}</div>`;const industryTrack=nocode.querySelector('.ct-horizontal-clean__track');cards.forEach((card,index)=>{card.querySelectorAll('.ct-industry-auto').forEach(node=>node.remove());const panel=document.createElement('article');panel.className='ct-horizontal-clean__panel';panel.innerHTML=`<div class="ct-horizontal-clean__copy"><h3>${industryTitles[index]}</h3></div><div class="ct-horizontal-clean__visual"></div>`;panel.querySelector('.ct-horizontal-clean__visual').append(card);industryTrack.append(panel);});return nocode;};
+  const buildJourney=industry=>{let journey=document.querySelector('.ct-journey-clean');if(journey)return journey;industry.insertAdjacentHTML('afterend',journeyMarkup);journey=industry.nextElementSibling;journey.style.height='300svh';return journey;};
+  const ensureHorizontalDom=()=>{if(document.querySelector('.ct-journey-clean'))return true;if(!ensureIndustryCards())return false;const industry=buildIndustries();if(!industry)return false;return !!buildJourney(industry);};
+  const cleanWrongRestore=()=>{document.querySelectorAll('style[data-ct-recontact-restore]').forEach(node=>node.remove());document.querySelectorAll('.ct-recontact-restored').forEach(node=>{node.classList.remove('ct-recontact-restored');['transform','translate','scale','filter','opacity','animation','transition'].forEach(name=>node.style.removeProperty(name));});};
+  const clearStickyBlockers=target=>{let node=target.parentElement;while(node&&node!==document.body){node.classList.remove('ct-motion-section','ct-motion-enter','is-inview');['transform','filter','perspective','contain'].forEach(name=>node.style.setProperty(name,'none','important'));node.style.setProperty('overflow','visible','important');node.style.setProperty('will-change','auto','important');node=node.parentElement;}};
+  const addImpactShell=panel=>{const visual=panel.querySelector('.ct-horizontal-clean__visual');if(!visual||visual.firstElementChild?.classList.contains('ct-impact-shell'))return;const shell=document.createElement('div');shell.className='ct-impact-shell';while(visual.firstChild)shell.append(visual.firstChild);visual.append(shell);};
+  const resetImpact=panel=>{impactProperties.forEach(name=>panel.style.removeProperty(name));panel.classList.remove('ct-impact-hit');};
+  const triggerImpact=index=>{const panel=panels[index];if(!panel)return;panels.forEach(node=>node.classList.remove('ct-impact-hit'));void panel.offsetWidth;panel.classList.add('ct-impact-hit');const timer=setTimeout(()=>{panel.classList.remove('ct-impact-hit');impactTimers.delete(timer);},620);impactTimers.add(timer);};
+  const mount=()=>{cleanWrongRestore();if(!ensureHorizontalDom())return false;const journey=document.querySelector('.ct-journey-clean');if(!journey)return false;const industry=document.querySelector('.ct-horizontal-industries-clean,.ct-industries-static');if(industry){if(journey.previousElementSibling!==industry)industry.insertAdjacentElement('afterend',journey);industry.classList.add('ct-industries-static');industry.classList.remove('ct-horizontal-clean');industry.style.setProperty('height','auto','important');industry.querySelector('.ct-horizontal-clean__track')?.style.setProperty('transform','none','important');industry.querySelectorAll('.ct-horizontal-clean__panel').forEach(panel=>{panel.classList.remove('is-active','ct-impact-hit');panel.style.removeProperty('--ct-focus');panel.style.removeProperty('--ct-side');resetImpact(panel);});}clearStickyBlockers(journey);const header=document.querySelector('.header,.site-header,body>header,header'),headerHeight=Math.max(0,Math.min(96,Math.ceil(header?.getBoundingClientRect().height||68)));document.documentElement.style.setProperty('--ct-horizontal-header',`${headerHeight}px`);journey.style.height=`calc(300svh - ${headerHeight}px)`;journey.classList.remove('ct-motion-section','ct-motion-enter','is-inview');journey.style.setProperty('transform','none','important');journey.style.setProperty('filter','none','important');journey.style.setProperty('opacity','1','important');section=journey;track=journey.querySelector('.ct-horizontal-clean__track');panels=[...journey.querySelectorAll('.ct-horizontal-clean__panel')];bars=[...journey.querySelectorAll('.ct-horizontal-clean__progress i')];if(!track||panels.length!==4)return false;panels.forEach(addImpactShell);activeImpactIndex=-1;requestRender();return true;};
+  const render=()=>{raf=0;if(!section||!track||!panels.length)return;if(!desktop.matches){track.style.setProperty('transform','none','important');panels.forEach(panel=>{panel.classList.add('is-active');resetImpact(panel);});bars.forEach(bar=>bar.classList.add('on'));activeImpactIndex=-1;return;}const sticky=section.querySelector('.ct-horizontal-clean__sticky'),absoluteTop=section.getBoundingClientRect().top+scrollY,stickyHeight=sticky?.offsetHeight||innerHeight,range=Math.max(1,section.offsetHeight-stickyHeight),progress=clamp((scrollY-absoluteTop)/range),position=progress*(panels.length-1),x=-progress*(panels.length-1)*innerWidth,index=Math.min(panels.length-1,Math.max(0,Math.round(position)));track.style.setProperty('transform',`translate3d(${x}px,0,0)`,'important');panels.forEach((panel,i)=>panel.classList.toggle('is-active',i===index));bars.forEach((bar,i)=>bar.classList.toggle('on',i<=index));if(!impactDesktop.matches){panels.forEach(resetImpact);activeImpactIndex=-1;return;}panels.forEach((panel,panelIndex)=>{const distance=panelIndex-position,focus=clamp(1-Math.abs(distance)*.92),side=clamp(distance,-1.15,1.15);panel.style.setProperty('--ct-glow',(focus*.72).toFixed(4));panel.style.setProperty('--ct-copy-x',`${(side*-76).toFixed(2)}px`);panel.style.setProperty('--ct-copy-y',`${((1-focus)*24).toFixed(2)}px`);panel.style.setProperty('--ct-copy-scale',(.9+focus*.1).toFixed(4));panel.style.setProperty('--ct-copy-opacity',(.12+focus*.88).toFixed(4));panel.style.setProperty('--ct-copy-blur',`${((1-focus)*2).toFixed(2)}px`);panel.style.setProperty('--ct-visual-x',`${(side*108).toFixed(2)}px`);panel.style.setProperty('--ct-visual-rotate',`${(side*-9).toFixed(2)}deg`);panel.style.setProperty('--ct-visual-scale',(.84+focus*.16).toFixed(4));panel.style.setProperty('--ct-visual-opacity',(.22+focus*.78).toFixed(4));panel.style.setProperty('--ct-visual-brightness',(.54+focus*.46).toFixed(4));panel.style.setProperty('--ct-visual-saturation',(.72+focus*.28).toFixed(4));panel.style.setProperty('--ct-visual-blur',`${((1-focus)*1.5).toFixed(2)}px`);});const inView=scrollY>=absoluteTop-innerHeight*.12&&scrollY<=absoluteTop+range+innerHeight*.12;if(!inView){activeImpactIndex=-1;return;}if(index!==activeImpactIndex){activeImpactIndex=index;triggerImpact(index);}};
+  const requestRender=()=>{if(!raf)raf=requestAnimationFrame(render);};
+  const boot=()=>{mount();const onScroll=requestRender,onResize=()=>{mount();requestRender();},onPageShow=()=>{mount();requestRender();},onMedia=requestRender;addEventListener('scroll',onScroll,{passive:true});addEventListener('resize',onResize,{passive:true});addEventListener('pageshow',onPageShow,{passive:true});desktop.addEventListener?.('change',onMedia);impactDesktop.addEventListener?.('change',onMedia);const resizeObserver=new ResizeObserver(requestRender);resizeObserver.observe(document.documentElement);const timers=[80,220,500,1000,1800,3000].map(delay=>setTimeout(()=>{mount();requestRender();},delay));window.addEventListener('pagehide',()=>{timers.forEach(clearTimeout);impactTimers.forEach(clearTimeout);impactTimers.clear();resizeObserver.disconnect();removeEventListener('scroll',onScroll);removeEventListener('resize',onResize);removeEventListener('pageshow',onPageShow);desktop.removeEventListener?.('change',onMedia);impactDesktop.removeEventListener?.('change',onMedia);if(raf)cancelAnimationFrame(raf);panels.forEach(resetImpact);},{once:true});};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
