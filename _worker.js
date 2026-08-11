@@ -2,8 +2,8 @@ const CANONICAL='https://calltag.pagero.kr/';
 const SEO_TITLE='콜태그 | 통화 후 고객관리·자동문자·페이지로 문의 연동';
 const SEO_DESCRIPTION='통화가 끝나면 고객을 태그하고 상담 상태·다음 할 일·재연락 일정을 관리하세요. 페이지로 랜딩페이지 문의 자동등록과 안내·후속문자까지 연결하는 Android 고객관리 서비스입니다.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
-const WORKER_VERSION='v138-runtime52';
-const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260811-runtime52';
+const WORKER_VERSION='v139-runtime53';
+const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260811-runtime53';
 
 const SEO_SCHEMA={
   '@context':'https://schema.org',
@@ -68,6 +68,7 @@ const SEO_HEAD=`
 <link rel="stylesheet" href="/assets/calltag-horizontal-clean.css?v=20260809-horizontal1" />
 <link rel="stylesheet" href="/assets/calltag-section-motion.css?v=20260809-motion1" />
 <link rel="stylesheet" href="/assets/calltag-section-order.css?v=20260809-order1" />
+<link rel="stylesheet" href="/assets/calltag-industry-visual-v5.css?v=20260811-v5static1" />
 <style id="ct-initial-layout-guard">html:not(.ct-layout-ready) body>main#top{visibility:hidden!important}</style>
 <script>setTimeout(()=>document.documentElement.classList.add('ct-layout-ready'),3000)</script>`;
 
