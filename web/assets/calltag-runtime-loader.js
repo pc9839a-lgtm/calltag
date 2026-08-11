@@ -1,17 +1,14 @@
 (()=>{
-  if(document.documentElement.dataset.ctRuntimeLoaderV58)return;
-  document.documentElement.dataset.ctRuntimeLoaderV58='1';
+  if(document.documentElement.dataset.ctRuntimeLoaderV59)return;
+  document.documentElement.dataset.ctRuntimeLoaderV59='1';
   const scripts=[
     'calltag-suite-pricing.js?v=20260811-suite8','calltag-pagero-intro.js?v=20260811-intro12'
   ];
   const mountFoundation=()=>{
-    if(document.documentElement.dataset.ctAdBootstrapV6)return true;
-    document.documentElement.dataset.ctAdBootstrapV6='1';
+    if(document.documentElement.dataset.ctAdBootstrapV7)return true;
+    document.documentElement.dataset.ctAdBootstrapV7='1';
     const q=(s,r=document)=>r.querySelector(s);
     const make=html=>{const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstElementChild;};
-    if(!document.head.querySelector('style[data-ct-ad-bootstrap-v6]')){
-      const style=document.createElement('style');style.dataset.ctAdBootstrapV6='1';style.textContent='.ad-section{padding:116px 0;border-top:1px solid var(--line)}.ad-section.alt{background:#0d0f13}.ad-head{max-width:780px;margin:0 auto 46px;text-align:center}.ad-kicker{margin:0 0 14px;color:var(--blue-2);font-size:14px;font-weight:900}.ad-title{margin:0;font-size:clamp(42px,5vw,72px);line-height:1.04;letter-spacing:-.07em}.ad-targets{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.ad-target{min-height:210px;padding:25px;border:1px solid var(--line);border-radius:20px;background:var(--surface)}.ad-target span{color:var(--blue-2);font-size:11px;font-weight:900}.ad-target h3{margin:19px 0 0;font-size:23px;letter-spacing:-.05em}.ad-target b{display:block;margin-top:24px;color:#e8eaf0;font-size:12px}.ad-benefits{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;overflow:hidden;border:1px solid var(--line);border-radius:22px;background:var(--line)}.ad-benefit{min-height:190px;padding:26px;background:#11141a}@media(max-width:1000px){.ad-targets,.ad-benefits{grid-template-columns:repeat(2,1fr)}}@media(max-width:700px){.ad-section{padding:86px 0}.ad-targets,.ad-benefits{grid-template-columns:1fr}}';document.head.append(style);
-    }
     const nav=q('.nav');if(nav)nav.innerHTML="<a href='#app'>기능</a><a href='#targets'>추천 업종</a><a href='#messages'>문자</a><a href='#strengths'>강점</a><a href='#pricing'>요금</a><a href='#faq'>FAQ</a>";
     const step=q('.step-title');if(step)step.innerHTML='통화가 끝난 직후<br><span>고객 정보를 남기세요.</span>';
     const sub=q('.step-sub');if(sub)sub.textContent='고객 구분, 상담 상태, 다음 할 일, 재연락 날짜를 한 번에 입력합니다.';
