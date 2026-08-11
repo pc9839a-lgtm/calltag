@@ -2,7 +2,7 @@ const CANONICAL='https://calltag.pagero.kr/';
 const SEO_TITLE='콜태그 | 통화 후 고객관리·자동문자·페이지로 문의 연동';
 const SEO_DESCRIPTION='통화가 끝나면 고객을 태그하고 상담 상태·다음 할 일·재연락 일정을 관리하세요. 페이지로 랜딩페이지 문의 자동등록과 안내·후속문자까지 연결하는 Android 고객관리 서비스입니다.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
-const WORKER_VERSION='v146-runtime60';
+const WORKER_VERSION='v147-runtime60-seo1';
 const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260811-runtime60';
 
 const SEO_SCHEMA={
@@ -10,14 +10,13 @@ const SEO_SCHEMA={
   '@graph':[
     {'@type':'Organization','@id':`${CANONICAL}#organization`,name:'웨이지',alternateName:'WAYZI',url:'https://pagero.kr/',brand:[{'@type':'Brand',name:'콜태그'},{'@type':'Brand',name:'페이지로'}]},
     {'@type':'WebSite','@id':`${CANONICAL}#website`,url:CANONICAL,name:'콜태그',alternateName:'CALLTAG',inLanguage:'ko-KR',publisher:{'@id':`${CANONICAL}#organization`}},
-    {'@type':'SoftwareApplication','@id':`${CANONICAL}#software`,name:'콜태그',alternateName:'CALLTAG',url:CANONICAL,applicationCategory:'BusinessApplication',applicationSubCategory:'Customer Relationship Management',operatingSystem:'Android',description:'통화 후 고객 태그, 상담 상태, 다음 할 일, 재연락 일정, 자동문자와 페이지로 문의 연동을 제공하는 고객관리 서비스',provider:{'@id':`${CANONICAL}#organization`},featureList:['통화 후 고객 태그','고객 상태와 상담 이력 관리','다음 할 일과 재연락 일정','안내문자와 후속문자 자동화','페이지로 문의 고객 자동등록','PC 고객관리와 캘린더'],offers:[{'@type':'Offer',name:'전화관리',price:'1900',priceCurrency:'KRW',availability:'https://schema.org/InStock',url:`${CANONICAL}#pricing`},{'@type':'Offer',name:'문자자동화',price:'990',priceCurrency:'KRW',availability:'https://schema.org/InStock',url:`${CANONICAL}#pricing`},{'@type':'Offer',name:'페이지로',price:'3500',priceCurrency:'KRW',availability:'https://schema.org/InStock',url:`${CANONICAL}#pricing`},{'@type':'Offer',name:'통합권',price:'6000',priceCurrency:'KRW',availability:'https://schema.org/InStock',url:`${CANONICAL}#pricing`}]},
-    {'@type':'Service','@id':`${CANONICAL}#pagero-service`,name:'페이지로',serviceType:'노코드 랜딩페이지 제작 및 고객 문의 수집',url:'https://pagero.kr/',provider:{'@id':`${CANONICAL}#organization`},offers:{'@type':'Offer',price:'3500',priceCurrency:'KRW',availability:'https://schema.org/InStock'}},
+    {'@type':'SoftwareApplication','@id':`${CANONICAL}#software`,name:'콜태그',alternateName:'CALLTAG',url:CANONICAL,applicationCategory:'BusinessApplication',applicationSubCategory:'Customer Relationship Management',operatingSystem:'Android',description:'통화 후 고객 태그, 상담 상태, 다음 할 일, 재연락 일정, 자동문자와 페이지로 문의 연동을 제공하는 고객관리 서비스',provider:{'@id':`${CANONICAL}#organization`},featureList:['통화 후 고객 태그','고객 상태와 상담 이력 관리','다음 할 일과 재연락 일정','안내문자와 후속문자 자동화','페이지로 문의 고객 자동등록','PC 고객관리와 캘린더'],offers:[{'@type':'Offer',name:'페이지로 + 콜태그 통합권',price:'6000',priceCurrency:'KRW',availability:'https://schema.org/InStock',url:`${CANONICAL}#pricing`}]},
+    {'@type':'Service','@id':`${CANONICAL}#pagero-service`,name:'페이지로',serviceType:'노코드 랜딩페이지 제작 및 고객 문의 수집',url:'https://pagero.kr/',provider:{'@id':`${CANONICAL}#organization`}},
     {'@type':'FAQPage','@id':`${CANONICAL}#faq`,url:`${CANONICAL}#faq`,mainEntity:[
       {'@type':'Question',name:'통화 내용이 녹음되나요?',acceptedAnswer:{'@type':'Answer',text:'아닙니다. 콜태그는 통화 음성을 녹음하거나 대화 내용을 자동 수집하지 않습니다. 통화가 끝난 뒤 사용자가 고객 상태와 다음 할 일을 직접 선택합니다.'}},
       {'@type':'Question',name:'개인 전화도 고객으로 등록되나요?',acceptedAnswer:{'@type':'Answer',text:'개인통화, 거래처, 제외번호를 따로 선택할 수 있습니다. 연락처에 저장된 번호라고 해서 자동으로 고객으로 확정하지 않습니다.'}},
       {'@type':'Question',name:'아이폰에서도 사용할 수 있나요?',acceptedAnswer:{'@type':'Answer',text:'현재 콜태그 앱은 Android 전용으로 개발하고 있습니다. 웹 화면은 PC와 모바일 브라우저에서 확인할 수 있습니다.'}},
-      {'@type':'Question',name:'웹에서는 무엇을 볼 수 있나요?',acceptedAnswer:{'@type':'Answer',text:'오늘 해야 할 업무, 기한이 지난 업무, 고객별 상담 이력, 재연락·자료 발송·방문 일정을 확인할 수 있습니다.'}},
-      {'@type':'Question',name:'요금제는 어떻게 구성되나요?',acceptedAnswer:{'@type':'Answer',text:'전화관리 월 1,900원, 문자자동화 월 990원, 페이지로 월 3,500원, 통합권 월 6,000원입니다.'}}
+      {'@type':'Question',name:'웹에서는 무엇을 볼 수 있나요?',acceptedAnswer:{'@type':'Answer',text:'오늘 해야 할 업무, 기한이 지난 업무, 고객별 상담 이력, 재연락·자료 발송·방문 일정을 확인할 수 있습니다.'}}
     ]}
   ]
 };
@@ -81,7 +80,7 @@ const stripSeo=body=>body
 
 const normalizeCopy=body=>body
   .replace('무료체험 뒤 요금은 얼마인가요?','요금제는 어떻게 구성되나요?')
-  .replace('처음 7일은 무료로 체험할 수 있으며, 무료체험 종료 후 이용 요금은 월 1,900원입니다.','전화관리 월 1,900원, 문자자동화 월 990원, 페이지로 월 3,500원, 통합권 월 6,000원입니다.')
+  .replace('처음 7일은 무료로 체험할 수 있으며, 무료체험 종료 후 이용 요금은 월 1,900원입니다.','3일 무료체험 후 페이지로 + 콜태그 통합권은 월 6,000원입니다.')
   .replaceAll('7일 무료체험','3일 무료체험')
   .replaceAll('7일 무료 체험','3일 무료 체험')
   .replaceAll('7일 동안 써보고','3일 동안 써보고')
