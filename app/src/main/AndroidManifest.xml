@@ -20,6 +20,8 @@
     <application
         android:name=".CallTagApplication"
         android:allowBackup="false"
+        android:icon="@drawable/calltag_launcher"
+        android:roundIcon="@drawable/calltag_launcher"
         android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config"
         android:label="@string/app_name"
