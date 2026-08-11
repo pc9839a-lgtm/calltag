@@ -89,6 +89,23 @@
             android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
         <activity
+            android:name=".GoogleCredentialLoginActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.CallTag.GoogleCredentialBridge">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="calltag"
+                    android:host="credential"
+                    android:path="/google" />
+            </intent-filter>
+        </activity>
+        <activity
             android:name=".GoogleAuthCallbackActivity"
             android:excludeFromRecents="true"
             android:exported="true"
