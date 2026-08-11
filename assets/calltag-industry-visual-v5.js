@@ -96,7 +96,7 @@
       const x=isMobile?0:dx*(1-enter)+ex*leave;
       const y=isMobile?(1-enter)*36-leave*42:dy*(1-enter)-lift+ey*leave;
       const rotation=isMobile?0:rot*(1-enter)+er*leave;
-      const startScale=isMobile?.97:.86;
+      const startScale=isMobile ? .97 : .86;
       const scale=startScale+(1-startScale)*enter-.1*leave;
       const blur=(1-enter)*2.4+leave*3.2;
       card.style.opacity=(alpha*visibility).toFixed(3);
