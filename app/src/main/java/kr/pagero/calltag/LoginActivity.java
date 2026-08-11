@@ -96,15 +96,15 @@ public final class LoginActivity extends Activity {
 
     private void installSignupReferralField() {
         LinearLayout form = (LinearLayout) signupForm;
-        int insertAt = Math.max(0, form.getChildCount() - 2);
+        View privacyRow = privacyConsent == null ? null : (View) privacyConsent.getParent();
+        int privacyIndex = privacyRow == null ? -1 : form.indexOfChild(privacyRow);
+        int insertAt = privacyIndex > 0 ? privacyIndex - 1 : Math.max(0, form.getChildCount() - 4);
 
         TextView benefit = new TextView(this);
-        benefit.setText("[선택] 추천인 코드 · 입력 시 통합권 7일 추가, 총 14일 무료");
-        benefit.setTextSize(13f);
+        benefit.setText("추천인 코드 입력 시 무료 7일 추가");
+        benefit.setTextSize(12f);
         benefit.setTextColor(getColor(R.color.primary));
         benefit.setGravity(Gravity.CENTER_VERTICAL);
-        benefit.setBackgroundResource(R.drawable.bg_preview);
-        benefit.setPadding(dp(12), dp(10), dp(12), dp(10));
         LinearLayout.LayoutParams benefitParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -113,7 +113,7 @@ public final class LoginActivity extends Activity {
 
         signupReferral = new EditText(this);
         signupReferral.setSingleLine(true);
-        signupReferral.setHint("[선택] 추천인 코드");
+        signupReferral.setHint("추천인 코드");
         signupReferral.setTextSize(15f);
         signupReferral.setTextColor(getColor(R.color.text_primary));
         signupReferral.setHintTextColor(getColor(R.color.text_muted));
@@ -121,10 +121,10 @@ public final class LoginActivity extends Activity {
         signupReferral.setPadding(dp(14), 0, dp(14), 0);
         signupReferral.setAllCaps(true);
         signupReferral.setMaxLines(1);
-        signupReferral.setContentDescription("선택 추천인 코드");
+        signupReferral.setContentDescription("추천인 코드");
         LinearLayout.LayoutParams inputParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(50));
-        inputParams.topMargin = dp(8);
+        inputParams.topMargin = dp(6);
         form.addView(signupReferral, insertAt + 1, inputParams);
 
         String pending = PendingReferralStore.peek(this);
@@ -258,10 +258,9 @@ public final class LoginActivity extends Activity {
     }
 
     private void requestSignupVerification() {
-        if (!hasRequiredConsent()) return;
         EditText email = findViewById(R.id.editSignupEmail);
         if (text(email).isEmpty()) {
-            showNotice("필수 이메일을 입력해주세요.", true);
+            showNotice("이메일을 입력해주세요.", true);
             return;
         }
         runTask(() -> AuthApiClient.requestVerification(text(email), "signup"), response ->
@@ -269,7 +268,6 @@ public final class LoginActivity extends Activity {
     }
 
     private void signup() {
-        if (!hasRequiredConsent()) return;
         EditText name = findViewById(R.id.editSignupName);
         EditText phone = findViewById(R.id.editSignupPhone);
         EditText email = findViewById(R.id.editSignupEmail);
@@ -280,9 +278,10 @@ public final class LoginActivity extends Activity {
 
         if (text(name).isEmpty() || text(phone).isEmpty() || text(email).isEmpty()
                 || text(code).isEmpty() || text(password).isEmpty()) {
-            showNotice("[필수] 표시된 항목을 모두 입력해주세요.", true);
+            showNotice("빨간 * 표시 항목을 모두 입력해주세요.", true);
             return;
         }
+        if (!hasRequiredConsent()) return;
 
         String referral = text(signupReferral).toUpperCase(Locale.KOREA)
                 .replaceAll("[^A-Z0-9]", "");
@@ -324,11 +323,11 @@ public final class LoginActivity extends Activity {
 
     private boolean hasRequiredConsent() {
         if (!privacyConsent.isChecked()) {
-            showNotice("[필수] 개인정보 수집·이용에 동의해주세요.", true);
+            showNotice("개인정보 수집·이용에 동의해주세요.", true);
             return false;
         }
         if (!termsConsent.isChecked()) {
-            showNotice("[필수] 서비스 이용약관에 동의해주세요.", true);
+            showNotice("서비스 이용약관에 동의해주세요.", true);
             return false;
         }
         return true;
