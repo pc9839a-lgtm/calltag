@@ -37,13 +37,30 @@ CallTag 앱 선택 후 아래를 먼저 확인한다.
 
 판매자 계정이 없으면 Play Console에서 Google Payments profile을 먼저 연결한다.
 
+### 1.1 `앱 초안` 상태에서 `제품/정기 결제` 메뉴가 보이지 않는 경우
+
+CallTag처럼 새 앱이 아직 `앱 초안`이고 수익화 하위 메뉴가 노출되지 않으면 **구독 상품부터 만들려고 하지 않는다.** 먼저 Google Play Billing Library가 포함된 유효한 AAB를 **내부 테스트 트랙에 게시**한다.
+
+현재 CallTag AAB에는 Billing Library가 포함되어 있으므로 아래 순서로 진행한다.
+
+1. `테스트 및 출시 → 테스트 → 내부 테스트`
+2. 내부 테스트 트랙 생성 또는 기존 트랙 선택
+3. 테스터 Gmail 등록
+4. 최신 signed AAB 업로드
+5. 버전 저장 후 내부 테스트에 게시
+6. 첫 내부 테스트 게시가 처리된 뒤 `Play를 통한 수익 창출 → 제품 → 정기 결제` 메뉴 재확인
+
+Google Play 공식 기준상 내부 테스트는 앱 설정을 완료하기 전에도 사용할 수 있고, 유효한 App Bundle만 있으면 시작할 수 있다. 또한 Play 내부 테스트 트랙은 Subscriptions / In-app purchases 같은 Play 서비스 검증에 사용하는 권장 경로다.
+
+`앱 콘텐츠`, `스토어 등록정보`, 비공개 테스트용 초기 설정을 전부 끝내야 내부 테스트를 시작하는 것은 아니다. **비공개 테스트와 프로덕션 준비 조건을 내부 테스트 조건과 혼동하지 않는다.**
+
 ---
 
 ## 2. 구독 상품 3개 생성
 
 Play Console:
 
-`수익 창출(Monetize with Play) → 제품(Products) → 정기 결제(Subscriptions)`
+`Play를 통한 수익 창출(Monetize with Play) → 제품(Products) → 정기 결제(Subscriptions)`
 
 ### 2.1 전화관리
 
@@ -339,6 +356,8 @@ Play 상품 + 서버 검증 + RTDN + 내부테스트가 완료된 뒤:
 ## 12. 출시 전 통과 조건
 
 - [ ] 결제 프로필 연결
+- [ ] 내부 테스트에 Billing Library 포함 최신 AAB 게시
+- [ ] `Play를 통한 수익 창출 → 제품 → 정기 결제` 메뉴 노출 확인
 - [ ] `call_monthly` 생성 + monthly 활성
 - [ ] `message_monthly` 생성 + monthly 활성
 - [ ] `all_monthly` 생성 + monthly 활성
