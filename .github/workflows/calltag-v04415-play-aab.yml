@@ -1,4 +1,4 @@
-name: CallTag 0.44.18 signed Play AAB
+name: CallTag 0.44.19 signed Play AAB
 
 on:
   workflow_dispatch:
@@ -22,14 +22,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -F 'versionCode 2026081204' app/build.gradle
-          grep -F "versionName '0.44.18'" app/build.gradle
+          grep -F 'versionCode 2026081205' app/build.gradle
+          grep -F "versionName '0.44.19'" app/build.gradle
           grep -F "applicationId 'kr.pagero.calltag'" app/build.gradle
           grep -F 'minSdk 26' app/build.gradle
           grep -F 'targetSdk 36' app/build.gradle
-          grep -F '/api/call/google/start?return_scheme=calltag' app/src/main/java/kr/pagero/calltag/AuthApiClient.java
-          grep -F '/api/call/google/exchange' app/src/main/java/kr/pagero/calltag/AuthApiClient.java
-          grep -F 'android:scheme="calltag"' app/src/main/AndroidManifest.xml
+          grep -F "androidx.credentials:credentials:1.6.0" app/build.gradle
+          grep -F "credentials-play-services-auth:1.6.0" app/build.gradle
+          grep -F "googleid:googleid:1.2.0" app/build.gradle
+          grep -F 'GOOGLE_SERVER_CLIENT_ID' app/build.gradle
+          grep -F 'return "calltag://credential/google";' app/src/main/java/kr/pagero/calltag/AuthApiClient.java
+          grep -F '/api/call/google/id-token' app/src/main/java/kr/pagero/calltag/AuthApiClient.java
+          grep -F 'GetSignInWithGoogleOption' app/src/main/java/kr/pagero/calltag/GoogleCredentialLoginActivity.java
+          grep -F 'CredentialManager.create(this)' app/src/main/java/kr/pagero/calltag/GoogleCredentialLoginActivity.java
+          grep -F 'GoogleIdTokenCredential.createFrom' app/src/main/java/kr/pagero/calltag/GoogleCredentialLoginActivity.java
+          grep -F 'android:name=".GoogleCredentialLoginActivity"' app/src/main/AndroidManifest.xml
+          grep -F 'android:host="credential"' app/src/main/AndroidManifest.xml
           test -s app/src/main/res/drawable-nodpi/calltag_launcher_safe.webp
           if grep -R -F '[필수]' app/src/main/res/layout/activity_auth.xml app/src/main/java/kr/pagero/calltag/LoginActivity.java; then exit 1; fi
           if grep -R -F '[선택]' app/src/main/res/layout/activity_auth.xml app/src/main/java/kr/pagero/calltag/LoginActivity.java; then exit 1; fi
@@ -63,13 +71,12 @@ jobs:
           cp app/src/main/res/mipmap-anydpi-v26/ic_launcher_calltag.xml app/src/main/res/mipmap-anydpi-v26/ic_launcher_calltag_round.xml
           python - <<'PY'
           from pathlib import Path
+          import re
           p=Path('app/src/main/AndroidManifest.xml')
           s=p.read_text()
           if 'android:icon=' in s:
-              import re
               s=re.sub(r'\s+android:icon="[^"]+"', '', s, count=1)
           if 'android:roundIcon=' in s:
-              import re
               s=re.sub(r'\s+android:roundIcon="[^"]+"', '', s, count=1)
           needle='        android:allowBackup="false"\n'
           repl='        android:allowBackup="false"\n        android:icon="@mipmap/ic_launcher_calltag"\n        android:roundIcon="@mipmap/ic_launcher_calltag_round"\n'
@@ -146,16 +153,16 @@ jobs:
           jarsigner -verify -certs "$AAB"
           unzip -l "$AAB" | grep -F 'calltag_launcher_safe'
           unzip -l "$AAB" | grep -F 'ic_launcher_calltag'
-          OUT="$RUNNER_TEMP/calltag-v0.44.18-play"
+          OUT="$RUNNER_TEMP/calltag-v0.44.19-play"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.44.18-code2026081204.aab"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V04418_AAB_SHA256.txt"
+          cp "$AAB" "$OUT/CallTag-v0.44.19-code2026081205.aab"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04419_AAB_SHA256.txt"
           cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
 
       - name: Upload Play Console AAB
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.18-code2026081204-play-aab
-          path: ${{ runner.temp }}/calltag-v0.44.18-play
+          name: calltag-v0.44.19-code2026081205-play-aab
+          path: ${{ runner.temp }}/calltag-v0.44.19-play
           retention-days: 90
           if-no-files-found: error
