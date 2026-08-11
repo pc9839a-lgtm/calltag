@@ -2,7 +2,7 @@ const CANONICAL='https://calltag.pagero.kr/';
 const SEO_TITLE='콜태그 | 통화 후 고객관리·자동문자·페이지로 문의 연동';
 const SEO_DESCRIPTION='통화가 끝나면 고객을 태그하고 상담 상태·다음 할 일·재연락 일정을 관리하세요. 페이지로 랜딩페이지 문의 자동등록과 안내·후속문자까지 연결하는 Android 고객관리 서비스입니다.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
-const WORKER_VERSION='v147-runtime60-seo1';
+const WORKER_VERSION='v148-runtime60-css2';
 const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260811-runtime60';
 
 const SEO_SCHEMA={
@@ -48,20 +48,14 @@ const SEO_HEAD=`
 <meta name="twitter:description" content="${SEO_DESCRIPTION}" />
 <meta name="twitter:image" content="${OG_IMAGE}" />
 <script type="application/ld+json" id="ct-seo-schema">${JSON.stringify(SEO_SCHEMA).replace(/</g,'\\u003c')}</script>
-<link rel="stylesheet" href="/assets/calltag-enhance.css?v=20260801-37" />
-<link rel="stylesheet" href="/assets/calltag-foundation.css?v=20260811-foundation1" />
+<link rel="stylesheet" href="/assets/calltag-enhance.css?v=20260812-enhance2" />
 <link rel="stylesheet" href="/assets/calltag-pagero-light.css?v=20260809-light1" />
 <link rel="stylesheet" href="/assets/calltag-pagero-intro.css?v=20260811-intro1" />
 <link rel="stylesheet" href="/assets/calltag-pagero-presentation.css?v=20260811-presentation1" />
 <link rel="stylesheet" href="/assets/calltag-pagero-industries.css?v=20260811-industries1" />
 <link rel="stylesheet" href="/assets/calltag-final.css?v=20260809-final1" />
 <link rel="stylesheet" href="/assets/calltag-mobile.css?v=20260809-mobile1" />
-<link rel="stylesheet" href="/assets/calltag-strength.css?v=20260809-strength1" />
-<link rel="stylesheet" href="/assets/calltag-cta.css?v=20260809-cta1" />
-<link rel="stylesheet" href="/assets/calltag-suite-pricing.css?v=20260809-suite1" />
-<link rel="stylesheet" href="/assets/calltag-benefits.css?v=20260809-benefits1" />
-<link rel="stylesheet" href="/assets/calltag-message.css?v=20260809-message1" />
-<link rel="stylesheet" href="/assets/calltag-story.css?v=20260809-story1" />
+<link rel="stylesheet" href="/assets/calltag-core-ui.css?v=20260812-coreui1" />
 <link rel="stylesheet" href="/assets/calltag-interaction.css?v=20260809-interaction1" />
 <link rel="stylesheet" href="/assets/calltag-horizontal-impact.css?v=20260809-impact1" />
 <link rel="stylesheet" href="/assets/calltag-horizontal-guard.css?v=20260809-guard1" />
