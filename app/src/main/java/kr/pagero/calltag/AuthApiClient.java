@@ -33,7 +33,13 @@ public final class AuthApiClient {
     private AuthApiClient() {}
 
     public static String googleLoginUrl() {
-        return BASE_URLS[0] + "/api/call/google/start?return_scheme=calltag";
+        return "calltag://credential/google";
+    }
+
+    public static JSONObject exchangeGoogleIdToken(String idToken, String nonce) throws Exception {
+        return post("/api/call/google/id-token", new JSONObject()
+                .put("idToken", clean(idToken))
+                .put("nonce", clean(nonce)), "");
     }
 
     public static JSONObject exchangeGoogleTicket(String ticket) throws Exception {
