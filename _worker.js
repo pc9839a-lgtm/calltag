@@ -2,7 +2,7 @@ const CANONICAL='https://calltag.pagero.kr/';
 const SEO_TITLE='콜태그 | 통화 후 고객관리·자동문자·페이지로 문의 연동';
 const SEO_DESCRIPTION='통화가 끝나면 고객을 태그하고 상담 상태·다음 할 일·재연락 일정을 관리하세요. 페이지로 랜딩페이지 문의 자동등록과 안내·후속문자까지 연결하는 Android 고객관리 서비스입니다.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
-const WORKER_VERSION='v148-runtime60-css2';
+const WORKER_VERSION='v149-runtime60-raw1';
 const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260811-runtime60';
 
 const SEO_SCHEMA={
@@ -72,15 +72,6 @@ const stripSeo=body=>body
   .replace(/<link\s+rel=["']alternate["'][^>]*hreflang=[^>]*>\s*/gi,'')
   .replace(/<script\s+type=["']application\/ld\+json["'][^>]*id=["']ct-seo-schema["'][^>]*>[\s\S]*?<\/script>\s*/gi,'');
 
-const normalizeCopy=body=>body
-  .replace('무료체험 뒤 요금은 얼마인가요?','요금제는 어떻게 구성되나요?')
-  .replace('처음 7일은 무료로 체험할 수 있으며, 무료체험 종료 후 이용 요금은 월 1,900원입니다.','3일 무료체험 후 페이지로 + 콜태그 통합권은 월 6,000원입니다.')
-  .replaceAll('7일 무료체험','3일 무료체험')
-  .replaceAll('7일 무료 체험','3일 무료 체험')
-  .replaceAll('7일 동안 써보고','3일 동안 써보고')
-  .replaceAll('7일 동안 무료','3일 동안 무료')
-  .replaceAll('7일 무료로','3일 무료로');
-
 export default {
   async fetch(request,env){
     const url=new URL(request.url);
@@ -97,6 +88,6 @@ export default {
     }
     const headers=new Headers(response.headers);['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));headers.set('content-type','text/html; charset=UTF-8');headers.set('cache-control','no-cache, no-store, must-revalidate');headers.set('x-calltag-worker',WORKER_VERSION);
     const isLegal=/^\/(terms|privacy|refund|support)(?:\.html)?(?:\/|$)/.test(url.pathname);if(isLegal)return new Response(await response.text(),{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
-    let body=await response.text();body=normalizeCopy(stripSeo(body)).replace(/<title>[\s\S]*?<\/title>/i,`<title>${SEO_TITLE}</title>`).replace('</head>',`${SEO_HEAD}</head>`).replace('</body>',`<script src="${RUNTIME_SRC}"></script></body>`);return new Response(body,{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
+    let body=await response.text();body=stripSeo(body).replace(/<title>[\s\S]*?<\/title>/i,`<title>${SEO_TITLE}</title>`).replace('</head>',`${SEO_HEAD}</head>`).replace('</body>',`<script src="${RUNTIME_SRC}"></script></body>`);return new Response(body,{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
   }
 };
