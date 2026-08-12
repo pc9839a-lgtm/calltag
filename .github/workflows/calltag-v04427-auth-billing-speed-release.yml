@@ -1,0 +1,152 @@
+name: CallTag 0.44.27 Auth Billing Speed Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/calltag-v04422-billing-live
+    paths:
+      - '.github/workflows/calltag-v04427-auth-billing-speed-release.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  signed-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare 0.44.27 and verify latest fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i 's/versionCode 2026081211/versionCode 2026081213/' app/build.gradle
+          sed -i "s/versionName '0.44.25'/versionName '0.44.27'/" app/build.gradle
+          grep -F 'versionCode 2026081213' app/build.gradle
+          grep -F "versionName '0.44.27'" app/build.gradle
+          grep -F "applicationId 'kr.pagero.calltag'" app/build.gradle
+
+          API='app/src/main/java/kr/pagero/calltag/AuthApiClient.java'
+          grep -F '"https://inlet-8mr.pages.dev"' "$API"
+          grep -F 'connection.setConnectTimeout(5_000);' "$API"
+          grep -F 'connection.setReadTimeout(10_000);' "$API"
+
+          GOOGLE='app/src/main/java/kr/pagero/calltag/GoogleCredentialLoginActivity.java'
+          grep -F 'GetSignInWithGoogleOption' "$GOOGLE"
+          grep -F 'GetGoogleIdOption' "$GOOGLE"
+          grep -F 'setFilterByAuthorizedAccounts(false)' "$GOOGLE"
+          if grep -F 'startFallbackLogin' "$GOOGLE"; then
+            echo 'Browser OAuth fallback must not exist.' >&2
+            exit 1
+          fi
+          if grep -F 'https://pagero.kr/api/call/google/start?return_scheme=calltag' "$GOOGLE"; then
+            echo 'Browser OAuth fallback URL must not exist.' >&2
+            exit 1
+          fi
+
+          BILLING='app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java'
+          grep -F 'billing.connectAndLoad();' "$BILLING"
+          grep -F 'refreshEntitlement(false);' "$BILLING"
+          grep -F 'private boolean refreshing;' "$BILLING"
+
+          LOGIN='app/src/main/java/kr/pagero/calltag/LoginActivity.java'
+          grep -F 'FeatureEntitlementStore.saveServerEntitlement(this, response);' "$LOGIN"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Restore accepted Play upload key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
+          CREDENTIALS_TEXT: ${{ secrets.CALLTAG_UPLOAD_CREDENTIALS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXPECTED_SHA256="$(tr -d '\r\n ' < config/play-upload-key-sha256.txt)"
+          test -n "$EXPECTED_SHA256"
+          test -n "$KEYSTORE_BASE64"
+          test -n "$CREDENTIALS_TEXT"
+
+          CLEAN="$(printf '%s\n' "$CREDENTIALS_TEXT" | tr -d '\r')"
+          STORE_PASSWORD="$(printf '%s\n' "$CLEAN" | sed -n 's/^CALLTAG_UPLOAD_STORE_PASSWORD=//p' | tail -n 1)"
+          CREDENTIAL_ALIAS="$(printf '%s\n' "$CLEAN" | sed -n 's/^CALLTAG_UPLOAD_KEY_ALIAS=//p' | tail -n 1)"
+          KEY_PASSWORD="$(printf '%s\n' "$CLEAN" | sed -n 's/^CALLTAG_UPLOAD_KEY_PASSWORD=//p' | tail -n 1)"
+          KEY_ALIAS='calltag-upload'
+          test -n "$STORE_PASSWORD"
+          test -n "$KEY_PASSWORD"
+          if [ -n "$CREDENTIAL_ALIAS" ] && [ "$CREDENTIAL_ALIAS" != "$KEY_ALIAS" ]; then
+            echo 'Credential alias mismatch.' >&2
+            exit 1
+          fi
+
+          KEYSTORE="$RUNNER_TEMP/calltag-upload.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+          echo "::add-mask::$STORE_PASSWORD"
+          echo "::add-mask::$KEY_PASSWORD"
+
+          keytool -list -v -keystore "$KEYSTORE" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" \
+            | grep -E 'Alias name:|Owner:|SHA1:|SHA256:' > "$RUNNER_TEMP/upload-key-fingerprints.txt"
+          grep -F "SHA256: $EXPECTED_SHA256" "$RUNNER_TEMP/upload-key-fingerprints.txt"
+
+          {
+            echo "CALLTAG_UPLOAD_KEYSTORE_PATH=$KEYSTORE"
+            echo "CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD"
+            echo "CALLTAG_UPLOAD_KEY_ALIAS=$KEY_ALIAS"
+            echo "CALLTAG_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD"
+            echo "CALLTAG_EXPECTED_UPLOAD_KEY_SHA256=$EXPECTED_SHA256"
+          } >> "$GITHUB_ENV"
+
+      - name: Build signed AAB and APK
+        run: gradle :app:bundleRelease :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Verify signatures and stage release
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAB='app/build/outputs/bundle/release/app-release.aab'
+          APK='app/build/outputs/apk/release/app-release.apk'
+          test -s "$AAB"
+          test -s "$APK"
+
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" > "$RUNNER_TEMP/apk-signature.txt"
+          EXPECTED_COMPACT="$(printf '%s' "$CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          ACTUAL_APK="$(grep -i 'certificate SHA-256 digest:' "$RUNNER_TEMP/apk-signature.txt" | head -n 1 | sed 's/.*digest: //' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+          test "$ACTUAL_APK" = "$EXPECTED_COMPACT"
+
+          jarsigner -verify -certs "$AAB"
+          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/aab-certificate.txt"
+          grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/aab-certificate.txt"
+
+          OUT="$RUNNER_TEMP/calltag-v0.44.27-auth-billing-speed-release"
+          mkdir -p "$OUT"
+          cp "$AAB" "$OUT/CallTag-v0.44.27-code2026081213.aab"
+          cp "$APK" "$OUT/CallTag-v0.44.27-code2026081213-release.apk"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04427_AAB_SHA256.txt"
+          sha256sum "$APK" > "$OUT/CALLTAG_V04427_APK_SHA256.txt"
+          cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
+          cp "$RUNNER_TEMP/aab-certificate.txt" "$OUT/CALLTAG_V04427_AAB_CERTIFICATE.txt"
+          cp "$RUNNER_TEMP/apk-signature.txt" "$OUT/CALLTAG_V04427_APK_SIGNATURE.txt"
+
+      - name: Upload release
+        uses: actions/upload-artifact@v4
+        with:
+          name: calltag-v0.44.27-code2026081213-auth-billing-speed-release
+          path: ${{ runner.temp }}/calltag-v0.44.27-auth-billing-speed-release
+          retention-days: 90
+          if-no-files-found: error
