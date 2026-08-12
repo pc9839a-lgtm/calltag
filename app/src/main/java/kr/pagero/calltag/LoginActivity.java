@@ -334,6 +334,10 @@ public final class LoginActivity extends Activity {
     private void acceptAuth(JSONObject response) {
         try {
             AuthSessionStore.save(this, response);
+            boolean entitlementIncluded = response.optJSONObject("entitlement") != null;
+            if (entitlementIncluded) {
+                FeatureEntitlementStore.saveServerEntitlement(this, response);
+            }
             if (response.optJSONObject("referral") != null) {
                 PendingReferralStore.clear(this);
                 Toast.makeText(this,
@@ -351,7 +355,9 @@ public final class LoginActivity extends Activity {
                 PageroAccountConnectionManager.refresh(this, true);
             }
             CallTagPushManager.registerIfAvailable(this);
-            EntitlementRefreshManager.request(this, true);
+            if (!entitlementIncluded) {
+                EntitlementRefreshManager.request(this, true);
+            }
 
             Intent destination = SetupRequirements.isReady(this)
                     ? new Intent(this, MainActivity.class)
