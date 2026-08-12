@@ -3,6 +3,7 @@ package kr.pagero.calltag;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.time.Instant;
@@ -46,6 +47,12 @@ public final class FeatureEntitlementStore {
     private static final String KEY_NOTICE_TITLE = "notice_title";
     private static final String KEY_NOTICE_MESSAGE = "notice_message";
     private static final String KEY_LAST_CHECKED_AT = "last_checked_at";
+    private static final String KEY_PHONE_SUBSCRIBED = "phone_subscribed";
+    private static final String KEY_MESSAGE_SUBSCRIBED = "message_subscribed";
+    private static final String KEY_PHONE_NEXT_BILLING_AT = "phone_next_billing_at";
+    private static final String KEY_MESSAGE_NEXT_BILLING_AT = "message_next_billing_at";
+    private static final String KEY_PHONE_PURCHASE_AVAILABLE = "phone_purchase_available";
+    private static final String KEY_MESSAGE_PURCHASE_AVAILABLE = "message_purchase_available";
 
     private FeatureEntitlementStore() {}
 
@@ -76,6 +83,8 @@ public final class FeatureEntitlementStore {
         JSONObject availability = entitlement.optJSONObject("billingAvailability");
         JSONObject googlePlay = availability == null ? null : availability.optJSONObject("googlePlay");
         JSONObject notice = entitlement.optJSONObject("notice");
+        JSONObject productAccess = entitlement.optJSONObject("productAccess");
+        JSONObject purchaseOptions = entitlement.optJSONObject("purchaseOptions");
 
         String plan = firstNonEmpty(
                 entitlement.optString("productCode", ""),
@@ -118,9 +127,6 @@ public final class FeatureEntitlementStore {
                     ? purchase.optBoolean("blocked", purchaseBlocked) : purchaseBlocked;
             blockReason = firstNonEmpty(blockReason, purchase.optString("reason", ""));
         }
-        if ((CHANNEL_WEB.equals(channel) || CHANNEL_GOOGLE_PLAY.equals(channel)) && active) {
-            purchaseBlocked = true;
-        }
 
         boolean playAvailable = googlePlay != null
                 && googlePlay.optBoolean("available", false);
@@ -129,6 +135,71 @@ public final class FeatureEntitlementStore {
         String playMessage = googlePlay == null
                 ? "앱 결제 기능을 준비하고 있습니다."
                 : googlePlay.optString("message", "앱 결제 기능을 준비하고 있습니다.");
+
+        boolean phoneSubscribed = false;
+        boolean messageSubscribed = false;
+        JSONArray activeProducts = entitlement.optJSONArray("activeProducts");
+        if (activeProducts != null) {
+            for (int index = 0; index < activeProducts.length(); index++) {
+                String product = activeProducts.optString(index, "");
+                if (PLAN_PHONE.equals(product)) phoneSubscribed = true;
+                if (PLAN_MESSAGE.equals(product)) messageSubscribed = true;
+            }
+        }
+
+        String phoneNextBillingAt = "";
+        String messageNextBillingAt = "";
+        if (productAccess != null) {
+            JSONObject phone = productAccess.optJSONObject(PLAN_PHONE);
+            JSONObject message = productAccess.optJSONObject(PLAN_MESSAGE);
+            if (phone != null) {
+                phoneSubscribed = phone.optBoolean("active", phoneSubscribed);
+                phoneNextBillingAt = firstNonEmpty(
+                        phone.optString("nextBillingAt", ""),
+                        phone.optString("expiresAt", ""));
+            }
+            if (message != null) {
+                messageSubscribed = message.optBoolean("active", messageSubscribed);
+                messageNextBillingAt = firstNonEmpty(
+                        message.optString("nextBillingAt", ""),
+                        message.optString("expiresAt", ""));
+            }
+        }
+
+        boolean paid = active && !"trial".equalsIgnoreCase(status)
+                && !CHANNEL_NONE.equals(channel);
+        if (activeProducts == null && productAccess == null && paid) {
+            String normalizedPlan = normalizePlan(plan);
+            if (PLAN_PHONE.equals(normalizedPlan)) phoneSubscribed = true;
+            if (PLAN_MESSAGE.equals(normalizedPlan)) messageSubscribed = true;
+            if (PLAN_BUNDLE.equals(normalizedPlan)) {
+                phoneSubscribed = true;
+                messageSubscribed = true;
+            }
+        }
+        if (phoneSubscribed && phoneNextBillingAt.isEmpty()
+                && PLAN_PHONE.equals(normalizePlan(plan))) {
+            phoneNextBillingAt = nextBillingAt;
+        }
+        if (messageSubscribed && messageNextBillingAt.isEmpty()
+                && PLAN_MESSAGE.equals(normalizePlan(plan))) {
+            messageNextBillingAt = nextBillingAt;
+        }
+
+        boolean phonePurchaseAvailable = playAvailable
+                && !purchaseBlocked && !phoneSubscribed && !CHANNEL_WEB.equals(channel);
+        boolean messagePurchaseAvailable = playAvailable
+                && !purchaseBlocked && !messageSubscribed && !CHANNEL_WEB.equals(channel);
+        if (purchaseOptions != null) {
+            JSONObject phone = purchaseOptions.optJSONObject(PLAN_PHONE);
+            JSONObject message = purchaseOptions.optJSONObject(PLAN_MESSAGE);
+            if (phone != null && phone.has("available")) {
+                phonePurchaseAvailable = phone.optBoolean("available", phonePurchaseAvailable);
+            }
+            if (message != null && message.has("available")) {
+                messagePurchaseAvailable = message.optBoolean("available", messagePurchaseAvailable);
+            }
+        }
 
         long deviceNow = System.currentTimeMillis();
         String rawServerNow = firstNonEmpty(
@@ -157,6 +228,12 @@ public final class FeatureEntitlementStore {
                 .putString(KEY_NOTICE_TITLE, notice == null ? "" : notice.optString("title", ""))
                 .putString(KEY_NOTICE_MESSAGE, notice == null ? "" : notice.optString("message", ""))
                 .putLong(KEY_LAST_CHECKED_AT, deviceNow)
+                .putBoolean(KEY_PHONE_SUBSCRIBED, phoneSubscribed)
+                .putBoolean(KEY_MESSAGE_SUBSCRIBED, messageSubscribed)
+                .putString(KEY_PHONE_NEXT_BILLING_AT, phoneNextBillingAt)
+                .putString(KEY_MESSAGE_NEXT_BILLING_AT, messageNextBillingAt)
+                .putBoolean(KEY_PHONE_PURCHASE_AVAILABLE, phonePurchaseAvailable)
+                .putBoolean(KEY_MESSAGE_PURCHASE_AVAILABLE, messagePurchaseAvailable)
                 .apply();
     }
 
@@ -173,7 +250,11 @@ public final class FeatureEntitlementStore {
         if (checked && endsAtMillis > 0L) {
             remainingDays = endsAtMillis <= estimatedServerNow
                     ? 0 : (int) Math.ceil((endsAtMillis - estimatedServerNow) / (double) DAY_MS);
-            if (active && estimatedServerNow >= endsAtMillis) active = false;
+            if (active && estimatedServerNow >= endsAtMillis
+                    && !value.getBoolean(KEY_PHONE_SUBSCRIBED, false)
+                    && !value.getBoolean(KEY_MESSAGE_SUBSCRIBED, false)) {
+                active = false;
+            }
             if (!active && estimatedServerNow >= endsAtMillis
                     && ("trial".equalsIgnoreCase(status) || "inactive".equalsIgnoreCase(status))) {
                 status = "expired";
@@ -198,7 +279,13 @@ public final class FeatureEntitlementStore {
                 value.getString(KEY_NOTICE_CODE, ""),
                 value.getString(KEY_NOTICE_TITLE, ""),
                 value.getString(KEY_NOTICE_MESSAGE, ""),
-                value.getLong(KEY_LAST_CHECKED_AT, 0L));
+                value.getLong(KEY_LAST_CHECKED_AT, 0L),
+                value.getBoolean(KEY_PHONE_SUBSCRIBED, false),
+                value.getBoolean(KEY_MESSAGE_SUBSCRIBED, false),
+                value.getString(KEY_PHONE_NEXT_BILLING_AT, ""),
+                value.getString(KEY_MESSAGE_NEXT_BILLING_AT, ""),
+                value.getBoolean(KEY_PHONE_PURCHASE_AVAILABLE, false),
+                value.getBoolean(KEY_MESSAGE_PURCHASE_AVAILABLE, false));
     }
 
     public static boolean isPlayBillingAvailable(Context context) {
@@ -207,23 +294,24 @@ public final class FeatureEntitlementStore {
 
     public static boolean hasPhoneAccess(Context context) {
         Snapshot value = snapshot(context);
-        if (value.serverChecked && !value.active) return false;
-        return PLAN_PHONE.equals(value.plan) || PLAN_BUNDLE.equals(value.plan);
+        if (value.isTrial()) return true;
+        return value.phoneSubscribed || (value.active && PLAN_BUNDLE.equals(value.plan));
     }
 
     public static boolean hasMessageAccess(Context context) {
         Snapshot value = snapshot(context);
-        if (value.serverChecked && !value.active) return false;
-        return PLAN_MESSAGE.equals(value.plan) || PLAN_BUNDLE.equals(value.plan);
+        if (value.isTrial()) return true;
+        return value.messageSubscribed || (value.active && PLAN_BUNDLE.equals(value.plan));
     }
 
     public static String planLabel(Context context) {
         Snapshot value = snapshot(context);
         if (value.isTrial()) return "무료 이용 중";
+        if (value.phoneSubscribed && value.messageSubscribed) return "전화관리 · 문자자동화 이용 중";
+        if (value.phoneSubscribed) return "전화관리 이용 중";
+        if (value.messageSubscribed) return "문자자동화 이용 중";
         if (!value.active && value.serverChecked) return "이용권 필요";
-        if (PLAN_PHONE.equals(value.plan)) return "전화관리 · 월 1,900원";
-        if (PLAN_MESSAGE.equals(value.plan)) return "문자자동화 · 월 990원";
-        return "통합권 · 월 6,000원";
+        return "이용권 확인 중";
     }
 
     public static void clear(Context context) {
@@ -289,6 +377,12 @@ public final class FeatureEntitlementStore {
         public final String noticeTitle;
         public final String noticeMessage;
         public final long lastCheckedAt;
+        public final boolean phoneSubscribed;
+        public final boolean messageSubscribed;
+        public final String phoneNextBillingAt;
+        public final String messageNextBillingAt;
+        public final boolean phonePurchaseAvailable;
+        public final boolean messagePurchaseAvailable;
 
         Snapshot(
                 boolean serverChecked,
@@ -308,7 +402,13 @@ public final class FeatureEntitlementStore {
                 String noticeCode,
                 String noticeTitle,
                 String noticeMessage,
-                long lastCheckedAt) {
+                long lastCheckedAt,
+                boolean phoneSubscribed,
+                boolean messageSubscribed,
+                String phoneNextBillingAt,
+                String messageNextBillingAt,
+                boolean phonePurchaseAvailable,
+                boolean messagePurchaseAvailable) {
             this.serverChecked = serverChecked;
             this.active = active;
             this.status = status == null ? "" : status;
@@ -328,6 +428,12 @@ public final class FeatureEntitlementStore {
             this.noticeTitle = noticeTitle == null ? "" : noticeTitle;
             this.noticeMessage = noticeMessage == null ? "" : noticeMessage;
             this.lastCheckedAt = lastCheckedAt;
+            this.phoneSubscribed = phoneSubscribed;
+            this.messageSubscribed = messageSubscribed;
+            this.phoneNextBillingAt = phoneNextBillingAt == null ? "" : phoneNextBillingAt;
+            this.messageNextBillingAt = messageNextBillingAt == null ? "" : messageNextBillingAt;
+            this.phonePurchaseAvailable = phonePurchaseAvailable;
+            this.messagePurchaseAvailable = messagePurchaseAvailable;
         }
 
         public boolean isTrial() {
@@ -346,11 +452,27 @@ public final class FeatureEntitlementStore {
             return CHANNEL_WEB.equals(channel) && active;
         }
 
+        public boolean isProductSubscribed(String productId) {
+            if (PLAN_PHONE.equals(productId)) return phoneSubscribed;
+            if (PLAN_MESSAGE.equals(productId)) return messageSubscribed;
+            return phoneSubscribed && messageSubscribed;
+        }
+
+        public String nextBillingAtFor(String productId) {
+            if (PLAN_PHONE.equals(productId)) return phoneNextBillingAt;
+            if (PLAN_MESSAGE.equals(productId)) return messageNextBillingAt;
+            return nextBillingAt;
+        }
+
+        public boolean canStartPlayPurchase(String productId) {
+            if (!serverChecked || !playBillingAvailable || isWebSubscription()) return false;
+            if (PLAN_PHONE.equals(productId)) return phonePurchaseAvailable && !phoneSubscribed;
+            if (PLAN_MESSAGE.equals(productId)) return messagePurchaseAvailable && !messageSubscribed;
+            return false;
+        }
+
         public boolean canStartPlayPurchase() {
-            return serverChecked
-                    && playBillingAvailable
-                    && !purchaseBlocked
-                    && !isWebSubscription();
+            return canStartPlayPurchase(PLAN_PHONE) || canStartPlayPurchase(PLAN_MESSAGE);
         }
     }
 }
