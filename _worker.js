@@ -2,7 +2,7 @@ const CANONICAL='https://calltag.pagero.kr/';
 const SEO_TITLE='콜태그 | 통화 후 고객관리·자동문자·페이지로 문의 연동';
 const SEO_DESCRIPTION='통화가 끝나면 고객을 태그하고 상담 상태·다음 할 일·재연락 일정을 관리하세요. 페이지로 랜딩페이지 문의 자동등록과 안내·후속문자까지 연결하는 Android 고객관리 서비스입니다.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
-const WORKER_VERSION='v150-runtime60-cssbundle1';
+const WORKER_VERSION='v151-runtime60-final1';
 const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260811-runtime60';
 const STYLE_BUNDLE_PATH='/assets/calltag-style-bundle.css';
 const STYLE_BUNDLE_VERSION='20260812-cssbundle1';
@@ -106,9 +106,9 @@ export default {
       if(request.method==='HEAD')return new Response(null,{status:bundled.status,headers:bundled.headers});
       return bundled;
     }
-    const legacyLegal=url.pathname.match(/^\/(terms|privacy|refund|support)(?:\.html|\/)$/);
+    const legacyLegal=url.pathname.match(/^\/(terms|privacy|refund|support)(?:\.html)?$/);
     if(url.pathname==='/index.html')return Response.redirect(new URL('/',url).toString(),301);
-    if(legacyLegal)return Response.redirect(new URL(`/${legacyLegal[1]}`,url).toString(),301);
+    if(legacyLegal)return Response.redirect(new URL(`/${legacyLegal[1]}/`,url).toString(),301);
     const response=await env.ASSETS.fetch(request);
     const type=response.headers.get('content-type')||'';
     if(!type.includes('text/html')){
