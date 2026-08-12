@@ -30,24 +30,37 @@ jobs:
           grep -F "applicationId 'kr.pagero.calltag'" app/build.gradle
 
           GOOGLE='app/src/main/java/kr/pagero/calltag/GoogleCredentialLoginActivity.java'
-          grep -F 'PROVIDER_TIMEOUT_MS = 30000L' "$GOOGLE"
-          grep -F 'CredentialManager.create(this)' "$GOOGLE"
+          grep -F 'GetGoogleIdOption' "$GOOGLE"
+          grep -F 'setFilterByAuthorizedAccounts(false)' "$GOOGLE"
+          grep -F 'setAutoSelectEnabled(false)' "$GOOGLE"
+          grep -F 'ContextCompat.getMainExecutor(this)' "$GOOGLE"
+          grep -F 'EXCHANGE_TIMEOUT_MS = 20000L' "$GOOGLE"
           grep -F 'setState("선택한 Google 계정을 확인하고 있습니다…")' "$GOOGLE"
           grep -F 'android:windowIsTranslucent">false' app/src/main/res/values/google_credential_styles.xml
+
+          MANIFEST='app/src/main/AndroidManifest.xml'
+          grep -F 'android:name=".GoogleCredentialLoginActivity"' "$MANIFEST"
+          grep -A5 -F 'android:name=".GoogleCredentialLoginActivity"' "$MANIFEST" | grep -F 'android:exported="false"'
+          if grep -F 'android:host="credential"' "$MANIFEST"; then
+            echo 'Obsolete credential deep-link must not exist.' >&2
+            exit 1
+          fi
 
           MORE='app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java'
           for section in '내 정보' '업무 관리' '서비스' '앱 관리'; do
             grep -F "section(\"$section\")" "$MORE"
           done
-          grep -F 'dp(60)' "$MORE"
+          grep -F 'sections.size() == 1 ? 24 : 34' "$MORE"
+          grep -F 'params.bottomMargin = dp(12)' "$MORE"
+          grep -F 'new LayoutParams(LayoutParams.MATCH_PARENT, dp(64))' "$MORE"
 
           test -s app/src/main/res/drawable/calltag_launcher_foreground.xml
           test -s app/src/main/res/mipmap-anydpi-v26/ic_launcher_calltag.xml
           test -s app/src/main/res/mipmap-anydpi-v26/ic_launcher_calltag_round.xml
           test -s app/src/main/res/mipmap/ic_launcher_calltag.xml
           test -s app/src/main/res/mipmap/ic_launcher_calltag_round.xml
-          grep -F 'android:icon="@mipmap/ic_launcher_calltag"' app/src/release/AndroidManifest.xml
-          grep -F 'android:roundIcon="@mipmap/ic_launcher_calltag_round"' app/src/release/AndroidManifest.xml
+          grep -F 'android:icon="@mipmap/ic_launcher_calltag"' app/src/main/AndroidManifest.xml
+          grep -F 'android:roundIcon="@mipmap/ic_launcher_calltag_round"' app/src/main/AndroidManifest.xml
           if find app/src/main/res -name 'calltag_launcher_safe.webp' -print -quit | grep -q .; then
             echo 'Corrupted launcher bitmap must not exist.' >&2
             exit 1
