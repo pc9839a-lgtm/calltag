@@ -1,217 +1,170 @@
 # 콜태그 최신 릴리스·운영 상태
 
-기준일: **2026-08-12**  
-저장소: `pc9839a-lgtm/calltag`  
-현재 작업 브랜치: `agent/calltag-auth-ux-google-upgrade-fix`  
-관련 PR: `#80`  
+기준일: **2026-08-12 15:53 KST**  
+Android 저장소: `pc9839a-lgtm/calltag`  
+현재 작업 브랜치: `agent/calltag-v04422-billing-live`  
+서버 저장소: `pc9839a-lgtm/inlet` / `main`  
 패키지명: `kr.pagero.calltag`
 
-> 이 문서는 2026-08-12 현재 릴리스 상태의 정본이다. 과거 버전 문서와 충돌하면 이 문서와 실제 코드를 우선한다.
+> 이 문서를 현재 릴리스 상태의 정본으로 사용한다. 과거 0.44.20~0.44.23 문서와 충돌하면 이 문서와 실제 코드를 우선한다.
 
-## 1. 최신 Android 릴리스
+## 1. 현재 Android 배포 후보
 
-- versionName: **0.44.21**
-- versionCode: **2026081207**
+- 기준 출발 버전: **0.44.22 / versionCode 2026081208**
+- 현재 배포 후보: **0.44.24 / versionCode 2026081210**
 - minSdk: **26**
 - targetSdk / compileSdk: **36**
 - applicationId: `kr.pagero.calltag`
-- Play 업로드키로 signed release AAB 빌드 및 jarsigner 검증 성공
-- GitHub Actions workflow: `CallTag 0.44.21 signed Play AAB`
-- 성공 Run ID: `31553364381`
-- Artifact ID: `9125103041`
-- Artifact: `calltag-v0.44.21-code2026081207-play-aab`
-- AAB SHA-256: `e3e71aeb2f67784cc2f1a69df25e4220b2de8fd26537b8032cbba68ba64d6ef5`
+- JDK: 17
+- Google Play Billing: `9.1.0`
+- signed release AAB 빌드 및 jarsigner 검증: **성공**
+- Workflow: `CallTag 0.44.24 Google Login Hardened`
+- Run ID: **31571247100**
+- Artifact ID: **9131477125**
+- Artifact: `calltag-v0.44.24-code2026081210-google-login`
+- AAB SHA-256: `227f77b6d9de44995f7946a915d35181787dec9b47a7070daf0650da45395878`
 
-### Play versionCode 규칙
+Play Console에 `2026081210`을 한 번 업로드하면 이후 versionCode는 반드시 그보다 큰 값을 사용한다.
 
-Google Play Console에 한 번 업로드된 versionCode는 출시 취소·삭제 여부와 상관없이 재사용하지 않는다.
+## 2. Google Play 결제 — 실제 성공 확인
 
-현재 최신 코드는 `2026081207`이다. **다음 Play 업로드용 빌드는 반드시 `2026081208` 이상을 사용한다.**
+2026-08-12 실제 Play 테스트 결제 후 운영 D1에서 개인정보 없이 상태를 확인했다.
 
-## 2. 0.44.21 더보기 메뉴 개편
+- productCode: `call_monthly`
+- channel: `google_play`
+- status: `active`
+- verificationState: `verified`
+- autoRenewing: `true`
+- 서버 검증/저장: `2026-08-12 06:31:11 UTC` = `2026-08-12 15:31:11 KST`
+- 현재 expiry: `2026-09-12T06:31:04.910Z`
 
-`앱·계정`에 기능을 몰아넣던 구조를 폐기했다. 더보기의 최상위 진입점은 아래 8개로 고정한다.
+따라서 아래 E2E는 실제로 통과한 것으로 본다.
 
-1. **계정**
-2. **이용권**
-3. **문자 관리**
-4. **고객 관리**
-5. **페이지로**
-6. **파트너**
-7. **데이터 관리**
-8. **앱 정보**
+`Play 구매 → purchaseToken → /api/billing/google/verify → Android Publisher API 검증 → 서버 DB verified 저장 → entitlement active`
 
-### 계정
+### 현재 Play 상품
 
-계정은 더보기 맨 위에 둔다. 화면에는 계정 식별/관리 정보만 남긴다.
+- `call_monthly` — 사용
+- `message_monthly` — 사용
+- `all_monthly` — **현재 Play Console에 만들지 않았으며 이번 앱 결제 대상에서도 제외**
 
-- 이름
-- 연락처
-- 이메일
-- 회원정보 다시 불러오기
-- 로그아웃
-- 회원탈퇴
+0.44.24 앱은 `call_monthly`, `message_monthly`만 조회/구매한다. 서버 Google Play 검증도 이 두 productId만 허용한다.
 
-브랜드·업종·이용상품·약관·백업 등 다른 성격의 기능은 계정 화면에 섞지 않는다.
+### 결제 안전 패치
 
-### 이용권
+- `offers.get(0)` 임의 선택 제거
+- 여러 offer/base plan이 애매하면 결제 중단
+- PENDING 구매 처리 유지
+- 서버 검증 전 기능 개방 금지
+- purchaseToken 원문 장기 저장 금지; hash 저장
+- 서버 acknowledge 유지
+- 구매 복원 유지
+- Web ↔ Google Play 중복 결제 차단 유지
 
-상위 메뉴 및 화면 제목은 `이용권·결제`가 아니라 **`이용권`**으로 표시한다.
+### Google Play 서버 환경
 
-현재 결제 로직 자체는 이번 메뉴 패치에서 변경하지 않았다. 결제 구현을 이어갈 때는 다음 문서를 먼저 읽는다.
+실제 운영 서버에서 서비스 계정 credential로 다음을 확인했다.
 
-- `docs/CALLTAG_PAYMENT_HANDOFF_20260812_KO.md`
+- Google OAuth 토큰 발급 성공
+- Android Publisher API 접근 성공
+- Play 구독 카탈로그 조회 성공
+- `call_monthly`, `message_monthly` 조회 성공
 
-### 문자 관리
+현재 readiness는 유효한 Play credential이 존재하면 활성화된다. 긴급 중지는 `GOOGLE_PLAY_BILLING_DISABLED=1`을 사용한다. 과거 `GOOGLE_PLAY_BILLING_ENABLED` / `GOOGLE_PLAY_PRODUCTS_READY` 수동 플래그는 현재 핵심 게이트로 사용하지 않는다.
 
-`통화 후 자동문자` 대형 독립 카드는 제거했다. 문자 관리 첫 항목으로 통합한다.
+## 3. Google 로그인 — 재검토 및 패치 완료
 
-- 통화 후 자동문자
-- 문자 문구·이미지
-- 그룹·단체문자
-- 발송 관리
+기본 로그인 구조:
 
-### 고객 관리
+`Google로 계속하기 → Android Credential Manager → Google ID Token → POST /api/call/google/id-token → 서버 JWT 검증 → CallTag 세션 생성`
 
-- 고객 상태
-- 일정 종류
-- 통화 후 팝업 제외
+### 운영 검증 결과
 
-### 데이터 관리
+- Native Server Client ID 설정: **정상**
+- 앱 BuildConfig의 Server Client ID와 서버 audience: **일치**
+- Google JWKS 접근: **HTTP 200**
+- 확인 당시 Google 공개키: **4개**
+- nativeLoginReady: **true**
+- legacy browser OAuth 설정도 존재
 
-- 동기화 상태
-- 백업 및 복원
-
-### 앱 정보
-
-- 버전 정보
-- 서비스 이용약관
-- 개인정보처리방침
-- 고객센터
-
-법적 문서 URL:
-
-- 이용약관: `https://call.pagero.kr/terms/`
-- 개인정보처리방침: `https://call.pagero.kr/privacy/`
-
-## 3. 고객센터 최신 구조
-
-고객센터는 외부 메일 앱을 여는 `mailto:` 방식이 아니다.
-
-```text
-더보기
-→ 앱 정보
-→ 고객센터
-→ 앱 내 문의 작성
-→ POST /api/call/support
-→ 인증된 콜태그 서버
-→ AWS SES
-→ roadfor@kakao.com
-```
-
-문의 폼:
-
-- 문의 유형: 일반문의 / 결제 / 오류 / 기타
-- 이름
-- 연락처
-- 답변 받을 이메일
-- 문의 내용
-
-서버 메일은 고객이 입력한 이메일을 `Reply-To`로 지정한다. 따라서 `roadfor@kakao.com`에서 답장을 누르면 고객 이메일로 회신할 수 있다.
-
-서버 파일:
-
-- `pc9839a-lgtm/inlet/functions/api/call/support.js`
-
-운영 확인:
-
-- Cloudflare Pages 배포 성공
-- 인증 없는 요청은 운영 `/api/call/support`에서 401로 차단
-- 전용 안전 smoke workflow 성공: Run `31553422904`
-
-**아직 실제 로그인 사용자 문의를 보내 `roadfor@kakao.com` 받은편지함까지 도착하는 E2E 테스트는 하지 않았다.** 실제 단말에서 한 번 접수해 받은편지함까지 확인해야 최종 완료로 기록한다.
-
-## 4. Google 로그인 — 유지된 현재 정본
-
-0.44.21은 0.44.20의 Credential Manager Google 로그인 수정사항을 그대로 유지한다.
-
-```text
-콜태그 로그인 화면
-→ Google로 계속하기
-→ GoogleCredentialLoginActivity 직접 실행
-→ 앱 위 Google 계정 선택창
-→ Google ID Token
-→ POST /api/call/google/id-token
-→ 서버 검증
-→ 콜태그 세션 생성
-```
-
-Google 버튼은 브라우저 OAuth URL을 열지 않아야 한다.
-
-### OAuth Client 구분
-
-Android OAuth Client:
-
-- 유형: Android
-- package: `kr.pagero.calltag`
-- Client ID: `31346298247-ih26h65v8i4ct5927tqqncqpqu9r7e20.apps.googleusercontent.com`
-- SHA-1: **Play Console 앱 서명 키 인증서 SHA-1**
-
-Web / server client ID:
+Server/Web Client ID:
 
 `31346298247-o5jfdetjs84mu02c8tp68qg19ifo89en.apps.googleusercontent.com`
 
-이 Web client ID가 Credential Manager의 server client ID / ID Token audience로 사용된다. Android Client ID로 교체하지 않는다.
+Android OAuth Client:
 
-## 5. 회원가입 UX 유지 기준
+- package: `kr.pagero.calltag`
+- Android Client ID: `31346298247-ih26h65v8i4ct5927tqqncqpqu9r7e20.apps.googleusercontent.com`
+- Android Client와 Server/Web Client를 서로 바꾸지 않는다.
 
-- 필수 항목은 라벨 뒤 빨간 `*`만 표시
-- 선택 항목은 `[선택]` 등의 반복 표기 없음
-- 이름 / 휴대폰번호 / 이메일 / 인증번호 / 비밀번호 필수
-- 브랜드/상호, 업종, 추천인 코드는 선택
-- 추천인 코드는 회원가입 시에만 입력
-- 이메일 인증 단계에서 약관을 선행 강제하지 않음
-- 최종 가입 제출 시 필수 약관 확인
+### 0.44.24 Google 로그인 안정화
 
-## 6. 앱 아이콘 유지 기준
+- Cloudflare Pages에서 문제가 될 수 있던 Google JWKS `AbortSignal.timeout()` 제거
+- legacy Google code exchange / userinfo 경로의 동일 timeout 패턴 제거
+- Credential Manager Activity 재생성 시 계정 선택 흐름 재시작 가능하도록 보강
+- 계정 선택 타임아웃 30초 → 90초
+- 서버 로그인 처리 타임아웃 25초
+- Server Client ID 빈 값 선검사
+- `setFilterByAuthorizedAccounts(false)` 유지
+- `setAutoSelectEnabled(false)` 유지
+- nonce / audience / issuer / expiry / signature / email_verified 검증 유지
 
-- 안전영역 원본: `app/src/main/res/drawable-nodpi/calltag_launcher_safe.webp`
-- Adaptive Icon과 legacy icon을 모두 생성
-- Play 스토어 아이콘과 설치 런처 아이콘을 구분
-- 삼성/Pixel 마스크에서 전화기/태그 심볼이 잘리지 않아야 함
+## 4. 아직 남은 필수 작업
 
-## 7. 이번 패치 핵심 파일
+### P0 — 실기기 Google 로그인 E2E
 
-Android:
+0.44.24 Play 설치본에서 아래를 확인한다.
 
-- `app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java`
-- `app/src/main/java/kr/pagero/calltag/SettingsGroupActivity.java`
-- `app/src/main/java/kr/pagero/calltag/AppInfoActivity.java`
-- `app/src/main/java/kr/pagero/calltag/CustomerSupportActivity.java`
-- `app/src/main/java/kr/pagero/calltag/SupportApiClient.java`
-- `app/src/main/java/kr/pagero/calltag/AccountActivity.java`
-- `app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java`
-- `app/src/main/res/layout/activity_account.xml`
-- `app/src/main/AndroidManifest.xml`
-- `app/build.gradle`
-- `.github/workflows/calltag-v04421-play-aab.yml`
+1. Google 계정 선택창 표시
+2. 계정 선택 후 로그인 완료
+3. 기존 이메일 회원은 중복 생성 없이 동일 계정으로 로그인
+4. 로그아웃 → Google 재로그인
+5. Google 로그인 후 기존 `call_monthly` entitlement 복원
+6. 여러 Google 계정이 있는 기기에서 계정 선택 가능
+7. 사용자 취소 시 앱이 정상 복귀
 
-Server:
+### P1 — RTDN
 
-- `pc9839a-lgtm/inlet/functions/api/call/support.js`
-- `pc9839a-lgtm/inlet/.github/workflows/calltag-support-live-smoke.yml`
+결제 신규 구매는 성공했지만 구독 생명주기 자동 동기화는 아직 남아 있다.
 
-## 8. 실기기 확인 항목
+- Google Play RTDN + Pub/Sub 연결
+- 갱신
+- 사용자 취소
+- 만료
+- grace period
+- account hold
+- resume
+- refund/voided purchase
+- 서버 reconciliation
 
-1. `0.44.21 / 2026081207` 설치 확인
-2. 더보기 최상단이 `계정`인지 확인
-3. 더보기에 정확히 8개 목적 메뉴가 보이는지 확인
-4. 통화 후 자동문자가 문자 관리 안에 들어갔는지 확인
-5. 계정에 이름/연락처/이메일과 로그아웃/회원탈퇴만 필요한 수준으로 남았는지 확인
-6. 앱 정보에서 버전/이용약관/개인정보처리방침/고객센터 진입 확인
-7. 고객센터 문의 1건 실제 전송 후 `roadfor@kakao.com` 수신 확인
-8. 해당 메일에서 답장 시 고객 입력 이메일이 Reply-To로 잡히는지 확인
-9. Google 계정 선택창 E2E 재확인
-10. 런처 아이콘 잘림 여부 확인
+RTDN 메시지만 믿지 말고 알림을 받은 뒤 Android Publisher API를 다시 조회해 최종 entitlement를 갱신한다.
 
-위 단말 확인 전까지 CI 성공을 단말 UX 최종 성공으로 기록하지 않는다.
+## 5. 무료체험 / 추천인 정본
+
+CallTag 정책은 다음을 유지한다.
+
+- 일반 신규 가입: **7일 무료**
+- 가입 시 추천인 코드 입력: **+7일**
+- 최대 **14일 무료**
+- 무료 종료 후 자동 결제 없음
+- 추천인 코드는 회원가입 시에만 선택 입력
+
+`inlet/functions/api/billing/_shared.js`의 generic legacy 3일/+5일 값과 혼동하지 않는다. CallTag 전용 정책을 깨뜨리지 않는다.
+
+## 6. 데이터·운영 금지선
+
+- 결제/로그인 패치 때문에 기존 고객·통화·메모·일정·문자 데이터를 초기화하지 않는다.
+- 앱 purchase callback만 보고 유료 권한을 열지 않는다.
+- purchaseToken 원문을 로그/문서/DB에 저장하지 않는다.
+- Google 서비스 계정 private key를 GitHub/문서/채팅에 넣지 않는다.
+- `all_monthly`를 사용자가 요청하기 전 임의 생성하지 않는다.
+- 현재 결제 성공을 RTDN까지 끝난 것으로 오해하지 않는다.
+
+## 7. 다음 작업 순서
+
+1. `0.44.24 / 2026081210` AAB를 Play 내부 테스트에 업로드
+2. Play 설치본으로 Google 로그인 E2E 확인
+3. 결제 계정 로그아웃/재로그인 후 entitlement 유지 확인
+4. 재설치 후 Play 구매 복원 확인
+5. RTDN/Pub/Sub 구현
+6. 취소·만료·환불·grace/account hold lifecycle QA
