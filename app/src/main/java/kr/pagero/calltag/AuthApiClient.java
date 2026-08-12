@@ -13,10 +13,15 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 public final class AuthApiClient {
+    /**
+     * Hit the actual API origins first. pagero.kr is a web surface and remains only as the
+     * last compatibility fallback; putting it first caused every auth/billing call to wait for
+     * an avoidable non-API response before reaching the backend.
+     */
     private static final String[] BASE_URLS = {
-            "https://pagero.kr",
             "https://inlet-8mr.pages.dev",
-            "https://call.pagero.kr"
+            "https://call.pagero.kr",
+            "https://pagero.kr"
     };
 
     public static final class ApiException extends Exception {
@@ -226,8 +231,8 @@ public final class AuthApiClient {
         HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
         try {
             connection.setRequestMethod(method);
-            connection.setConnectTimeout(10_000);
-            connection.setReadTimeout(15_000);
+            connection.setConnectTimeout(5_000);
+            connection.setReadTimeout(10_000);
             connection.setRequestProperty("Accept", "application/json");
             connection.setRequestProperty("X-CallLink-Client", "android");
             connection.setRequestProperty("X-Pagero-Product", "calltag");
