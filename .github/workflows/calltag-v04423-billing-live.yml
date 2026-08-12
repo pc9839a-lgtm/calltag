@@ -1,0 +1,163 @@
+name: CallTag 0.44.23 Play Billing Live
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/calltag-v04422-billing-live
+    paths:
+      - 'app/**'
+      - '.github/workflows/calltag-v04423-billing-live.yml'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  signed-play-aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify billing live contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'versionCode 2026081209' app/build.gradle
+          grep -F "versionName '0.44.23'" app/build.gradle
+          grep -F "applicationId 'kr.pagero.calltag'" app/build.gradle
+          grep -F "com.android.billingclient:billing:9.1.0" app/build.gradle
+
+          BILLING='app/src/main/java/kr/pagero/calltag/PlayBillingManager.java'
+          grep -F 'request.add(subscription(FeatureEntitlementStore.PLAN_PHONE));' "$BILLING"
+          grep -F 'request.add(subscription(FeatureEntitlementStore.PLAN_MESSAGE));' "$BILLING"
+          if grep -F 'request.add(subscription(FeatureEntitlementStore.PLAN_BUNDLE));' "$BILLING"; then
+            echo 'Bundle must not be queried before Play product exists.' >&2
+            exit 1
+          fi
+          if grep -F 'offers.get(0).getOfferToken()' "$BILLING"; then
+            echo 'Arbitrary first offer selection is forbidden.' >&2
+            exit 1
+          fi
+          grep -F 'selectPurchaseOffer(' "$BILLING"
+          grep -F 'AuthApiClient.verifyGooglePurchase' "$BILLING"
+
+          SCREEN='app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java'
+          grep -F 'Google Play 이용권' "$SCREEN"
+          grep -F '전화관리 결제' "$SCREEN"
+          grep -F '문자자동화 결제' "$SCREEN"
+          if grep -F '통합권 결제' "$SCREEN"; then
+            echo 'Bundle Play checkout must stay hidden in this release.' >&2
+            exit 1
+          fi
+
+          GOOGLE='app/src/main/java/kr/pagero/calltag/GoogleCredentialLoginActivity.java'
+          grep -F 'GetGoogleIdOption' "$GOOGLE"
+          grep -F 'setFilterByAuthorizedAccounts(false)' "$GOOGLE"
+          grep -F 'setAutoSelectEnabled(false)' "$GOOGLE"
+          grep -F 'ContextCompat.getMainExecutor(this)' "$GOOGLE"
+
+          MANIFEST='app/src/main/AndroidManifest.xml'
+          grep -F 'android:name=".GoogleCredentialLoginActivity"' "$MANIFEST"
+          grep -A5 -F 'android:name=".GoogleCredentialLoginActivity"' "$MANIFEST" | grep -F 'android:exported="false"'
+          if grep -F 'android:host="credential"' "$MANIFEST"; then
+            echo 'Obsolete credential deep-link must not exist.' >&2
+            exit 1
+          fi
+
+          if find app/src/main/res -name 'calltag_launcher_safe.webp' -print -quit | grep -q .; then
+            echo 'Corrupted launcher bitmap must not exist.' >&2
+            exit 1
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Restore verified Play upload key
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SECRET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
+          SECRET_UPLOAD_STORE_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_STORE_PASSWORD }}
+          SECRET_UPLOAD_KEY_ALIAS: ${{ secrets.CALLTAG_UPLOAD_KEY_ALIAS }}
+          SECRET_UPLOAD_KEY_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_KEY_PASSWORD }}
+          ORIGINAL_UPLOAD_KEY_ARTIFACT_ID: '8922836146'
+          EXPECTED_UPLOAD_KEY_SHA256: 'C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7'
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/calltag-upload.jks"
+          configured=0
+          for value in "$SECRET_UPLOAD_KEYSTORE_BASE64" "$SECRET_UPLOAD_STORE_PASSWORD" "$SECRET_UPLOAD_KEY_ALIAS" "$SECRET_UPLOAD_KEY_PASSWORD"; do
+            [ -n "$value" ] && configured=$((configured + 1))
+          done
+          if [ "$configured" -ne 0 ] && [ "$configured" -ne 4 ]; then
+            echo 'Configure all four upload-key secrets or none.' >&2
+            exit 1
+          fi
+          if [ "$configured" -eq 4 ]; then
+            printf '%s' "$SECRET_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+            STORE_PASSWORD="$SECRET_UPLOAD_STORE_PASSWORD"
+            KEY_ALIAS="$SECRET_UPLOAD_KEY_ALIAS"
+            KEY_PASSWORD="$SECRET_UPLOAD_KEY_PASSWORD"
+          else
+            mkdir -p "$RUNNER_TEMP/original-upload-key"
+            gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ORIGINAL_UPLOAD_KEY_ARTIFACT_ID}/zip" > "$RUNNER_TEMP/original-upload-key.zip"
+            unzip -q "$RUNNER_TEMP/original-upload-key.zip" -d "$RUNNER_TEMP/original-upload-key"
+            cp "$RUNNER_TEMP/original-upload-key/calltag-upload.jks" "$KEYSTORE"
+            CREDENTIALS="$RUNNER_TEMP/original-upload-key/CALLTAG_UPLOAD_KEY_CREDENTIALS.txt"
+            STORE_PASSWORD="$(grep '^CALLTAG_UPLOAD_STORE_PASSWORD=' "$CREDENTIALS" | cut -d= -f2-)"
+            KEY_ALIAS="$(grep '^CALLTAG_UPLOAD_KEY_ALIAS=' "$CREDENTIALS" | cut -d= -f2-)"
+            KEY_PASSWORD="$(grep '^CALLTAG_UPLOAD_KEY_PASSWORD=' "$CREDENTIALS" | cut -d= -f2-)"
+          fi
+          test -s "$KEYSTORE"
+          echo "::add-mask::$STORE_PASSWORD"
+          echo "::add-mask::$KEY_PASSWORD"
+          chmod 600 "$KEYSTORE"
+          keytool -list -v -keystore "$KEYSTORE" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" \
+            | grep -E 'Alias name:|Owner:|SHA1:|SHA256:' > "$RUNNER_TEMP/upload-key-fingerprints.txt"
+          grep -F "SHA256: $EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/upload-key-fingerprints.txt"
+          echo "CALLTAG_UPLOAD_KEYSTORE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "CALLTAG_UPLOAD_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "CALLTAG_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Build signed Play release AAB and debug APK
+        run: gradle :app:bundleRelease :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Verify and stage build
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAB='app/build/outputs/bundle/release/app-release.aab'
+          APK='app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$AAB"
+          test -s "$APK"
+          jarsigner -verify -certs "$AAB"
+          if jarsigner -verify -verbose -certs "$AAB" | grep -qi 'Android Debug'; then
+            echo 'Release AAB uses Android debug certificate.' >&2
+            exit 1
+          fi
+          OUT="$RUNNER_TEMP/calltag-v0.44.23-play-billing-live"
+          mkdir -p "$OUT"
+          cp "$AAB" "$OUT/CallTag-v0.44.23-code2026081209.aab"
+          cp "$APK" "$OUT/CallTag-v0.44.23-code2026081209-debug.apk"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04423_AAB_SHA256.txt"
+          cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
+
+      - name: Upload Play billing live build
+        uses: actions/upload-artifact@v4
+        with:
+          name: calltag-v0.44.23-code2026081209-play-billing-live
+          path: ${{ runner.temp }}/calltag-v0.44.23-play-billing-live
+          retention-days: 90
+          if-no-files-found: error
