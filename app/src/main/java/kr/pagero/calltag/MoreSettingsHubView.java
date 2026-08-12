@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** 더보기는 8개 진입점을 4개 목적 그룹으로 분리해서 충분한 간격으로 노출한다. */
+/** 더보기의 진입점을 목적별로 분리해서 충분한 간격으로 노출한다. */
 public final class MoreSettingsHubView extends LinearLayout {
     private final List<MenuItem> items = new ArrayList<>();
     private final List<Section> sections = new ArrayList<>();
@@ -65,8 +65,10 @@ public final class MoreSettingsHubView extends LinearLayout {
         Section service = section("서비스");
         service.addMenu("페이지로", "페이지로 연결 연동 문의 고객 자동등록",
                 v -> start(PageroConnectionCompactActivity.class));
-        service.addMenu("파트너", "추천코드 친구 초대 파트너 현황 정산 수익",
+        service.addMenu("파트너 코드", "추천코드 친구 초대 코드 복사 공유",
                 v -> start(ReferralPartnerActivity.class));
+        service.addMenu("파트너 현황", "추천 회원 유료 회원 예상 수익 확정 수익 정산",
+                v -> start(PartnerStatusActivity.class));
 
         Section app = section("앱 관리");
         app.addMenu("데이터 관리", "동기화 데이터 보호 복구 백업 복원 기기 변경",
