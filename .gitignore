@@ -8,3 +8,4 @@ app/build
 *.aab
 *.jks
 *.keystore
+private/play-upload-reset/
