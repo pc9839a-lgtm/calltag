@@ -8,6 +8,7 @@ on:
       - '.github/workflows/calltag-partner-admin-qa.yml'
   push:
     branches:
+      - 'main'
       - 'agent/calltag-admin-partner-settlement'
     paths:
       - 'admin/**'
@@ -39,6 +40,9 @@ jobs:
           grep -q "partner.settlement.pay" worker/admin.js
           grep -q "파트너·정산" admin/shell.dat
           grep -q "정산 지급" admin/admin.js
+          grep -q "이용 상태" admin/shell.dat
+          grep -q "결제 검증" admin/shell.dat
+          grep -q "paymentVerificationLabel" admin/admin.js
           if grep -E -n 'localStorage|sessionStorage|purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id|password' worker/admin.js admin/admin.js admin/shell.dat; then
             echo 'Reusable credential or sensitive billing field found in web admin surface.' >&2
             exit 1
