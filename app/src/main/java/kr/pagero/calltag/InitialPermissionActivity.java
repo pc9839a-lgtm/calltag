@@ -54,7 +54,7 @@ public final class InitialPermissionActivity extends Activity {
         root.setBackgroundColor(getColor(R.color.background));
 
         TextView title = new TextView(this);
-        title.setText("전화 고객관리 설정");
+        title.setText("전화 · 문자 권한 설정");
         title.setTextColor(getColor(R.color.text_primary));
         title.setTextSize(23f);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -62,24 +62,24 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(title, wrap());
 
         detail = new TextView(this);
-        detail.setText("연락처 이름은 변경하지 않습니다. 통화 감지와 고객 확인, 통화 후 메모 저장에 필요한 권한만 사용합니다.");
+        detail.setText("통화 고객 확인과 통화 후 문자 발송에 필요한 권한을 순서대로 요청합니다. 화면에 뜨는 권한을 허용해주세요.");
         detail.setTextColor(getColor(R.color.text_secondary));
         detail.setTextSize(14f);
         detail.setGravity(Gravity.CENTER);
         detail.setLineSpacing(0f, 1.25f);
         root.addView(detail, top(12));
 
-        requestButton = action("필수 권한 허용", true);
+        requestButton = action("전화 · 문자 권한 허용", true);
         requestButton.setOnClickListener(v -> startPermissionFlow());
         root.addView(requestButton, fixedTop(52, 24));
 
-        settingsButton = action("휴대전화 설정 열기", false);
+        settingsButton = action("권한 설정 직접 열기", false);
         settingsButton.setVisibility(View.GONE);
         settingsButton.setOnClickListener(v -> openAppSettings());
         root.addView(settingsButton, fixedTop(50, 9));
 
         TextView note = new TextView(this);
-        note.setText("연락처 수정 권한과 통화기록 쓰기 권한은 새로 요청하지 않습니다. 통화기록은 읽기 전용으로 고객 이력 연결에만 사용합니다.");
+        note.setText("연락처 내용은 수정하지 않습니다. 통화기록은 고객 이력 연결에만 사용하고, 문자 권한은 사용자가 설정한 자동문자 발송에만 사용합니다.");
         note.setTextColor(getColor(R.color.text_muted));
         note.setTextSize(12f);
         note.setGravity(Gravity.CENTER);
@@ -97,6 +97,9 @@ public final class InitialPermissionActivity extends Activity {
         view.setTextColor(getColor(primary ? android.R.color.white : R.color.primary));
         view.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        view.setMinHeight(dp(50));
+        view.setClickable(true);
+        view.setFocusable(true);
         return view;
     }
 
@@ -111,9 +114,9 @@ public final class InitialPermissionActivity extends Activity {
         requestInFlight = true;
         requestButton.setEnabled(false);
         requestButton.setAlpha(0.6f);
-        requestButton.setText("권한 확인 중…");
+        requestButton.setText("권한 요청 중…");
         settingsButton.setVisibility(View.GONE);
-        detail.setText("화면에 표시되는 항목을 모두 허용해주세요.");
+        detail.setText("연락처 · 전화 · 통화기록 · 문자 · 알림 권한을 확인하고 있습니다. 표시되는 항목을 허용해주세요.");
         requestPermissions(missing.toArray(new String[0]), REQUEST_PERMISSIONS);
     }
 
@@ -125,9 +128,12 @@ public final class InitialPermissionActivity extends Activity {
             addIfMissing(missing, Manifest.permission.READ_PHONE_NUMBERS);
         }
         addIfMissing(missing, Manifest.permission.READ_CALL_LOG);
-        if (FeatureEntitlementStore.hasMessageAccess(this)) {
-            addIfMissing(missing, Manifest.permission.SEND_SMS);
-        }
+
+        // Request SMS during the initial setup itself instead of waiting for entitlement refresh.
+        // This prevents the first-run flow from requesting notifications only and leaving
+        // automatic messages unable to send when message access becomes active moments later.
+        addIfMissing(missing, Manifest.permission.SEND_SMS);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             addIfMissing(missing, Manifest.permission.POST_NOTIFICATIONS);
         }
@@ -155,23 +161,21 @@ public final class InitialPermissionActivity extends Activity {
     private void renderMissingPermissions() {
         requestButton.setEnabled(true);
         requestButton.setAlpha(1f);
-        requestButton.setText("다시 허용하기");
+        requestButton.setText("남은 권한 다시 허용");
         settingsButton.setVisibility(View.VISIBLE);
-        detail.setText("아직 필요한 권한이 모두 허용되지 않았어요. 다시 눌러도 창이 뜨지 않으면 휴대전화 설정에서 직접 허용해주세요.\n\n확인이 필요한 항목: "
+        detail.setText("아직 필요한 권한이 남아 있습니다. 다시 눌러도 권한창이 뜨지 않으면 아래 버튼에서 직접 허용해주세요.\n\n남은 항목: "
                 + missingPermissionLabels());
     }
 
     private String missingPermissionLabels() {
         List<String> labels = new ArrayList<>();
-        if (!SetupRequirements.hasContacts(this)) labels.add("연락처 보기");
-        if (!SetupRequirements.hasPhoneState(this)) labels.add("전화 수신 확인");
-        if (!SetupRequirements.hasPhoneNumbers(this)) labels.add("전화번호 확인");
-        if (!SetupRequirements.hasCallLog(this)) labels.add("통화기록 보기");
-        if (FeatureEntitlementStore.hasMessageAccess(this) && !SetupRequirements.hasSms(this)) {
-            labels.add("문자 보내기");
-        }
-        if (!SetupRequirements.hasNotifications(this)) labels.add("알림 받기");
-        return labels.isEmpty() ? "필수 권한" : String.join(", ", labels);
+        if (!SetupRequirements.hasContacts(this)) labels.add("연락처");
+        if (!SetupRequirements.hasPhoneState(this)) labels.add("전화 상태");
+        if (!SetupRequirements.hasPhoneNumbers(this)) labels.add("전화번호");
+        if (!SetupRequirements.hasCallLog(this)) labels.add("통화기록");
+        if (!SetupRequirements.hasSms(this)) labels.add("문자 보내기");
+        if (!SetupRequirements.hasNotifications(this)) labels.add("알림");
+        return labels.isEmpty() ? "필수 권한" : String.join(" · ", labels);
     }
 
     private void openAppSettings() {
@@ -189,8 +193,8 @@ public final class InitialPermissionActivity extends Activity {
         completing = true;
         requestButton.setEnabled(false);
         requestButton.setAlpha(0.6f);
-        requestButton.setText("전화 고객관리 준비 중…");
-        detail.setText("연락처는 그대로 유지하고 콜태그 고객관리 기능을 준비하고 있어요.");
+        requestButton.setText("설정 마무리 중…");
+        detail.setText("통화 고객관리와 문자 기능을 준비하고 있습니다.");
 
         new Thread(() -> {
             // Upgrade migration only: remove legacy CallTag-owned contact rows when an older
