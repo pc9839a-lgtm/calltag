@@ -1,8 +1,10 @@
+import { handleCalltagAdmin } from './worker/admin.js';
+
 const CANONICAL='https://calltag.pagero.kr/';
 const SEO_TITLE='콜태그 | 통화 후 고객관리·자동문자·페이지로 문의 연동';
 const SEO_DESCRIPTION='통화가 끝나면 고객을 태그하고 상담 상태·다음 할 일·재연락 일정을 관리하세요. 페이지로 랜딩페이지 문의 자동등록과 안내·후속문자까지 연결하는 Android 고객관리 서비스입니다.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
-const WORKER_VERSION='v151-runtime60-final1';
+const WORKER_VERSION='v152-admin1-runtime60-final1';
 const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260811-runtime60';
 const STYLE_BUNDLE_PATH='/assets/calltag-style-bundle.css';
 const STYLE_BUNDLE_VERSION='20260812-cssbundle1';
@@ -61,7 +63,7 @@ const SEO_HEAD=`
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="콜태그 통화 후 고객관리와 페이지로 문의 연동" />
+<meta property="og:image:alt" content="콜태그 통화 후 고객관리과 페이지로 문의 연동" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${SEO_TITLE}" />
 <meta name="twitter:description" content="${SEO_DESCRIPTION}" />
@@ -99,6 +101,8 @@ const serveStyleBundle=async(request,env)=>{
 
 export default {
   async fetch(request,env){
+    const adminResponse=await handleCalltagAdmin(request,env);
+    if(adminResponse)return adminResponse;
     const url=new URL(request.url);
     if(url.pathname===STYLE_BUNDLE_PATH){
       if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method Not Allowed',{status:405,headers:{allow:'GET, HEAD'}});
