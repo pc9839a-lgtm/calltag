@@ -1,0 +1,57 @@
+name: CallTag Admin Security QA
+
+on:
+  pull_request:
+    paths:
+      - '_worker.js'
+      - 'worker/admin.js'
+      - 'admin/**'
+      - '.github/workflows/calltag-admin-security-qa.yml'
+  push:
+    branches:
+      - 'agent/calltag-admin-minimal-risk'
+    paths:
+      - '_worker.js'
+      - 'worker/admin.js'
+      - 'admin/**'
+      - '.github/workflows/calltag-admin-security-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  security-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Parse admin JavaScript
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check worker/admin.js
+          node --check admin/admin.js
+          node --check _worker.js
+
+      - name: Enforce no-credential admin surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(worker/admin.js admin/admin.js admin/index.html)
+          if grep -E -n '/api/call/login|x-inlet-session|localStorage|sessionStorage|type="password"|purchaseToken|purchase_token_hash|orderId|externalSubscriptionId|password_hash' "${files[@]}"; then
+            echo 'Forbidden reusable credential or sensitive billing field found in admin surface.' >&2
+            exit 1
+          fi
+          if grep -E -n 'innerHTML|outerHTML|insertAdjacentHTML' admin/admin.js; then
+            echo 'Unsafe HTML sink found in admin renderer.' >&2
+            exit 1
+          fi
+          grep -q "CF-Access-Jwt-Assertion" worker/admin.js
+          grep -q "frame-ancestors 'none'" worker/admin.js
+          grep -q "no-store" worker/admin.js
+          grep -q "ADMIN_API_BASE = 'https://inlet-8mr.pages.dev'" worker/admin.js
