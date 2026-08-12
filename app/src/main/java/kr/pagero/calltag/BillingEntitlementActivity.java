@@ -45,6 +45,7 @@ public final class BillingEntitlementActivity extends Activity
     private PlayBillingManager billing;
     private Map<String, ProductDetails> playProducts = Collections.emptyMap();
     private boolean working;
+    private boolean refreshing;
     private boolean productQueryCompleted;
 
     @Override
@@ -52,7 +53,11 @@ public final class BillingEntitlementActivity extends Activity
         super.onCreate(savedInstanceState);
         setContentView(buildScreen());
         billing = new PlayBillingManager(this, this);
+
+        // Paint the last verified entitlement immediately and load Play products in parallel.
+        // A network refresh must never blank/disable a valid cached subscription screen.
         render();
+        billing.connectAndLoad();
         refreshEntitlement(false);
     }
 
@@ -153,28 +158,34 @@ public final class BillingEntitlementActivity extends Activity
     }
 
     private void refreshEntitlement(boolean notify) {
-        if (working) return;
+        if (refreshing) return;
         String session = AuthSessionStore.session(this);
         if (session.isEmpty()) {
-            Toast.makeText(this, "로그인 정보를 다시 확인해주세요.", Toast.LENGTH_LONG).show();
+            if (notify) {
+                Toast.makeText(this, "로그인 정보를 다시 확인해주세요.", Toast.LENGTH_LONG).show();
+            }
             return;
         }
-        setWorking(true);
+
+        refreshing = true;
+        if (notify) setWorking(true);
         new Thread(() -> {
             try {
                 JSONObject response = AuthApiClient.billingEntitlements(session);
                 FeatureEntitlementStore.saveServerEntitlement(this, response);
                 runOnUiThread(() -> {
-                    setWorking(false);
+                    refreshing = false;
+                    if (notify) setWorking(false);
                     render();
-                    maybeLoadPlayProducts();
+                    if (!productQueryCompleted) billing.connectAndLoad();
                     if (notify) {
                         Toast.makeText(this, "이용권을 새로 확인했습니다.", Toast.LENGTH_SHORT).show();
                     }
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
-                    setWorking(false);
+                    refreshing = false;
+                    if (notify) setWorking(false);
                     render();
                     if (notify) {
                         Toast.makeText(this,
@@ -186,22 +197,6 @@ public final class BillingEntitlementActivity extends Activity
         }, "calltag-entitlement-refresh").start();
     }
 
-    private void maybeLoadPlayProducts() {
-        FeatureEntitlementStore.Snapshot snapshot = FeatureEntitlementStore.snapshot(this);
-        if (!snapshot.playBillingAvailable) {
-            productQueryCompleted = false;
-            playProducts = Collections.emptyMap();
-            render();
-            return;
-        }
-        billing.connectAndLoad();
-    }
-
-    /**
-     * The screen already performs a server entitlement refresh before enabling purchase buttons.
-     * Do not perform the same HTTP check again on every tap; launch Play immediately from the
-     * freshly rendered snapshot and let server verification remain the source of truth afterward.
-     */
     private void verifyThenPurchase(String productId) {
         if (working) return;
         if (AuthSessionStore.session(this).isEmpty()) {
@@ -221,6 +216,9 @@ public final class BillingEntitlementActivity extends Activity
         } else if (!snapshot.canStartPlayPurchase(productId)) {
             showBlocked("결제를 시작할 수 없습니다.",
                     "잠시 후 다시 시도해주세요.");
+        } else if (!productQueryCompleted || !playProducts.containsKey(productId)) {
+            billing.connectAndLoad();
+            Toast.makeText(this, "결제 정보를 불러오는 중입니다.", Toast.LENGTH_SHORT).show();
         } else {
             billing.purchase(productId);
         }
@@ -331,7 +329,7 @@ public final class BillingEntitlementActivity extends Activity
             setEnabled(view, false);
             return;
         }
-        if (!snapshot.serverChecked || working) {
+        if (!snapshot.serverChecked) {
             view.setText("확인 중…");
             setEnabled(view, false);
             return;
@@ -347,18 +345,18 @@ public final class BillingEntitlementActivity extends Activity
             return;
         }
         if (!productQueryCompleted || !playProducts.containsKey(productId)) {
-            view.setText("불러오는 중…");
+            view.setText("결제 준비 중…");
             setEnabled(view, false);
             return;
         }
         view.setText(normalLabel);
-        setEnabled(view, snapshot.canStartPlayPurchase(productId));
+        setEnabled(view, !working && snapshot.canStartPlayPurchase(productId));
     }
 
     @Override
     public void onBillingReady(Map<String, ProductDetails> products) {
         runOnUiThread(() -> {
-            productQueryCompleted = FeatureEntitlementStore.isPlayBillingAvailable(this);
+            productQueryCompleted = true;
             playProducts = products == null
                     ? Collections.emptyMap()
                     : Collections.unmodifiableMap(new HashMap<>(products));
@@ -374,11 +372,9 @@ public final class BillingEntitlementActivity extends Activity
     @Override
     public void onServerVerified() {
         runOnUiThread(() -> {
-            // PlayBillingManager already saved the verified server response. Render it now instead
-            // of blocking the user on a second identical network round-trip.
             render();
             Toast.makeText(this, "결제 확인 완료", Toast.LENGTH_SHORT).show();
-            EntitlementRefreshManager.request(this, true);
+            EntitlementRefreshManager.request(this, false);
         });
     }
 
