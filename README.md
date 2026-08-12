@@ -1,122 +1,171 @@
 # 콜태그 (CallTag)
 
-전화 전 고객 맥락 확인부터 통화 종료 후 상태·메모·일정·문자 처리, 후속문자와 단체문자까지 연결하는 Android 고객관리 앱입니다.
+전화 전 고객 맥락 확인부터 통화 종료 후 메모·할 일·문자 자동화까지 연결하는 Android 고객관리 앱입니다.
 
 ## 다음 개발자가 먼저 읽을 문서
 
-1. [`docs/GOOGLE_LOGIN_REALTIME_SYNC_V040_KO.md`](docs/GOOGLE_LOGIN_REALTIME_SYNC_V040_KO.md) — Google 로그인·페이지로 계정 매핑·FCM 실시간 문의·수신 메모 복구
-2. [`docs/ANDROID_DEVELOPER_HANDOFF_KO.md`](docs/ANDROID_DEVELOPER_HANDOFF_KO.md) — 현재 코드 구조·파일별 역할·안전 규칙·실기기 검수·다음 작업 정본
-3. [`docs/DEVELOPMENT_STATUS_AND_ROADMAP_KO.md`](docs/DEVELOPMENT_STATUS_AND_ROADMAP_KO.md) — 최신 구현 상태와 남은 패치
+1. [`docs/CURRENT_RELEASE_STATUS_20260812_KO.md`](docs/CURRENT_RELEASE_STATUS_20260812_KO.md) — **0.44.20 최신 정본. Google 로그인·회원가입 UX·Play 배포·앱 아이콘·실기기 확인 상태**
+2. [`docs/DEVELOPMENT_STATUS_AND_ROADMAP_KO.md`](docs/DEVELOPMENT_STATUS_AND_ROADMAP_KO.md) — 제품 기능 현황과 남은 패치. 버전/Google 로그인 정보는 최신 정본 우선
+3. [`docs/ANDROID_DEVELOPER_HANDOFF_KO.md`](docs/ANDROID_DEVELOPER_HANDOFF_KO.md) — 코드 구조·데이터/발송 안전 규칙·실기기 검수 기준
 4. [`docs/PAGERO_CUSTOMER_INTEGRATION_KO.md`](docs/PAGERO_CUSTOMER_INTEGRATION_KO.md) — 페이지로 문의 조회·ACK·중복 방지
 5. [`docs/DESIGN_SYSTEM_KO.md`](docs/DESIGN_SYSTEM_KO.md) — Android UX/UI 규격
-6. [`docs/PRODUCT_SPEC_KO.md`](docs/PRODUCT_SPEC_KO.md) — 제품 정의
+6. [`docs/GOOGLE_PLAY_STORE_VISUAL_ASSETS_BRIEF_KO.md`](docs/GOOGLE_PLAY_STORE_VISUAL_ASSETS_BRIEF_KO.md) — Play 스토어 이미지 제작 기준
+7. [`docs/PRODUCT_SPEC_KO.md`](docs/PRODUCT_SPEC_KO.md) — 제품 정의
 
-기획 문서에 적혀 있다는 이유만으로 구현 완료로 판단하지 않습니다. 코드, 버전, 기능 커밋과 빌드 결과가 확인된 항목만 코드 완료입니다. APK 빌드 성공과 실제 휴대전화 검증 성공도 구분합니다.
+기획 문서만 보고 구현 완료로 판단하지 않습니다. **실제 코드 → 빌드 결과 → 실제 휴대전화 동작**을 구분해 기록합니다.
 
 ## 제품 기준
 
 - 제품명: **콜태그(CallTag)**
 - 패키지명: `kr.pagero.calltag`
 - 대표 도메인: `https://calltag.pagero.kr`
-- 개발 브랜치: `agent/calltag-foundation`
-- 개발 PR: Draft PR `#1`
-- `main` 병합: 사용자 명시 지시 전 금지
+- 서버 API 대표 도메인: `https://pagero.kr`
+- 현재 인증/Play 작업 브랜치: `agent/calltag-auth-ux-google-upgrade-fix`
+- 관련 PR: `#80`
 
-## 현재 Android 상태
+## 현재 Android 릴리스
 
-- versionName: `0.40.0`
-- versionCode: `48`
-- 최소 Android: API 26
-- compileSdk/targetSdk: 35
-- 개발 HEAD: `fb390783560c34be66cc840351d9107553258b94`
-- 검증 Workflow: `Validate CallTag Android`
-- Run ID: `30754617608`
-- Job ID: `91514547627`
-- 결과: Android 리소스 처리·Java 컴파일·Firebase Messaging 패키징·Debug APK·아티팩트 업로드 성공
-- Artifact ID: `8835543621`
-- Artifact ZIP digest: `sha256:c6afc72a401b20e66d1131bc4311fb3958459ce38320a230eabd0d0620b2f975`
-- 실제 APK SHA-256: `cd8d3b9b3e2a69029c457cf34570eab911fa6b341be6cc7c4294effe6f7510e2`
+- versionName: **0.44.20**
+- versionCode: **2026081206**
+- minSdk: **26**
+- targetSdk / compileSdk: **36**
+- applicationId: `kr.pagero.calltag`
+- JDK: 17
+- Play 업로드키 서명 release AAB 빌드 성공
+- Workflow: `CallTag 0.44.20 signed Play AAB`
+- Run ID: `31549775038`
+- Artifact ID: `9123840577`
 
-임시 검증 PR `#23`, `#24`는 병합하지 않고 닫았습니다. 개발 PR `#1`은 계속 Draft·미병합 상태입니다.
+### versionCode 주의
 
-## 0.40.0 핵심 변경
+Play Console에 한 번 업로드한 versionCode는 취소해도 재사용하지 않습니다.
 
-- 이메일/비밀번호 로그인 유지
-- 로그인 화면에 `Google로 계속하기` 추가
-- 브라우저 OAuth 완료 후 `calltag://auth/google` 딥링크 복귀
-- 장기 세션 대신 2분 유효·1회 사용 티켓 교환
-- 기존 이메일 계정과 Google 이메일이 같으면 같은 `ownerId` 유지
-- 로그인 직후 페이지로 프로젝트 보유 여부 확인
-- 페이지로 계정 없음·확인 실패여도 콜태그 로그인 허용
-- 페이지로 연결 화면에 계정 연결 상태와 실시간 알림 상태 표시
-- 개인정보 없는 FCM 신호 수신 후 페이지로 문의 동기화 시작
-- Firebase 운영값이 없으면 `실시간 설정 필요`로 표시하고 기존 동기화 유지
-- 전화 수신 오버레이에 `전화번호 · 최근 메모 요약` 복구
-- 긴 번호·메모 줄은 최대 2줄, 메모 요약 24자 후 말줄임
-- 오버레이 실패 시 대체 수신 알림에도 번호와 메모 표시
+현재 최신은 `2026081206`이며 **다음 Play 빌드는 `2026081207` 이상**을 사용합니다.
 
-## 운영 활성화 전 필수 작업
+## Google 로그인 — 0.44.20 정본
 
-서버 Draft PR: `pc9839a-lgtm/inlet#48`
+현재 Google 로그인은 브라우저 OAuth가 아니라 **Android Credential Manager**를 사용합니다.
 
-- Google OAuth client ID/secret 등록
-- redirect URI `https://pagero.kr/api/call/google/callback` 등록
-- Firebase 서비스 계정 환경변수 등록
-- Android Firebase application ID/API key/project ID/sender ID 등록
-- D1 migration 적용
-- 서버 PR 검토·배포
+정상 UX:
 
-운영값이 없는 현재 검증 APK에서는 Google 로그인과 FCM 실전송이 활성화되지 않습니다. 이메일 로그인과 앱 실행·화면 재진입·`지금 동기화` 경로는 유지됩니다.
+```text
+Google로 계속하기
+→ 앱 위 Google 계정 선택창
+→ Google ID Token
+→ POST /api/call/google/id-token
+→ 콜태그 세션 생성
+→ 앱 진입
+```
+
+`LoginActivity`의 Google 버튼은 `GoogleCredentialLoginActivity.class`를 명시적으로 직접 실행합니다.
+
+사용 의존성:
+
+- `androidx.credentials:credentials:1.6.0`
+- `androidx.credentials:credentials-play-services-auth:1.6.0`
+- `com.google.android.libraries.identity.googleid:googleid:1.2.0`
+
+**Google 버튼을 눌렀을 때 Chrome 또는 `pagero.kr` 웹페이지가 열리면 현재 정본 동작이 아닙니다.** 설치 버전과 빌드 계보를 먼저 확인합니다.
+
+### OAuth Client 구분
+
+Android OAuth Client:
+
+- 유형: Android
+- 패키지: `kr.pagero.calltag`
+- Client ID: `31346298247-ih26h65v8i4ct5927tqqncqpqu9r7e20.apps.googleusercontent.com`
+- SHA-1: **Play Console의 앱 서명 키 인증서 SHA-1**
+
+Server/Web Client ID:
+
+- `31346298247-o5jfdetjs84mu02c8tp68qg19ifo89en.apps.googleusercontent.com`
+- `BuildConfig.GOOGLE_SERVER_CLIENT_ID`에 사용
+- Android Client ID를 server client ID로 바꾸지 않음
+
+서버 `pc9839a-lgtm/inlet`의 `/api/call/google/id-token`은 운영 배포되어 있으며 잘못된 토큰을 `401 / GOOGLE_ID_TOKEN_INVALID`로 거부하는 smoke test를 통과했습니다.
+
+### 실제 단말 상태
+
+코드·서버·서명 AAB 빌드는 완료됐지만 **0.44.20 Google 계정 선택창과 로그인 전체 E2E는 실제 휴대전화 확인 전까지 완료로 기록하지 않습니다.**
+
+## 회원가입 UX 최신 기준
+
+- 필수 항목만 라벨 뒤 **빨간 `*`** 표시
+- 선택 항목은 `[선택]`/배지 없이 무표시
+- `[필수]`, `[선택]`, `필수 정보`, `선택 정보` 반복 금지
+- 이메일 인증 요청 단계에서 약관 동의를 먼저 강제하지 않음
+- 최종 가입 제출 시 필수 약관 검사
+- 추천인 안내는 짧은 한 줄 수준으로 유지
+- 장문 설명보다 입력폼을 우선
+
+## 앱 아이콘 최신 기준
+
+Play 스토어 아이콘과 실제 휴대폰 런처 아이콘은 별개입니다.
+
+현재 release 빌드는:
+
+- `calltag_launcher_safe.webp`
+- `mipmap` legacy icon
+- `mipmap-anydpi-v26` Adaptive Icon
+- Manifest `android:icon` / `android:roundIcon`
+
+을 사용합니다.
+
+전화기/태그 심볼은 삼성·Pixel의 원형/둥근사각형 마스크에서 잘리지 않도록 **안전영역 안에 배치**합니다. 스토어 아이콘만 변경하고 설치 아이콘까지 변경됐다고 판단하지 않습니다.
 
 ## 현재 주요 기능
 
-- 통화 수신 고객정보·상태·전화번호·최근 메모 표시
-- 통화 종료 후 고객 상태·메모·일정·문자 정리
+- 통화 수신 고객정보 표시
+- 통화 종료 후 **작은 팝업 1개**로 고객명·메모 처리
 - 고객·캘린더·홈·통계·더보기 5개 내비게이션
-- 고객 상태·일정 종류와 사용자 지정 색상
-- 저장형 문자 템플릿·변수 치환·이미지 첨부
-- 고객별 문자 허용/비허용
-- 문자 발송 제외·중복발송 방지
-- 통화 후·부재중·후속 예약 자동문자
-- 수동 그룹·스마트 그룹·단체문자 캠페인
-- 캠페인 일시정지·재개·취소·안전 복구
-- Google 캘린더·삼성 캘린더 등 Android 일정 앱 공유
-- 페이지로 고객문의 신규 등록·갱신·ACK·중복 방지
-- 암호화 `.ctbackup` 백업·복원
-- DB·예약·캠페인 정합성 복구와 진단
+- 홈 `오늘 할 일`은 오늘 일정만 표시
+- 고객 상태·메모·일정 관리
+- 문자 템플릿·통화 후 자동문자·후속 예약
+- 그룹·단체문자 및 발송 내역
+- 페이지로 문의 연동
+- 추천인·파트너·정산 메뉴
+- Google Play Billing 의존성 및 결제 UI 기반
+- 암호화 백업·복원 및 복구 흐름
+
+## Play 정책/배포 핵심
+
+- `targetSdk 36`
+- `USE_FULL_SCREEN_INTENT` 사용 금지
+- 통화기록/SMS/FGS 관련 Play 선언은 실제 앱 사용 목적과 일치해야 함
+- Play 앱 서명 SHA-1과 업로드키 SHA-1을 혼동하지 않음
+- 내부 테스트 / 비공개 테스트 / 프로덕션은 별도 트랙
+- 새 AAB는 항상 기존 Play versionCode보다 큰 값을 사용
 
 ## 데이터·발송 안전 규칙
 
-- 기존 데이터를 초기화하지 않습니다.
-- DB 변경 시 보존 마이그레이션을 작성합니다.
-- 페이지로 데이터와 FCM 기기는 로그인 세션의 `ownerId`로 격리합니다.
-- FCM payload에 고객명·전화번호·이메일·문의 내용·메모를 넣지 않습니다.
-- 푸시 실패로 고객 문의 저장을 실패시키지 않습니다.
-- 발송 직전 허용 여부·발송 제외·중복방지·SIM·캠페인 상태를 다시 검사합니다.
-- 불명확한 `SENDING` 작업은 자동 재발송하지 않습니다.
-- 일시정지 캠페인은 자동 재개하지 않습니다.
-- 누락 작업을 추측해 생성하거나 고아 작업을 자동 발송하지 않습니다.
-- 이미지 문자는 시스템 메시지 앱에서 사용자가 최종 전송합니다.
-- CSV·XLSX·고객 목록·캠페인 결과 외부 반출을 구현하지 않습니다.
-- `.ctbackup` 백업·복원과 일반 데이터 내보내기를 합치지 않습니다.
+- 기존 고객·일정·메모·문자 데이터를 초기화하지 않음
+- DB 변경 시 보존 마이그레이션 작성
+- 발송 직전 고객별 허용 여부·발송 제외·중복 방지·SIM·캠페인 상태 재검사
+- 불명확한 `SENDING` 작업 자동 재발송 금지
+- 일시정지 캠페인 자동 재개 금지
+- 고아 작업 자동 발송 금지
+- 이미지 문자는 시스템 메시지 앱에서 사용자가 최종 전송
+- CI 빌드 성공과 실제 통화/Google 로그인/런처 동작 성공을 구분
 
-## 다음 작업 우선순위
+## 지금 바로 확인할 항목
 
-1. Google OAuth 운영 설정·D1 migration·Firebase 환경변수·서버 배포
-2. 실기기 Google 로그인·페이지로 계정 있음/없음·FCM 신규 문의 E2E
-3. 실제 전화 수신 시 번호 옆 메모 위치·잘림·잠금화면·삼성 전화 앱 QA
-4. 캠페인 수신자 검색·상태/실패 필터·선택 재시도·선택 취소
-5. 캠페인 작성 최종 미리보기·중복 시작 방지
-6. 실제 Play Billing·구독 만료/복원/환불 검증
-7. Android 8~15·릴리스 서명·AAB·Crash/ANR 출시 QA
+1. Play Console에 `0.44.20 / 2026081206` 배포
+2. 테스트 기기에서 실제 설치 버전 확인
+3. Google Cloud Android OAuth Client의 패키지 `kr.pagero.calltag` 확인
+4. Android OAuth Client에 **Play 앱 서명 키 SHA-1** 등록 확인
+5. `Google로 계속하기` → 앱 위 계정 선택창 확인
+6. 계정 선택 → 콜태그 로그인 완료 확인
+7. 회원가입 필수 빨간 `*` 및 선택 무표시 확인
+8. 홈/앱서랍 아이콘 잘림 여부 확인
+9. 통화 종료 후 작은 팝업만 1개 표시되는지 실기기 QA
 
 ## 빌드
 
 ```bash
 gradle :app:assembleDebug --stacktrace
+gradle :app:bundleRelease --stacktrace
 ```
 
-- JDK 17
-- Gradle 8.9
+release 빌드는 기존 Play 업로드키 환경변수가 필요합니다.
 
-작업 완료 후 버전·검증 Run·실기기 확인 여부·남은 패치를 문서에 업데이트합니다.
+작업 완료 후 **버전·versionCode·Workflow Run·실기기 확인 여부·남은 문제**를 `docs/CURRENT_RELEASE_STATUS_20260812_KO.md`에 먼저 업데이트합니다.
