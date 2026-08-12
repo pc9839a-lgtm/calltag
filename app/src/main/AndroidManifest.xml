@@ -63,6 +63,7 @@
         <activity android:name=".CustomerSupportActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".EntitlementNoticeActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".ReferralPartnerActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".PartnerStatusActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PartnerSettlementActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PageroConnectionActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PageroConnectionCompactActivity" android:exported="false" android:screenOrientation="portrait" />
