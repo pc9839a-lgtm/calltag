@@ -224,11 +224,9 @@ public final class LoginActivity extends Activity {
         if (working) return;
         hideKeyboardAndClearFocus();
         try {
-            GoogleAuthFlowStore.begin(this);
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(AuthApiClient.googleLoginUrl())));
+            startActivity(new Intent(this, GoogleCredentialLoginActivity.class));
         } catch (RuntimeException error) {
-            GoogleAuthFlowStore.clear(this);
-            showNotice("Google 로그인 화면을 열지 못했습니다.", true);
+            showNotice("Google 계정 선택창을 열지 못했습니다.", true);
         }
     }
 
