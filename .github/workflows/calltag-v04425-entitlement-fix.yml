@@ -7,6 +7,7 @@ on:
       - agent/calltag-v04422-billing-live
     paths:
       - 'app/**'
+      - 'config/play-upload-key-sha256.txt'
       - '.github/workflows/calltag-v04425-entitlement-fix.yml'
 
 permissions:
@@ -26,16 +27,32 @@ jobs:
           set -euo pipefail
           grep -F 'versionCode 2026081211' app/build.gradle
           grep -F "versionName '0.44.25'" app/build.gradle
+          grep -F "applicationId 'kr.pagero.calltag'" app/build.gradle
+          grep -F 'com.android.billingclient:billing:9.1.0' app/build.gradle
+
           STORE='app/src/main/java/kr/pagero/calltag/FeatureEntitlementStore.java'
           grep -F 'canStartPlayPurchase(String productId)' "$STORE"
           grep -F 'isProductSubscribed(String productId)' "$STORE"
+
           SCREEN='app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java'
           grep -F '전화관리 · 문자자동화 이용 중' "$SCREEN"
+          grep -F '전화관리 이용 중' "$SCREEN"
+          grep -F '문자자동화 이용 중' "$SCREEN"
           grep -F 'view.setText("이용 중")' "$SCREEN"
           grep -F 'snapshot.canStartPlayPurchase(productId)' "$SCREEN"
+
+          BILLING='app/src/main/java/kr/pagero/calltag/PlayBillingManager.java'
+          grep -F 'request.add(subscription(FeatureEntitlementStore.PLAN_PHONE));' "$BILLING"
+          grep -F 'request.add(subscription(FeatureEntitlementStore.PLAN_MESSAGE));' "$BILLING"
+          if grep -F 'request.add(subscription(FeatureEntitlementStore.PLAN_BUNDLE));' "$BILLING"; then
+            echo 'all_monthly must not be queried in this release.' >&2
+            exit 1
+          fi
+
           GOOGLE='app/src/main/java/kr/pagero/calltag/GoogleCredentialLoginActivity.java'
           grep -F 'startFallbackLogin();' "$GOOGLE"
           grep -F 'https://pagero.kr/api/call/google/start?return_scheme=calltag' "$GOOGLE"
+
           for forbidden in 'Google Play 결제 사용 가능' 'Google Play 상품 확인' '앱 결제 상태' '결제 경로  Google Play' '앱 서명 정보를 확인해주세요'; do
             if grep -R -F "$forbidden" app/src/main/java/kr/pagero/calltag; then
               echo "Developer-facing copy remains: $forbidden" >&2
@@ -54,49 +71,93 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Restore verified Play upload key from secrets
+      - name: Restore accepted Play upload key from GitHub Secrets only
         env:
           KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
           STORE_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.CALLTAG_UPLOAD_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_KEY_PASSWORD }}
-          EXPECTED_SHA256: 'C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7'
         shell: bash
         run: |
           set -euo pipefail
+
+          EXPECTED_SHA256="$(tr -d '\r\n ' < config/play-upload-key-sha256.txt)"
+          if [ -z "$EXPECTED_SHA256" ]; then
+            echo 'Accepted Play upload-key fingerprint is empty.' >&2
+            exit 1
+          fi
+
           for value in "$KEYSTORE_BASE64" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD"; do
             if [ -z "$value" ]; then
-              echo 'The accepted CallTag Play upload key is not configured in GitHub Actions secrets.' >&2
+              echo 'CallTag Play upload-key Secrets are not fully configured. Refusing to use any artifact fallback.' >&2
               exit 1
             fi
           done
+
           KEYSTORE="$RUNNER_TEMP/calltag-upload.jks"
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          if ! printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"; then
+            echo 'CALLTAG_UPLOAD_KEYSTORE_BASE64 is not valid Base64.' >&2
+            exit 1
+          fi
           test -s "$KEYSTORE"
+
           echo "::add-mask::$STORE_PASSWORD"
           echo "::add-mask::$KEY_PASSWORD"
           chmod 600 "$KEYSTORE"
-          keytool -list -v -keystore "$KEYSTORE" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" \
-            | grep -E 'Alias name:|Owner:|SHA1:|SHA256:' > "$RUNNER_TEMP/upload-key-fingerprints.txt"
-          grep -F "SHA256: $EXPECTED_SHA256" "$RUNNER_TEMP/upload-key-fingerprints.txt"
-          echo "CALLTAG_UPLOAD_KEYSTORE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
-          echo "CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
-          echo "CALLTAG_UPLOAD_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
-          echo "CALLTAG_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+
+          keytool -list -v \
+            -keystore "$KEYSTORE" \
+            -storepass "$STORE_PASSWORD" \
+            -alias "$KEY_ALIAS" \
+            | grep -E 'Alias name:|Owner:|SHA1:|SHA256:' \
+            > "$RUNNER_TEMP/upload-key-fingerprints.txt"
+
+          if ! grep -F "SHA256: $EXPECTED_SHA256" "$RUNNER_TEMP/upload-key-fingerprints.txt"; then
+            echo 'Configured JKS does not match the Play Console accepted upload-key fingerprint.' >&2
+            exit 1
+          fi
+
+          {
+            echo "CALLTAG_UPLOAD_KEYSTORE_PATH=$KEYSTORE"
+            echo "CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD"
+            echo "CALLTAG_UPLOAD_KEY_ALIAS=$KEY_ALIAS"
+            echo "CALLTAG_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD"
+            echo "CALLTAG_EXPECTED_UPLOAD_KEY_SHA256=$EXPECTED_SHA256"
+          } >> "$GITHUB_ENV"
 
       - name: Build signed release AAB and APK
         run: gradle :app:bundleRelease :app:assembleRelease --no-daemon --stacktrace
 
-      - name: Verify and stage build
+      - name: Verify final AAB and APK use accepted upload certificate
         shell: bash
         run: |
           set -euo pipefail
+
           AAB='app/build/outputs/bundle/release/app-release.aab'
           APK='app/build/outputs/apk/release/app-release.apk'
           test -s "$AAB"
           test -s "$APK"
+
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+
+          APK_VERIFY="$RUNNER_TEMP/apk-signature.txt"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$APK_VERIFY"
+          EXPECTED_COMPACT="$(printf '%s' "$CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" | tr -d ':' | tr '[:upper:]' '[:lower:]')"
+          ACTUAL_APK="$(grep -i 'certificate SHA-256 digest:' "$APK_VERIFY" | head -n 1 | sed 's/.*digest: //' | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')"
+          if [ "$ACTUAL_APK" != "$EXPECTED_COMPACT" ]; then
+            echo 'Final release APK certificate does not match the accepted Play upload key.' >&2
+            exit 1
+          fi
+
           jarsigner -verify -certs "$AAB"
-          jarsigner -verify -certs "$APK"
+          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/aab-certificate.txt"
+          if ! grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/aab-certificate.txt"; then
+            echo 'Final release AAB certificate does not match the accepted Play upload key.' >&2
+            exit 1
+          fi
+
           OUT="$RUNNER_TEMP/calltag-v0.44.25-entitlement-fix"
           mkdir -p "$OUT"
           cp "$AAB" "$OUT/CallTag-v0.44.25-code2026081211.aab"
@@ -104,6 +165,8 @@ jobs:
           sha256sum "$AAB" > "$OUT/CALLTAG_V04425_AAB_SHA256.txt"
           sha256sum "$APK" > "$OUT/CALLTAG_V04425_APK_SHA256.txt"
           cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
+          cp "$RUNNER_TEMP/aab-certificate.txt" "$OUT/CALLTAG_V04425_AAB_CERTIFICATE.txt"
+          cp "$RUNNER_TEMP/apk-signature.txt" "$OUT/CALLTAG_V04425_APK_SIGNATURE.txt"
 
       - name: Upload build
         uses: actions/upload-artifact@v4
