@@ -1,16 +1,18 @@
 const ROOT='/admin';
 const API_PREFIX='/admin/api/';
 const API_BASE='https://inlet-8mr.pages.dev';
+const SHELL_PATH='/admin/shell.html';
 
 export async function handleCalltagAdmin(request,env){
   const url=new URL(request.url);
   if(url.pathname!==ROOT&&!url.pathname.startsWith(`${ROOT}/`))return null;
-  if(url.pathname===ROOT)return hardened(Response.redirect(`${url.origin}${ROOT}/`,302));
   if(url.pathname.startsWith(API_PREFIX))return handleApi(request,url);
   if(!['GET','HEAD'].includes(request.method))return text('Method not allowed.',405,{allow:'GET, HEAD'});
+
   const assetUrl=new URL(request.url);
-  if(assetUrl.pathname===`${ROOT}/`)assetUrl.pathname=`${ROOT}/index.html`;
-  const response=await env.ASSETS.fetch(new Request(assetUrl.toString(),request));
+  if(assetUrl.pathname===ROOT||assetUrl.pathname===`${ROOT}/`)assetUrl.pathname=SHELL_PATH;
+  const assetRequest=new Request(assetUrl.toString(),request);
+  const response=await env.ASSETS.fetch(assetRequest);
   return hardened(response);
 }
 
