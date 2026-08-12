@@ -2,9 +2,6 @@ name: CallTag 0.44.20 signed Play AAB
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - agent/calltag-auth-ux-google-upgrade-fix
 
 permissions:
   contents: read
