@@ -1,6 +1,6 @@
 # 콜태그 최신 릴리스·운영 상태
 
-기준일: **2026-08-12 17:40 KST**  
+기준일: **2026-08-12 18:50 KST**  
 Android 저장소: `pc9839a-lgtm/calltag`  
 작업 브랜치: `agent/calltag-v04422-billing-live`  
 서버 저장소: `pc9839a-lgtm/inlet` / `main`  
@@ -21,15 +21,33 @@ Android 저장소: `pc9839a-lgtm/calltag`
 
 ### 0.44.25 Play release 서명 상태
 
-0.44.25 소스 컴파일은 성공했지만 최종 Play AAB 서명은 현재 차단 상태다.
+0.44.25 소스 컴파일은 성공했지만 최종 Play AAB는 upload key 재설정 완료 전까지 의도적으로 차단한다.
 
-- 기존 Play 업로드키의 정상 SHA-256: `C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7`
-- 이전 CI가 사용하던 정상 업로드키 backup artifact `8922836146`은 **2026-08-12 만료**됨.
-- 살아 있는 다른 backup artifact `8952526712`는 **다른 키**이며 정상 Play 업로드키가 아니므로 사용 금지.
-- 새 랜덤 키로 임의 서명하지 않는다.
-- release workflow는 이제 정확한 업로드키 GitHub Actions secrets가 없으면 실패하도록 변경했다.
+확정 사실:
 
-정상 JKS를 복구해 secrets로 등록하거나, 실제 키가 완전히 유실된 경우 Google Play Console에서 upload key reset 후 새 키를 등록해야 한다.
+- 직전 정상 0.44.24 AAB 인증서 SHA-256: `C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7`
+- 0.44.24 정상 workflow도 artifact `8922836146`에서 이 JKS를 복구해 사용했다.
+- artifact `8922836146`은 **2026-08-12 보관기간 만료**로 현재 다운로드 불가.
+- 현재 살아 있는 backup artifact `8952526712`의 SHA-256은 `9C:59:BF:0B:71:4F:3E:E2:A7:AE:75:04:BF:27:20:BC:3B:DD:82:68:B7:D4:77:B6:12:24:01:5F:8B:CF:BB:B9`로, 기존 Play upload key와 다른 키다. **사용 금지.**
+- 정상 signed APK/AAB에는 private key가 포함되지 않으므로 거기에서 JKS를 복구할 수 없다.
+
+대응 완료:
+
+- 과거 Actions artifact fallback 완전 제거.
+- GitHub Actions Secrets 4개가 모두 없으면 signed build 중단.
+- JKS 인증서 SHA-256이 `config/play-upload-key-sha256.txt`와 다르면 중단.
+- 빌드 후 release APK 인증서를 `apksigner`로 재검증.
+- 빌드 후 release AAB 인증서를 `keytool`로 재검증.
+- 잘못된 키면 artifact 업로드 단계까지 도달하지 못하게 fail-closed 처리.
+- 실제 fail-closed 검증 Run `31584491526`: 앱 계약검사 성공 → upload-key Secrets 단계에서 의도적 실패 → AAB/APK 빌드 skipped.
+
+복구 도구:
+
+- `scripts/generate_play_upload_key_reset.ps1`
+- `docs/PLAY_UPLOAD_KEY_RESET_20260812_KO.md`
+- 새 private key는 사용자 PC에서만 생성하며 채팅/저장소에 넣지 않는다.
+- Play Console reset 승인 후 새 공개 SHA-256만 `config/play-upload-key-sha256.txt`로 변경한다.
+- 사용자가 GitHub Actions Secrets 4개를 직접 등록한 뒤 0.44.25 signed build를 재실행한다.
 
 ## 2. Google Play 결제 — 실제 성공 확인
 
@@ -116,12 +134,15 @@ Android 저장소: `pc9839a-lgtm/calltag`
 
 ## 5. 남은 P0
 
-1. 정상 Play upload JKS 복구 또는 Play upload key reset.
-2. `0.44.25 / 2026081211` signed AAB 생성.
-3. Play 내부 테스트 설치.
-4. Google 로그인 E2E 확인.
-5. 전화관리 구독 상태에서 문자자동화 추가 결제 확인.
-6. 구매 복원 / 재설치 복원 확인.
+1. 사용자 PC에서 새 upload key + `upload_certificate.pem` 생성.
+2. Play Console account owner가 upload key reset 요청 및 PEM 제출.
+3. reset 승인 후 새 공개 SHA-256을 `config/play-upload-key-sha256.txt`에 반영.
+4. 사용자가 GitHub Actions Secrets 4개를 직접 등록.
+5. `0.44.25 / 2026081211` signed AAB/APK 생성.
+6. Play 내부 테스트 설치.
+7. Google 로그인 E2E 확인.
+8. 전화관리 구독 상태에서 문자자동화 추가 결제 확인.
+9. 구매 복원 / 재설치 복원 확인.
 
 ## 6. 이후 P1
 
@@ -136,4 +157,5 @@ Android 저장소: `pc9839a-lgtm/calltag`
 - 고객/통화/메모/일정/문자 데이터는 구독 만료나 결제 패치로 삭제하지 않음
 - purchaseToken 원문 장기 저장 금지
 - Google service account private key 저장소/문서/채팅 노출 금지
+- Play upload JKS/private key/비밀번호 저장소·문서·채팅 노출 금지
 - `all_monthly`는 사용자가 다시 지시하기 전 생성/판매하지 않음
