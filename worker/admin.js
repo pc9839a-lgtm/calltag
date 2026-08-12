@@ -1,8 +1,6 @@
 const ADMIN_ROOT = '/admin';
 const ADMIN_API_PREFIX = '/admin/api/';
-const SESSION_COOKIE = 'ct_admin_session';
-const MAX_LOGIN_BODY_BYTES = 16 * 1024;
-const DEFAULT_API_BASE = 'https://inlet-8mr.pages.dev';
+const ADMIN_API_BASE = 'https://inlet-8mr.pages.dev';
 
 export async function handleCalltagAdmin(request, env) {
   const url = new URL(request.url);
@@ -20,7 +18,7 @@ export async function handleCalltagAdmin(request, env) {
   }
 
   if (url.pathname.startsWith(ADMIN_API_PREFIX)) {
-    return handleAdminApi(request, env, url, accessAssertion);
+    return handleAdminApi(request, url, accessAssertion);
   }
 
   if (!['GET', 'HEAD'].includes(request.method)) {
@@ -34,28 +32,13 @@ export async function handleCalltagAdmin(request, env) {
   return hardenedResponse(response);
 }
 
-async function handleAdminApi(request, env, url, accessAssertion) {
-  if (url.pathname === `${ADMIN_API_PREFIX}login`) {
-    if (request.method !== 'POST') return adminJson({ ok: false, error: 'Method not allowed.', code: 'METHOD_NOT_ALLOWED' }, 405, { allow: 'POST' });
-    return adminLogin(request, env, accessAssertion);
-  }
-
-  if (url.pathname === `${ADMIN_API_PREFIX}logout`) {
-    if (request.method !== 'POST') return adminJson({ ok: false, error: 'Method not allowed.', code: 'METHOD_NOT_ALLOWED' }, 405, { allow: 'POST' });
-    return adminJson({ ok: true }, 200, { 'set-cookie': clearSessionCookie() });
-  }
-
+async function handleAdminApi(request, url, accessAssertion) {
   if (request.method !== 'GET') {
     return adminJson({ ok: false, error: 'Method not allowed.', code: 'METHOD_NOT_ALLOWED' }, 405, { allow: 'GET' });
   }
 
-  const session = readCookie(request.headers.get('cookie') || '', SESSION_COOKIE);
-  if (!session) {
-    return adminJson({ ok: false, error: '콜태그 관리자 로그인이 필요합니다.', code: 'CALLTAG_ADMIN_SESSION_REQUIRED' }, 401);
-  }
-
   if (url.pathname === `${ADMIN_API_PREFIX}overview`) {
-    return proxyRead(env, accessAssertion, session, '/api/call/admin/overview', sanitizeOverview);
+    return proxyRead(accessAssertion, '/api/call/admin/overview', sanitizeOverview);
   }
 
   if (url.pathname === `${ADMIN_API_PREFIX}member`) {
@@ -64,9 +47,7 @@ async function handleAdminApi(request, env, url, accessAssertion) {
       return adminJson({ ok: false, error: '회원 식별자가 올바르지 않습니다.', code: 'CALLTAG_ADMIN_MEMBER_ID_INVALID' }, 400);
     }
     return proxyRead(
-      env,
       accessAssertion,
-      session,
       `/api/call/admin/member?ownerId=${encodeURIComponent(ownerId)}`,
       sanitizeMember,
     );
@@ -75,72 +56,13 @@ async function handleAdminApi(request, env, url, accessAssertion) {
   return adminJson({ ok: false, error: 'Not found.', code: 'NOT_FOUND' }, 404);
 }
 
-async function adminLogin(request, env, accessAssertion) {
-  const contentLength = Number(request.headers.get('content-length') || 0);
-  if (contentLength > MAX_LOGIN_BODY_BYTES) {
-    return adminJson({ ok: false, error: '로그인 요청이 너무 큽니다.', code: 'PAYLOAD_TOO_LARGE' }, 413);
-  }
-
-  const raw = await request.text();
-  if (new TextEncoder().encode(raw).byteLength > MAX_LOGIN_BODY_BYTES) {
-    return adminJson({ ok: false, error: '로그인 요청이 너무 큽니다.', code: 'PAYLOAD_TOO_LARGE' }, 413);
-  }
-
-  let body;
-  try {
-    body = JSON.parse(raw || '{}');
-  } catch {
-    return adminJson({ ok: false, error: '로그인 요청 형식이 올바르지 않습니다.', code: 'INVALID_JSON' }, 400);
-  }
-
-  const email = String(body?.email || '').trim().toLowerCase().slice(0, 254);
-  const password = String(body?.password || '').slice(0, 256);
-  if (!email || !password) {
-    return adminJson({ ok: false, error: '이메일과 비밀번호를 입력해주세요.', code: 'LOGIN_REQUIRED' }, 400);
-  }
-
+async function proxyRead(accessAssertion, path, sanitizer) {
   let response;
   try {
-    response = await fetch(`${apiBase(env)}/api/call/login`, {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json; charset=utf-8',
-        'cf-access-jwt-assertion': accessAssertion,
-        'x-calllink-client': 'calltag-admin-gateway',
-      },
-      body: JSON.stringify({ email, password }),
-      redirect: 'manual',
-    });
-  } catch {
-    return adminJson({ ok: false, error: '로그인 서버에 연결하지 못했습니다.', code: 'ADMIN_UPSTREAM_UNAVAILABLE' }, 502);
-  }
-
-  const data = await safeJson(response);
-  if (!response.ok || data?.ok === false) {
-    return adminJson({
-      ok: false,
-      error: safeErrorMessage(data?.error, '로그인에 실패했습니다.'),
-      code: safeCode(data?.code || data?.details?.code || 'LOGIN_FAILED'),
-    }, normalizeUpstreamStatus(response.status));
-  }
-
-  const session = String(data?.session || '').trim();
-  if (!session || session.length > 4096) {
-    return adminJson({ ok: false, error: '관리자 세션을 만들지 못했습니다.', code: 'ADMIN_SESSION_MISSING' }, 502);
-  }
-
-  return adminJson({ ok: true }, 200, { 'set-cookie': sessionCookie(session) });
-}
-
-async function proxyRead(env, accessAssertion, session, path, sanitizer) {
-  let response;
-  try {
-    response = await fetch(`${apiBase(env)}${path}`, {
+    response = await fetch(`${ADMIN_API_BASE}${path}`, {
       method: 'GET',
       headers: {
         accept: 'application/json',
-        'x-inlet-session': session,
         'cf-access-jwt-assertion': accessAssertion,
         'x-calllink-client': 'calltag-admin-gateway',
       },
@@ -239,38 +161,6 @@ function sanitizeSubscription(row) {
     lastVerifiedAt: safeDate(row.lastVerifiedAt),
     autoRenewing: row.autoRenewing === true,
   };
-}
-
-function apiBase(env) {
-  const candidate = String(env.CALLTAG_ADMIN_API_BASE || DEFAULT_API_BASE).trim().replace(/\/+$/, '');
-  try {
-    const url = new URL(candidate);
-    return url.protocol === 'https:' ? url.origin : DEFAULT_API_BASE;
-  } catch {
-    return DEFAULT_API_BASE;
-  }
-}
-
-function sessionCookie(session) {
-  return `${SESSION_COOKIE}=${encodeURIComponent(session)}; Path=/admin; Max-Age=28800; HttpOnly; Secure; SameSite=Strict`;
-}
-
-function clearSessionCookie() {
-  return `${SESSION_COOKIE}=; Path=/admin; Max-Age=0; HttpOnly; Secure; SameSite=Strict`;
-}
-
-function readCookie(header, name) {
-  for (const item of String(header || '').split(';')) {
-    const index = item.indexOf('=');
-    if (index < 0) continue;
-    if (item.slice(0, index).trim() !== name) continue;
-    try {
-      return decodeURIComponent(item.slice(index + 1).trim()).slice(0, 4096);
-    } catch {
-      return '';
-    }
-  }
-  return '';
 }
 
 async function safeJson(response) {
