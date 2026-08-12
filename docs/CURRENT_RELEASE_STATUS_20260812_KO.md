@@ -6,26 +6,48 @@
 관련 PR: `#80`  
 패키지명: `kr.pagero.calltag`
 
-> 다음 작업자는 먼저 `docs/NEXT_AI_HANDOFF_20260812_KO.md`를 읽는다. 이 문서는 현재 릴리스/QA 상태를 기록한다.
+> 다음 작업자는 먼저 `docs/NEXT_AI_HANDOFF_20260812_KO.md`를 읽고, Google Play P0 실행은 `docs/PLAY_BILLING_P0_EXECUTION_20260812_KO.md`를 함께 읽는다. 기존 문서의 `Play Console ↔ Google Cloud 프로젝트 연결` 표현은 후자 문서의 최신 공식 절차가 우선한다.
 
 ## 1. 최신 Android 릴리스
 
-- versionName: **0.44.22**
-- versionCode: **2026081208**
+- versionName: **0.44.23**
+- versionCode: **2026081209**
 - minSdk: **26**
 - targetSdk / compileSdk: **36**
 - applicationId: `kr.pagero.calltag`
+- Google Play Billing Library: **9.1.0**
 - Play 업로드키 signed release AAB 빌드 및 검증 성공
-- GitHub Actions workflow: `CallTag 0.44.22 signed Play AAB`
-- 성공 Run ID: `31557329238`
-- Artifact ID: `9126476904`
-- Artifact: `calltag-v0.44.22-code2026081208-play-aab`
+- GitHub Actions workflow: `Build CallTag Play Internal`
+- 성공 Run ID: `31558514997`
+- Artifact ID: `9126905168`
+- Artifact: `calltag-v0.44.23-code2026081209-play-internal`
+- Artifact ZIP SHA-256: `71a0d62074d97bc229bb986a09c32dfbdd980558630bb8fff81cc3d761f5eb74`
+
+Artifact 내부:
+
+- `CallTag-v0.44.23-code2026081209.aab`
+- `CallTag-v0.44.23-code2026081209-debug.apk`
+- `CALLTAG_AAB_SHA256.txt`
+- `CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt`
+
+### 0.44.23 결제 안전패치
+
+기존 `PlayBillingManager.purchase()`의 `offers.get(0)` 임의 선택을 제거했다.
+
+현재 규칙:
+
+- 구매 가능한 offer가 1개면 사용
+- 여러 offer 중 `offerId`가 없는 기본 base plan이 정확히 1개면 사용
+- 기본 base plan 후보가 여러 개면 결제 중단
+- Play Console 구성이 확정되기 전 임의 offerToken 선택 금지
+
+향후 복수 base plan/할인 offer를 실제 운영할 경우 `basePlanId` / `offerId` / tag를 명시적으로 매핑한다.
 
 ### Play versionCode 규칙
 
 Play Console에 한 번 업로드된 versionCode는 재사용하지 않는다.
 
-`2026081208`을 Play에 업로드했다면 **다음은 2026081209 이상**을 사용한다.
+`2026081209`를 Play에 업로드한 뒤 다음 빌드는 **2026081210 이상**을 사용한다.
 
 ---
 
@@ -44,30 +66,39 @@ Android:
 - Google Play 구독 관리
 - entitlement 기반 권한
 - Web ↔ Play 중복결제 차단
+- 모호한 복수 base plan/offer 임의 선택 차단
 
 서버:
 
 - `/api/billing/entitlements`
 - `/api/billing/google/verify`
 - `/api/billing/google/restore`
-- Android Publisher API 검증
+- Android Publisher API `purchases.subscriptionsv2.get` 검증
 - server acknowledgement
 - subscription 저장
 - partner commission 기록
 
-**사용자가 다음 패치에서 Play Console ↔ Google Cloud/API access 연결을 진행하기로 확정했다.** 현재 연결 완료로 기록하지 않는다.
+### 현재 Google 공식 절차 기준 정정
 
-다음 순서:
+**Play Console 개발자 계정을 Google Cloud 프로젝트에 별도로 연결하는 단계는 현재 필요하지 않다.**
 
-1. Play Console ↔ Google Cloud/API access 연결
-2. service account 권한 연결
-3. 서버 Publisher API credential 설정
-4. Play subscription product/base plan과 앱 productId 대조
-5. 라이선스 테스터 실제 결제
-6. purchaseToken 검증 → acknowledge → entitlement active
-7. 앱 재시작/재설치 구매 복원
-8. Web ↔ Play 중복결제 양방향 검증
-9. RTDN/Pub/Sub 구축
+현재 P0 순서:
+
+1. 서버용 Google Cloud 프로젝트 선택
+2. `Google Play Android Developer API` 활성화
+3. 서버용 service account 생성
+4. Play Console `사용자 및 권한`에서 service account 이메일 초대
+5. `재무 데이터, 주문 및 취소 설문 응답 보기` 권한
+6. `주문 및 정기 결제 관리` 권한
+7. 서버 `GOOGLE_PLAY_CLIENT_EMAIL` / `GOOGLE_PLAY_PRIVATE_KEY` 등록
+8. Play subscription product/base plan과 앱 productId 대조
+9. 상품 준비 후 `GOOGLE_PLAY_PRODUCTS_READY=1`
+10. 검증 준비 후 `GOOGLE_PLAY_BILLING_ENABLED=1`
+11. 라이선스 테스터 실제 결제
+12. purchaseToken 검증 → acknowledge → entitlement active
+13. 앱 재시작/재설치 구매 복원
+14. Web ↔ Play 중복결제 양방향 검증
+15. RTDN/Pub/Sub 구축
 
 현재 코드 productId:
 
@@ -75,11 +106,15 @@ Android:
 - `call_monthly`
 - `message_monthly`
 
-Play 공개 전 실제 상품/가격과 다시 대조한다.
+Play 공개 전 실제 상품/base plan/가격/한국 판매 상태와 다시 대조한다.
+
+세부 실행 정본:
+
+`docs/PLAY_BILLING_P0_EXECUTION_20260812_KO.md`
 
 ---
 
-## 3. Google 로그인 — 0.44.22
+## 3. Google 로그인 — 0.44.22 계열
 
 정상 구조:
 
@@ -93,7 +128,7 @@ Google로 계속하기
 → CallTag session
 ```
 
-0.44.22 수정:
+0.44.22에서 수정된 구조는 0.44.23에도 유지된다.
 
 - `GetGoogleIdOption`
 - `setFilterByAuthorizedAccounts(false)`
@@ -115,11 +150,11 @@ Web/server Client ID:
 
 - `31346298247-o5jfdetjs84mu02c8tp68qg19ifo89en.apps.googleusercontent.com`
 
-**0.44.22 실제 계정 선택 → 세션 생성 E2E는 아직 단말 재검증 필요.**
+**최신 설치본에서 실제 계정 선택 → 세션 생성 E2E는 아직 단말 재검증 필요.**
 
 ---
 
-## 4. 더보기 — 0.44.22
+## 4. 더보기 — 0.44.22 계열
 
 상위 진입점 8개:
 
@@ -139,7 +174,7 @@ Web/server Client ID:
 - 서비스: 페이지로 / 파트너
 - 앱 관리: 데이터 관리 / 앱 정보
 
-0.44.22 UI:
+UI:
 
 - 각 메뉴 독립 카드
 - 메뉴 높이 64dp
@@ -152,11 +187,11 @@ Web/server Client ID:
 
 ---
 
-## 5. 앱 아이콘 — 0.44.22
+## 5. 앱 아이콘 — 0.44.22 계열
 
 0.44.21의 깨진 bitmap/WebP foreground 방식은 폐기했다.
 
-0.44.22:
+현재:
 
 - vector launcher foreground
 - Adaptive Icon
@@ -217,16 +252,34 @@ CallTag 현재 정책:
 
 ---
 
-## 9. 다음 단말 QA 우선순위
+## 9. CI 상태
 
-1. Play Console/Google Cloud 결제 연결 후 실제 라이선스 테스트 결제
-2. purchaseToken 서버 검증/acknowledge/entitlement 확인
-3. 구매 복원
-4. Web ↔ Play 중복결제 확인
-5. Google 로그인 계정 선택 후 세션 생성
-6. 더보기 카드 간격 확인
-7. 런처/Google 계정선택창 아이콘 확인
-8. 고객센터 실제 메일 수신
-9. 통화 종료 후 작은 팝업 1개만 표시 확인
+0.44.23 전환 과정에서 과거 workflow의 고정 버전 계약이 최신 버전을 실패시키는 문제가 확인됐다.
+
+정리:
+
+- 공용 `build-apk.yml`을 현재 `app/build.gradle`의 versionName/versionCode를 자동 인식하도록 변경
+- Billing `9.1.0`, 서버 purchase verify 호출, `offers.get(0)` 제거 여부를 release contract에 추가
+- 임의 새 업로드 키 생성 대신 기존 검증된 Play upload key 또는 완전한 4개 signing secret만 사용
+- 0.44.23 signed AAB 실제 빌드/서명/업로드 성공
+- 과거 `calltag-v04422-play-aab.yml` push workflow는 최신 브랜치에서 제거
 
 CI 성공을 실기기 성공으로 기록하지 않는다.
+
+---
+
+## 10. 다음 단말 QA 우선순위
+
+1. Google Play Developer API + service account 권한 연결
+2. Play Console 3개 subscription/base plan 대조
+3. 라이선스 테스터 실제 Play 결제
+4. purchaseToken 서버 검증/acknowledge/entitlement 확인
+5. 구매 복원
+6. Web ↔ Play 중복결제 확인
+7. Google 로그인 계정 선택 후 세션 생성
+8. 더보기 카드 간격 확인
+9. 런처/Google 계정선택창 아이콘 확인
+10. 고객센터 실제 메일 수신
+11. 통화 종료 후 작은 팝업 1개만 표시 확인
+
+P0 실제 결제 E2E가 끝난 뒤 RTDN/Pub/Sub를 P1로 진행한다.
