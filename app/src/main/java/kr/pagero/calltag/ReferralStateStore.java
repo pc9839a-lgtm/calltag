@@ -5,7 +5,7 @@ import android.content.SharedPreferences;
 
 import org.json.JSONObject;
 
-/** 추천코드와 파트너 요약의 최소 표시 캐시. 정산 계산은 서버가 담당한다. */
+/** 파트너 코드와 파트너 현황의 표시 캐시. 정산 계산은 서버가 담당한다. */
 public final class ReferralStateStore {
     private static final String PREFS = "calltag_referrals";
     private static final String KEY_CODE = "my_code";
@@ -19,6 +19,8 @@ public final class ReferralStateStore {
     private static final String KEY_CONFIRMED_REVENUE = "confirmed_revenue";
     private static final String KEY_PARTNER_URL = "partner_url";
     private static final String KEY_LAST_CHECKED_AT = "last_checked_at";
+    private static final String KEY_CODE_CHECKED_AT = "code_checked_at";
+    private static final String KEY_SUMMARY_CHECKED_AT = "summary_checked_at";
 
     private ReferralStateStore() {}
 
@@ -50,19 +52,22 @@ public final class ReferralStateStore {
             bonusDays = applied.optInt("bonusDays", bonusDays);
         }
 
+        long now = System.currentTimeMillis();
         prefs(context).edit()
                 .putString(KEY_CODE, code)
                 .putString(KEY_LINK, link)
                 .putBoolean(KEY_APPLIED, isApplied)
                 .putString(KEY_APPLIED_CODE, appliedCode)
                 .putInt(KEY_BONUS_DAYS, bonusDays)
-                .putLong(KEY_LAST_CHECKED_AT, System.currentTimeMillis())
+                .putLong(KEY_CODE_CHECKED_AT, now)
+                .putLong(KEY_LAST_CHECKED_AT, now)
                 .apply();
     }
 
     public static void saveSummary(Context context, JSONObject response) {
         JSONObject summary = response == null ? null : response.optJSONObject("summary");
         if (summary == null) summary = response == null ? new JSONObject() : response;
+        long now = System.currentTimeMillis();
         prefs(context).edit()
                 .putInt(KEY_REFERRED_COUNT, firstInt(summary, "referredCount", "members"))
                 .putInt(KEY_ACTIVE_PAID_COUNT, firstInt(summary, "activePaidCount", "paidMembers"))
@@ -73,12 +78,14 @@ public final class ReferralStateStore {
                 .putString(KEY_PARTNER_URL, firstNonEmpty(
                         summary.optString("partnerCenterUrl", ""),
                         summary.optString("partnerUrl", "")))
-                .putLong(KEY_LAST_CHECKED_AT, System.currentTimeMillis())
+                .putLong(KEY_SUMMARY_CHECKED_AT, now)
+                .putLong(KEY_LAST_CHECKED_AT, now)
                 .apply();
     }
 
     public static Snapshot snapshot(Context context) {
         SharedPreferences value = prefs(context);
+        long legacyCheckedAt = value.getLong(KEY_LAST_CHECKED_AT, 0L);
         return new Snapshot(
                 value.getString(KEY_CODE, ""),
                 value.getString(KEY_LINK, ""),
@@ -90,7 +97,9 @@ public final class ReferralStateStore {
                 value.getLong(KEY_ESTIMATED_REVENUE, 0L),
                 value.getLong(KEY_CONFIRMED_REVENUE, 0L),
                 value.getString(KEY_PARTNER_URL, ""),
-                value.getLong(KEY_LAST_CHECKED_AT, 0L));
+                legacyCheckedAt,
+                value.getLong(KEY_CODE_CHECKED_AT, legacyCheckedAt),
+                value.getLong(KEY_SUMMARY_CHECKED_AT, legacyCheckedAt));
     }
 
     public static void clear(Context context) {
@@ -124,6 +133,8 @@ public final class ReferralStateStore {
         public final long confirmedRevenueKrw;
         public final String partnerUrl;
         public final long lastCheckedAt;
+        public final long codeCheckedAt;
+        public final long summaryCheckedAt;
 
         Snapshot(
                 String code,
@@ -136,7 +147,9 @@ public final class ReferralStateStore {
                 long estimatedRevenueKrw,
                 long confirmedRevenueKrw,
                 String partnerUrl,
-                long lastCheckedAt) {
+                long lastCheckedAt,
+                long codeCheckedAt,
+                long summaryCheckedAt) {
             this.code = safe(code);
             this.shareUrl = safe(shareUrl);
             this.applied = applied;
@@ -148,6 +161,8 @@ public final class ReferralStateStore {
             this.confirmedRevenueKrw = confirmedRevenueKrw;
             this.partnerUrl = safe(partnerUrl);
             this.lastCheckedAt = lastCheckedAt;
+            this.codeCheckedAt = codeCheckedAt;
+            this.summaryCheckedAt = summaryCheckedAt;
         }
 
         private static String safe(String value) {
