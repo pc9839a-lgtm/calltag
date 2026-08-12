@@ -6,212 +6,227 @@
 관련 PR: `#80`  
 패키지명: `kr.pagero.calltag`
 
-> 이 문서는 2026-08-12 현재 릴리스 상태의 정본이다. 과거 버전 문서와 충돌하면 이 문서와 실제 코드를 우선한다.
+> 다음 작업자는 먼저 `docs/NEXT_AI_HANDOFF_20260812_KO.md`를 읽는다. 이 문서는 현재 릴리스/QA 상태를 기록한다.
 
 ## 1. 최신 Android 릴리스
 
-- versionName: **0.44.21**
-- versionCode: **2026081207**
+- versionName: **0.44.22**
+- versionCode: **2026081208**
 - minSdk: **26**
 - targetSdk / compileSdk: **36**
 - applicationId: `kr.pagero.calltag`
-- Play 업로드키로 signed release AAB 빌드 및 jarsigner 검증 성공
-- GitHub Actions workflow: `CallTag 0.44.21 signed Play AAB`
-- 성공 Run ID: `31553364381`
-- Artifact ID: `9125103041`
-- Artifact: `calltag-v0.44.21-code2026081207-play-aab`
-- AAB SHA-256: `e3e71aeb2f67784cc2f1a69df25e4220b2de8fd26537b8032cbba68ba64d6ef5`
+- Play 업로드키 signed release AAB 빌드 및 검증 성공
+- GitHub Actions workflow: `CallTag 0.44.22 signed Play AAB`
+- 성공 Run ID: `31557329238`
+- Artifact ID: `9126476904`
+- Artifact: `calltag-v0.44.22-code2026081208-play-aab`
 
 ### Play versionCode 규칙
 
-Google Play Console에 한 번 업로드된 versionCode는 출시 취소·삭제 여부와 상관없이 재사용하지 않는다.
+Play Console에 한 번 업로드된 versionCode는 재사용하지 않는다.
 
-현재 최신 코드는 `2026081207`이다. **다음 Play 업로드용 빌드는 반드시 `2026081208` 이상을 사용한다.**
+`2026081208`을 Play에 업로드했다면 **다음은 2026081209 이상**을 사용한다.
 
-## 2. 0.44.21 더보기 메뉴 개편
+---
 
-`앱·계정`에 기능을 몰아넣던 구조를 폐기했다. 더보기의 최상위 진입점은 아래 8개로 고정한다.
+## 2. 다음 패치 최우선: Google Play 결제 실제 연결/E2E
 
-1. **계정**
-2. **이용권**
-3. **문자 관리**
-4. **고객 관리**
-5. **페이지로**
-6. **파트너**
-7. **데이터 관리**
-8. **앱 정보**
+Google Play Billing은 앱과 서버에 이미 구현되어 있다.
 
-### 계정
+Android:
 
-계정은 더보기 맨 위에 둔다. 화면에는 계정 식별/관리 정보만 남긴다.
+- Billing Library `9.1.0`
+- ProductDetails 조회
+- SUBS 구매 플로우
+- pending purchase
+- purchaseToken 서버 전송
+- 구매 복원
+- Google Play 구독 관리
+- entitlement 기반 권한
+- Web ↔ Play 중복결제 차단
 
-- 이름
-- 연락처
-- 이메일
-- 회원정보 다시 불러오기
-- 로그아웃
-- 회원탈퇴
+서버:
 
-브랜드·업종·이용상품·약관·백업 등 다른 성격의 기능은 계정 화면에 섞지 않는다.
+- `/api/billing/entitlements`
+- `/api/billing/google/verify`
+- `/api/billing/google/restore`
+- Android Publisher API 검증
+- server acknowledgement
+- subscription 저장
+- partner commission 기록
 
-### 이용권
+**사용자가 다음 패치에서 Play Console ↔ Google Cloud/API access 연결을 진행하기로 확정했다.** 현재 연결 완료로 기록하지 않는다.
 
-상위 메뉴 및 화면 제목은 `이용권·결제`가 아니라 **`이용권`**으로 표시한다.
+다음 순서:
 
-현재 결제 로직 자체는 이번 메뉴 패치에서 변경하지 않았다. 결제 구현을 이어갈 때는 다음 문서를 먼저 읽는다.
+1. Play Console ↔ Google Cloud/API access 연결
+2. service account 권한 연결
+3. 서버 Publisher API credential 설정
+4. Play subscription product/base plan과 앱 productId 대조
+5. 라이선스 테스터 실제 결제
+6. purchaseToken 검증 → acknowledge → entitlement active
+7. 앱 재시작/재설치 구매 복원
+8. Web ↔ Play 중복결제 양방향 검증
+9. RTDN/Pub/Sub 구축
 
-- `docs/CALLTAG_PAYMENT_HANDOFF_20260812_KO.md`
+현재 코드 productId:
 
-### 문자 관리
+- `all_monthly`
+- `call_monthly`
+- `message_monthly`
 
-`통화 후 자동문자` 대형 독립 카드는 제거했다. 문자 관리 첫 항목으로 통합한다.
+Play 공개 전 실제 상품/가격과 다시 대조한다.
 
-- 통화 후 자동문자
-- 문자 문구·이미지
-- 그룹·단체문자
-- 발송 관리
+---
 
-### 고객 관리
+## 3. Google 로그인 — 0.44.22
 
-- 고객 상태
-- 일정 종류
-- 통화 후 팝업 제외
-
-### 데이터 관리
-
-- 동기화 상태
-- 백업 및 복원
-
-### 앱 정보
-
-- 버전 정보
-- 서비스 이용약관
-- 개인정보처리방침
-- 고객센터
-
-법적 문서 URL:
-
-- 이용약관: `https://call.pagero.kr/terms/`
-- 개인정보처리방침: `https://call.pagero.kr/privacy/`
-
-## 3. 고객센터 최신 구조
-
-고객센터는 외부 메일 앱을 여는 `mailto:` 방식이 아니다.
+정상 구조:
 
 ```text
-더보기
-→ 앱 정보
-→ 고객센터
-→ 앱 내 문의 작성
+Google로 계속하기
+→ GoogleCredentialLoginActivity
+→ Android Credential Manager
+→ Google ID Token
+→ POST /api/call/google/id-token
+→ 서버 검증
+→ CallTag session
+```
+
+0.44.22 수정:
+
+- `GetGoogleIdOption`
+- `setFilterByAuthorizedAccounts(false)`
+- `setAutoSelectEnabled(false)`
+- Web/server client ID를 serverClientId로 사용
+- callback main executor
+- provider timeout 30초
+- server exchange timeout 20초
+- Credential Activity `exported=false`
+- `calltag://credential/google` 딥링크 제거
+
+Android OAuth Client:
+
+- package: `kr.pagero.calltag`
+- Client ID: `31346298247-ih26h65v8i4ct5927tqqncqpqu9r7e20.apps.googleusercontent.com`
+- SHA-1: Play 앱 서명 키 인증서 SHA-1
+
+Web/server Client ID:
+
+- `31346298247-o5jfdetjs84mu02c8tp68qg19ifo89en.apps.googleusercontent.com`
+
+**0.44.22 실제 계정 선택 → 세션 생성 E2E는 아직 단말 재검증 필요.**
+
+---
+
+## 4. 더보기 — 0.44.22
+
+상위 진입점 8개:
+
+1. 계정
+2. 이용권
+3. 문자 관리
+4. 고객 관리
+5. 페이지로
+6. 파트너
+7. 데이터 관리
+8. 앱 정보
+
+그룹:
+
+- 내 정보: 계정 / 이용권
+- 업무 관리: 문자 관리 / 고객 관리
+- 서비스: 페이지로 / 파트너
+- 앱 관리: 데이터 관리 / 앱 정보
+
+0.44.22 UI:
+
+- 각 메뉴 독립 카드
+- 메뉴 높이 64dp
+- 메뉴 사이 12dp
+- 섹션 사이 34dp
+
+`통화 후 자동문자`는 더보기 별도 대형 카드로 만들지 않고 `문자 관리` 안에 둔다.
+
+계정 화면은 이름/연락처/이메일, 다시 불러오기, 로그아웃, 회원탈퇴 중심으로 유지한다.
+
+---
+
+## 5. 앱 아이콘 — 0.44.22
+
+0.44.21의 깨진 bitmap/WebP foreground 방식은 폐기했다.
+
+0.44.22:
+
+- vector launcher foreground
+- Adaptive Icon
+- release manifest icon 고정
+- `calltag_launcher_safe.webp`가 release AAB에 포함되면 CI 실패
+
+실제 런처와 Credential Manager 계정 선택창의 작은 CallTag 아이콘은 단말에서 재확인한다.
+
+---
+
+## 6. 고객센터
+
+`더보기 → 앱 정보 → 고객센터`
+
+```text
+앱 문의 폼
 → POST /api/call/support
-→ 인증된 콜태그 서버
+→ 인증된 서버
 → AWS SES
 → roadfor@kakao.com
 ```
 
-문의 폼:
+고객 이메일을 Reply-To로 사용한다.
 
-- 문의 유형: 일반문의 / 결제 / 오류 / 기타
-- 이름
-- 연락처
-- 답변 받을 이메일
-- 문의 내용
+완료:
 
-서버 메일은 고객이 입력한 이메일을 `Reply-To`로 지정한다. 따라서 `roadfor@kakao.com`에서 답장을 누르면 고객 이메일로 회신할 수 있다.
+- 서버 route 배포
+- 인증 없는 요청 401 smoke 통과
 
-서버 파일:
+남음:
 
-- `pc9839a-lgtm/inlet/functions/api/call/support.js`
+- 로그인 사용자 실제 문의 전송
+- `roadfor@kakao.com` 수신 확인
+- Reply-To 확인
 
-운영 확인:
+---
 
-- Cloudflare Pages 배포 성공
-- 인증 없는 요청은 운영 `/api/call/support`에서 401로 차단
-- 전용 안전 smoke workflow 성공: Run `31553422904`
+## 7. 무료기간/추천인
 
-**아직 실제 로그인 사용자 문의를 보내 `roadfor@kakao.com` 받은편지함까지 도착하는 E2E 테스트는 하지 않았다.** 실제 단말에서 한 번 접수해 받은편지함까지 확인해야 최종 완료로 기록한다.
+CallTag 현재 정책:
 
-## 4. Google 로그인 — 유지된 현재 정본
-
-0.44.21은 0.44.20의 Credential Manager Google 로그인 수정사항을 그대로 유지한다.
-
-```text
-콜태그 로그인 화면
-→ Google로 계속하기
-→ GoogleCredentialLoginActivity 직접 실행
-→ 앱 위 Google 계정 선택창
-→ Google ID Token
-→ POST /api/call/google/id-token
-→ 서버 검증
-→ 콜태그 세션 생성
-```
-
-Google 버튼은 브라우저 OAuth URL을 열지 않아야 한다.
-
-### OAuth Client 구분
-
-Android OAuth Client:
-
-- 유형: Android
-- package: `kr.pagero.calltag`
-- Client ID: `31346298247-ih26h65v8i4ct5927tqqncqpqu9r7e20.apps.googleusercontent.com`
-- SHA-1: **Play Console 앱 서명 키 인증서 SHA-1**
-
-Web / server client ID:
-
-`31346298247-o5jfdetjs84mu02c8tp68qg19ifo89en.apps.googleusercontent.com`
-
-이 Web client ID가 Credential Manager의 server client ID / ID Token audience로 사용된다. Android Client ID로 교체하지 않는다.
-
-## 5. 회원가입 UX 유지 기준
-
-- 필수 항목은 라벨 뒤 빨간 `*`만 표시
-- 선택 항목은 `[선택]` 등의 반복 표기 없음
-- 이름 / 휴대폰번호 / 이메일 / 인증번호 / 비밀번호 필수
-- 브랜드/상호, 업종, 추천인 코드는 선택
+- 일반 가입 7일 무료
+- 가입 시 추천인 코드 입력 +7일
+- 최대 14일
+- 무료 종료 후 자동결제 없음
 - 추천인 코드는 회원가입 시에만 입력
-- 이메일 인증 단계에서 약관을 선행 강제하지 않음
+
+서버 legacy generic 코드의 3일/+5일 값과 혼동하지 않는다.
+
+---
+
+## 8. 회원가입 UX 고정
+
+- 필수 항목만 라벨 뒤 빨간 `*`
+- 선택 항목 `[선택]` 반복 금지
+- 이메일 인증 요청 단계에서 약관 선행 강제 금지
 - 최종 가입 제출 시 필수 약관 확인
 
-## 6. 앱 아이콘 유지 기준
+---
 
-- 안전영역 원본: `app/src/main/res/drawable-nodpi/calltag_launcher_safe.webp`
-- Adaptive Icon과 legacy icon을 모두 생성
-- Play 스토어 아이콘과 설치 런처 아이콘을 구분
-- 삼성/Pixel 마스크에서 전화기/태그 심볼이 잘리지 않아야 함
+## 9. 다음 단말 QA 우선순위
 
-## 7. 이번 패치 핵심 파일
+1. Play Console/Google Cloud 결제 연결 후 실제 라이선스 테스트 결제
+2. purchaseToken 서버 검증/acknowledge/entitlement 확인
+3. 구매 복원
+4. Web ↔ Play 중복결제 확인
+5. Google 로그인 계정 선택 후 세션 생성
+6. 더보기 카드 간격 확인
+7. 런처/Google 계정선택창 아이콘 확인
+8. 고객센터 실제 메일 수신
+9. 통화 종료 후 작은 팝업 1개만 표시 확인
 
-Android:
-
-- `app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java`
-- `app/src/main/java/kr/pagero/calltag/SettingsGroupActivity.java`
-- `app/src/main/java/kr/pagero/calltag/AppInfoActivity.java`
-- `app/src/main/java/kr/pagero/calltag/CustomerSupportActivity.java`
-- `app/src/main/java/kr/pagero/calltag/SupportApiClient.java`
-- `app/src/main/java/kr/pagero/calltag/AccountActivity.java`
-- `app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java`
-- `app/src/main/res/layout/activity_account.xml`
-- `app/src/main/AndroidManifest.xml`
-- `app/build.gradle`
-- `.github/workflows/calltag-v04421-play-aab.yml`
-
-Server:
-
-- `pc9839a-lgtm/inlet/functions/api/call/support.js`
-- `pc9839a-lgtm/inlet/.github/workflows/calltag-support-live-smoke.yml`
-
-## 8. 실기기 확인 항목
-
-1. `0.44.21 / 2026081207` 설치 확인
-2. 더보기 최상단이 `계정`인지 확인
-3. 더보기에 정확히 8개 목적 메뉴가 보이는지 확인
-4. 통화 후 자동문자가 문자 관리 안에 들어갔는지 확인
-5. 계정에 이름/연락처/이메일과 로그아웃/회원탈퇴만 필요한 수준으로 남았는지 확인
-6. 앱 정보에서 버전/이용약관/개인정보처리방침/고객센터 진입 확인
-7. 고객센터 문의 1건 실제 전송 후 `roadfor@kakao.com` 수신 확인
-8. 해당 메일에서 답장 시 고객 입력 이메일이 Reply-To로 잡히는지 확인
-9. Google 계정 선택창 E2E 재확인
-10. 런처 아이콘 잘림 여부 확인
-
-위 단말 확인 전까지 CI 성공을 단말 UX 최종 성공으로 기록하지 않는다.
+CI 성공을 실기기 성공으로 기록하지 않는다.
