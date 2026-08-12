@@ -93,21 +93,27 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
             listener.onBillingMessage(playPreparationMessage());
             return;
         }
+        if (!FeatureEntitlementStore.PLAN_PHONE.equals(productId)
+                && !FeatureEntitlementStore.PLAN_MESSAGE.equals(productId)) {
+            listener.onBillingMessage("현재 Google Play에서 판매 중인 상품이 아닙니다.");
+            return;
+        }
         ProductDetails details = products.get(productId);
         if (!ready || details == null) {
             listener.onBillingMessage("결제 상품을 확인 중이에요. 잠시 후 다시 눌러주세요.");
             connectAndLoad();
             return;
         }
-        List<ProductDetails.SubscriptionOfferDetails> offers = details.getSubscriptionOfferDetails();
-        if (offers == null || offers.isEmpty()) {
-            listener.onBillingMessage("현재 구매할 수 있는 구독 상품이 없습니다.");
+        ProductDetails.SubscriptionOfferDetails selectedOffer = selectPurchaseOffer(
+                details.getSubscriptionOfferDetails());
+        if (selectedOffer == null) {
+            listener.onBillingMessage("Google Play 구독 상품 구성을 확인해주세요. 구매 가능한 기본 요금제를 하나로 유지해야 합니다.");
             return;
         }
         BillingFlowParams.ProductDetailsParams productParams =
                 BillingFlowParams.ProductDetailsParams.newBuilder()
                         .setProductDetails(details)
-                        .setOfferToken(offers.get(0).getOfferToken())
+                        .setOfferToken(selectedOffer.getOfferToken())
                         .build();
         BillingFlowParams.Builder builder = BillingFlowParams.newBuilder()
                 .setProductDetailsParamsList(Collections.singletonList(productParams));
@@ -172,7 +178,6 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
     private void queryProducts() {
         if (!billingReleaseAvailable()) return;
         List<QueryProductDetailsParams.Product> request = new ArrayList<>();
-        request.add(subscription(FeatureEntitlementStore.PLAN_BUNDLE));
         request.add(subscription(FeatureEntitlementStore.PLAN_PHONE));
         request.add(subscription(FeatureEntitlementStore.PLAN_MESSAGE));
         QueryProductDetailsParams params = QueryProductDetailsParams.newBuilder()
@@ -188,7 +193,10 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
         if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK
                 && result != null) {
             for (ProductDetails details : result.getProductDetailsList()) {
-                products.put(details.getProductId(), details);
+                if (FeatureEntitlementStore.PLAN_PHONE.equals(details.getProductId())
+                        || FeatureEntitlementStore.PLAN_MESSAGE.equals(details.getProductId())) {
+                    products.put(details.getProductId(), details);
+                }
             }
         }
         listener.onBillingReady(Collections.unmodifiableMap(new HashMap<>(products)));
@@ -204,6 +212,22 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                 .build();
     }
 
+    private ProductDetails.SubscriptionOfferDetails selectPurchaseOffer(
+            List<ProductDetails.SubscriptionOfferDetails> offers) {
+        if (offers == null || offers.isEmpty()) return null;
+        if (offers.size() == 1) return offers.get(0);
+
+        ProductDetails.SubscriptionOfferDetails basePlanOnly = null;
+        for (ProductDetails.SubscriptionOfferDetails offer : offers) {
+            String offerId = offer.getOfferId();
+            if (offerId == null || offerId.trim().isEmpty()) {
+                if (basePlanOnly != null) return null;
+                basePlanOnly = offer;
+            }
+        }
+        return basePlanOnly;
+    }
+
     private void processPurchase(Purchase purchase) {
         if (purchase.getPurchaseState() == Purchase.PurchaseState.PENDING) {
             listener.onBillingMessage("결제가 보류 중입니다. 결제가 완료되면 이용권이 반영됩니다.");
@@ -217,6 +241,11 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
         }
         String productId = purchase.getProducts().isEmpty()
                 ? "" : purchase.getProducts().get(0);
+        if (!FeatureEntitlementStore.PLAN_PHONE.equals(productId)
+                && !FeatureEntitlementStore.PLAN_MESSAGE.equals(productId)) {
+            listener.onBillingMessage("현재 지원하지 않는 Google Play 상품입니다.");
+            return;
+        }
         new Thread(() -> {
             try {
                 JSONObject response = AuthApiClient.verifyGooglePurchase(
@@ -242,11 +271,19 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
         JSONArray payload = new JSONArray();
         for (Purchase purchase : purchases) {
             if (purchase.getPurchaseState() != Purchase.PurchaseState.PURCHASED) continue;
+            JSONArray supportedProducts = new JSONArray();
+            for (String product : purchase.getProducts()) {
+                if (FeatureEntitlementStore.PLAN_PHONE.equals(product)
+                        || FeatureEntitlementStore.PLAN_MESSAGE.equals(product)) {
+                    supportedProducts.put(product);
+                }
+            }
+            if (supportedProducts.length() == 0) continue;
             JSONObject item = new JSONObject();
             try {
                 item.put("purchaseToken", purchase.getPurchaseToken());
                 item.put("orderId", purchase.getOrderId());
-                item.put("products", new JSONArray(purchase.getProducts()));
+                item.put("products", supportedProducts);
                 payload.put(item);
             } catch (Exception ignored) {
                 // JSONObject put failures are not expected for primitive values.
