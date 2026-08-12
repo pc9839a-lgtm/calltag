@@ -71,12 +71,10 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Restore accepted Play upload key from GitHub Secrets only
+      - name: Restore accepted Play upload key from two GitHub Secrets
         env:
           KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
-          STORE_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_STORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.CALLTAG_UPLOAD_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_KEY_PASSWORD }}
+          CREDENTIALS_TEXT: ${{ secrets.CALLTAG_UPLOAD_CREDENTIALS }}
         shell: bash
         run: |
           set -euo pipefail
@@ -87,12 +85,25 @@ jobs:
             exit 1
           fi
 
-          for value in "$KEYSTORE_BASE64" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD"; do
-            if [ -z "$value" ]; then
-              echo 'CallTag Play upload-key Secrets are not fully configured. Refusing to use any artifact fallback.' >&2
-              exit 1
-            fi
-          done
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$CREDENTIALS_TEXT" ]; then
+            echo 'Configure CALLTAG_UPLOAD_KEYSTORE_BASE64 and CALLTAG_UPLOAD_CREDENTIALS.' >&2
+            exit 1
+          fi
+
+          CREDENTIALS_CLEAN="$(printf '%s\n' "$CREDENTIALS_TEXT" | tr -d '\r')"
+          STORE_PASSWORD="$(printf '%s\n' "$CREDENTIALS_CLEAN" | sed -n 's/^CALLTAG_UPLOAD_STORE_PASSWORD=//p' | tail -n 1)"
+          CREDENTIAL_ALIAS="$(printf '%s\n' "$CREDENTIALS_CLEAN" | sed -n 's/^CALLTAG_UPLOAD_KEY_ALIAS=//p' | tail -n 1)"
+          KEY_PASSWORD="$(printf '%s\n' "$CREDENTIALS_CLEAN" | sed -n 's/^CALLTAG_UPLOAD_KEY_PASSWORD=//p' | tail -n 1)"
+          KEY_ALIAS='calltag-upload'
+
+          if [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo 'CALLTAG_UPLOAD_CREDENTIALS is missing required password entries.' >&2
+            exit 1
+          fi
+          if [ -n "$CREDENTIAL_ALIAS" ] && [ "$CREDENTIAL_ALIAS" != "$KEY_ALIAS" ]; then
+            echo 'Credential alias is not calltag-upload.' >&2
+            exit 1
+          fi
 
           KEYSTORE="$RUNNER_TEMP/calltag-upload.jks"
           if ! printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"; then
