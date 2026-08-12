@@ -26,7 +26,6 @@ import java.util.Map;
 /** 더보기 > 이용권. */
 public final class BillingEntitlementActivity extends Activity
         implements PlayBillingManager.Listener {
-    // 콜태그 공통 다크 팔레트와 동일하게 유지한다.
     private static final int BLUE = Color.rgb(67, 137, 255);
     private static final int TEXT = Color.rgb(244, 245, 247);
     private static final int SUBTEXT = Color.rgb(168, 173, 181);
@@ -41,7 +40,6 @@ public final class BillingEntitlementActivity extends Activity
     private TextView billingNoticeTitle;
     private TextView billingNoticeDetail;
     private TextView refreshButton;
-    private TextView bundleButton;
     private TextView phoneButton;
     private TextView messageButton;
     private TextView restoreButton;
@@ -111,15 +109,7 @@ public final class BillingEntitlementActivity extends Activity
         billingNotice.addView(billingNoticeDetail, top(7));
         root.addView(billingNotice, top(10));
 
-        root.addView(sectionTitle("이용할 상품"), top(24));
-        LinearLayout bundle = productCard(
-                "통합권",
-                "월 6,000원",
-                "전화관리 · 문자자동화 · 페이지로",
-                true);
-        bundleButton = productButton("통합권 결제", FeatureEntitlementStore.PLAN_BUNDLE);
-        bundle.addView(bundleButton, fixedTop(48, 14));
-        root.addView(bundle, top(9));
+        root.addView(sectionTitle("Google Play 이용권"), top(24));
 
         LinearLayout phone = productCard(
                 "전화관리",
@@ -128,7 +118,7 @@ public final class BillingEntitlementActivity extends Activity
                 false);
         phoneButton = productButton("전화관리 결제", FeatureEntitlementStore.PLAN_PHONE);
         phone.addView(phoneButton, fixedTop(48, 14));
-        root.addView(phone, top(10));
+        root.addView(phone, top(9));
 
         LinearLayout message = productCard(
                 "문자자동화",
@@ -287,6 +277,9 @@ public final class BillingEntitlementActivity extends Activity
             stateMeta.setText("무료 이용 종료 후 자동 결제되지 않습니다.");
         }
 
+        boolean phoneReady = playProducts.containsKey(FeatureEntitlementStore.PLAN_PHONE);
+        boolean messageReady = playProducts.containsKey(FeatureEntitlementStore.PLAN_MESSAGE);
+
         if (!value.serverChecked) {
             billingNoticeTitle.setText("결제 가능 여부 확인 중");
             billingNoticeDetail.setText("확인이 끝나기 전에는 결제되지 않습니다.");
@@ -295,16 +288,15 @@ public final class BillingEntitlementActivity extends Activity
             billingNoticeDetail.setText(value.playBillingMessage);
         } else if (!productQueryCompleted) {
             billingNoticeTitle.setText("Google Play 상품 확인 중");
-            billingNoticeDetail.setText("등록된 결제 상품을 불러오고 있습니다.");
-        } else if (playProducts.isEmpty()) {
+            billingNoticeDetail.setText("전화관리와 문자자동화 상품을 불러오고 있습니다.");
+        } else if (!phoneReady || !messageReady) {
             billingNoticeTitle.setText("Google Play 상품 확인 필요");
-            billingNoticeDetail.setText("결제 상품을 불러오지 못했습니다. 잠시 후 다시 확인해주세요.");
+            billingNoticeDetail.setText("전화관리와 문자자동화 중 일부 상품을 불러오지 못했습니다.");
         } else {
             billingNoticeTitle.setText("Google Play 결제 사용 가능");
-            billingNoticeDetail.setText("결제 직전 기존 구독을 다시 확인해 중복 결제를 막습니다.");
+            billingNoticeDetail.setText("전화관리와 문자자동화 상품을 확인했습니다. 결제 직전 기존 구독을 다시 확인합니다.");
         }
 
-        updateProductButton(bundleButton, "통합권 결제", FeatureEntitlementStore.PLAN_BUNDLE, value);
         updateProductButton(phoneButton, "전화관리 결제", FeatureEntitlementStore.PLAN_PHONE, value);
         updateProductButton(messageButton, "문자자동화 결제", FeatureEntitlementStore.PLAN_MESSAGE, value);
 
