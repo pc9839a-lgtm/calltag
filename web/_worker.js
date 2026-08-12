@@ -2,8 +2,27 @@ const CANONICAL='https://calltag.pagero.kr/';
 const SEO_TITLE='콜태그 | 통화 후 고객관리·자동문자·페이지로 문의 연동';
 const SEO_DESCRIPTION='통화가 끝나면 고객을 태그하고 상담 상태·다음 할 일·재연락 일정을 관리하세요. 페이지로 랜딩페이지 문의 자동등록과 안내·후속문자까지 연결하는 Android 고객관리 서비스입니다.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
-const WORKER_VERSION='v149-runtime60-raw1';
+const WORKER_VERSION='v150-runtime60-cssbundle1';
 const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260811-runtime60';
+const STYLE_BUNDLE_PATH='/assets/calltag-style-bundle.css';
+const STYLE_BUNDLE_VERSION='20260812-cssbundle1';
+const STYLE_ASSETS=[
+  '/assets/calltag-enhance.css',
+  '/assets/calltag-pagero-light.css',
+  '/assets/calltag-pagero-intro.css',
+  '/assets/calltag-pagero-presentation.css',
+  '/assets/calltag-pagero-industries.css',
+  '/assets/calltag-final.css',
+  '/assets/calltag-mobile.css',
+  '/assets/calltag-core-ui.css',
+  '/assets/calltag-interaction.css',
+  '/assets/calltag-horizontal-impact.css',
+  '/assets/calltag-horizontal-guard.css',
+  '/assets/calltag-horizontal-clean.css',
+  '/assets/calltag-section-motion.css',
+  '/assets/calltag-section-order.css',
+  '/assets/calltag-industry-visual-v5.css'
+];
 
 const SEO_SCHEMA={
   '@context':'https://schema.org',
@@ -48,21 +67,7 @@ const SEO_HEAD=`
 <meta name="twitter:description" content="${SEO_DESCRIPTION}" />
 <meta name="twitter:image" content="${OG_IMAGE}" />
 <script type="application/ld+json" id="ct-seo-schema">${JSON.stringify(SEO_SCHEMA).replace(/</g,'\\u003c')}</script>
-<link rel="stylesheet" href="/assets/calltag-enhance.css?v=20260812-enhance2" />
-<link rel="stylesheet" href="/assets/calltag-pagero-light.css?v=20260809-light1" />
-<link rel="stylesheet" href="/assets/calltag-pagero-intro.css?v=20260811-intro1" />
-<link rel="stylesheet" href="/assets/calltag-pagero-presentation.css?v=20260811-presentation1" />
-<link rel="stylesheet" href="/assets/calltag-pagero-industries.css?v=20260811-industries1" />
-<link rel="stylesheet" href="/assets/calltag-final.css?v=20260809-final1" />
-<link rel="stylesheet" href="/assets/calltag-mobile.css?v=20260809-mobile1" />
-<link rel="stylesheet" href="/assets/calltag-core-ui.css?v=20260812-coreui1" />
-<link rel="stylesheet" href="/assets/calltag-interaction.css?v=20260809-interaction1" />
-<link rel="stylesheet" href="/assets/calltag-horizontal-impact.css?v=20260809-impact1" />
-<link rel="stylesheet" href="/assets/calltag-horizontal-guard.css?v=20260809-guard1" />
-<link rel="stylesheet" href="/assets/calltag-horizontal-clean.css?v=20260809-horizontal1" />
-<link rel="stylesheet" href="/assets/calltag-section-motion.css?v=20260809-motion1" />
-<link rel="stylesheet" href="/assets/calltag-section-order.css?v=20260809-order1" />
-<link rel="stylesheet" href="/assets/calltag-industry-visual-v5.css?v=20260811-v5static1" />
+<link rel="stylesheet" href="${STYLE_BUNDLE_PATH}?v=${STYLE_BUNDLE_VERSION}" />
 <style id="ct-initial-layout-guard">html:not(.ct-layout-ready) body>main#top{visibility:hidden!important}</style>
 <script>setTimeout(()=>document.documentElement.classList.add('ct-layout-ready'),3000)</script>`;
 
@@ -72,9 +77,35 @@ const stripSeo=body=>body
   .replace(/<link\s+rel=["']alternate["'][^>]*hreflang=[^>]*>\s*/gi,'')
   .replace(/<script\s+type=["']application\/ld\+json["'][^>]*id=["']ct-seo-schema["'][^>]*>[\s\S]*?<\/script>\s*/gi,'');
 
+const serveStyleBundle=async(request,env)=>{
+  const requestUrl=new URL(request.url);
+  const cacheKey=new Request(`${requestUrl.origin}${STYLE_BUNDLE_PATH}?v=${STYLE_BUNDLE_VERSION}`,{method:'GET'});
+  const cache=typeof caches!=='undefined'&&caches.default?caches.default:null;
+  if(cache){const hit=await cache.match(cacheKey);if(hit)return hit;}
+  try{
+    const chunks=await Promise.all(STYLE_ASSETS.map(async path=>{
+      const asset=await env.ASSETS.fetch(new Request(new URL(path,requestUrl),{method:'GET'}));
+      if(!asset.ok)throw new Error(`${path}:${asset.status}`);
+      return asset.text();
+    }));
+    const headers=new Headers({'content-type':'text/css; charset=UTF-8','cache-control':'public, max-age=31536000, immutable','x-calltag-style-bundle':STYLE_BUNDLE_VERSION});
+    const bundled=new Response(chunks.join('\n'),{status:200,headers});
+    if(cache)await cache.put(cacheKey,bundled.clone());
+    return bundled;
+  }catch(_error){
+    return new Response('/* CallTag style bundle unavailable */',{status:502,headers:{'content-type':'text/css; charset=UTF-8','cache-control':'no-store'}});
+  }
+};
+
 export default {
   async fetch(request,env){
     const url=new URL(request.url);
+    if(url.pathname===STYLE_BUNDLE_PATH){
+      if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method Not Allowed',{status:405,headers:{allow:'GET, HEAD'}});
+      const bundled=await serveStyleBundle(request,env);
+      if(request.method==='HEAD')return new Response(null,{status:bundled.status,headers:bundled.headers});
+      return bundled;
+    }
     const legacyLegal=url.pathname.match(/^\/(terms|privacy|refund|support)(?:\.html|\/)$/);
     if(url.pathname==='/index.html')return Response.redirect(new URL('/',url).toString(),301);
     if(legacyLegal)return Response.redirect(new URL(`/${legacyLegal[1]}`,url).toString(),301);
