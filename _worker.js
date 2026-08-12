@@ -1,11 +1,14 @@
 import { handleCalltagAdmin } from './worker/admin.js';
+import { handlePartnerAdminSecurity } from './worker/partner-admin-security.js';
+import { handlePartnerApi } from './worker/partner.js';
 
 const CANONICAL='https://calltag.pagero.kr/';
 const SEO_TITLE='콜태그 | 통화 후 고객관리·자동문자·페이지로 문의 연동';
 const SEO_DESCRIPTION='통화가 끝나면 고객을 태그하고 상담 상태·다음 할 일·재연락 일정을 관리하세요. 페이지로 랜딩페이지 문의 자동등록과 안내·후속문자까지 연결하는 Android 고객관리 서비스입니다.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
-const WORKER_VERSION='v152-admin1-runtime60-final1';
+const WORKER_VERSION='v153-partner-totp3';
 const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260811-runtime60';
+const PARTNER_SECURITY_SRC='/web/settlement-security.js?v=20260813-totp1';
 const STYLE_BUNDLE_PATH='/assets/calltag-style-bundle.css';
 const STYLE_BUNDLE_VERSION='20260812-cssbundle1';
 const STYLE_ASSETS=[
@@ -101,8 +104,12 @@ const serveStyleBundle=async(request,env)=>{
 
 export default {
   async fetch(request,env){
+    const partnerAdminResponse=await handlePartnerAdminSecurity(request,env);
+    if(partnerAdminResponse)return partnerAdminResponse;
     const adminResponse=await handleCalltagAdmin(request,env);
     if(adminResponse)return adminResponse;
+    const partnerResponse=await handlePartnerApi(request,env);
+    if(partnerResponse)return partnerResponse;
     const url=new URL(request.url);
     if(url.pathname===STYLE_BUNDLE_PATH){
       if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method Not Allowed',{status:405,headers:{allow:'GET, HEAD'}});
@@ -123,6 +130,8 @@ export default {
     }
     const headers=new Headers(response.headers);['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));headers.set('content-type','text/html; charset=UTF-8');headers.set('cache-control','no-cache, no-store, must-revalidate');headers.set('x-calltag-worker',WORKER_VERSION);
     const isLegal=/^\/(terms|privacy|refund|support)(?:\.html)?(?:\/|$)/.test(url.pathname);if(isLegal)return new Response(await response.text(),{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
-    let body=await response.text();body=stripSeo(body).replace(/<title>[\s\S]*?<\/title>/i,`<title>${SEO_TITLE}</title>`).replace('</head>',`${SEO_HEAD}</head>`).replace('</body>',`<script src="${RUNTIME_SRC}"></script></body>`);return new Response(body,{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
+    const isSettlement=/^\/web\/settlement(?:\.html)?\/?$/.test(url.pathname);
+    const securityScript=isSettlement?`<script src="${PARTNER_SECURITY_SRC}"></script>`:'';
+    let body=await response.text();body=stripSeo(body).replace(/<title>[\s\S]*?<\/title>/i,`<title>${SEO_TITLE}</title>`).replace('</head>',`${SEO_HEAD}</head>`).replace('</body>',`${securityScript}<script src="${RUNTIME_SRC}"></script></body>`);return new Response(body,{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
   }
 };
