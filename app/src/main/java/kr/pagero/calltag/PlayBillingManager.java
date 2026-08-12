@@ -100,14 +100,15 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
             return;
         }
         List<ProductDetails.SubscriptionOfferDetails> offers = details.getSubscriptionOfferDetails();
-        if (offers == null || offers.isEmpty()) {
-            listener.onBillingMessage("현재 구매할 수 있는 구독 상품이 없습니다.");
+        ProductDetails.SubscriptionOfferDetails selectedOffer = selectPurchaseOffer(offers);
+        if (selectedOffer == null) {
+            listener.onBillingMessage("Google Play 구독 상품 구성을 확인해주세요. 구매 가능한 기본 요금제를 하나로 정리해야 합니다.");
             return;
         }
         BillingFlowParams.ProductDetailsParams productParams =
                 BillingFlowParams.ProductDetailsParams.newBuilder()
                         .setProductDetails(details)
-                        .setOfferToken(offers.get(0).getOfferToken())
+                        .setOfferToken(selectedOffer.getOfferToken())
                         .build();
         BillingFlowParams.Builder builder = BillingFlowParams.newBuilder()
                 .setProductDetailsParamsList(Collections.singletonList(productParams));
@@ -202,6 +203,22 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                 .setProductId(productId)
                 .setProductType(BillingClient.ProductType.SUBS)
                 .build();
+    }
+
+    private ProductDetails.SubscriptionOfferDetails selectPurchaseOffer(
+            List<ProductDetails.SubscriptionOfferDetails> offers) {
+        if (offers == null || offers.isEmpty()) return null;
+        if (offers.size() == 1) return offers.get(0);
+
+        ProductDetails.SubscriptionOfferDetails basePlanOnly = null;
+        for (ProductDetails.SubscriptionOfferDetails offer : offers) {
+            String offerId = offer.getOfferId();
+            if (offerId == null || offerId.trim().isEmpty()) {
+                if (basePlanOnly != null) return null;
+                basePlanOnly = offer;
+            }
+        }
+        return basePlanOnly;
     }
 
     private void processPurchase(Purchase purchase) {

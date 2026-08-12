@@ -16,27 +16,21 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** 검색 가능한 설정 목록. */
+/** 더보기는 8개 진입점을 4개 목적 그룹으로 분리해서 충분한 간격으로 노출한다. */
 public final class MoreSettingsHubView extends LinearLayout {
     private final List<MenuItem> items = new ArrayList<>();
     private final List<Section> sections = new ArrayList<>();
 
     public MoreSettingsHubView(Context context) {
-        super(context);
-        init();
+        this(context, null);
     }
 
     public MoreSettingsHubView(Context context, AttributeSet attrs) {
-        super(context, attrs);
-        init();
+        this(context, attrs, 0);
     }
 
     public MoreSettingsHubView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
-        init();
-    }
-
-    private void init() {
         setOrientation(VERTICAL);
 
         EditText search = new EditText(getContext());
@@ -54,105 +48,55 @@ public final class MoreSettingsHubView extends LinearLayout {
             }
             @Override public void afterTextChanged(Editable s) {}
         });
-        addView(search, new LayoutParams(LayoutParams.MATCH_PARENT, dp(46)));
+        addView(search, new LayoutParams(LayoutParams.MATCH_PARENT, dp(48)));
 
-        View automation = featuredAutomationCard();
-        MenuItem automationItem = new MenuItem(automation,
-                "통화 후 자동문자 자동 문자 수신 발신 부재중 후속문자 문자 자동화"
-                        .toLowerCase(Locale.KOREA));
-        items.add(automationItem);
-        LayoutParams automationParams = new LayoutParams(LayoutParams.MATCH_PARENT, dp(82));
-        automationParams.topMargin = dp(14);
-        addView(automation, automationParams);
+        Section account = section("내 정보");
+        account.addMenu("계정", "내 정보 로그인 로그아웃 회원탈퇴",
+                v -> start(AccountActivity.class));
+        account.addMenu("이용권", "구독 결제 무료 이용권 요금제 구매 복원",
+                v -> start(BillingEntitlementActivity.class));
 
-        Section calls = section("통화");
-        calls.add("통화 후 팝업 제외", "팝업 제외 번호 목록 차단 안뜨게",
-                PostCallExclusionActivity.class);
+        Section work = section("업무 관리");
+        work.addMenu("문자 관리", "통화 후 자동문자 템플릿 그룹 단체문자 발송 관리",
+                v -> start(SettingsGroupActivity.intent(getContext(), SettingsGroupActivity.GROUP_MESSAGE)));
+        work.addMenu("고객 관리", "고객 상태 일정 종류 통화 후 팝업 제외",
+                v -> start(SettingsGroupActivity.intent(getContext(), SettingsGroupActivity.GROUP_CUSTOMER)));
 
-        Section messages = section("문자");
-        messages.add("문자 문구·이미지", "자주 쓰는 안내문과 이미지", MessageTemplateLibraryActivity.class);
-        messages.add("그룹·단체문자", "여러 고객에게 한 번에 보내기",
-                GroupCampaignHubActivity.class, FeatureAccessGate.MESSAGE);
-        messages.add("발송 관리", "보낸 문자와 제외 번호 확인", MessageSafetyHubActivity.class);
+        Section service = section("서비스");
+        service.addMenu("페이지로", "페이지로 연결 연동 문의 고객 자동등록",
+                v -> start(PageroConnectionCompactActivity.class));
+        service.addMenu("파트너", "추천코드 친구 초대 파트너 현황 정산 수익",
+                v -> start(ReferralPartnerActivity.class));
 
-        Section customers = section("고객·일정");
-        customers.add("고객 상태", "고객 단계 이름과 색상", StageSettingsActivity.class);
-        customers.add("일정 종류", "전화·미팅 등 할 일 이름", TaskTypeSettingsActivity.class);
-
-        Section app = section("앱·계정");
-        app.add("계정 및 개인정보", "로그인 정보와 개인정보 관리", AccountActivity.class);
-        app.add("데이터 보호·복구", "앱 삭제 재설치 기기 변경 고객 메모 상담 일정 암호화 동기화",
-                CallTagSyncStatusActivity.class);
-        app.add("이용권·결제", "현재 이용권 다음 결제일 요금제 구독 무료 체험 구매 복원",
-                BillingEntitlementActivity.class);
-        app.add("친구 초대·파트너", "추천인 추천코드 친구초대 무료 혜택 수익 공유",
-                ReferralPartnerActivity.class);
-        app.add("파트너 정산", "콜태그 페이지로 정산 예상 수익 확정 수익 출금",
-                PartnerSettlementActivity.class);
-        app.add("페이지로 연동", "페이지로 계정 연결 문의 고객 자동 등록 연결 상태",
-                PageroConnectionCompactActivity.class);
-        app.add("페이지로 서비스 안내", "페이지로 랜딩페이지 문의 수집 서비스 설명 사용 방법",
-                PageroUseGuideActivity.class);
-        app.add("백업 및 복원", "고객정보를 보관하고 되돌리기", BackupRestoreActivity.class);
-    }
-
-    private View featuredAutomationCard() {
-        LinearLayout card = new LinearLayout(getContext());
-        card.setOrientation(HORIZONTAL);
-        card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setPadding(dp(18), 0, dp(13), 0);
-        card.setBackgroundResource(R.drawable.bg_selected_row);
-        card.setClickable(true);
-        card.setFocusable(true);
-        card.setOnClickListener(v -> FeatureAccessGate.open(
-                getContext(), MessageAutomationSettingsActivity.class, FeatureAccessGate.MESSAGE));
-
-        LinearLayout labels = new LinearLayout(getContext());
-        labels.setOrientation(VERTICAL);
-
-        TextView title = new TextView(getContext());
-        title.setText("통화 후 자동문자");
-        title.setTextSize(18f);
-        title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        title.setTextColor(getContext().getColor(R.color.text_primary));
-        title.setIncludeFontPadding(false);
-        labels.addView(title, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-
-        TextView subtitle = new TextView(getContext());
-        subtitle.setText("수신·발신·부재중 통화가 끝나면 자동으로 후속문자를 보냅니다.");
-        subtitle.setTextSize(12.5f);
-        subtitle.setTextColor(getContext().getColor(R.color.text_secondary));
-        subtitle.setIncludeFontPadding(false);
-        subtitle.setSingleLine(true);
-        LayoutParams subtitleParams = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-        subtitleParams.topMargin = dp(5);
-        labels.addView(subtitle, subtitleParams);
-
-        card.addView(labels, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
-
-        TextView arrow = new TextView(getContext());
-        arrow.setText("›");
-        arrow.setTextSize(27f);
-        arrow.setTextColor(getContext().getColor(R.color.primary));
-        arrow.setGravity(Gravity.CENTER);
-        card.addView(arrow, new LayoutParams(dp(32), dp(52)));
-        return card;
+        Section app = section("앱 관리");
+        app.addMenu("데이터 관리", "동기화 데이터 보호 복구 백업 복원 기기 변경",
+                v -> start(SettingsGroupActivity.intent(getContext(), SettingsGroupActivity.GROUP_DATA)));
+        app.addMenu("앱 정보", "버전 서비스 이용약관 개인정보처리방침 고객센터 문의",
+                v -> start(AppInfoActivity.class));
     }
 
     private Section section(String title) {
         Section section = new Section(title);
         sections.add(section);
-        addView(section.root, topMargin(20));
+        addView(section.root, topMargin(sections.size() == 1 ? 24 : 34));
         return section;
     }
 
     private void filter(String raw) {
         String query = raw.trim().toLowerCase(Locale.KOREA);
         for (MenuItem item : items) {
-            item.row.setVisibility(query.isEmpty() || item.searchText.contains(query)
-                    ? VISIBLE : GONE);
+            boolean visible = query.isEmpty() || item.searchText.contains(query);
+            item.row.setVisibility(visible ? VISIBLE : GONE);
         }
         for (Section section : sections) section.refreshVisibility();
+    }
+
+    private void start(Class<?> destination) {
+        getContext().startActivity(new Intent(getContext(), destination));
+    }
+
+    private void start(Intent intent) {
+        getContext().startActivity(intent);
     }
 
     private final class Section {
@@ -170,39 +114,28 @@ public final class MoreSettingsHubView extends LinearLayout {
             label.setTextSize(13f);
             label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
             label.setIncludeFontPadding(false);
+            label.setPadding(dp(4), 0, 0, 0);
             root.addView(label, new LayoutParams(
                     LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
             rows = new LinearLayout(getContext());
             rows.setOrientation(VERTICAL);
-            rows.setPadding(dp(4), dp(3), dp(4), dp(3));
-            rows.setBackgroundResource(R.drawable.bg_card);
-            root.addView(rows, topMargin(8));
+            root.addView(rows, topMargin(10));
         }
 
-        void add(String title, String keywords, Class<?> destination) {
-            add(title, keywords, destination, "");
-        }
-
-        void add(String title, String keywords, Class<?> destination, String feature) {
+        void addMenu(String title, String keywords, View.OnClickListener listener) {
             LinearLayout row = new LinearLayout(getContext());
             row.setOrientation(HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(dp(14), 0, dp(10), 0);
-            row.setBackgroundResource(R.drawable.bg_clickable_row);
+            row.setPadding(dp(18), 0, dp(14), 0);
+            row.setBackgroundResource(R.drawable.bg_card);
             row.setClickable(true);
             row.setFocusable(true);
-            row.setOnClickListener(v -> {
-                if (feature == null || feature.isEmpty()) {
-                    getContext().startActivity(new Intent(getContext(), destination));
-                } else {
-                    FeatureAccessGate.open(getContext(), destination, feature);
-                }
-            });
+            row.setOnClickListener(listener);
 
             TextView titleView = new TextView(getContext());
             titleView.setText(title);
-            titleView.setTextSize(15f);
+            titleView.setTextSize(16f);
             titleView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
             titleView.setTextColor(getContext().getColor(R.color.text_primary));
             titleView.setIncludeFontPadding(false);
@@ -213,13 +146,16 @@ public final class MoreSettingsHubView extends LinearLayout {
             arrow.setTextSize(24f);
             arrow.setTextColor(getContext().getColor(R.color.text_muted));
             arrow.setGravity(Gravity.CENTER);
-            row.addView(arrow, new LayoutParams(dp(28), dp(44)));
+            row.addView(arrow, new LayoutParams(dp(30), dp(52)));
 
             MenuItem item = new MenuItem(row,
                     (title + " " + keywords).toLowerCase(Locale.KOREA));
             items.add(item);
             menuItems.add(item);
-            rows.addView(row, rowParams());
+
+            LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, dp(64));
+            params.bottomMargin = dp(12);
+            rows.addView(row, params);
         }
 
         void refreshVisibility() {
@@ -242,12 +178,6 @@ public final class MoreSettingsHubView extends LinearLayout {
             this.row = row;
             this.searchText = searchText;
         }
-    }
-
-    private LayoutParams rowParams() {
-        LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, dp(54));
-        params.bottomMargin = dp(2);
-        return params;
     }
 
     private LayoutParams topMargin(int value) {

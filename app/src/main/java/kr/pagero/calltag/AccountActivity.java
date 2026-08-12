@@ -3,7 +3,6 @@ package kr.pagero.calltag;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Bundle;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -28,12 +27,6 @@ public final class AccountActivity extends Activity {
             if (!working) finish();
         });
         refresh.setOnClickListener(v -> refreshAccount());
-        findViewById(R.id.accountPrivacy).setOnClickListener(v ->
-                openWeb("https://call.pagero.kr/privacy/"));
-        findViewById(R.id.accountTerms).setOnClickListener(v ->
-                openWeb("https://call.pagero.kr/terms/"));
-        findViewById(R.id.accountBackupRestore).setOnClickListener(v ->
-                startActivity(new Intent(this, BackupRestoreActivity.class)));
         findViewById(R.id.accountLogout).setOnClickListener(v -> confirmLogout());
         delete.setOnClickListener(v -> confirmDeleteAccount());
         render();
@@ -50,9 +43,6 @@ public final class AccountActivity extends Activity {
         append(value, "이름", AuthSessionStore.name(this));
         append(value, "연락처", formatPhone(AuthSessionStore.phone(this)));
         append(value, "이메일", AuthSessionStore.email(this));
-        append(value, "브랜드", AuthSessionStore.brand(this));
-        append(value, "업종", AuthSessionStore.industry(this));
-        append(value, "이용 상품", FeatureEntitlementStore.planLabel(this));
         profile.setText(value.length() == 0 ? "회원정보를 불러오지 못했어요." : value.toString());
     }
 
@@ -188,14 +178,6 @@ public final class AccountActivity extends Activity {
         refresh.setAlpha(value ? 0.6f : 1f);
         refresh.setText(refreshLabel);
         delete.setEnabled(!value);
-    }
-
-    private void openWeb(String url) {
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-        } catch (Exception error) {
-            Toast.makeText(this, "웹페이지를 열지 못했어요.", Toast.LENGTH_SHORT).show();
-        }
     }
 
     private String formatPhone(String raw) {

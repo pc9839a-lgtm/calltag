@@ -1,7 +1,11 @@
+import { handleCalltagAdmin } from './worker/admin.js';
 import { handlePageroIntegration } from './worker/pagero-integration.js';
 
 export default {
   async fetch(request, env) {
+    const adminResponse = await handleCalltagAdmin(request, env);
+    if (adminResponse) return adminResponse;
+
     const integrationResponse = await handlePageroIntegration(request, env);
     if (integrationResponse) return integrationResponse;
 
@@ -25,7 +29,7 @@ export default {
 
     const headers = new Headers(response.headers);
     headers.delete('content-encoding');headers.delete('content-length');headers.delete('etag');headers.delete('last-modified');headers.delete('content-md5');headers.delete('digest');
-    headers.set('content-type','text/html; charset=UTF-8');headers.set('cache-control','no-cache, no-store, must-revalidate');headers.set('x-calltag-worker','v37-safe-html-pagero-api1');
+    headers.set('content-type','text/html; charset=UTF-8');headers.set('cache-control','no-cache, no-store, must-revalidate');headers.set('x-calltag-worker','v38-admin-isolated-pagero-api1');
     return new Response(body,{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
   }
 };

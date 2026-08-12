@@ -1,122 +1,186 @@
 # 콜태그 (CallTag)
 
-전화 전 고객 맥락 확인부터 통화 종료 후 상태·메모·일정·문자 처리, 후속문자와 단체문자까지 연결하는 Android 고객관리 앱입니다.
+전화 전 고객 맥락 확인부터 통화 종료 후 메모·할 일·문자 자동화까지 연결하는 Android 고객관리 앱입니다.
 
-## 다음 개발자가 먼저 읽을 문서
+## 다음 AI가 반드시 먼저 읽을 문서
 
-1. [`docs/GOOGLE_LOGIN_REALTIME_SYNC_V040_KO.md`](docs/GOOGLE_LOGIN_REALTIME_SYNC_V040_KO.md) — Google 로그인·페이지로 계정 매핑·FCM 실시간 문의·수신 메모 복구
-2. [`docs/ANDROID_DEVELOPER_HANDOFF_KO.md`](docs/ANDROID_DEVELOPER_HANDOFF_KO.md) — 현재 코드 구조·파일별 역할·안전 규칙·실기기 검수·다음 작업 정본
-3. [`docs/DEVELOPMENT_STATUS_AND_ROADMAP_KO.md`](docs/DEVELOPMENT_STATUS_AND_ROADMAP_KO.md) — 최신 구현 상태와 남은 패치
-4. [`docs/PAGERO_CUSTOMER_INTEGRATION_KO.md`](docs/PAGERO_CUSTOMER_INTEGRATION_KO.md) — 페이지로 문의 조회·ACK·중복 방지
-5. [`docs/DESIGN_SYSTEM_KO.md`](docs/DESIGN_SYSTEM_KO.md) — Android UX/UI 규격
-6. [`docs/PRODUCT_SPEC_KO.md`](docs/PRODUCT_SPEC_KO.md) — 제품 정의
+1. [`docs/NEXT_AI_HANDOFF_20260812_KO.md`](docs/NEXT_AI_HANDOFF_20260812_KO.md) — **최우선 정본. 다음 패치 P0 = Google Play 결제 실제 연결 및 테스트 결제 E2E**
+2. [`docs/PLAY_BILLING_P0_EXECUTION_20260812_KO.md`](docs/PLAY_BILLING_P0_EXECUTION_20260812_KO.md) — **현재 Google 공식 절차 기준 P0 실행 정본. 기존 문서의 Cloud 프로젝트 연결 표현은 이 문서가 우선함**
+3. [`docs/CURRENT_RELEASE_STATUS_20260812_KO.md`](docs/CURRENT_RELEASE_STATUS_20260812_KO.md) — 릴리스/실기기 QA 상태
+4. [`docs/CALLTAG_PAYMENT_HANDOFF_20260812_KO.md`](docs/CALLTAG_PAYMENT_HANDOFF_20260812_KO.md) — 기존 결제 서버/entitlement 상세 구조
+5. [`docs/ANDROID_DEVELOPER_HANDOFF_KO.md`](docs/ANDROID_DEVELOPER_HANDOFF_KO.md) — Android 구조와 데이터 안전 규칙
+6. [`docs/PAGERO_CUSTOMER_INTEGRATION_KO.md`](docs/PAGERO_CUSTOMER_INTEGRATION_KO.md) — PageRo 연동
 
-기획 문서에 적혀 있다는 이유만으로 구현 완료로 판단하지 않습니다. 코드, 버전, 기능 커밋과 빌드 결과가 확인된 항목만 코드 완료입니다. APK 빌드 성공과 실제 휴대전화 검증 성공도 구분합니다.
+**문서만 보고 구현 여부를 판단하지 않는다. 실제 코드 → Play/서버 설정 → signed AAB → 실제 휴대전화 E2E를 구분한다.**
 
-## 제품 기준
+## 현재 Android 기준
 
-- 제품명: **콜태그(CallTag)**
-- 패키지명: `kr.pagero.calltag`
-- 대표 도메인: `https://calltag.pagero.kr`
-- 개발 브랜치: `agent/calltag-foundation`
-- 개발 PR: Draft PR `#1`
-- `main` 병합: 사용자 명시 지시 전 금지
+- package: `kr.pagero.calltag`
+- branch: `agent/calltag-auth-ux-google-upgrade-fix`
+- versionName: **0.44.23**
+- versionCode: **2026081209**
+- minSdk: 26
+- target/compile SDK: 36
+- 직전 0.44.22 Play 업로드키 signed AAB 빌드 성공
+- 직전 workflow run: `31557329238`
+- 직전 artifact ID: `9126476904`
+- 0.44.23은 Google Play 결제 P0 E2E용 다음 빌드
 
-## 현재 Android 상태
+Play Console에 한 번 업로드된 versionCode는 재사용하지 않는다.
 
-- versionName: `0.40.0`
-- versionCode: `48`
-- 최소 Android: API 26
-- compileSdk/targetSdk: 35
-- 개발 HEAD: `fb390783560c34be66cc840351d9107553258b94`
-- 검증 Workflow: `Validate CallTag Android`
-- Run ID: `30754617608`
-- Job ID: `91514547627`
-- 결과: Android 리소스 처리·Java 컴파일·Firebase Messaging 패키징·Debug APK·아티팩트 업로드 성공
-- Artifact ID: `8835543621`
-- Artifact ZIP digest: `sha256:c6afc72a401b20e66d1131bc4311fb3958459ce38320a230eabd0d0620b2f975`
-- 실제 APK SHA-256: `cd8d3b9b3e2a69029c457cf34570eab911fa6b341be6cc7c4294effe6f7510e2`
+## 다음 패치 핵심 — Google Play 결제
 
-임시 검증 PR `#23`, `#24`는 병합하지 않고 닫았습니다. 개발 PR `#1`은 계속 Draft·미병합 상태입니다.
+Google Play 결제는 **앱 코드와 서버 코드에 이미 붙어 있다. 새로 처음부터 만들지 않는다.**
 
-## 0.40.0 핵심 변경
+현재 Android:
 
-- 이메일/비밀번호 로그인 유지
-- 로그인 화면에 `Google로 계속하기` 추가
-- 브라우저 OAuth 완료 후 `calltag://auth/google` 딥링크 복귀
-- 장기 세션 대신 2분 유효·1회 사용 티켓 교환
-- 기존 이메일 계정과 Google 이메일이 같으면 같은 `ownerId` 유지
-- 로그인 직후 페이지로 프로젝트 보유 여부 확인
-- 페이지로 계정 없음·확인 실패여도 콜태그 로그인 허용
-- 페이지로 연결 화면에 계정 연결 상태와 실시간 알림 상태 표시
-- 개인정보 없는 FCM 신호 수신 후 페이지로 문의 동기화 시작
-- Firebase 운영값이 없으면 `실시간 설정 필요`로 표시하고 기존 동기화 유지
-- 전화 수신 오버레이에 `전화번호 · 최근 메모 요약` 복구
-- 긴 번호·메모 줄은 최대 2줄, 메모 요약 24자 후 말줄임
-- 오버레이 실패 시 대체 수신 알림에도 번호와 메모 표시
+- `com.android.billingclient:billing:9.1.0`
+- BillingClient 연결
+- 정기구독 ProductDetails 조회
+- 구매 플로우
+- pending purchase
+- purchaseToken 서버 전송
+- 구매 복원
+- Google Play 구독 관리
+- 서버 entitlement 기반 권한
+- Web ↔ Play 중복결제 사전 차단
+- 0.44.23부터 복수 base plan/offer가 모호하면 첫 offer를 임의 선택하지 않고 결제 차단
 
-## 운영 활성화 전 필수 작업
+핵심 Android 파일:
 
-서버 Draft PR: `pc9839a-lgtm/inlet#48`
+- `BillingEntitlementActivity.java`
+- `PlayBillingManager.java`
+- `FeatureEntitlementStore.java`
+- `AuthApiClient.java`
 
-- Google OAuth client ID/secret 등록
-- redirect URI `https://pagero.kr/api/call/google/callback` 등록
-- Firebase 서비스 계정 환경변수 등록
-- Android Firebase application ID/API key/project ID/sender ID 등록
-- D1 migration 적용
-- 서버 PR 검토·배포
+현재 코드 productId:
 
-운영값이 없는 현재 검증 APK에서는 Google 로그인과 FCM 실전송이 활성화되지 않습니다. 이메일 로그인과 앱 실행·화면 재진입·`지금 동기화` 경로는 유지됩니다.
+- `all_monthly`
+- `call_monthly`
+- `message_monthly`
 
-## 현재 주요 기능
+현재 서버 `pc9839a-lgtm/inlet`:
 
-- 통화 수신 고객정보·상태·전화번호·최근 메모 표시
-- 통화 종료 후 고객 상태·메모·일정·문자 정리
-- 고객·캘린더·홈·통계·더보기 5개 내비게이션
-- 고객 상태·일정 종류와 사용자 지정 색상
-- 저장형 문자 템플릿·변수 치환·이미지 첨부
-- 고객별 문자 허용/비허용
-- 문자 발송 제외·중복발송 방지
-- 통화 후·부재중·후속 예약 자동문자
-- 수동 그룹·스마트 그룹·단체문자 캠페인
-- 캠페인 일시정지·재개·취소·안전 복구
-- Google 캘린더·삼성 캘린더 등 Android 일정 앱 공유
-- 페이지로 고객문의 신규 등록·갱신·ACK·중복 방지
-- 암호화 `.ctbackup` 백업·복원
-- DB·예약·캠페인 정합성 복구와 진단
+- `/api/billing/entitlements`
+- `/api/billing/google/verify`
+- `/api/billing/google/restore`
+- Android Publisher API 검증 구조
+- 서버 acknowledgement
+- subscription DB 저장
+- partner commission 기록
 
-## 데이터·발송 안전 규칙
+### 다음 패치에서 할 일
 
-- 기존 데이터를 초기화하지 않습니다.
-- DB 변경 시 보존 마이그레이션을 작성합니다.
-- 페이지로 데이터와 FCM 기기는 로그인 세션의 `ownerId`로 격리합니다.
-- FCM payload에 고객명·전화번호·이메일·문의 내용·메모를 넣지 않습니다.
-- 푸시 실패로 고객 문의 저장을 실패시키지 않습니다.
-- 발송 직전 허용 여부·발송 제외·중복방지·SIM·캠페인 상태를 다시 검사합니다.
-- 불명확한 `SENDING` 작업은 자동 재발송하지 않습니다.
-- 일시정지 캠페인은 자동 재개하지 않습니다.
-- 누락 작업을 추측해 생성하거나 고아 작업을 자동 발송하지 않습니다.
-- 이미지 문자는 시스템 메시지 앱에서 사용자가 최종 전송합니다.
-- CSV·XLSX·고객 목록·캠페인 결과 외부 반출을 구현하지 않습니다.
-- `.ctbackup` 백업·복원과 일반 데이터 내보내기를 합치지 않습니다.
+현재 Google Play Developer API 절차에서는 **Play Console 개발자 계정을 Google Cloud 프로젝트에 별도로 연결하지 않는다.**
 
-## 다음 작업 우선순위
+정확한 순서:
 
-1. Google OAuth 운영 설정·D1 migration·Firebase 환경변수·서버 배포
-2. 실기기 Google 로그인·페이지로 계정 있음/없음·FCM 신규 문의 E2E
-3. 실제 전화 수신 시 번호 옆 메모 위치·잘림·잠금화면·삼성 전화 앱 QA
-4. 캠페인 수신자 검색·상태/실패 필터·선택 재시도·선택 취소
-5. 캠페인 작성 최종 미리보기·중복 시작 방지
-6. 실제 Play Billing·구독 만료/복원/환불 검증
-7. Android 8~15·릴리스 서명·AAB·Crash/ANR 출시 QA
+1. 결제 서버용 Google Cloud 프로젝트 선택
+2. `Google Play Android Developer API` 활성화
+3. 서버용 service account 생성
+4. Play Console `사용자 및 권한`에서 service account 이메일 초대
+5. `재무 데이터, 주문 및 취소 설문 응답 보기` + `주문 및 정기 결제 관리` 권한 부여
+6. 서버에 `GOOGLE_PLAY_CLIENT_EMAIL` / `GOOGLE_PLAY_PRIVATE_KEY` 등록
+7. Play Console subscription product/base plan과 앱 productId 대조
+8. 상품 준비 후 `GOOGLE_PLAY_PRODUCTS_READY=1`
+9. 검증 준비 후 `GOOGLE_PLAY_BILLING_ENABLED=1`
+10. 라이선스 테스터로 실제 Play 결제
+11. purchaseToken → 서버 verify → Publisher API → acknowledge → entitlement active 확인
+12. 앱 재시작/재설치 구매 복원 확인
+13. Web ↔ Play 중복결제 양방향 확인
+14. 이후 RTDN/Pub/Sub로 갱신·취소·환불·만료 자동 동기화
 
-## 빌드
+실행 세부사항은 `docs/PLAY_BILLING_P0_EXECUTION_20260812_KO.md`를 따른다.
 
-```bash
-gradle :app:assembleDebug --stacktrace
-```
+## Google 로그인 — 0.44.22 계열
 
-- JDK 17
-- Gradle 8.9
+브라우저 OAuth를 사용하지 않는다.
 
-작업 완료 후 버전·검증 Run·실기기 확인 여부·남은 패치를 문서에 업데이트합니다.
+`Google로 계속하기 → GoogleCredentialLoginActivity → Credential Manager → Google ID Token → /api/call/google/id-token → CallTag session`
+
+0.44.22 변경:
+
+- `GetGoogleIdOption`
+- authorized account filter false
+- auto select false
+- main executor callback
+- provider timeout 30초
+- token exchange timeout 20초
+- Credential Activity `exported=false`
+- `calltag://credential/google` 딥링크 제거
+
+**계정 선택 → 실제 세션 생성 E2E는 최신 설치본에서 다시 확인해야 한다.**
+
+## 더보기 — 0.44.22 계열
+
+8개 진입점:
+
+1. 계정
+2. 이용권
+3. 문자 관리
+4. 고객 관리
+5. 페이지로
+6. 파트너
+7. 데이터 관리
+8. 앱 정보
+
+그룹:
+
+- 내 정보: 계정 / 이용권
+- 업무 관리: 문자 관리 / 고객 관리
+- 서비스: 페이지로 / 파트너
+- 앱 관리: 데이터 관리 / 앱 정보
+
+각 메뉴를 독립 카드로 분리했으며 메뉴 높이 64dp, 메뉴 사이 12dp, 섹션 사이 34dp다.
+
+`통화 후 자동문자`는 더보기의 별도 대형 카드가 아니라 **문자 관리 안**에 둔다.
+
+## 앱 정보 / 고객센터
+
+앱 정보:
+
+- 버전 정보
+- 서비스 이용약관
+- 개인정보처리방침
+- 고객센터
+
+고객센터:
+
+`앱 폼 → POST /api/call/support → 서버/AWS SES → roadfor@kakao.com`
+
+고객 이메일은 Reply-To로 사용한다. 서버 배포/401 smoke는 통과했으며 실제 로그인 사용자 문의 메일 수신은 단말 E2E가 남아 있다.
+
+## 앱 아이콘 — 0.44.22 계열
+
+0.44.21의 깨진 WebP Adaptive Icon foreground 방식은 폐기했다.
+
+0.44.22부터 vector foreground + Adaptive Icon을 사용하며 release AAB에 `calltag_launcher_safe.webp`가 들어오면 CI가 실패한다.
+
+실제 런처와 Google 계정 선택창 아이콘은 단말에서 확인한다.
+
+## 회원가입 UX 고정
+
+- 필수 항목만 빨간 `*`
+- 선택 항목 `[선택]` 반복 금지
+- 추천인 코드는 회원가입 시에만 선택 입력
+- 이메일 인증 요청 단계에서 약관 선행 강제 금지
+- 최종 가입 제출 시 필수 약관 검사
+
+## 데이터 안전
+
+- 고객/메모/일정/문자 데이터 초기화 금지
+- DB 변경은 보존 마이그레이션
+- 결제 만료로 기존 고객 데이터를 삭제하지 않음
+- 서버 entitlement 검증 우회 금지
+- 앱 purchase callback만으로 유료 기능 개방 금지
+- Web/Play 중복결제 방지 제거 금지
+- 결제 때문에 Google 로그인 구조를 브라우저 OAuth로 되돌리지 않음
+
+## 현재 단말 QA 우선순위
+
+1. Google Play 실제 테스트 결제 E2E
+2. Google 로그인 계정 선택 후 세션 생성
+3. 더보기 간격/그룹 확인
+4. 런처 및 Google 계정 선택창 아이콘 확인
+5. 고객센터 `roadfor@kakao.com` 실제 수신/Reply-To 확인
+6. 통화 종료 후 작은 팝업 하나만 표시되는지 확인

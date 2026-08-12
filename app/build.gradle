@@ -11,6 +11,7 @@ def uploadStorePath = System.getenv('CALLTAG_UPLOAD_KEYSTORE_PATH') ?: ''
 def uploadStorePassword = System.getenv('CALLTAG_UPLOAD_STORE_PASSWORD') ?: ''
 def uploadKeyAlias = System.getenv('CALLTAG_UPLOAD_KEY_ALIAS') ?: ''
 def uploadKeyPassword = System.getenv('CALLTAG_UPLOAD_KEY_PASSWORD') ?: ''
+def googleServerClientId = System.getenv('CALLTAG_GOOGLE_SERVER_CLIENT_ID') ?: '31346298247-o5jfdetjs84mu02c8tp68qg19ifo89en.apps.googleusercontent.com'
 def releaseSigningConfigured = !uploadStorePath.trim().isEmpty()
         && !uploadStorePassword.trim().isEmpty()
         && !uploadKeyAlias.trim().isEmpty()
@@ -25,14 +26,15 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        versionCode 2026081101
-        versionName '0.44.14'
+        versionCode 2026081209
+        versionName '0.44.23'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
         buildConfigField 'String', 'FIREBASE_API_KEY', '"' + envString('CALLTAG_FIREBASE_API_KEY') + '"'
         buildConfigField 'String', 'FIREBASE_PROJECT_ID', '"' + envString('CALLTAG_FIREBASE_PROJECT_ID') + '"'
         buildConfigField 'String', 'FIREBASE_SENDER_ID', '"' + envString('CALLTAG_FIREBASE_SENDER_ID') + '"'
+        buildConfigField 'String', 'GOOGLE_SERVER_CLIENT_ID', '"' + googleServerClientId + '"'
     }
 
     buildFeatures {
@@ -84,6 +86,9 @@ gradle.taskGraph.whenReady { graph ->
 dependencies {
     implementation 'androidx.core:core:1.15.0'
     implementation 'androidx.work:work-runtime:2.11.2'
+    implementation 'androidx.credentials:credentials:1.6.0'
+    implementation 'androidx.credentials:credentials-play-services-auth:1.6.0'
+    implementation 'com.google.android.libraries.identity.googleid:googleid:1.2.0'
     implementation 'com.google.firebase:firebase-messaging:25.1.1'
     implementation 'com.android.billingclient:billing:9.1.0'
 

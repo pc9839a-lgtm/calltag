@@ -23,7 +23,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-/** 더보기 > 이용권·결제. */
+/** 더보기 > 이용권. */
 public final class BillingEntitlementActivity extends Activity
         implements PlayBillingManager.Listener {
     // 콜태그 공통 다크 팔레트와 동일하게 유지한다.
@@ -85,7 +85,7 @@ public final class BillingEntitlementActivity extends Activity
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(46), dp(46)));
-        TextView title = text("이용권·결제", 21f, TEXT, true);
+        TextView title = text("이용권", 21f, TEXT, true);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, dp(46), 1f);
         titleParams.leftMargin = dp(8);
         title.setGravity(Gravity.CENTER_VERTICAL);

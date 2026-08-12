@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="robots" content="noindex,nofollow,noarchive,nosnippet" />
+  <title>콜태그 관리자</title>
+  <link rel="stylesheet" href="/admin/admin.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-block">
+        <strong>콜태그 관리자</strong>
+        <span class="readonly-badge">읽기 전용</span>
+      </div>
+      <div class="top-actions">
+        <span id="adminIdentity" class="admin-identity"></span>
+        <button id="refreshButton" class="button button-secondary" type="button">새로고침</button>
+      </div>
+    </header>
+
+    <div id="statusBar" class="status-bar" hidden></div>
+
+    <main id="dashboard" class="dashboard" hidden>
+      <section class="metric-grid" aria-label="운영 현황">
+        <article class="metric"><span>전체 회원</span><strong id="metricTotal">0</strong></article>
+        <article class="metric"><span>7일 신규</span><strong id="metricNew">0</strong></article>
+        <article class="metric"><span>체험 중</span><strong id="metricTrial">0</strong></article>
+        <article class="metric"><span>유료 활성</span><strong id="metricPaid">0</strong></article>
+        <article class="metric"><span>결제 확인 필요</span><strong id="metricPaymentReview">0</strong></article>
+        <article class="metric"><span>파트너 적립 대기</span><strong id="metricPartner">0</strong></article>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <h1>최근 회원</h1>
+            <span id="generatedAt" class="muted"></span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>회원 ID</th>
+                <th>이메일</th>
+                <th>전화번호</th>
+                <th>가입일</th>
+                <th>이용권</th>
+                <th>상태</th>
+                <th>검증</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="memberRows"></tbody>
+          </table>
+        </div>
+        <div id="emptyMembers" class="empty-state" hidden>회원 데이터가 없습니다.</div>
+      </section>
+    </main>
+  </div>
+
+  <div id="detailBackdrop" class="detail-backdrop" hidden></div>
+  <aside id="memberDetail" class="detail-drawer" aria-label="회원 상세" hidden>
+    <div class="detail-head">
+      <div>
+        <strong>회원 상세</strong>
+        <span id="detailOwnerId" class="mono muted"></span>
+      </div>
+      <button id="detailClose" class="icon-button" type="button" aria-label="닫기">×</button>
+    </div>
+    <div id="detailBody" class="detail-body"></div>
+  </aside>
+
+  <script src="/admin/admin.js" defer></script>
+</body>
+</html>
