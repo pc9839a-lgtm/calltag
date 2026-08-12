@@ -9,7 +9,15 @@ const el = {
   backdrop: $('detailBackdrop'), drawer: $('memberDetail'), detailTitle: $('detailTitle'), detailId: $('detailOwnerId'), detailBody: $('detailBody'), close: $('detailClose'),
 };
 
-const products = { all_monthly: '통합권', call_monthly: '전화관리', message_monthly: '문자자동화', pagero_monthly: '페이지로 클래식', pagero_pro_monthly: '페이지로 프로', pagero_domain_monthly: 'SSL' };
+const products = {
+  all_monthly: '통합권',
+  call_monthly: '전화관리',
+  message_monthly: '문자자동화',
+  pagero_monthly: '페이지로 클래식',
+  pagero_pro_monthly: '페이지로 프로',
+  pagero_domain_monthly: 'SSL',
+};
+const channels = { google_play: 'Google Play', play: 'Google Play', web: '웹 결제' };
 const state = { view: 'members', financeWriteEnabled: false, month: currentMonth() };
 
 boot();
@@ -73,15 +81,16 @@ function renderOverview(data) {
   el.rows.replaceChildren();
   el.empty.hidden = rows.length > 0;
   for (const item of rows) {
+    const subscription = item.subscription || null;
     const tr = document.createElement('tr');
     tr.append(
       cell(shortId(item.ownerId)),
       cell(item.email || '-'),
       cell(item.phone || '-'),
       cell(dateOnly(item.createdAt)),
-      cell(products[item.subscription?.productCode] || item.subscription?.productCode || '-'),
-      pill(item.subscription?.status || trialState(item)),
-      pill(item.subscription?.verificationState === 'verified' ? '검증됨' : item.subscription?.verificationState ? '확인 필요' : '-'),
+      cell(entitlementLabel(item)),
+      pill(memberUsageStatus(item)),
+      pill(paymentVerificationLabel(subscription)),
       actionButton('보기', () => openMember(item.ownerId)),
     );
     el.rows.append(tr);
@@ -153,13 +162,13 @@ async function openMember(ownerId) {
   const subSection = document.createElement('section');
   subSection.className = 'section';
   subSection.append(heading('구독'));
-  if (!subscriptions.length) subSection.append(detailRow('상태', '구독 내역 없음'));
+  if (!subscriptions.length) subSection.append(detailRow('이용 상태', '구독 내역 없음'));
   for (const item of subscriptions) {
     subSection.append(
-      detailRow('상품', products[item.productCode] || item.productCode || '-'),
-      detailRow('채널', item.channel || '-'),
-      detailRow('상태', item.status || '-'),
-      detailRow('검증', item.verificationState === 'verified' ? '검증됨' : '확인 필요'),
+      detailRow('상품', products[item.productCode] || '기타 이용권'),
+      detailRow('채널', channels[String(item.channel || '').toLowerCase()] || (item.channel ? '기타' : '-')),
+      detailRow('이용 상태', subscriptionStatusLabel(item.status, item.expiresAt)),
+      detailRow('결제 검증', paymentVerificationLabel(item)),
       detailRow('만료', dateTime(item.expiresAt)),
     );
   }
@@ -304,6 +313,44 @@ async function paySettlement(ownerId, month, expectedAmountKrw) {
   await openPartner(ownerId);
 }
 
+function entitlementLabel(item) {
+  const code = String(item?.subscription?.productCode || '');
+  if (code) return products[code] || '기타 이용권';
+  return trialIsActive(item) ? '무료체험' : '-';
+}
+
+function memberUsageStatus(item) {
+  if (item?.subscription) return subscriptionStatusLabel(item.subscription.status, item.subscription.expiresAt);
+  return trialIsActive(item) ? '체험중' : '만료';
+}
+
+function subscriptionStatusLabel(status, expiresAt = '') {
+  const value = String(status || '').trim().toLowerCase();
+  const expiry = Date.parse(String(expiresAt || ''));
+  const stillValid = !Number.isFinite(expiry) || expiry > Date.now();
+  if (value === 'trial') return '체험중';
+  if (value === 'active' || value === 'grace') return '활성';
+  if (value === 'cancelled' || value === 'canceled') return stillValid ? '취소예정' : '만료';
+  if (value === 'expired') return '만료';
+  if (['suspended', 'paused', 'hold', 'on_hold'].includes(value)) return '정지';
+  if (value === 'inactive') return '비활성';
+  if (value === 'pending') return '확인필요';
+  return value ? '확인필요' : '해당없음';
+}
+
+function paymentVerificationLabel(subscription) {
+  if (!subscription || !subscription.productCode) return '해당없음';
+  const value = String(subscription.verificationState || '').trim().toLowerCase();
+  if (value === 'verified') return '정상';
+  if (['failed', 'invalid', 'rejected'].includes(value)) return '실패';
+  return '확인필요';
+}
+
+function trialIsActive(item) {
+  const end = Date.parse(String(item?.trialEndsAt || ''));
+  return Number.isFinite(end) && end > Date.now();
+}
+
 function showDetail() { el.backdrop.hidden = false; el.drawer.hidden = false; }
 function closeDetail() { el.backdrop.hidden = true; el.drawer.hidden = true; el.detailBody.replaceChildren(); }
 
@@ -323,7 +370,12 @@ function strongCell(value) { const td = cell(value); td.className = 'money-stron
 function stackedCell(primary, secondary) { const td = document.createElement('td'); const a = document.createElement('div'); const b = document.createElement('div'); a.textContent = primary || '-'; a.className = 'money-strong'; b.textContent = secondary || ''; b.className = 'rate-note'; td.append(a, b); return td; }
 function pill(value) { const td = document.createElement('td'); const span = document.createElement('span'); const text = String(value || '-'); span.className = `pill ${pillClass(text)}`; span.textContent = text; td.append(span); return td; }
 function actionButton(label, handler) { const td = document.createElement('td'); const button = document.createElement('button'); button.type = 'button'; button.className = 'viewbtn'; button.textContent = label; button.addEventListener('click', handler); td.append(button); return td; }
-function pillClass(value) { return ['active','verified','trial','grace','지급완료'].includes(value) ? 'good' : ['pending','cancelled','미지급','부분지급'].includes(value) ? 'warn' : ['expired','suspended','inactive'].includes(value) ? 'bad' : ''; }
+function pillClass(value) {
+  if (['활성', '체험중', '정상', '지급완료'].includes(value)) return 'good';
+  if (['취소예정', '확인필요', '미지급', '부분지급'].includes(value)) return 'warn';
+  if (['만료', '정지', '비활성', '실패'].includes(value)) return 'bad';
+  return '';
+}
 function settlementStatusLabel(value) { return value === 'paid' ? '지급완료' : value === 'partial' ? '부분지급' : value === 'pending' ? '미지급' : '내역없음'; }
 
 async function get(url) { return request(url, { method: 'GET' }); }
@@ -343,5 +395,4 @@ function money(value) { return number(value); }
 function shortId(value) { const text = String(value || ''); return text.length > 18 ? `${text.slice(0,10)}…${text.slice(-5)}` : text || '-'; }
 function dateOnly(value) { const date = new Date(String(value || '')); return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('ko-KR', { year:'2-digit', month:'2-digit', day:'2-digit' }).format(date) : '-'; }
 function dateTime(value) { const date = new Date(String(value || '')); return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('ko-KR', { year:'2-digit', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }).format(date) : '-'; }
-function trialState(item) { const end = Date.parse(String(item?.trialEndsAt || '')); return Number.isFinite(end) && end > Date.now() ? 'trial' : 'inactive'; }
 function currentMonth() { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`; }
