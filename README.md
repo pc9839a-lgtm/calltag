@@ -5,10 +5,11 @@
 ## 다음 AI가 반드시 먼저 읽을 문서
 
 1. [`docs/NEXT_AI_HANDOFF_20260812_KO.md`](docs/NEXT_AI_HANDOFF_20260812_KO.md) — **최우선 정본. 다음 패치 P0 = Google Play 결제 실제 연결 및 테스트 결제 E2E**
-2. [`docs/CURRENT_RELEASE_STATUS_20260812_KO.md`](docs/CURRENT_RELEASE_STATUS_20260812_KO.md) — 릴리스/실기기 QA 상태
-3. [`docs/CALLTAG_PAYMENT_HANDOFF_20260812_KO.md`](docs/CALLTAG_PAYMENT_HANDOFF_20260812_KO.md) — 기존 결제 서버/entitlement 상세 구조
-4. [`docs/ANDROID_DEVELOPER_HANDOFF_KO.md`](docs/ANDROID_DEVELOPER_HANDOFF_KO.md) — Android 구조와 데이터 안전 규칙
-5. [`docs/PAGERO_CUSTOMER_INTEGRATION_KO.md`](docs/PAGERO_CUSTOMER_INTEGRATION_KO.md) — PageRo 연동
+2. [`docs/PLAY_BILLING_P0_EXECUTION_20260812_KO.md`](docs/PLAY_BILLING_P0_EXECUTION_20260812_KO.md) — **현재 Google 공식 절차 기준 P0 실행 정본. 기존 문서의 Cloud 프로젝트 연결 표현은 이 문서가 우선함**
+3. [`docs/CURRENT_RELEASE_STATUS_20260812_KO.md`](docs/CURRENT_RELEASE_STATUS_20260812_KO.md) — 릴리스/실기기 QA 상태
+4. [`docs/CALLTAG_PAYMENT_HANDOFF_20260812_KO.md`](docs/CALLTAG_PAYMENT_HANDOFF_20260812_KO.md) — 기존 결제 서버/entitlement 상세 구조
+5. [`docs/ANDROID_DEVELOPER_HANDOFF_KO.md`](docs/ANDROID_DEVELOPER_HANDOFF_KO.md) — Android 구조와 데이터 안전 규칙
+6. [`docs/PAGERO_CUSTOMER_INTEGRATION_KO.md`](docs/PAGERO_CUSTOMER_INTEGRATION_KO.md) — PageRo 연동
 
 **문서만 보고 구현 여부를 판단하지 않는다. 실제 코드 → Play/서버 설정 → signed AAB → 실제 휴대전화 E2E를 구분한다.**
 
@@ -16,14 +17,14 @@
 
 - package: `kr.pagero.calltag`
 - branch: `agent/calltag-auth-ux-google-upgrade-fix`
-- versionName: **0.44.22**
-- versionCode: **2026081208**
+- versionName: **0.44.23**
+- versionCode: **2026081209**
 - minSdk: 26
 - target/compile SDK: 36
-- Play 업로드키 signed AAB 빌드 성공
-- Workflow run: `31557329238`
-- Artifact ID: `9126476904`
-- 다음 Play versionCode: **2026081209 이상**
+- 직전 0.44.22 Play 업로드키 signed AAB 빌드 성공
+- 직전 workflow run: `31557329238`
+- 직전 artifact ID: `9126476904`
+- 0.44.23은 Google Play 결제 P0 E2E용 다음 빌드
 
 Play Console에 한 번 업로드된 versionCode는 재사용하지 않는다.
 
@@ -43,6 +44,7 @@ Google Play 결제는 **앱 코드와 서버 코드에 이미 붙어 있다. 새
 - Google Play 구독 관리
 - 서버 entitlement 기반 권한
 - Web ↔ Play 중복결제 사전 차단
+- 0.44.23부터 복수 base plan/offer가 모호하면 첫 offer를 임의 선택하지 않고 결제 차단
 
 핵심 Android 파일:
 
@@ -69,23 +71,28 @@ Google Play 결제는 **앱 코드와 서버 코드에 이미 붙어 있다. 새
 
 ### 다음 패치에서 할 일
 
-사용자가 **Play Console ↔ Google Cloud/API access 연결을 다음 패치에서 진행**하기로 확정했다.
+현재 Google Play Developer API 절차에서는 **Play Console 개발자 계정을 Google Cloud 프로젝트에 별도로 연결하지 않는다.**
 
-순서:
+정확한 순서:
 
-1. Play Console과 Google Cloud/API access 연결
-2. 서버용 service account 권한 연결
-3. Publisher API credential 서버 설정
-4. Play Console subscription product/base plan과 앱 productId 대조
-5. 라이선스 테스터로 실제 Play 결제
-6. purchaseToken → 서버 verify → Publisher API → acknowledge → entitlement active 확인
-7. 앱 재시작/재설치 구매 복원 확인
-8. Web ↔ Play 중복결제 양방향 확인
-9. 이후 RTDN/Pub/Sub로 갱신·취소·환불·만료 자동 동기화
+1. 결제 서버용 Google Cloud 프로젝트 선택
+2. `Google Play Android Developer API` 활성화
+3. 서버용 service account 생성
+4. Play Console `사용자 및 권한`에서 service account 이메일 초대
+5. `재무 데이터, 주문 및 취소 설문 응답 보기` + `주문 및 정기 결제 관리` 권한 부여
+6. 서버에 `GOOGLE_PLAY_CLIENT_EMAIL` / `GOOGLE_PLAY_PRIVATE_KEY` 등록
+7. Play Console subscription product/base plan과 앱 productId 대조
+8. 상품 준비 후 `GOOGLE_PLAY_PRODUCTS_READY=1`
+9. 검증 준비 후 `GOOGLE_PLAY_BILLING_ENABLED=1`
+10. 라이선스 테스터로 실제 Play 결제
+11. purchaseToken → 서버 verify → Publisher API → acknowledge → entitlement active 확인
+12. 앱 재시작/재설치 구매 복원 확인
+13. Web ↔ Play 중복결제 양방향 확인
+14. 이후 RTDN/Pub/Sub로 갱신·취소·환불·만료 자동 동기화
 
-세부 체크리스트는 `docs/NEXT_AI_HANDOFF_20260812_KO.md`를 따른다.
+실행 세부사항은 `docs/PLAY_BILLING_P0_EXECUTION_20260812_KO.md`를 따른다.
 
-## Google 로그인 — 0.44.22
+## Google 로그인 — 0.44.22 계열
 
 브라우저 OAuth를 사용하지 않는다.
 
@@ -102,9 +109,9 @@ Google Play 결제는 **앱 코드와 서버 코드에 이미 붙어 있다. 새
 - Credential Activity `exported=false`
 - `calltag://credential/google` 딥링크 제거
 
-**계정 선택 → 실제 세션 생성 E2E는 0.44.22 설치본에서 다시 확인해야 한다.**
+**계정 선택 → 실제 세션 생성 E2E는 최신 설치본에서 다시 확인해야 한다.**
 
-## 더보기 — 0.44.22
+## 더보기 — 0.44.22 계열
 
 8개 진입점:
 
@@ -143,11 +150,11 @@ Google Play 결제는 **앱 코드와 서버 코드에 이미 붙어 있다. 새
 
 고객 이메일은 Reply-To로 사용한다. 서버 배포/401 smoke는 통과했으며 실제 로그인 사용자 문의 메일 수신은 단말 E2E가 남아 있다.
 
-## 앱 아이콘 — 0.44.22
+## 앱 아이콘 — 0.44.22 계열
 
 0.44.21의 깨진 WebP Adaptive Icon foreground 방식은 폐기했다.
 
-0.44.22는 vector foreground + Adaptive Icon을 사용하며 release AAB에 `calltag_launcher_safe.webp`가 들어오면 CI가 실패한다.
+0.44.22부터 vector foreground + Adaptive Icon을 사용하며 release AAB에 `calltag_launcher_safe.webp`가 들어오면 CI가 실패한다.
 
 실제 런처와 Google 계정 선택창 아이콘은 단말에서 확인한다.
 
