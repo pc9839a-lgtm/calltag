@@ -7,22 +7,23 @@
 
 ## 인증 경계
 
-관리자 데이터 API는 다음 세 조건을 모두 통과해야 한다.
+관리자 데이터 API는 다음 조건을 모두 통과해야 한다.
 
-1. 정상 CallTag 로그인 세션
-2. CallTag 관리자 allowlist
-3. Cloudflare Access JWT의 서명·issuer·audience·만료 검증
+1. Cloudflare Access JWT의 RS256 서명·issuer·audience·만료 검증
+2. Access JWT 이메일과 활성/이메일인증 완료 CallTag 계정의 일치
+3. CallTag 관리자 allowlist
 
 Access 설정이나 allowlist가 없으면 API는 fail-closed로 닫힌다.
 기존 `CALLLINK_ADMIN_TOKEN` / `INLET_API_TOKEN`을 브라우저 관리자 인증에 사용하지 않는다.
 
-## 브라우저 세션
+## 관리자 비밀번호/세션을 만들지 않는 이유
 
-- 로그인 후 CallTag 세션은 JavaScript 저장소에 저장하지 않는다.
-- `HttpOnly; Secure; SameSite=Strict; Path=/admin` 쿠키로만 보관한다.
-- 관리자 게이트웨이는 브라우저가 임의로 전달한 `X-Inlet-Session`을 신뢰하지 않는다.
-- 로그아웃 시 관리자 쿠키를 즉시 만료한다.
-- 관리자 쿠키 수명은 8시간으로 제한한다.
+- `/admin`에는 CallTag 비밀번호 입력폼이 없다.
+- `/admin` 전용 CallTag 세션 쿠키도 만들지 않는다.
+- `localStorage`, `sessionStorage`, 브라우저 JavaScript에 재사용 가능한 관리자 자격증명을 보관하지 않는다.
+- 따라서 관리자 정적 페이지가 변조되어도 별도 CallTag 비밀번호나 CallTag 세션을 훔칠 대상 자체를 두지 않는다.
+- 실제 인증은 Cloudflare Access에서 처리하고, `inlet`이 매 요청마다 Access JWT를 다시 검증한다.
+- 운영 Access 정책은 관리자 개인 계정 + MFA를 권장한다.
 
 ## 관리자 화면에 허용되는 데이터
 
@@ -36,6 +37,7 @@ Access 설정이나 allowlist가 없으면 API는 fail-closed로 닫힌다.
 - 구독 상태
 - 검증 상태
 - 시작/다음결제/만료/최근검증 시각
+- 추천 여부/추천 인원 집계
 - 파트너 적립 건수 및 합계
 
 ## 관리자 화면에서 금지되는 데이터
@@ -108,21 +110,22 @@ CALLTAG_ADMIN_EMAILS=<관리자 이메일, 쉼표 구분>
 
 `CALLTAG_ADMIN_AUDIT_SALT`는 Secret으로 저장하며 저장소에 커밋하지 않는다.
 
-## CallTag Worker 환경설정
+## Admin API origin
 
-기본 Admin API origin은 현재 inlet Pages 주소를 사용한다. 필요할 때만 다음 값을 설정한다.
+CallTag 관리자 게이트웨이는 Access JWT가 임의 외부 origin으로 전달되는 설정 실수를 막기 위해 Admin API origin을 코드에서 다음 주소로 고정한다.
 
 ```text
-CALLTAG_ADMIN_API_BASE=https://<trusted-inlet-origin>
+https://inlet-8mr.pages.dev
 ```
 
-이 값은 관리자 인증 secret이 아니다.
+Admin API origin 변경이 필요하면 런타임 환경변수로 임의 변경하지 않고 코드리뷰를 거쳐 고정값을 변경한다.
 
 ## Cloudflare Access
 
 CallTag 도메인의 `/admin*` 경로를 Access Application으로 보호한다.
-관리자 개인 계정만 허용하고 가능하면 MFA 정책을 추가한다.
+관리자 개인 계정만 허용하고 MFA 정책을 적용하는 것을 권장한다.
 Access가 구성되기 전에는 관리자 화면/API를 공개하지 않는다.
+원본 `inlet` API도 전달받은 `Cf-Access-Jwt-Assertion`의 서명, issuer, audience, 만료를 다시 검증한다.
 
 ## 응답 보안 헤더
 
@@ -137,7 +140,17 @@ Access가 구성되기 전에는 관리자 화면/API를 공개하지 않는다.
 - 카메라/마이크/위치/payment/USB/Bluetooth Permissions Policy 차단
 - third-party CDN/font/analytics 미사용
 
+## 전용 보안 QA
+
+양쪽 저장소에 `CallTag Admin Security QA`를 둔다.
+
+- 새 관리자 JavaScript 구문 검사
+- 로그인/password/session storage 재도입 차단
+- purchase token/hash/order/external subscription ID 등의 관리자 노출 회귀 차단
+- `innerHTML` 계열 위험 렌더링 재도입 차단
+- Access 검증 필수 설정과 핵심 보안 헤더 존재 확인
+
 ## 침해 범위에 대한 경계
 
-이 구조는 관리자 웹, 브라우저 세션, 관리자 API의 단일 계층 침해 시 피해반경을 크게 줄인다.
-전체 Cloudflare 계정, main application runtime, D1 binding과 모든 Secret이 동시에 탈취되는 수준의 침해는 이 관리자 화면만으로 완전히 무해화할 수 없다. 그 범위까지 방어하려면 애플리케이션 데이터 자체의 별도 키 관리/필드 암호화/분리 저장소 설계가 필요하다.
+이 구조는 관리자 웹 또는 관리자 API 계층 침해 시 피해반경을 크게 줄인다.
+전체 Cloudflare 계정, main application runtime, D1 binding과 모든 Secret이 동시에 탈취되는 수준의 침해는 이 관리자 화면만으로 완전히 무해화할 수 없다. 그 범위까지 방어하려면 애플리케이션 데이터 자체의 별도 키 관리, 필드 암호화, 또는 별도 최소정보 projection 저장소 설계가 필요하다.
