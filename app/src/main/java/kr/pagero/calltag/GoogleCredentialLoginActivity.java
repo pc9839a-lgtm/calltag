@@ -35,8 +35,8 @@ import java.util.concurrent.Executors;
 /** Native Google sign-in host. */
 public final class GoogleCredentialLoginActivity extends Activity {
     private static final String TAG = "CallTagGoogleLogin";
-    private static final long PROVIDER_TIMEOUT_MS = 30000L;
-    private static final long EXCHANGE_TIMEOUT_MS = 20000L;
+    private static final long PROVIDER_TIMEOUT_MS = 90_000L;
+    private static final long EXCHANGE_TIMEOUT_MS = 25_000L;
 
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -65,7 +65,10 @@ public final class GoogleCredentialLoginActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(buildContent());
         GoogleAuthFlowStore.clear(this);
-        if (savedInstanceState == null) startGoogleCredentialFlow();
+        // Process recreation can deliver a non-null savedInstanceState while the previous
+        // Credential Manager request has already been lost. Always start a fresh flow for
+        // this newly-created Activity instance; the per-instance started guard prevents duplicates.
+        startGoogleCredentialFlow();
     }
 
     @Override
@@ -114,13 +117,21 @@ public final class GoogleCredentialLoginActivity extends Activity {
         started = true;
         setState("Google 계정을 선택해주세요.");
 
+        String serverClientId = BuildConfig.GOOGLE_SERVER_CLIENT_ID == null
+                ? "" : BuildConfig.GOOGLE_SERVER_CLIENT_ID.trim();
+        if (serverClientId.isEmpty()) {
+            Log.e(TAG, "GOOGLE_SERVER_CLIENT_ID is empty");
+            fail("Google 로그인 설정을 확인해주세요.");
+            return;
+        }
+
         final String nonce = secureNonce();
         final GetGoogleIdOption googleOption;
         try {
             googleOption = new GetGoogleIdOption.Builder()
                     .setFilterByAuthorizedAccounts(false)
                     .setAutoSelectEnabled(false)
-                    .setServerClientId(BuildConfig.GOOGLE_SERVER_CLIENT_ID)
+                    .setServerClientId(serverClientId)
                     .setNonce(nonce)
                     .build();
         } catch (RuntimeException error) {
@@ -261,6 +272,10 @@ public final class GoogleCredentialLoginActivity extends Activity {
             }
             if ("GOOGLE_NONCE_MISMATCH".equals(api.code)) {
                 return "Google 로그인 요청을 다시 시작해주세요.";
+            }
+            if ("GOOGLE_JWKS_NETWORK_FAILED".equals(api.code)
+                    || "GOOGLE_JWKS_UNAVAILABLE".equals(api.code)) {
+                return "Google 로그인 인증 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.";
             }
             if (api.getMessage() != null && !api.getMessage().trim().isEmpty()) {
                 return api.getMessage();
