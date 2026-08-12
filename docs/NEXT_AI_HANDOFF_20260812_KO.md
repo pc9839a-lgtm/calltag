@@ -4,125 +4,86 @@
 
 - 저장소: `pc9839a-lgtm/calltag`
 - 브랜치: `agent/calltag-v04422-billing-live`
-- 기준 출발 버전: `0.44.22 / 2026081208`
-- 현재 배포 후보: **`0.44.24 / 2026081210`**
+- 사용자 기준 출발: `0.44.22 / 2026081208`
+- 마지막 signed Play 빌드: `0.44.24 / 2026081210`
+- 현재 수정 소스: **`0.44.25 / 2026081211`**
 - 서버: `pc9839a-lgtm/inlet` / `main`
 - 패키지: `kr.pagero.calltag`
 
-## 빌드
+## 0.44.25 완료
 
-- Workflow: `CallTag 0.44.24 Google Login Hardened`
-- Run ID: `31571247100`
-- Artifact ID: `9131477125`
-- Artifact: `calltag-v0.44.24-code2026081210-google-login`
-- AAB SHA-256: `227f77b6d9de44995f7946a915d35181787dec9b47a7070daf0650da45395878`
-- signed AAB / debug APK 빌드 성공
-- 기존 Play upload key fingerprint 검증 성공
+### 결제
 
-## Google Play 결제 현재 상태
-
-**신규 결제 E2E 성공 확인됨.**
-
-운영 D1 최신 확인:
+실제 운영 결제는 이미 성공 확인:
 
 - `call_monthly`
-- `channel=google_play`
-- `status=active`
-- `verificationState=verified`
-- `autoRenewing=true`
-- `lastVerifiedAt=2026-08-12 06:31:11 UTC`
-- `expiresAt=2026-09-12T06:31:04.910Z`
+- `google_play`
+- `active`
+- `verified`
+- 자동갱신 true
 
-현재 Play 상품:
+0.44.25에서 수정한 핵심 버그:
 
-- `call_monthly` 사용
-- `message_monthly` 사용
-- `all_monthly` 미생성 / 사용 안 함
+- 전화관리 구독이 문자자동화 추가 구매까지 막던 global purchase block 제거.
+- 서버/앱 모두 상품별 보유 상태로 변경.
+- `call_monthly`와 `message_monthly`를 각각 구매 가능.
+- Web 통합 구독만 Play 중복결제 차단.
+- 상단에 `전화관리 이용 중`, `문자자동화 이용 중`, 또는 `전화관리 · 문자자동화 이용 중` 표시.
+- 구매한 상품 버튼은 `이용 중` 비활성.
+- 미구매 상품만 결제 가능.
+- 개발자용 결제 문구 제거.
 
-서버 credential/Publisher API 검증:
+서버 `entitlements.js` per-product 패치 운영 배포 완료.
 
-- OAuth token 성공
-- Android Publisher API 성공
-- subscription catalog 성공
-- `call_monthly`, `message_monthly` 확인
+### Google 로그인
 
-앱/서버 안전패치:
+0.44.24 실기기에서 Credential Manager 계정 선택 실패 확인.
 
-- `offers.get(0)` 제거
-- 모호한 복수 offer/base plan 구매 차단
-- 서버 verified 이후 entitlement 반영
-- purchaseToken hash 저장
-- server acknowledge
-- restore
-- Web↔Play 중복결제 차단
+0.44.25:
 
-## Google 로그인 현재 상태
+- Credential Manager 네이티브 로그인 우선.
+- 사용자 직접 취소 외 모든 provider/configuration/timeout/credential 오류는 기존 OAuth 로그인으로 자동 fallback.
+- fallback: `/api/call/google/start?return_scheme=calltag` → signed state → Google callback → one-time ticket → 앱 세션.
+- 사용자 화면에서 `configuration_error`, 앱 서명, 클라이언트 설정 등 개발자 문구 제거.
 
-구조:
+서버 Google 설정은 이전 검증에서 Server Client ID 일치 + JWKS HTTP 200 확인됨.
 
-`Credential Manager → Google ID Token → /api/call/google/id-token → JWT 검증 → CallTag session`
+## 컴파일
 
-운영 확인:
+- 0.44.25 compile check: **SUCCESS**
+- Run: `31579132077`
+- Artifact: `9134449755`
+- artifact name: `calltag-v0.44.25-code2026081211-compile-check`
 
-- 앱 Server Client ID와 서버 audience 일치
-- Google JWKS HTTP 200
-- 공개키 조회 성공
-- `nativeLoginReady=true`
+## 현재 blocker — Play upload key
 
-0.44.24 패치:
+0.44.25 최종 signed AAB만 아직 못 만들었다.
 
-- Cloudflare 호환 문제를 만들 수 있는 JWKS `AbortSignal.timeout()` 제거
-- legacy OAuth token/userinfo 동일 패턴 제거
-- Credential Activity 재생성 시 로그인 흐름 복구
-- 계정 선택 timeout 90초
-- 서버 처리 timeout 25초
-- Server Client ID 빈 값 사전 차단
-- account picker 유지 (`filterByAuthorizedAccounts=false`, `autoSelect=false`)
-- nonce/aud/iss/exp/signature/email_verified 검증 유지
+- 정상 Play upload key SHA-256:
+  `C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7`
+- CI가 사용하던 정상 key backup artifact `8922836146`은 2026-08-12 만료.
+- 살아 있는 backup `8952526712`는 다른 fingerprint이므로 절대 사용하지 않음.
+- signed workflow는 이제 정확한 `CALLTAG_UPLOAD_*` GitHub Actions secrets가 없으면 실패하도록 고정.
 
-## 지금 바로 할 일
+### 다음 처리
 
-### P0
+1. 사용자가 기존 정상 JKS를 보관하고 있으면 GitHub Actions secrets에 복구.
+2. 없다면 Google Play upload key reset 진행.
+3. 이후 `0.44.25 / 2026081211` signed AAB 빌드.
+4. Play 내부 테스트 설치 후 Google 로그인 + 문자자동화 추가 구매 E2E.
 
-1. `0.44.24 / 2026081210` AAB를 Play 내부 테스트 업로드
-2. Play 설치본에서 Google 로그인 E2E
-3. 결제한 계정으로 로그아웃 → Google 재로그인 → `call_monthly` entitlement 유지 확인
-4. 앱 삭제/재설치 → 구매 복원 확인
+## 그 다음
 
-### P1
+- 구매 복원 / 재설치 복원
+- RTDN / Pub/Sub
+- 갱신·취소·만료·grace·hold·refund 동기화
 
-RTDN/Pub/Sub 구현:
+## 고정 정책
 
-- renewal
-- cancel
-- expiry
-- grace
-- account hold
-- resume
-- refund/voided purchase
-- reconciliation
+- Play 상품: `call_monthly`, `message_monthly`
+- `all_monthly`는 현재 만들지 않음
+- CallTag 무료체험 7일 + 추천인 7일 = 최대 14일
+- 고객/통화/메모/일정/문자 데이터 삭제 금지
+- purchaseToken/private key 원문 노출 금지
 
-RTDN 수신 후 Android Publisher API를 재조회하여 서버 entitlement를 갱신한다.
-
-## 정책 고정
-
-- CallTag 무료체험: 7일
-- 가입 시 추천인: +7일
-- 최대 14일
-- 무료 종료 후 자동결제 없음
-- 추천인 입력은 회원가입 시에만
-- `all_monthly`는 사용자가 요청하기 전 생성하지 않음
-
-## 금지
-
-- 기존 고객/통화/메모/일정/문자 데이터 초기화 금지
-- purchase callback만 보고 기능 개방 금지
-- private key/purchaseToken 원문 노출 금지
-- Google 로그인 안정화와 무관한 UI 대규모 변경 혼합 금지
-- RTDN 완료 전 구독 lifecycle 전체 완료로 기록 금지
-
-## 우선 읽을 문서
-
-1. `docs/CURRENT_RELEASE_STATUS_20260812_KO.md`
-2. `docs/CALLTAG_PAYMENT_HANDOFF_20260812_KO.md`
-3. 이 문서 `docs/NEXT_AI_HANDOFF_20260812_KO.md`
+우선 `docs/CURRENT_RELEASE_STATUS_20260812_KO.md`를 읽고 이어서 작업한다.
