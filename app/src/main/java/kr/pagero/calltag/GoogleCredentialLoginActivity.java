@@ -13,6 +13,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.content.ContextCompat;
 import androidx.credentials.Credential;
 import androidx.credentials.CredentialManager;
 import androidx.credentials.CredentialManagerCallback;
@@ -22,7 +23,7 @@ import androidx.credentials.GetCredentialResponse;
 import androidx.credentials.exceptions.GetCredentialCancellationException;
 import androidx.credentials.exceptions.GetCredentialException;
 
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 
 import org.json.JSONObject;
@@ -31,15 +32,11 @@ import java.security.SecureRandom;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Native Google sign-in host.
- *
- * Keep this Activity opaque and in the foreground while Credential Manager owns its account picker.
- * A translucent bridge Activity can lose the provider result on some Google Play services / OEM builds.
- */
+/** Native Google sign-in host. */
 public final class GoogleCredentialLoginActivity extends Activity {
     private static final String TAG = "CallTagGoogleLogin";
     private static final long PROVIDER_TIMEOUT_MS = 30000L;
+    private static final long EXCHANGE_TIMEOUT_MS = 20000L;
 
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -48,12 +45,19 @@ public final class GoogleCredentialLoginActivity extends Activity {
     private TextView stateView;
     private boolean started;
     private boolean finished;
+    private boolean tokenExchangeStarted;
 
     private final Runnable providerTimeout = () -> {
-        if (finished || !started) return;
+        if (finished || tokenExchangeStarted) return;
         Log.e(TAG, "Credential Manager did not return within timeout");
         if (cancellationSignal != null) cancellationSignal.cancel();
         fail("Google 계정 선택 응답이 없습니다. 다시 시도해주세요.");
+    };
+
+    private final Runnable exchangeTimeout = () -> {
+        if (finished || !tokenExchangeStarted) return;
+        Log.e(TAG, "Google token exchange timed out");
+        fail("Google 로그인 서버 응답이 없습니다. 다시 시도해주세요.");
     };
 
     @Override
@@ -67,6 +71,7 @@ public final class GoogleCredentialLoginActivity extends Activity {
     @Override
     protected void onDestroy() {
         mainHandler.removeCallbacks(providerTimeout);
+        mainHandler.removeCallbacks(exchangeTimeout);
         if (cancellationSignal != null && !cancellationSignal.isCanceled()) {
             cancellationSignal.cancel();
         }
@@ -110,9 +115,12 @@ public final class GoogleCredentialLoginActivity extends Activity {
         setState("Google 계정을 선택해주세요.");
 
         final String nonce = secureNonce();
-        final GetSignInWithGoogleOption googleOption;
+        final GetGoogleIdOption googleOption;
         try {
-            googleOption = new GetSignInWithGoogleOption.Builder(BuildConfig.GOOGLE_SERVER_CLIENT_ID)
+            googleOption = new GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setAutoSelectEnabled(false)
+                    .setServerClientId(BuildConfig.GOOGLE_SERVER_CLIENT_ID)
                     .setNonce(nonce)
                     .build();
         } catch (RuntimeException error) {
@@ -133,7 +141,7 @@ public final class GoogleCredentialLoginActivity extends Activity {
                 this,
                 request,
                 cancellationSignal,
-                command -> runOnUiThread(command),
+                ContextCompat.getMainExecutor(this),
                 new CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
                     @Override
                     public void onResult(GetCredentialResponse result) {
@@ -185,14 +193,22 @@ public final class GoogleCredentialLoginActivity extends Activity {
     }
 
     private void exchangeToken(String idToken, String nonce) {
+        tokenExchangeStarted = true;
         setState("콜태그 로그인 정보를 확인하고 있습니다…");
+        mainHandler.postDelayed(exchangeTimeout, EXCHANGE_TIMEOUT_MS);
         networkExecutor.execute(() -> {
             try {
                 JSONObject response = AuthApiClient.exchangeGoogleIdToken(idToken, nonce);
-                runOnUiThread(() -> completeAuth(response));
+                runOnUiThread(() -> {
+                    mainHandler.removeCallbacks(exchangeTimeout);
+                    completeAuth(response);
+                });
             } catch (Exception error) {
                 Log.e(TAG, "Google token exchange failed", error);
-                runOnUiThread(() -> fail(errorMessage(error)));
+                runOnUiThread(() -> {
+                    mainHandler.removeCallbacks(exchangeTimeout);
+                    fail(errorMessage(error));
+                });
             }
         });
     }
