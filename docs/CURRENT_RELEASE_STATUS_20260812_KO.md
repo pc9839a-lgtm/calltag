@@ -1,170 +1,139 @@
 # 콜태그 최신 릴리스·운영 상태
 
-기준일: **2026-08-12 15:53 KST**  
+기준일: **2026-08-12 17:40 KST**  
 Android 저장소: `pc9839a-lgtm/calltag`  
-현재 작업 브랜치: `agent/calltag-v04422-billing-live`  
+작업 브랜치: `agent/calltag-v04422-billing-live`  
 서버 저장소: `pc9839a-lgtm/inlet` / `main`  
 패키지명: `kr.pagero.calltag`
 
-> 이 문서를 현재 릴리스 상태의 정본으로 사용한다. 과거 0.44.20~0.44.23 문서와 충돌하면 이 문서와 실제 코드를 우선한다.
+> 과거 문서와 충돌하면 이 문서와 실제 코드를 우선한다.
 
-## 1. 현재 Android 배포 후보
+## 1. 현재 기준 버전
 
-- 기준 출발 버전: **0.44.22 / versionCode 2026081208**
-- 현재 배포 후보: **0.44.24 / versionCode 2026081210**
-- minSdk: **26**
-- targetSdk / compileSdk: **36**
-- applicationId: `kr.pagero.calltag`
-- JDK: 17
-- Google Play Billing: `9.1.0`
-- signed release AAB 빌드 및 jarsigner 검증: **성공**
-- Workflow: `CallTag 0.44.24 Google Login Hardened`
-- Run ID: **31571247100**
-- Artifact ID: **9131477125**
-- Artifact: `calltag-v0.44.24-code2026081210-google-login`
-- AAB SHA-256: `227f77b6d9de44995f7946a915d35181787dec9b47a7070daf0650da45395878`
+- 사용자 확인 기준 출발점: **0.44.22 / 2026081208**
+- 마지막 signed Play 빌드: **0.44.24 / 2026081210**
+- 현재 수정 소스: **0.44.25 / 2026081211**
+- minSdk 26 / targetSdk 36 / compileSdk 36
+- BillingClient 9.1.0
+- 0.44.25 debug compile check: **성공**
+- Compile Run: **31579132077**
+- Compile Artifact: **9134449755**
 
-Play Console에 `2026081210`을 한 번 업로드하면 이후 versionCode는 반드시 그보다 큰 값을 사용한다.
+### 0.44.25 Play release 서명 상태
+
+0.44.25 소스 컴파일은 성공했지만 최종 Play AAB 서명은 현재 차단 상태다.
+
+- 기존 Play 업로드키의 정상 SHA-256: `C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7`
+- 이전 CI가 사용하던 정상 업로드키 backup artifact `8922836146`은 **2026-08-12 만료**됨.
+- 살아 있는 다른 backup artifact `8952526712`는 **다른 키**이며 정상 Play 업로드키가 아니므로 사용 금지.
+- 새 랜덤 키로 임의 서명하지 않는다.
+- release workflow는 이제 정확한 업로드키 GitHub Actions secrets가 없으면 실패하도록 변경했다.
+
+정상 JKS를 복구해 secrets로 등록하거나, 실제 키가 완전히 유실된 경우 Google Play Console에서 upload key reset 후 새 키를 등록해야 한다.
 
 ## 2. Google Play 결제 — 실제 성공 확인
 
-2026-08-12 실제 Play 테스트 결제 후 운영 D1에서 개인정보 없이 상태를 확인했다.
+운영 D1에서 실제 결제 상태 확인 완료:
 
 - productCode: `call_monthly`
 - channel: `google_play`
 - status: `active`
 - verificationState: `verified`
 - autoRenewing: `true`
-- 서버 검증/저장: `2026-08-12 06:31:11 UTC` = `2026-08-12 15:31:11 KST`
-- 현재 expiry: `2026-09-12T06:31:04.910Z`
+- 서버 검증/저장: `2026-08-12 15:31:11 KST`
+- expiry: `2026-09-12T06:31:04.910Z`
 
-따라서 아래 E2E는 실제로 통과한 것으로 본다.
+즉 `Play 구매 → purchaseToken → 서버 verify → Android Publisher API 검증 → DB verified → entitlement active`는 성공했다.
 
-`Play 구매 → purchaseToken → /api/billing/google/verify → Android Publisher API 검증 → 서버 DB verified 저장 → entitlement active`
+현재 Play 상품:
 
-### 현재 Play 상품
+- `call_monthly` — 전화관리
+- `message_monthly` — 문자자동화
+- `all_monthly` — 현재 사용 안 함 / 생성하지 않음
 
-- `call_monthly` — 사용
-- `message_monthly` — 사용
-- `all_monthly` — **현재 Play Console에 만들지 않았으며 이번 앱 결제 대상에서도 제외**
+## 3. 0.44.25 결제 버그 수정
 
-0.44.24 앱은 `call_monthly`, `message_monthly`만 조회/구매한다. 서버 Google Play 검증도 이 두 productId만 허용한다.
+기존 문제:
 
-### 결제 안전 패치
+- 전화관리 하나를 구독하면 앱/서버가 `활성 구독 있음`으로 전체 구매를 막음.
+- 결과적으로 문자자동화 추가 구매도 불가능했음.
+- 화면에 `Google Play 결제 사용 가능`, `상품 확인` 등 개발자용 문구가 노출됨.
+- 구매한 상품도 `이용 중`이 명확하지 않았음.
 
-- `offers.get(0)` 임의 선택 제거
-- 여러 offer/base plan이 애매하면 결제 중단
-- PENDING 구매 처리 유지
-- 서버 검증 전 기능 개방 금지
-- purchaseToken 원문 장기 저장 금지; hash 저장
-- 서버 acknowledge 유지
-- 구매 복원 유지
-- Web ↔ Google Play 중복 결제 차단 유지
+0.44.25 수정:
 
-### Google Play 서버 환경
+- 서버 entitlement를 상품별 상태로 확장:
+  - `activeProducts`
+  - `productAccess.call_monthly`
+  - `productAccess.message_monthly`
+  - `purchaseOptions.call_monthly`
+  - `purchaseOptions.message_monthly`
+- Google Play 전화관리 구독이 있어도 문자자동화는 별도 구매 가능.
+- Google Play 문자자동화 구독이 있어도 전화관리는 별도 구매 가능.
+- Web 통합 구독은 기존처럼 Play 중복결제 차단.
+- 앱 로컬 캐시도 `phoneSubscribed` / `messageSubscribed`로 분리.
 
-실제 운영 서버에서 서비스 계정 credential로 다음을 확인했다.
+이용권 상단 표시:
 
-- Google OAuth 토큰 발급 성공
-- Android Publisher API 접근 성공
-- Play 구독 카탈로그 조회 성공
-- `call_monthly`, `message_monthly` 조회 성공
+- 전화관리만: **`전화관리 이용 중`**
+- 문자자동화만: **`문자자동화 이용 중`**
+- 둘 다: **`전화관리 · 문자자동화 이용 중`**
 
-현재 readiness는 유효한 Play credential이 존재하면 활성화된다. 긴급 중지는 `GOOGLE_PLAY_BILLING_DISABLED=1`을 사용한다. 과거 `GOOGLE_PLAY_BILLING_ENABLED` / `GOOGLE_PLAY_PRODUCTS_READY` 수동 플래그는 현재 핵심 게이트로 사용하지 않는다.
+상품 버튼:
 
-## 3. Google 로그인 — 재검토 및 패치 완료
+- 이미 구매: **`이용 중`** 비활성
+- 미구매 전화관리: **`월 1,900원 시작`**
+- 미구매 문자자동화: **`월 990원 시작`**
 
-기본 로그인 구조:
+개발자용 결제 문구는 사용자 화면에서 제거했다.
 
-`Google로 계속하기 → Android Credential Manager → Google ID Token → POST /api/call/google/id-token → 서버 JWT 검증 → CallTag 세션 생성`
+서버 per-product entitlement 패치는 Cloudflare 운영 배포 완료.
 
-### 운영 검증 결과
+## 4. Google 로그인 — 0.44.25 수정
 
-- Native Server Client ID 설정: **정상**
-- 앱 BuildConfig의 Server Client ID와 서버 audience: **일치**
-- Google JWKS 접근: **HTTP 200**
-- 확인 당시 Google 공개키: **4개**
-- nativeLoginReady: **true**
-- legacy browser OAuth 설정도 존재
+0.44.24 실기기에서 Credential Manager 계정 선택 단계 실패가 확인됐다.
 
-Server/Web Client ID:
+0.44.25는 다음 방식으로 수정했다.
 
-`31346298247-o5jfdetjs84mu02c8tp68qg19ifo89en.apps.googleusercontent.com`
+1. 우선 Android Credential Manager 네이티브 Google 로그인을 시도.
+2. 사용자가 직접 취소한 경우만 조용히 종료.
+3. 그 외 provider/configuration/device 오류, timeout, 잘못된 credential 응답은 모두 기존 안전한 OAuth 로그인으로 자동 fallback.
+4. fallback은 `https://pagero.kr/api/call/google/start?return_scheme=calltag` → Google 로그인 → signed state → callback → one-time ticket → 앱 세션 교환 흐름을 사용.
+5. `앱 서명`, `클라이언트 설정`, `configuration_error` 등 개발자용 문구는 사용자에게 표시하지 않음.
 
-Android OAuth Client:
+운영 서버 설정은 이전 검증에서 정상 확인됨:
 
-- package: `kr.pagero.calltag`
-- Android Client ID: `31346298247-ih26h65v8i4ct5927tqqncqpqu9r7e20.apps.googleusercontent.com`
-- Android Client와 Server/Web Client를 서로 바꾸지 않는다.
+- Server Client ID 일치
+- Google JWKS HTTP 200
+- native ID token 서버 검증 경로 정상
+- legacy OAuth fallback 설정 존재
 
-### 0.44.24 Google 로그인 안정화
+### 설치 테스트 주의
 
-- Cloudflare Pages에서 문제가 될 수 있던 Google JWKS `AbortSignal.timeout()` 제거
-- legacy Google code exchange / userinfo 경로의 동일 timeout 패턴 제거
-- Credential Manager Activity 재생성 시 계정 선택 흐름 재시작 가능하도록 보강
-- 계정 선택 타임아웃 30초 → 90초
-- 서버 로그인 처리 타임아웃 25초
-- Server Client ID 빈 값 선검사
-- `setFilterByAuthorizedAccounts(false)` 유지
-- `setAutoSelectEnabled(false)` 유지
-- nonce / audience / issuer / expiry / signature / email_verified 검증 유지
+0.44.24 ZIP의 `debug.apk`는 Play App Signing 인증서와 다르므로 네이티브 Credential Manager 설정 오류가 날 수 있다. 최종 검증은 Play 내부 테스트 AAB 설치본이 우선이다.
 
-## 4. 아직 남은 필수 작업
+0.44.25에서는 네이티브 provider 오류가 나도 OAuth fallback으로 로그인할 수 있도록 보강했다.
 
-### P0 — 실기기 Google 로그인 E2E
+## 5. 남은 P0
 
-0.44.24 Play 설치본에서 아래를 확인한다.
+1. 정상 Play upload JKS 복구 또는 Play upload key reset.
+2. `0.44.25 / 2026081211` signed AAB 생성.
+3. Play 내부 테스트 설치.
+4. Google 로그인 E2E 확인.
+5. 전화관리 구독 상태에서 문자자동화 추가 결제 확인.
+6. 구매 복원 / 재설치 복원 확인.
 
-1. Google 계정 선택창 표시
-2. 계정 선택 후 로그인 완료
-3. 기존 이메일 회원은 중복 생성 없이 동일 계정으로 로그인
-4. 로그아웃 → Google 재로그인
-5. Google 로그인 후 기존 `call_monthly` entitlement 복원
-6. 여러 Google 계정이 있는 기기에서 계정 선택 가능
-7. 사용자 취소 시 앱이 정상 복귀
+## 6. 이후 P1
 
-### P1 — RTDN
+- RTDN / Pub/Sub
+- 갱신, 취소, 만료, grace, account hold, refund lifecycle 동기화
+- 주기적 reconciliation
 
-결제 신규 구매는 성공했지만 구독 생명주기 자동 동기화는 아직 남아 있다.
+## 7. 고정 정책
 
-- Google Play RTDN + Pub/Sub 연결
-- 갱신
-- 사용자 취소
-- 만료
-- grace period
-- account hold
-- resume
-- refund/voided purchase
-- 서버 reconciliation
-
-RTDN 메시지만 믿지 말고 알림을 받은 뒤 Android Publisher API를 다시 조회해 최종 entitlement를 갱신한다.
-
-## 5. 무료체험 / 추천인 정본
-
-CallTag 정책은 다음을 유지한다.
-
-- 일반 신규 가입: **7일 무료**
-- 가입 시 추천인 코드 입력: **+7일**
-- 최대 **14일 무료**
-- 무료 종료 후 자동 결제 없음
-- 추천인 코드는 회원가입 시에만 선택 입력
-
-`inlet/functions/api/billing/_shared.js`의 generic legacy 3일/+5일 값과 혼동하지 않는다. CallTag 전용 정책을 깨뜨리지 않는다.
-
-## 6. 데이터·운영 금지선
-
-- 결제/로그인 패치 때문에 기존 고객·통화·메모·일정·문자 데이터를 초기화하지 않는다.
-- 앱 purchase callback만 보고 유료 권한을 열지 않는다.
-- purchaseToken 원문을 로그/문서/DB에 저장하지 않는다.
-- Google 서비스 계정 private key를 GitHub/문서/채팅에 넣지 않는다.
-- `all_monthly`를 사용자가 요청하기 전 임의 생성하지 않는다.
-- 현재 결제 성공을 RTDN까지 끝난 것으로 오해하지 않는다.
-
-## 7. 다음 작업 순서
-
-1. `0.44.24 / 2026081210` AAB를 Play 내부 테스트에 업로드
-2. Play 설치본으로 Google 로그인 E2E 확인
-3. 결제 계정 로그아웃/재로그인 후 entitlement 유지 확인
-4. 재설치 후 Play 구매 복원 확인
-5. RTDN/Pub/Sub 구현
-6. 취소·만료·환불·grace/account hold lifecycle QA
+- CallTag 무료체험: 기본 7일 + 추천인 7일 = 최대 14일
+- 무료 종료 후 자동결제 없음
+- 고객/통화/메모/일정/문자 데이터는 구독 만료나 결제 패치로 삭제하지 않음
+- purchaseToken 원문 장기 저장 금지
+- Google service account private key 저장소/문서/채팅 노출 금지
+- `all_monthly`는 사용자가 다시 지시하기 전 생성/판매하지 않음
