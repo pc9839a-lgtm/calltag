@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** 더보기는 8개 진입점을 4개 목적 그룹으로 분리해서 노출한다. */
+/** 더보기는 8개 진입점을 4개 목적 그룹으로 분리해서 충분한 간격으로 노출한다. */
 public final class MoreSettingsHubView extends LinearLayout {
     private final List<MenuItem> items = new ArrayList<>();
     private final List<Section> sections = new ArrayList<>();
@@ -78,7 +78,7 @@ public final class MoreSettingsHubView extends LinearLayout {
     private Section section(String title) {
         Section section = new Section(title);
         sections.add(section);
-        addView(section.root, topMargin(sections.size() == 1 ? 20 : 24));
+        addView(section.root, topMargin(sections.size() == 1 ? 24 : 34));
         return section;
     }
 
@@ -101,7 +101,7 @@ public final class MoreSettingsHubView extends LinearLayout {
 
     private final class Section {
         final LinearLayout root;
-        final LinearLayout card;
+        final LinearLayout rows;
         final List<MenuItem> menuItems = new ArrayList<>();
 
         Section(String title) {
@@ -118,19 +118,17 @@ public final class MoreSettingsHubView extends LinearLayout {
             root.addView(label, new LayoutParams(
                     LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
-            card = new LinearLayout(getContext());
-            card.setOrientation(VERTICAL);
-            card.setPadding(dp(5), dp(5), dp(5), dp(5));
-            card.setBackgroundResource(R.drawable.bg_card);
-            root.addView(card, topMargin(9));
+            rows = new LinearLayout(getContext());
+            rows.setOrientation(VERTICAL);
+            root.addView(rows, topMargin(10));
         }
 
         void addMenu(String title, String keywords, View.OnClickListener listener) {
             LinearLayout row = new LinearLayout(getContext());
             row.setOrientation(HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(dp(16), 0, dp(12), 0);
-            row.setBackgroundResource(R.drawable.bg_clickable_row);
+            row.setPadding(dp(18), 0, dp(14), 0);
+            row.setBackgroundResource(R.drawable.bg_card);
             row.setClickable(true);
             row.setFocusable(true);
             row.setOnClickListener(listener);
@@ -148,13 +146,16 @@ public final class MoreSettingsHubView extends LinearLayout {
             arrow.setTextSize(24f);
             arrow.setTextColor(getContext().getColor(R.color.text_muted));
             arrow.setGravity(Gravity.CENTER);
-            row.addView(arrow, new LayoutParams(dp(28), dp(48)));
+            row.addView(arrow, new LayoutParams(dp(30), dp(52)));
 
             MenuItem item = new MenuItem(row,
                     (title + " " + keywords).toLowerCase(Locale.KOREA));
             items.add(item);
             menuItems.add(item);
-            card.addView(row, rowParams());
+
+            LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, dp(64));
+            params.bottomMargin = dp(12);
+            rows.addView(row, params);
         }
 
         void refreshVisibility() {
@@ -177,12 +178,6 @@ public final class MoreSettingsHubView extends LinearLayout {
             this.row = row;
             this.searchText = searchText;
         }
-    }
-
-    private LayoutParams rowParams() {
-        LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, dp(60));
-        params.bottomMargin = dp(3);
-        return params;
     }
 
     private LayoutParams topMargin(int value) {
