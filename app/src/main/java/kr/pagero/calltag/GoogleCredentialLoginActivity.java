@@ -23,6 +23,7 @@ import androidx.credentials.GetCredentialResponse;
 import androidx.credentials.exceptions.GetCredentialCancellationException;
 import androidx.credentials.exceptions.GetCredentialException;
 
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption;
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
 
@@ -36,7 +37,7 @@ import java.util.concurrent.Executors;
 public final class GoogleCredentialLoginActivity extends Activity {
     private static final String TAG = "CallTagGoogleLogin";
     private static final long PROVIDER_TIMEOUT_MS = 12_000L;
-    private static final long EXCHANGE_TIMEOUT_MS = 20_000L;
+    private static final long EXCHANGE_TIMEOUT_MS = 15_000L;
 
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -47,12 +48,15 @@ public final class GoogleCredentialLoginActivity extends Activity {
     private boolean started;
     private boolean finished;
     private boolean tokenExchangeStarted;
+    private boolean secondaryNativeAttempted;
+    private String activeNonce = "";
+    private String activeServerClientId = "";
 
     private final Runnable providerTimeout = () -> {
         if (finished || tokenExchangeStarted) return;
         Log.e(TAG, "Credential Manager did not return within timeout");
         if (cancellationSignal != null) cancellationSignal.cancel();
-        showRetry("Google 계정 선택창을 열지 못했습니다. 다시 시도해주세요.");
+        showRetry("Google 계정 선택이 지연되고 있습니다. 다시 시도해주세요.");
     };
 
     private final Runnable exchangeTimeout = () -> {
@@ -130,33 +134,67 @@ public final class GoogleCredentialLoginActivity extends Activity {
         if (started || finished) return;
         started = true;
         tokenExchangeStarted = false;
+        secondaryNativeAttempted = false;
         setState("Google 계정을 선택해주세요.");
 
-        String serverClientId = BuildConfig.GOOGLE_SERVER_CLIENT_ID == null
+        activeServerClientId = BuildConfig.GOOGLE_SERVER_CLIENT_ID == null
                 ? "" : BuildConfig.GOOGLE_SERVER_CLIENT_ID.trim();
-        if (serverClientId.isEmpty()) {
+        if (activeServerClientId.isEmpty()) {
             showRetry("Google 로그인을 시작하지 못했습니다. 다시 시도해주세요.");
             return;
         }
+        activeNonce = secureNonce();
+        requestExplicitGoogle();
+    }
 
-        final String nonce = secureNonce();
-        final GetSignInWithGoogleOption googleOption;
+    private void requestExplicitGoogle() {
         try {
-            googleOption = new GetSignInWithGoogleOption.Builder(serverClientId)
-                    .setNonce(nonce)
+            GetSignInWithGoogleOption googleOption =
+                    new GetSignInWithGoogleOption.Builder(activeServerClientId)
+                            .setNonce(activeNonce)
+                            .build();
+            GetCredentialRequest request = new GetCredentialRequest.Builder()
+                    .addCredentialOption(googleOption)
                     .build();
+            requestNativeCredential(request, true);
         } catch (RuntimeException error) {
-            Log.e(TAG, "Failed to build Google sign-in option", error);
-            showRetry("Google 로그인을 시작하지 못했습니다. 다시 시도해주세요.");
+            Log.e(TAG, "Failed to build explicit Google sign-in option", error);
+            requestAllGoogleAccounts();
+        }
+    }
+
+    /**
+     * Second native-only route. This still uses Credential Manager; it never opens a browser.
+     * It asks for all Google accounts instead of relying on the explicit SIWG provider path.
+     */
+    private void requestAllGoogleAccounts() {
+        if (finished || secondaryNativeAttempted) {
+            showRetry("Google 계정을 확인하지 못했습니다. 다시 시도해주세요.");
             return;
         }
+        secondaryNativeAttempted = true;
+        setState("Google 계정을 다시 확인하고 있습니다…");
+        try {
+            GetGoogleIdOption option = new GetGoogleIdOption.Builder()
+                    .setServerClientId(activeServerClientId)
+                    .setFilterByAuthorizedAccounts(false)
+                    .setAutoSelectEnabled(false)
+                    .setNonce(activeNonce)
+                    .build();
+            GetCredentialRequest request = new GetCredentialRequest.Builder()
+                    .addCredentialOption(option)
+                    .build();
+            requestNativeCredential(request, false);
+        } catch (RuntimeException error) {
+            Log.e(TAG, "Failed to build secondary Google credential option", error);
+            showRetry("Google 로그인을 시작하지 못했습니다. 다시 시도해주세요.");
+        }
+    }
 
-        GetCredentialRequest request = new GetCredentialRequest.Builder()
-                .addCredentialOption(googleOption)
-                .build();
-
+    private void requestNativeCredential(GetCredentialRequest request, boolean allowSecondary) {
         CredentialManager manager = CredentialManager.create(this);
         cancellationSignal = new CancellationSignal();
+        mainHandler.removeCallbacks(providerTimeout);
         mainHandler.postDelayed(providerTimeout, PROVIDER_TIMEOUT_MS);
 
         manager.getCredentialAsync(
@@ -169,7 +207,7 @@ public final class GoogleCredentialLoginActivity extends Activity {
                     public void onResult(GetCredentialResponse result) {
                         mainHandler.removeCallbacks(providerTimeout);
                         setState("로그인 중…");
-                        handleCredential(result, nonce);
+                        handleCredential(result, activeNonce);
                     }
 
                     @Override
@@ -181,7 +219,11 @@ public final class GoogleCredentialLoginActivity extends Activity {
                             finishQuietly();
                             return;
                         }
-                        showRetry("Google 계정 선택창을 열지 못했습니다. 다시 시도해주세요.");
+                        if (allowSecondary) {
+                            requestAllGoogleAccounts();
+                        } else {
+                            showRetry("Google 계정을 확인하지 못했습니다. 다시 시도해주세요.");
+                        }
                     }
                 });
     }
@@ -239,7 +281,8 @@ public final class GoogleCredentialLoginActivity extends Activity {
         if (finished) return;
         try {
             AuthSessionStore.save(this, response);
-            if (response.optJSONObject("entitlement") != null) {
+            boolean entitlementIncluded = response.optJSONObject("entitlement") != null;
+            if (entitlementIncluded) {
                 FeatureEntitlementStore.saveServerEntitlement(this, response);
             }
             if (response.optJSONObject("pageroConnection") != null
@@ -253,7 +296,9 @@ public final class GoogleCredentialLoginActivity extends Activity {
                 PageroAccountConnectionManager.refresh(this, true);
             }
             CallTagPushManager.registerIfAvailable(this);
-            EntitlementRefreshManager.request(this, true);
+            if (!entitlementIncluded) {
+                EntitlementRefreshManager.request(this, true);
+            }
 
             android.content.Intent destination = SetupRequirements.isReady(this)
                     ? new android.content.Intent(this, MainActivity.class)
@@ -276,8 +321,13 @@ public final class GoogleCredentialLoginActivity extends Activity {
             }
             if ("GOOGLE_JWKS_NETWORK_FAILED".equals(api.code)
                     || "GOOGLE_JWKS_UNAVAILABLE".equals(api.code)) {
-                return "Google 로그인에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.";
+                return "Google 로그인 서버 연결이 지연되고 있습니다. 다시 시도해주세요.";
             }
+            if ("GOOGLE_ID_TOKEN_AUDIENCE_INVALID".equals(api.code)) {
+                return "Google 로그인 연결 정보를 확인하지 못했습니다.";
+            }
+            String message = error.getMessage();
+            if (message != null && !message.trim().isEmpty()) return message;
         }
         return "Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.";
     }
@@ -291,6 +341,8 @@ public final class GoogleCredentialLoginActivity extends Activity {
         }
         started = false;
         tokenExchangeStarted = false;
+        activeNonce = "";
+        activeServerClientId = "";
         setState(message);
         if (retryButton != null) retryButton.setVisibility(View.VISIBLE);
     }
