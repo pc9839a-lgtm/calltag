@@ -1,0 +1,163 @@
+name: CallTag 0.44.20 signed Play AAB
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/calltag-auth-ux-google-upgrade-fix
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  signed-play-aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify release contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -F 'versionCode 2026081206' app/build.gradle
+          grep -F "versionName '0.44.20'" app/build.gradle
+          grep -F "applicationId 'kr.pagero.calltag'" app/build.gradle
+          grep -F "androidx.credentials:credentials:1.6.0" app/build.gradle
+          grep -F "credentials-play-services-auth:1.6.0" app/build.gradle
+          grep -F "googleid:googleid:1.2.0" app/build.gradle
+          grep -F 'startActivity(new Intent(this, GoogleCredentialLoginActivity.class));' app/src/main/java/kr/pagero/calltag/LoginActivity.java
+          if grep -F 'Uri.parse(AuthApiClient.googleLoginUrl())' app/src/main/java/kr/pagero/calltag/LoginActivity.java; then
+            echo 'Legacy web Google login is still wired to the login button.' >&2
+            exit 1
+          fi
+          grep -F 'GetSignInWithGoogleOption' app/src/main/java/kr/pagero/calltag/GoogleCredentialLoginActivity.java
+          grep -F 'CredentialManager.create(this)' app/src/main/java/kr/pagero/calltag/GoogleCredentialLoginActivity.java
+          grep -F '/api/call/google/id-token' app/src/main/java/kr/pagero/calltag/AuthApiClient.java
+          grep -F 'android:name=".GoogleCredentialLoginActivity"' app/src/main/AndroidManifest.xml
+          test -s app/src/main/res/drawable-nodpi/calltag_launcher_safe.webp
+          if grep -F 'android.permission.USE_FULL_SCREEN_INTENT' app/src/main/AndroidManifest.xml; then exit 1; fi
+
+      - name: Prepare safe-zone adaptive launcher icon
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/res/drawable app/src/main/res/mipmap app/src/main/res/mipmap-anydpi-v26
+          cat > app/src/main/res/drawable/calltag_launcher_foreground.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+              android:src="@drawable/calltag_launcher_safe"
+              android:gravity="fill" />
+          EOF
+          cat > app/src/main/res/mipmap/ic_launcher_calltag.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+              android:src="@drawable/calltag_launcher_safe"
+              android:gravity="fill" />
+          EOF
+          cp app/src/main/res/mipmap/ic_launcher_calltag.xml app/src/main/res/mipmap/ic_launcher_calltag_round.xml
+          cat > app/src/main/res/mipmap-anydpi-v26/ic_launcher_calltag.xml <<'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/primary" />
+              <foreground android:drawable="@drawable/calltag_launcher_foreground" />
+          </adaptive-icon>
+          EOF
+          cp app/src/main/res/mipmap-anydpi-v26/ic_launcher_calltag.xml app/src/main/res/mipmap-anydpi-v26/ic_launcher_calltag_round.xml
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('app/src/main/AndroidManifest.xml')
+          s=p.read_text()
+          s=re.sub(r'\s+android:icon="[^"]+"', '', s, count=1)
+          s=re.sub(r'\s+android:roundIcon="[^"]+"', '', s, count=1)
+          needle='        android:allowBackup="false"\n'
+          repl='        android:allowBackup="false"\n        android:icon="@mipmap/ic_launcher_calltag"\n        android:roundIcon="@mipmap/ic_launcher_calltag_round"\n'
+          if 'android:icon=' not in s:
+              s=s.replace(needle,repl,1)
+          p.write_text(s)
+          PY
+          grep -F 'android:icon="@mipmap/ic_launcher_calltag"' app/src/main/AndroidManifest.xml
+          grep -F 'android:roundIcon="@mipmap/ic_launcher_calltag_round"' app/src/main/AndroidManifest.xml
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Restore verified Play upload key
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SECRET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
+          SECRET_UPLOAD_STORE_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_STORE_PASSWORD }}
+          SECRET_UPLOAD_KEY_ALIAS: ${{ secrets.CALLTAG_UPLOAD_KEY_ALIAS }}
+          SECRET_UPLOAD_KEY_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_KEY_PASSWORD }}
+          ORIGINAL_UPLOAD_KEY_ARTIFACT_ID: '8922836146'
+          EXPECTED_UPLOAD_KEY_SHA256: 'C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7'
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/calltag-upload.jks"
+          configured=0
+          for value in "$SECRET_UPLOAD_KEYSTORE_BASE64" "$SECRET_UPLOAD_STORE_PASSWORD" "$SECRET_UPLOAD_KEY_ALIAS" "$SECRET_UPLOAD_KEY_PASSWORD"; do
+            [ -n "$value" ] && configured=$((configured + 1))
+          done
+          if [ "$configured" -ne 0 ] && [ "$configured" -ne 4 ]; then exit 1; fi
+          if [ "$configured" -eq 4 ]; then
+            printf '%s' "$SECRET_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+            STORE_PASSWORD="$SECRET_UPLOAD_STORE_PASSWORD"
+            KEY_ALIAS="$SECRET_UPLOAD_KEY_ALIAS"
+            KEY_PASSWORD="$SECRET_UPLOAD_KEY_PASSWORD"
+          else
+            mkdir -p "$RUNNER_TEMP/original-upload-key"
+            gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ORIGINAL_UPLOAD_KEY_ARTIFACT_ID}/zip" > "$RUNNER_TEMP/original-upload-key.zip"
+            unzip -q "$RUNNER_TEMP/original-upload-key.zip" -d "$RUNNER_TEMP/original-upload-key"
+            cp "$RUNNER_TEMP/original-upload-key/calltag-upload.jks" "$KEYSTORE"
+            CREDENTIALS="$RUNNER_TEMP/original-upload-key/CALLTAG_UPLOAD_KEY_CREDENTIALS.txt"
+            STORE_PASSWORD="$(grep '^CALLTAG_UPLOAD_STORE_PASSWORD=' "$CREDENTIALS" | cut -d= -f2-)"
+            KEY_ALIAS="$(grep '^CALLTAG_UPLOAD_KEY_ALIAS=' "$CREDENTIALS" | cut -d= -f2-)"
+            KEY_PASSWORD="$(grep '^CALLTAG_UPLOAD_KEY_PASSWORD=' "$CREDENTIALS" | cut -d= -f2-)"
+          fi
+          test -s "$KEYSTORE"
+          echo "::add-mask::$STORE_PASSWORD"
+          echo "::add-mask::$KEY_PASSWORD"
+          chmod 600 "$KEYSTORE"
+          keytool -list -v -keystore "$KEYSTORE" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | grep -E 'Alias name:|Owner:|SHA1:|SHA256:' > "$RUNNER_TEMP/upload-key-fingerprints.txt"
+          grep -F "SHA256: $EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/upload-key-fingerprints.txt"
+          echo "CALLTAG_UPLOAD_KEYSTORE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "CALLTAG_UPLOAD_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "CALLTAG_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Build signed Play release AAB
+        run: gradle :app:bundleRelease --no-daemon --stacktrace
+
+      - name: Verify and stage signed AAB
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAB='app/build/outputs/bundle/release/app-release.aab'
+          test -s "$AAB"
+          jarsigner -verify -certs "$AAB"
+          unzip -l "$AAB" | grep -F 'calltag_launcher_safe'
+          OUT="$RUNNER_TEMP/calltag-v0.44.20-play"
+          mkdir -p "$OUT"
+          cp "$AAB" "$OUT/CallTag-v0.44.20-code2026081206.aab"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04420_AAB_SHA256.txt"
+          cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
+
+      - name: Upload Play Console AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: calltag-v0.44.20-code2026081206-play-aab
+          path: ${{ runner.temp }}/calltag-v0.44.20-play
+          retention-days: 90
+          if-no-files-found: error
