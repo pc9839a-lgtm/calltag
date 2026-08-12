@@ -1,13 +1,6 @@
 const elements = {
   dashboard: document.getElementById('dashboard'),
-  loginLayer: document.getElementById('loginLayer'),
-  loginForm: document.getElementById('loginForm'),
-  emailInput: document.getElementById('emailInput'),
-  passwordInput: document.getElementById('passwordInput'),
-  loginButton: document.getElementById('loginButton'),
-  loginError: document.getElementById('loginError'),
   refreshButton: document.getElementById('refreshButton'),
-  logoutButton: document.getElementById('logoutButton'),
   statusBar: document.getElementById('statusBar'),
   adminIdentity: document.getElementById('adminIdentity'),
   generatedAt: document.getElementById('generatedAt'),
@@ -40,60 +33,20 @@ const STATUS_LABELS = {
   pending: '대기',
   suspended: '정지',
   verified: '검증됨',
+  trial: '체험',
+  inactive: '비활성',
 };
 
 boot();
 
 function boot() {
-  elements.loginForm.addEventListener('submit', onLogin);
   elements.refreshButton.addEventListener('click', () => loadOverview(true));
-  elements.logoutButton.addEventListener('click', onLogout);
   elements.detailClose.addEventListener('click', closeDetail);
   elements.detailBackdrop.addEventListener('click', closeDetail);
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') closeDetail();
   });
   loadOverview(false);
-}
-
-async function onLogin(event) {
-  event.preventDefault();
-  setLoginError('');
-  const email = elements.emailInput.value.trim();
-  const password = elements.passwordInput.value;
-  if (!email || !password) {
-    setLoginError('이메일과 비밀번호를 입력해주세요.');
-    return;
-  }
-
-  elements.loginButton.disabled = true;
-  try {
-    const result = await requestJson('/admin/api/login', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!result.ok) {
-      setLoginError(result.error || '로그인에 실패했습니다.');
-      return;
-    }
-    elements.passwordInput.value = '';
-    await loadOverview(false);
-  } finally {
-    elements.loginButton.disabled = false;
-    elements.passwordInput.value = '';
-  }
-}
-
-async function onLogout() {
-  elements.logoutButton.disabled = true;
-  try {
-    await requestJson('/admin/api/logout', { method: 'POST' });
-  } finally {
-    elements.logoutButton.disabled = false;
-    closeDetail();
-    showLogin();
-  }
 }
 
 async function loadOverview(manual) {
@@ -103,17 +56,12 @@ async function loadOverview(manual) {
   elements.refreshButton.disabled = false;
 
   if (!result.ok) {
-    if (result.status === 401 || result.code === 'CALLTAG_ADMIN_SESSION_REQUIRED') {
-      showLogin();
-      return;
-    }
     elements.dashboard.hidden = true;
-    elements.loginLayer.hidden = true;
+    elements.adminIdentity.textContent = '';
     setStatus(result.error || '관리자 데이터를 불러오지 못했습니다.');
     return;
   }
 
-  hideLogin();
   setStatus('');
   renderOverview(result.data);
 }
@@ -137,6 +85,7 @@ function renderMembers(rows) {
   elements.emptyMembers.hidden = rows.length > 0;
 
   for (const row of rows) {
+    const effectiveStatus = row.subscription?.status || trialStatus(row);
     const tr = document.createElement('tr');
     tr.append(
       cell(shortOwner(row.ownerId), 'mono'),
@@ -144,7 +93,7 @@ function renderMembers(rows) {
       cell(row.phone || '-'),
       cell(formatDate(row.createdAt)),
       cell(productLabel(row.subscription?.productCode)),
-      pillCell(statusLabel(row.subscription?.status || trialStatus(row)), statusClass(row.subscription?.status || trialStatus(row))),
+      pillCell(statusLabel(effectiveStatus), statusClass(effectiveStatus)),
       pillCell(verificationLabel(row.subscription?.verificationState), verificationClass(row.subscription?.verificationState)),
       actionCell(row.ownerId),
     );
@@ -168,8 +117,7 @@ async function openMember(ownerId) {
   setStatus('');
   const result = await requestJson(`/admin/api/member?ownerId=${encodeURIComponent(ownerId)}`);
   if (!result.ok) {
-    if (result.status === 401) showLogin();
-    else setStatus(result.error || '회원 상세를 불러오지 못했습니다.');
+    setStatus(result.error || '회원 상세를 불러오지 못했습니다.');
     return;
   }
   renderMemberDetail(result.data);
@@ -225,7 +173,6 @@ function renderMemberDetail(data) {
   elements.detailBody.append(section('추천', [
     ['추천 인원', `${number(referral.referredCount)}명`],
     ['추천받음', referral.wasReferred ? '예' : '아니오'],
-    ['지급 보너스', `${number(referral.issuedBonusDays)}일`],
   ]));
 
   const partner = data?.partner || {};
@@ -273,12 +220,13 @@ function pillCell(value, type = '') {
   return td;
 }
 
-async function requestJson(url, options = {}) {
+async function requestJson(url) {
   try {
     const response = await fetch(url, {
+      method: 'GET',
       credentials: 'same-origin',
       cache: 'no-store',
-      ...options,
+      headers: { accept: 'application/json' },
     });
     let data = {};
     try { data = await response.json(); } catch { data = {}; }
@@ -294,29 +242,10 @@ async function requestJson(url, options = {}) {
   }
 }
 
-function showLogin() {
-  elements.dashboard.hidden = true;
-  elements.loginLayer.hidden = false;
-  elements.adminIdentity.textContent = '';
-  setStatus('');
-  setLoginError('');
-  window.setTimeout(() => elements.emailInput.focus(), 0);
-}
-
-function hideLogin() {
-  elements.loginLayer.hidden = true;
-  setLoginError('');
-}
-
 function closeDetail() {
   elements.detailBackdrop.hidden = true;
   elements.memberDetail.hidden = true;
   elements.detailBody.replaceChildren();
-}
-
-function setLoginError(message) {
-  elements.loginError.textContent = String(message || '');
-  elements.loginError.hidden = !message;
 }
 
 function setStatus(message) {
