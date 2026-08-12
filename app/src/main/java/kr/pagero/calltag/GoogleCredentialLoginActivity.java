@@ -2,6 +2,7 @@ package kr.pagero.calltag;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.CancellationSignal;
 import android.os.Handler;
@@ -32,11 +33,13 @@ import java.security.SecureRandom;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** Native Google sign-in host. */
+/** Native Google sign-in host with a secure OAuth fallback. */
 public final class GoogleCredentialLoginActivity extends Activity {
     private static final String TAG = "CallTagGoogleLogin";
     private static final long PROVIDER_TIMEOUT_MS = 90_000L;
     private static final long EXCHANGE_TIMEOUT_MS = 25_000L;
+    private static final String GOOGLE_FALLBACK_URL =
+            "https://pagero.kr/api/call/google/start?return_scheme=calltag";
 
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -51,13 +54,13 @@ public final class GoogleCredentialLoginActivity extends Activity {
         if (finished || tokenExchangeStarted) return;
         Log.e(TAG, "Credential Manager did not return within timeout");
         if (cancellationSignal != null) cancellationSignal.cancel();
-        fail("Google 계정 선택 응답이 없습니다. 다시 시도해주세요.");
+        fail("Google 로그인 응답이 없습니다. 다시 시도해주세요.");
     };
 
     private final Runnable exchangeTimeout = () -> {
         if (finished || !tokenExchangeStarted) return;
         Log.e(TAG, "Google token exchange timed out");
-        fail("Google 로그인 서버 응답이 없습니다. 다시 시도해주세요.");
+        fail("Google 로그인 응답이 없습니다. 다시 시도해주세요.");
     };
 
     @Override
@@ -65,9 +68,6 @@ public final class GoogleCredentialLoginActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(buildContent());
         GoogleAuthFlowStore.clear(this);
-        // Process recreation can deliver a non-null savedInstanceState while the previous
-        // Credential Manager request has already been lost. Always start a fresh flow for
-        // this newly-created Activity instance; the per-instance started guard prevents duplicates.
         startGoogleCredentialFlow();
     }
 
@@ -100,7 +100,7 @@ public final class GoogleCredentialLoginActivity extends Activity {
                 LinearLayout.LayoutParams.WRAP_CONTENT));
 
         stateView = new TextView(this);
-        stateView.setText("Google 계정 선택창을 여는 중…");
+        stateView.setText("Google 계정을 불러오는 중…");
         stateView.setTextColor(getColor(R.color.text_secondary));
         stateView.setTextSize(14f);
         stateView.setGravity(Gravity.CENTER);
@@ -120,8 +120,7 @@ public final class GoogleCredentialLoginActivity extends Activity {
         String serverClientId = BuildConfig.GOOGLE_SERVER_CLIENT_ID == null
                 ? "" : BuildConfig.GOOGLE_SERVER_CLIENT_ID.trim();
         if (serverClientId.isEmpty()) {
-            Log.e(TAG, "GOOGLE_SERVER_CLIENT_ID is empty");
-            fail("Google 로그인 설정을 확인해주세요.");
+            startFallbackLogin();
             return;
         }
 
@@ -136,7 +135,7 @@ public final class GoogleCredentialLoginActivity extends Activity {
                     .build();
         } catch (RuntimeException error) {
             Log.e(TAG, "Failed to build Google credential option", error);
-            fail("Google 로그인 설정을 확인해주세요.");
+            startFallbackLogin();
             return;
         }
 
@@ -157,7 +156,7 @@ public final class GoogleCredentialLoginActivity extends Activity {
                     @Override
                     public void onResult(GetCredentialResponse result) {
                         mainHandler.removeCallbacks(providerTimeout);
-                        setState("선택한 Google 계정을 확인하고 있습니다…");
+                        setState("로그인 중…");
                         handleCredential(result, nonce);
                     }
 
@@ -170,9 +169,36 @@ public final class GoogleCredentialLoginActivity extends Activity {
                             finishQuietly();
                             return;
                         }
+                        if (isConfigurationError(error)) {
+                            startFallbackLogin();
+                            return;
+                        }
                         fail(credentialErrorMessage(error));
                     }
                 });
+    }
+
+    private void startFallbackLogin() {
+        if (finished) return;
+        mainHandler.removeCallbacks(providerTimeout);
+        setState("Google 로그인을 여는 중…");
+        try {
+            GoogleAuthFlowStore.begin(this);
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(GOOGLE_FALLBACK_URL));
+            intent.addCategory(Intent.CATEGORY_BROWSABLE);
+            startActivity(intent);
+            finished = true;
+            finish();
+        } catch (RuntimeException error) {
+            Log.e(TAG, "Failed to open Google fallback login", error);
+            GoogleAuthFlowStore.clear(this);
+            fail("Google 로그인을 시작하지 못했습니다. 다시 시도해주세요.");
+        }
+    }
+
+    private boolean isConfigurationError(GetCredentialException error) {
+        String type = error == null || error.getType() == null ? "" : error.getType().toLowerCase();
+        return type.contains("configuration") || type.contains("provider_configuration");
     }
 
     private void handleCredential(GetCredentialResponse result, String nonce) {
@@ -180,12 +206,12 @@ public final class GoogleCredentialLoginActivity extends Activity {
             Credential credential = result.getCredential();
             if (!(credential instanceof CustomCredential)) {
                 Log.e(TAG, "Unexpected credential class: " + credential.getClass().getName());
-                fail("Google 로그인 정보를 확인하지 못했습니다.");
+                fail("Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.");
                 return;
             }
             if (!GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(credential.getType())) {
                 Log.e(TAG, "Unexpected credential type: " + credential.getType());
-                fail("Google 로그인 정보 형식이 올바르지 않습니다.");
+                fail("Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.");
                 return;
             }
 
@@ -193,19 +219,19 @@ public final class GoogleCredentialLoginActivity extends Activity {
                     ((CustomCredential) credential).getData());
             String idToken = google.getIdToken();
             if (idToken == null || idToken.trim().isEmpty()) {
-                fail("Google 로그인 토큰을 확인하지 못했습니다.");
+                fail("Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.");
                 return;
             }
             exchangeToken(idToken, nonce);
         } catch (Exception error) {
             Log.e(TAG, "Failed to parse Google credential", error);
-            fail("Google 로그인 정보를 처리하지 못했습니다.");
+            fail("Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.");
         }
     }
 
     private void exchangeToken(String idToken, String nonce) {
         tokenExchangeStarted = true;
-        setState("콜태그 로그인 정보를 확인하고 있습니다…");
+        setState("로그인 중…");
         mainHandler.postDelayed(exchangeTimeout, EXCHANGE_TIMEOUT_MS);
         networkExecutor.execute(() -> {
             try {
@@ -249,36 +275,27 @@ public final class GoogleCredentialLoginActivity extends Activity {
             finish();
         } catch (Exception error) {
             Log.e(TAG, "Failed to persist Google login", error);
-            fail("로그인 정보 저장 오류입니다. 다시 시도해주세요.");
+            fail("로그인을 완료하지 못했습니다. 다시 시도해주세요.");
         }
     }
 
     private String credentialErrorMessage(GetCredentialException error) {
         String type = error == null || error.getType() == null ? "" : error.getType();
-        if (type.contains("configuration") || type.contains("provider_configuration")) {
-            return "Google 로그인 앱 설정이 일치하지 않습니다. 앱 서명 정보를 확인해주세요.";
-        }
         if (type.contains("no_credential")) {
             return "사용 가능한 Google 계정을 찾지 못했습니다.";
         }
-        return "Google 계정 선택을 완료하지 못했습니다. 다시 시도해주세요.";
+        return "Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.";
     }
 
     private String errorMessage(Exception error) {
         if (error instanceof AuthApiClient.ApiException) {
             AuthApiClient.ApiException api = (AuthApiClient.ApiException) error;
-            if ("GOOGLE_ID_TOKEN_AUDIENCE_INVALID".equals(api.code)) {
-                return "Google 로그인 클라이언트 설정이 일치하지 않습니다.";
-            }
             if ("GOOGLE_NONCE_MISMATCH".equals(api.code)) {
-                return "Google 로그인 요청을 다시 시작해주세요.";
+                return "Google 로그인을 다시 시작해주세요.";
             }
             if ("GOOGLE_JWKS_NETWORK_FAILED".equals(api.code)
                     || "GOOGLE_JWKS_UNAVAILABLE".equals(api.code)) {
-                return "Google 로그인 인증 서버에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.";
-            }
-            if (api.getMessage() != null && !api.getMessage().trim().isEmpty()) {
-                return api.getMessage();
+                return "Google 로그인에 연결하지 못했습니다. 잠시 후 다시 시도해주세요.";
             }
         }
         return "Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.";
