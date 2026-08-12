@@ -197,46 +197,33 @@ public final class BillingEntitlementActivity extends Activity
         billing.connectAndLoad();
     }
 
+    /**
+     * The screen already performs a server entitlement refresh before enabling purchase buttons.
+     * Do not perform the same HTTP check again on every tap; launch Play immediately from the
+     * freshly rendered snapshot and let server verification remain the source of truth afterward.
+     */
     private void verifyThenPurchase(String productId) {
         if (working) return;
-        String session = AuthSessionStore.session(this);
-        if (session.isEmpty()) {
+        if (AuthSessionStore.session(this).isEmpty()) {
             Toast.makeText(this, "로그인 정보를 다시 확인해주세요.", Toast.LENGTH_LONG).show();
             return;
         }
-        setWorking(true);
-        new Thread(() -> {
-            try {
-                JSONObject response = AuthApiClient.billingEntitlements(session);
-                FeatureEntitlementStore.saveServerEntitlement(this, response);
-                FeatureEntitlementStore.Snapshot snapshot = FeatureEntitlementStore.snapshot(this);
-                runOnUiThread(() -> {
-                    setWorking(false);
-                    render();
-                    if (!snapshot.playBillingAvailable) {
-                        showPlayPreparing();
-                    } else if (snapshot.isWebSubscription()) {
-                        showBlocked("페이지로에서 이용 중입니다.",
-                                "현재 이용권은 페이지로에서 관리해주세요.");
-                    } else if (snapshot.isProductSubscribed(productId)) {
-                        showBlocked("이미 이용 중입니다.",
-                                productName(productId) + " 이용권을 이미 사용하고 있습니다.");
-                    } else if (!snapshot.canStartPlayPurchase(productId)) {
-                        showBlocked("결제를 시작할 수 없습니다.",
-                                "잠시 후 다시 시도해주세요.");
-                    } else {
-                        billing.purchase(productId);
-                    }
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> {
-                    setWorking(false);
-                    Toast.makeText(this,
-                            "결제를 확인하지 못했습니다. 잠시 후 다시 시도해주세요.",
-                            Toast.LENGTH_LONG).show();
-                });
-            }
-        }, "calltag-prepurchase-gate").start();
+
+        FeatureEntitlementStore.Snapshot snapshot = FeatureEntitlementStore.snapshot(this);
+        if (!snapshot.serverChecked || !snapshot.playBillingAvailable) {
+            showPlayPreparing();
+        } else if (snapshot.isWebSubscription()) {
+            showBlocked("페이지로에서 이용 중입니다.",
+                    "현재 이용권은 페이지로에서 관리해주세요.");
+        } else if (snapshot.isProductSubscribed(productId)) {
+            showBlocked("이미 이용 중입니다.",
+                    productName(productId) + " 이용권을 이미 사용하고 있습니다.");
+        } else if (!snapshot.canStartPlayPurchase(productId)) {
+            showBlocked("결제를 시작할 수 없습니다.",
+                    "잠시 후 다시 시도해주세요.");
+        } else {
+            billing.purchase(productId);
+        }
     }
 
     private void render() {
@@ -256,8 +243,8 @@ public final class BillingEntitlementActivity extends Activity
         boolean playEnabled = value.serverChecked && value.playBillingAvailable && !working;
         setEnabled(restoreButton, playEnabled);
         boolean hasPaid = value.phoneSubscribed || value.messageSubscribed;
-        manageButton.setVisibility(hasPaid || value.isWebSubscription() ? View.VISIBLE : View.GONE);
-        setEnabled(manageButton, !working && (hasPaid || value.isWebSubscription()));
+        manageButton.setVisibility(hasPaid ? View.VISIBLE : View.GONE);
+        setEnabled(manageButton, !working && hasPaid);
     }
 
     private void renderCurrentPlan(FeatureEntitlementStore.Snapshot value) {
@@ -387,8 +374,11 @@ public final class BillingEntitlementActivity extends Activity
     @Override
     public void onServerVerified() {
         runOnUiThread(() -> {
-            Toast.makeText(this, "이용권이 적용되었습니다.", Toast.LENGTH_LONG).show();
-            refreshEntitlement(false);
+            // PlayBillingManager already saved the verified server response. Render it now instead
+            // of blocking the user on a second identical network round-trip.
+            render();
+            Toast.makeText(this, "결제 확인 완료", Toast.LENGTH_SHORT).show();
+            EntitlementRefreshManager.request(this, true);
         });
     }
 
