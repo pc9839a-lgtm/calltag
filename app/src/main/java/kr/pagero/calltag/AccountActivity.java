@@ -43,8 +43,6 @@ public final class AccountActivity extends Activity {
         append(value, "이름", AuthSessionStore.name(this));
         append(value, "연락처", formatPhone(AuthSessionStore.phone(this)));
         append(value, "이메일", AuthSessionStore.email(this));
-        append(value, "브랜드", AuthSessionStore.brand(this));
-        append(value, "업종", AuthSessionStore.industry(this));
         profile.setText(value.length() == 0 ? "회원정보를 불러오지 못했어요." : value.toString());
     }
 
