@@ -54,7 +54,7 @@ public final class GoogleCredentialLoginActivity extends Activity {
         if (finished || tokenExchangeStarted) return;
         Log.e(TAG, "Credential Manager did not return within timeout");
         if (cancellationSignal != null) cancellationSignal.cancel();
-        fail("Google 로그인 응답이 없습니다. 다시 시도해주세요.");
+        startFallbackLogin();
     };
 
     private final Runnable exchangeTimeout = () -> {
@@ -169,11 +169,9 @@ public final class GoogleCredentialLoginActivity extends Activity {
                             finishQuietly();
                             return;
                         }
-                        if (isConfigurationError(error)) {
-                            startFallbackLogin();
-                            return;
-                        }
-                        fail(credentialErrorMessage(error));
+                        // Provider/configuration/device-specific failures should never strand the user.
+                        // Fall back to the existing signed-state OAuth flow for every non-cancel error.
+                        startFallbackLogin();
                     }
                 });
     }
@@ -196,22 +194,17 @@ public final class GoogleCredentialLoginActivity extends Activity {
         }
     }
 
-    private boolean isConfigurationError(GetCredentialException error) {
-        String type = error == null || error.getType() == null ? "" : error.getType().toLowerCase();
-        return type.contains("configuration") || type.contains("provider_configuration");
-    }
-
     private void handleCredential(GetCredentialResponse result, String nonce) {
         try {
             Credential credential = result.getCredential();
             if (!(credential instanceof CustomCredential)) {
                 Log.e(TAG, "Unexpected credential class: " + credential.getClass().getName());
-                fail("Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.");
+                startFallbackLogin();
                 return;
             }
             if (!GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(credential.getType())) {
                 Log.e(TAG, "Unexpected credential type: " + credential.getType());
-                fail("Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.");
+                startFallbackLogin();
                 return;
             }
 
@@ -219,13 +212,13 @@ public final class GoogleCredentialLoginActivity extends Activity {
                     ((CustomCredential) credential).getData());
             String idToken = google.getIdToken();
             if (idToken == null || idToken.trim().isEmpty()) {
-                fail("Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.");
+                startFallbackLogin();
                 return;
             }
             exchangeToken(idToken, nonce);
         } catch (Exception error) {
             Log.e(TAG, "Failed to parse Google credential", error);
-            fail("Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.");
+            startFallbackLogin();
         }
     }
 
@@ -277,14 +270,6 @@ public final class GoogleCredentialLoginActivity extends Activity {
             Log.e(TAG, "Failed to persist Google login", error);
             fail("로그인을 완료하지 못했습니다. 다시 시도해주세요.");
         }
-    }
-
-    private String credentialErrorMessage(GetCredentialException error) {
-        String type = error == null || error.getType() == null ? "" : error.getType();
-        if (type.contains("no_credential")) {
-            return "사용 가능한 Google 계정을 찾지 못했습니다.";
-        }
-        return "Google 로그인을 완료하지 못했습니다. 다시 시도해주세요.";
     }
 
     private String errorMessage(Exception error) {
