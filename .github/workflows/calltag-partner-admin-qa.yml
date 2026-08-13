@@ -61,6 +61,15 @@ jobs:
           grep -q "/api/partner/earnings" web/settlement.js
           grep -q "/api/partner/settlements" web/settlement.js
           grep -q "inlet-8mr.pages.dev" worker/partner.js
+          grep -q "Google Authenticator 등록" web/settlement-security.js
+          grep -q "QR 코드 스캔" web/settlement-security.js
+          grep -q "QR을 사용할 수 없나요? 직접 입력하기" web/settlement-security.js
+          grep -q "qrcodejs/1.0.0/qrcode.min.js" web/settlement-security.js
+          grep -q "sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" web/settlement-security.js
+          if grep -E -n 'api\.qrserver\.com|quickchart\.io|chart\.googleapis\.com' web/settlement-security.js; then
+            echo 'TOTP secret must not be sent to an external QR rendering API.' >&2
+            exit 1
+          fi
           if grep -E -n 'purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id' web/settlement.js web/settlement-security.js; then
             echo 'Sensitive billing field found in partner settlement surface.' >&2
             exit 1
