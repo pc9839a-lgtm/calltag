@@ -7,6 +7,7 @@
   <title>콜태그 관리자</title>
   <link rel="stylesheet" href="/admin/admin.css?v=20260813-2" />
   <link rel="stylesheet" href="/admin/payout-request.css?v=20260813-payout1" />
+  <link rel="stylesheet" href="/admin/admin-ops.css?v=20260813-ops1" />
 </head>
 <body>
   <header class="topbar">
@@ -34,7 +35,10 @@
         <article><span>Play 15% 예상 수수료</span><strong id="metricPlayFee">—</strong><small>Google Play 구독만 계산</small></article>
         <article><span>수수료 제외 예상매출</span><strong id="metricRevenueNet">—</strong><small>실제 정산액과 차이날 수 있음</small></article>
       </section>
-      <div class="viewbar"><div><strong>Google Play 확정 정산</strong><span id="playFinanceMeta">수익보고서 연결 확인 중</span></div></div>
+      <div class="viewbar">
+        <div><strong>Google Play 확정 정산</strong><span id="playFinanceMeta">수익보고서 연결 확인 중</span></div>
+        <label class="play-monthpick"><span>정산 월</span><select id="playFinanceMonth" aria-label="Google Play 정산 월"><option value="">불러오는 중</option></select></label>
+      </div>
       <section class="metrics partner-metrics">
         <article><span>Play 실매출</span><strong id="playActualCustomer">—</strong></article>
         <article><span>Google 실제 수수료</span><strong id="playActualFee">—</strong></article>
@@ -43,7 +47,14 @@
         <article><span>최종 남는 금액</span><strong id="playActualFinal">—</strong></article>
       </section>
       <section class="panel">
-        <div class="panelhead"><div><h1>최근 회원</h1><p id="generatedAt">민감정보는 서버에서 마스킹 후 표시</p></div></div>
+        <div class="panelhead">
+          <div><h1>회원 목록</h1><p id="generatedAt">민감정보는 서버에서 마스킹 후 표시</p></div>
+          <div class="member-tools">
+            <input id="memberSearchInput" type="search" maxlength="80" autocomplete="off" placeholder="회원ID · 이메일 · 전화번호 검색" aria-label="회원 검색" />
+            <button id="memberSearchButton" type="button">검색</button>
+            <span id="memberResultCount" class="member-result-count">—</span>
+          </div>
+        </div>
         <div class="tablewrap">
           <table>
             <thead><tr><th>회원 ID</th><th>이메일</th><th>전화번호</th><th>가입일</th><th>이용권</th><th>이용 상태</th><th>결제 검증</th><th></th></tr></thead>
@@ -51,6 +62,7 @@
           </table>
         </div>
         <div id="emptyMembers" class="empty">운영 데이터 접근이 잠겨 있습니다.</div>
+        <div class="member-pagination"><button id="memberPrev" type="button">이전</button><span id="memberPageInfo">1 / 1</span><button id="memberNext" type="button">다음</button></div>
       </section>
     </section>
 
@@ -87,7 +99,8 @@
   </aside>
   <script src="/admin/admin.js?v=20260813-2" defer></script>
   <script src="/admin/payout-request.js?v=20260813-payout1" defer></script>
-  <script src="/admin/play-finance.js?v=20260813-1" defer></script>
+  <script src="/admin/play-finance-monthly.js?v=20260813-month1" defer></script>
+  <script src="/admin/member-ops.js?v=20260813-ops1" defer></script>
   <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
 </body>
 </html>
