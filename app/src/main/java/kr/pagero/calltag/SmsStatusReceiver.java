@@ -71,8 +71,7 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
         }
 
         if (finalResult) {
-            CampaignRuntimeManager.onSendResult(
-                    context, messageId, successResult, resultCode);
+            CampaignRuntimeManager.onSendResult(context, messageId, successResult, resultCode);
         }
         context.sendBroadcast(new Intent(MessageSectionView.ACTION_CHANGED)
                 .setPackage(context.getPackageName()));
@@ -90,6 +89,16 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
         try {
             if (db.findCustomerById(record.customerId) == null) return;
             long now = System.currentTimeMillis();
+            boolean pagero = PageroLeadMessageAutomation.TRIGGER_PAGERO_LEAD_RECEIVED
+                    .equals(record.triggerType);
+            String note;
+            if (pagero) {
+                note = sent
+                        ? "페이지로 문의 문자 발송완료\n" + record.body
+                        : "페이지로 문의 문자 발송실패 · " + error + "\n" + record.body;
+            } else {
+                note = sent ? record.body : error + " · " + record.body;
+            }
             db.insertInteraction(
                     record.customerId,
                     sent ? "MESSAGE_SENT" : "MESSAGE_FAILED",
@@ -97,7 +106,7 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
                     now,
                     0L,
                     sent ? "SENT" : "FAILED",
-                    sent ? record.body : error + " · " + record.body);
+                    note);
         } finally {
             db.close();
         }
