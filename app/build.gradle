@@ -26,8 +26,8 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        versionCode 2026081217
-        versionName '0.44.31'
+        versionCode 2026081218
+        versionName '0.44.32'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
@@ -89,6 +89,7 @@ dependencies {
     implementation 'androidx.credentials:credentials:1.6.0'
     implementation 'androidx.credentials:credentials-play-services-auth:1.6.0'
     implementation 'com.google.android.libraries.identity.googleid:googleid:1.2.0'
+    implementation 'com.google.android.gms:play-services-auth:21.6.0'
     implementation 'com.google.firebase:firebase-messaging:25.1.1'
     implementation 'com.android.billingclient:billing:9.1.0'
 
