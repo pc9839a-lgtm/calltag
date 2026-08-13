@@ -13,15 +13,18 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 public final class AuthApiClient {
+    /** Canonical production API. Auth must not depend on preview/deployment-specific environments. */
+    private static final String PRODUCTION_API_BASE = "https://pagero.kr";
+
     /**
-     * Hit the actual API origins first. pagero.kr is a web surface and remains only as the
-     * last compatibility fallback; putting it first caused every auth/billing call to wait for
-     * an avoidable non-API response before reaching the backend.
+     * Normal API calls prefer the canonical production origin. Alternate hosts are continuity
+     * fallbacks only for route/transport/server failures. Authentication errors never fall through
+     * to a different environment.
      */
     private static final String[] BASE_URLS = {
-            "https://inlet-8mr.pages.dev",
+            PRODUCTION_API_BASE,
             "https://call.pagero.kr",
-            "https://pagero.kr"
+            "https://inlet-8mr.pages.dev"
     };
 
     public static final class ApiException extends Exception {
@@ -41,10 +44,17 @@ public final class AuthApiClient {
         return "calltag://credential/google";
     }
 
+    /**
+     * Google ID tokens are always exchanged against the canonical production environment.
+     * A token must never be validated by whichever preview host happens to answer first because
+     * OAuth audience/session configuration is environment-scoped.
+     */
     public static JSONObject exchangeGoogleIdToken(String idToken, String nonce) throws Exception {
-        return post("/api/call/google/id-token", new JSONObject()
-                .put("idToken", clean(idToken))
-                .put("nonce", clean(nonce)), "");
+        return request(PRODUCTION_API_BASE + "/api/call/google/id-token", "POST",
+                new JSONObject()
+                        .put("idToken", clean(idToken))
+                        .put("nonce", clean(nonce)),
+                "");
     }
 
     public static JSONObject exchangeGoogleTicket(String ticket) throws Exception {
