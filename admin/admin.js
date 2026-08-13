@@ -4,6 +4,7 @@ const el = {
   status: $('statusBar'), identity: $('adminIdentity'), badge: $('adminModeBadge'), refresh: $('refreshButton'),
   membersTab: $('membersTab'), partnersTab: $('partnersTab'), membersView: $('membersView'), partnersView: $('partnersView'),
   total: $('metricTotal'), new7: $('metricNew'), trial: $('metricTrial'), paid: $('metricPaid'), review: $('metricPaymentReview'), partner: $('metricPartner'),
+  revenueGross: $('metricRevenueGross'), playFee: $('metricPlayFee'), revenueNet: $('metricRevenueNet'),
   generated: $('generatedAt'), rows: $('memberRows'), empty: $('emptyMembers'),
   partnerMonth: $('partnerMonth'), partnerCount: $('partnerCount'), partnerGross: $('partnerGross'), partnerEarned: $('partnerEarned'), partnerPayable: $('partnerPayable'), partnerPaid: $('partnerPaid'), partnerGenerated: $('partnerGeneratedAt'), partnerRows: $('partnerRows'), emptyPartners: $('emptyPartners'),
   backdrop: $('detailBackdrop'), drawer: $('memberDetail'), detailTitle: $('detailTitle'), detailId: $('detailOwnerId'), detailBody: $('detailBody'), close: $('detailClose'),
@@ -76,12 +77,18 @@ function renderOverview(data) {
   el.paid.textContent = number(metrics.activePaid);
   el.review.textContent = number(metrics.paymentReview);
   el.partner.textContent = number(metrics.partnerPending);
+
+  const revenue = data?.revenueEstimate || {};
+  el.revenueGross.textContent = `${money(revenue.grossMonthlyKrw)}원`;
+  el.playFee.textContent = `${money(revenue.googlePlayFeeEstimateKrw)}원`;
+  el.revenueNet.textContent = `${money(revenue.netAfterPlayFeeEstimateKrw)}원`;
+
   el.generated.textContent = data?.generatedAt ? `갱신 ${dateTime(data.generatedAt)}` : '민감정보는 서버에서 마스킹 후 표시';
   const rows = Array.isArray(data?.recentMembers) ? data.recentMembers : [];
   el.rows.replaceChildren();
   el.empty.hidden = rows.length > 0;
   for (const item of rows) {
-    const subscription = item.subscription || null;
+    const subscriptions = memberSubscriptions(item);
     const tr = document.createElement('tr');
     tr.append(
       cell(shortId(item.ownerId)),
@@ -90,7 +97,7 @@ function renderOverview(data) {
       cell(dateOnly(item.createdAt)),
       cell(entitlementLabel(item)),
       pill(memberUsageStatus(item)),
-      pill(paymentVerificationLabel(subscription)),
+      pill(paymentVerificationLabel(subscriptions)),
       actionButton('보기', () => openMember(item.ownerId)),
     );
     el.rows.append(tr);
@@ -313,15 +320,34 @@ async function paySettlement(ownerId, month, expectedAmountKrw) {
   await openPartner(ownerId);
 }
 
+function memberSubscriptions(item) {
+  if (Array.isArray(item?.subscriptions) && item.subscriptions.length) return item.subscriptions.filter((sub) => sub?.productCode);
+  return item?.subscription?.productCode ? [item.subscription] : [];
+}
+
 function entitlementLabel(item) {
-  const code = String(item?.subscription?.productCode || '');
-  if (code) return products[code] || '기타 이용권';
-  return trialIsActive(item) ? '무료체험' : '-';
+  const subscriptions = memberSubscriptions(item);
+  if (!subscriptions.length) return trialIsActive(item) ? '무료체험' : '-';
+  const codes = subscriptions.map((sub) => String(sub.productCode || '')).filter(Boolean);
+  const uniqueCodes = [...new Set(codes)];
+  const hasAll = uniqueCodes.includes('all_monthly');
+  const labels = uniqueCodes.map((code) => products[code] || '기타 이용권');
+  const duplicate = subscriptions.length > uniqueCodes.length || (hasAll && uniqueCodes.length > 1);
+  if (hasAll) return duplicate ? '통합권 · 중복구독 확인' : '통합권';
+  const base = labels.join(' + ') || '-';
+  return duplicate ? `${base} · 중복구독 확인` : base;
 }
 
 function memberUsageStatus(item) {
-  if (item?.subscription) return subscriptionStatusLabel(item.subscription.status, item.subscription.expiresAt);
-  return trialIsActive(item) ? '체험중' : '만료';
+  const subscriptions = memberSubscriptions(item);
+  if (!subscriptions.length) return trialIsActive(item) ? '체험중' : '만료';
+  const labels = subscriptions.map((sub) => subscriptionStatusLabel(sub.status, sub.expiresAt));
+  if (labels.includes('활성')) return '활성';
+  if (labels.includes('취소예정')) return '취소예정';
+  if (labels.includes('정지')) return '정지';
+  if (labels.includes('확인필요')) return '확인필요';
+  if (labels.includes('만료')) return '만료';
+  return labels[0] || '해당없음';
 }
 
 function subscriptionStatusLabel(status, expiresAt = '') {
@@ -338,11 +364,15 @@ function subscriptionStatusLabel(status, expiresAt = '') {
   return value ? '확인필요' : '해당없음';
 }
 
-function paymentVerificationLabel(subscription) {
-  if (!subscription || !subscription.productCode) return '해당없음';
-  const value = String(subscription.verificationState || '').trim().toLowerCase();
-  if (value === 'verified') return '정상';
-  if (['failed', 'invalid', 'rejected'].includes(value)) return '실패';
+function paymentVerificationLabel(input) {
+  let subscriptions = [];
+  if (Array.isArray(input)) subscriptions = input.filter((sub) => sub?.productCode);
+  else if (input?.productCode) subscriptions = [input];
+  else if (Array.isArray(input?.subscriptions)) subscriptions = input.subscriptions.filter((sub) => sub?.productCode);
+  if (!subscriptions.length) return '해당없음';
+  const values = subscriptions.map((sub) => String(sub.verificationState || '').trim().toLowerCase());
+  if (values.some((value) => ['failed', 'invalid', 'rejected'].includes(value))) return '실패';
+  if (values.every((value) => value === 'verified')) return '정상';
   return '확인필요';
 }
 
