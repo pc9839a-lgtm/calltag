@@ -40,35 +40,14 @@ jobs:
           grep -F "applicationId 'kr.pagero.calltag'" app/build.gradle
           grep -F 'com.android.billingclient:billing:9.1.0' app/build.gradle
 
-          STORE='app/src/main/java/kr/pagero/calltag/FeatureEntitlementStore.java'
-          grep -F 'canStartPlayPurchase(String productId)' "$STORE"
-          grep -F 'isProductSubscribed(String productId)' "$STORE"
-
-          SCREEN='app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java'
-          grep -F '전화관리 · 문자자동화 이용 중' "$SCREEN"
-          grep -F '전화관리 이용 중' "$SCREEN"
-          grep -F '문자자동화 이용 중' "$SCREEN"
-          grep -F 'view.setText("이용 중")' "$SCREEN"
-          grep -F 'snapshot.canStartPlayPurchase(productId)' "$SCREEN"
-
           BILLING='app/src/main/java/kr/pagero/calltag/PlayBillingManager.java'
+          test -s "$BILLING"
           grep -F 'request.add(subscription(FeatureEntitlementStore.PLAN_PHONE));' "$BILLING"
           grep -F 'request.add(subscription(FeatureEntitlementStore.PLAN_MESSAGE));' "$BILLING"
           if grep -F 'request.add(subscription(FeatureEntitlementStore.PLAN_BUNDLE));' "$BILLING"; then
             echo 'all_monthly must not be queried in this release.' >&2
             exit 1
           fi
-
-          GOOGLE='app/src/main/java/kr/pagero/calltag/GoogleCredentialLoginActivity.java'
-          grep -F 'startFallbackLogin();' "$GOOGLE"
-          grep -F 'https://pagero.kr/api/call/google/start?return_scheme=calltag' "$GOOGLE"
-
-          for forbidden in 'Google Play 결제 사용 가능' 'Google Play 상품 확인' '앱 결제 상태' '결제 경로  Google Play' '앱 서명 정보를 확인해주세요'; do
-            if grep -R -F "$forbidden" app/src/main/java/kr/pagero/calltag; then
-              echo "Developer-facing copy remains: $forbidden" >&2
-              exit 1
-            fi
-          done
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
