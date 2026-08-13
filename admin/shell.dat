@@ -33,6 +33,14 @@
         <article><span>Play 15% 예상 수수료</span><strong id="metricPlayFee">—</strong><small>Google Play 구독만 계산</small></article>
         <article><span>수수료 제외 예상매출</span><strong id="metricRevenueNet">—</strong><small>실제 정산액과 차이날 수 있음</small></article>
       </section>
+      <div class="viewbar"><div><strong>Google Play 확정 정산</strong><span id="playFinanceMeta">수익보고서 연결 확인 중</span></div></div>
+      <section class="metrics partner-metrics">
+        <article><span>Play 실매출</span><strong id="playActualCustomer">—</strong></article>
+        <article><span>Google 실제 수수료</span><strong id="playActualFee">—</strong></article>
+        <article><span>Play 실제 정산액</span><strong id="playActualNet">—</strong></article>
+        <article><span>파트너 발생액</span><strong id="playActualPartner">—</strong></article>
+        <article><span>최종 남는 금액</span><strong id="playActualFinal">—</strong></article>
+      </section>
       <section class="panel">
         <div class="panelhead"><div><h1>최근 회원</h1><p id="generatedAt">민감정보는 서버에서 마스킹 후 표시</p></div></div>
         <div class="tablewrap">
@@ -76,6 +84,7 @@
     <div id="detailBody" class="drawerbody"></div>
   </aside>
   <script src="/admin/admin.js?v=20260813-2" defer></script>
+  <script src="/admin/play-finance.js?v=20260813-1" defer></script>
   <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
 </body>
 </html>
