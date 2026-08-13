@@ -39,6 +39,7 @@ jobs:
           node --check worker/admin.js
           node --check worker/partner.js
           node --check admin/admin.js
+          node --check admin/play-finance.js
           node --check web/settlement.js
           node --check web/settlement-security.js
       - name: Enforce gateway contract
@@ -47,13 +48,18 @@ jobs:
           grep -q "/api/call/admin/partners" worker/admin.js
           grep -q "/api/call/admin/partner-rate" worker/admin.js
           grep -q "/api/call/admin/settlement-pay" worker/admin.js
+          grep -q "/api/call/admin/play-finance" worker/admin.js
           grep -q "partner.rate.update" worker/admin.js
           grep -q "partner.settlement.pay" worker/admin.js
           grep -q "파트너·정산" admin/shell.dat
+          grep -q "Google Play 확정 정산" admin/shell.dat
+          grep -q "play-finance.js" admin/shell.dat
           grep -q "정산 지급" admin/admin.js
           grep -q "이용 상태" admin/shell.dat
           grep -q "결제 검증" admin/shell.dat
           grep -q "paymentVerificationLabel" admin/admin.js
+          grep -q "memberSubscriptions" admin/admin.js
+          grep -q "/admin/api/play-finance" admin/play-finance.js
           grep -q "settlement-security.js" web/settlement.html
           grep -q "/api/partner/login" web/settlement-security.js
           grep -q "/api/partner/dashboard" web/settlement.js
@@ -70,11 +76,11 @@ jobs:
             echo 'TOTP secret must not be sent to an external QR rendering API.' >&2
             exit 1
           fi
-          if grep -E -n 'purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id' web/settlement.js web/settlement-security.js; then
-            echo 'Sensitive billing field found in partner settlement surface.' >&2
+          if grep -E -n 'purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id' web/settlement.js web/settlement-security.js admin/play-finance.js; then
+            echo 'Sensitive billing field found in admin or partner settlement surface.' >&2
             exit 1
           fi
-          if grep -E -n 'localStorage|sessionStorage|purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id|password' worker/admin.js admin/admin.js admin/shell.dat; then
+          if grep -E -n 'localStorage|sessionStorage|purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id|password' worker/admin.js admin/admin.js admin/play-finance.js admin/shell.dat; then
             echo 'Reusable credential or sensitive billing field found in web admin surface.' >&2
             exit 1
           fi
