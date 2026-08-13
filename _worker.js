@@ -1,10 +1,14 @@
 import core from './_worker-core.js';
+import { handleAdminOpsBridge } from './worker/admin-ops-bridge.js';
 import { handleAdminPayoutBridge } from './worker/admin-payout-bridge.js';
 
 const SETTLEMENT_FINALIZER='/web/settlement-finalize.js?v=20260813-final1';
 
 export default {
   async fetch(request,env,context){
+    const adminOpsResponse=await handleAdminOpsBridge(request);
+    if(adminOpsResponse)return adminOpsResponse;
+
     const adminPayoutResponse=await handleAdminPayoutBridge(request);
     if(adminPayoutResponse)return adminPayoutResponse;
 
