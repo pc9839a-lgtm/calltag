@@ -9,26 +9,17 @@ import android.content.Intent;
 import android.os.Build;
 import android.provider.Settings;
 import android.util.AttributeSet;
-import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
+/** 수신 전화 고객정보 표시 역할의 상태/설정 버튼. */
 public final class CallerIdSetupButton extends Button {
     private static final int REQUEST_SCREENING_ROLE = 7302;
 
-    public CallerIdSetupButton(Context context) {
-        super(context);
-        init();
-    }
-
-    public CallerIdSetupButton(Context context, AttributeSet attrs) {
-        super(context, attrs);
-        init();
-    }
-
+    public CallerIdSetupButton(Context context) { super(context); init(); }
+    public CallerIdSetupButton(Context context, AttributeSet attrs) { super(context, attrs); init(); }
     public CallerIdSetupButton(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        init();
+        super(context, attrs, defStyleAttr); init();
     }
 
     private void init() {
@@ -37,36 +28,25 @@ public final class CallerIdSetupButton extends Button {
         refresh();
     }
 
-    @Override
-    protected void onAttachedToWindow() {
-        super.onAttachedToWindow();
-        refresh();
-    }
-
-    @Override
-    public void onWindowFocusChanged(boolean hasWindowFocus) {
+    @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); refresh(); }
+    @Override public void onWindowFocusChanged(boolean hasWindowFocus) {
         super.onWindowFocusChanged(hasWindowFocus);
         if (hasWindowFocus) refresh();
     }
 
     private void requestScreeningRoleDirectly() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            Toast.makeText(getContext(),
-                    "Android 10 이상에서 사용할 수 있습니다.",
+            Toast.makeText(getContext(), "이 기기에서는 수신 고객정보 표시를 지원하지 않습니다.",
                     Toast.LENGTH_SHORT).show();
             return;
         }
-
-        RoleManager roleManager =
-                (RoleManager) getContext().getSystemService(Context.ROLE_SERVICE);
-        if (roleManager == null
-                || !roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)) {
+        RoleManager roleManager = (RoleManager) getContext().getSystemService(Context.ROLE_SERVICE);
+        if (roleManager == null || !roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)) {
             openDefaultAppsSettings();
             return;
         }
         if (roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)) {
-            Toast.makeText(getContext(),
-                    "수신 고객정보 표시를 사용 중입니다.",
+            Toast.makeText(getContext(), "수신 전화 고객정보 표시를 사용 중입니다.",
                     Toast.LENGTH_SHORT).show();
             refresh();
             return;
@@ -75,9 +55,8 @@ public final class CallerIdSetupButton extends Button {
         Intent request = roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING);
         Activity activity = findActivity(getContext());
         try {
-            if (activity != null) {
-                activity.startActivityForResult(request, REQUEST_SCREENING_ROLE);
-            } else {
+            if (activity != null) activity.startActivityForResult(request, REQUEST_SCREENING_ROLE);
+            else {
                 request.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 getContext().startActivity(request);
             }
@@ -95,12 +74,10 @@ public final class CallerIdSetupButton extends Button {
                 settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 getContext().startActivity(settings);
             }
-            Toast.makeText(getContext(),
-                    "기본 앱에서 발신자 ID 및 스팸 앱을 콜태그로 선택해주세요.",
+            Toast.makeText(getContext(), "발신자 ID 및 스팸 앱을 콜태그로 선택해주세요.",
                     Toast.LENGTH_LONG).show();
         } catch (RuntimeException error) {
-            Toast.makeText(getContext(),
-                    "Android 기본 앱 설정을 열지 못했습니다.",
+            Toast.makeText(getContext(), "Android 기본 앱 설정을 열지 못했습니다.",
                     Toast.LENGTH_LONG).show();
         }
     }
@@ -118,19 +95,26 @@ public final class CallerIdSetupButton extends Button {
 
     private void refresh() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            setVisibility(View.GONE);
+            setEnabled(false);
+            setText("지원 안 됨");
+            setBackgroundResource(R.drawable.bg_secondary_button);
+            setTextColor(getContext().getColor(R.color.text_muted));
             return;
         }
-        setVisibility(View.VISIBLE);
-        RoleManager roleManager =
-                (RoleManager) getContext().getSystemService(Context.ROLE_SERVICE);
-        boolean enabled = roleManager != null
-                && roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)
-                && roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING);
-        setText(enabled ? "✓ 수신 고객정보 표시 사용 중" : "수신 고객정보 표시 켜기");
-        setBackgroundResource(enabled
-                ? R.drawable.bg_secondary_button : R.drawable.bg_primary_button);
-        setTextColor(getContext().getColor(enabled
-                ? R.color.text_primary : android.R.color.white));
+        RoleManager roleManager = (RoleManager) getContext().getSystemService(Context.ROLE_SERVICE);
+        boolean available = roleManager != null
+                && roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING);
+        if (!available) {
+            setEnabled(true);
+            setText("지원 안 됨");
+            setBackgroundResource(R.drawable.bg_secondary_button);
+            setTextColor(getContext().getColor(R.color.text_muted));
+            return;
+        }
+        boolean enabled = roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING);
+        setEnabled(true);
+        setText(enabled ? "사용 중" : "권한 필요");
+        setBackgroundResource(enabled ? R.drawable.bg_secondary_button : R.drawable.bg_primary_button);
+        setTextColor(getContext().getColor(enabled ? R.color.text_primary : android.R.color.white));
     }
 }
