@@ -1,4 +1,4 @@
-name: CallTag 0.44.25 Entitlement Fix
+name: CallTag Current Signed Release
 
 on:
   workflow_dispatch:
@@ -21,12 +21,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify 0.44.25 contracts
+      - name: Resolve release version
         shell: bash
         run: |
           set -euo pipefail
-          grep -F 'versionCode 2026081211' app/build.gradle
-          grep -F "versionName '0.44.25'" app/build.gradle
+          VERSION_CODE="$(sed -nE 's/^[[:space:]]*versionCode[[:space:]]+([0-9]+).*/\1/p' app/build.gradle | head -n 1)"
+          VERSION_NAME="$(sed -nE "s/^[[:space:]]*versionName[[:space:]]+'([^']+)'.*/\1/p" app/build.gradle | head -n 1)"
+          test -n "$VERSION_CODE"
+          test -n "$VERSION_NAME"
+          echo "CALLTAG_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "CALLTAG_VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "Building CallTag v${VERSION_NAME} code ${VERSION_CODE}"
+
+      - name: Verify release contracts
+        shell: bash
+        run: |
+          set -euo pipefail
           grep -F "applicationId 'kr.pagero.calltag'" app/build.gradle
           grep -F 'com.android.billingclient:billing:9.1.0' app/build.gradle
 
@@ -169,20 +179,20 @@ jobs:
             exit 1
           fi
 
-          OUT="$RUNNER_TEMP/calltag-v0.44.25-entitlement-fix"
+          OUT="$RUNNER_TEMP/calltag-signed-release"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.44.25-code2026081211.aab"
-          cp "$APK" "$OUT/CallTag-v0.44.25-code2026081211-release.apk"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V04425_AAB_SHA256.txt"
-          sha256sum "$APK" > "$OUT/CALLTAG_V04425_APK_SHA256.txt"
+          cp "$AAB" "$OUT/CallTag-v${CALLTAG_VERSION_NAME}-code${CALLTAG_VERSION_CODE}.aab"
+          cp "$APK" "$OUT/CallTag-v${CALLTAG_VERSION_NAME}-code${CALLTAG_VERSION_CODE}-release.apk"
+          sha256sum "$AAB" > "$OUT/CALLTAG_AAB_SHA256.txt"
+          sha256sum "$APK" > "$OUT/CALLTAG_APK_SHA256.txt"
           cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
-          cp "$RUNNER_TEMP/aab-certificate.txt" "$OUT/CALLTAG_V04425_AAB_CERTIFICATE.txt"
-          cp "$RUNNER_TEMP/apk-signature.txt" "$OUT/CALLTAG_V04425_APK_SIGNATURE.txt"
+          cp "$RUNNER_TEMP/aab-certificate.txt" "$OUT/CALLTAG_AAB_CERTIFICATE.txt"
+          cp "$RUNNER_TEMP/apk-signature.txt" "$OUT/CALLTAG_APK_SIGNATURE.txt"
 
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.25-code2026081211-entitlement-fix
-          path: ${{ runner.temp }}/calltag-v0.44.25-entitlement-fix
+          name: calltag-current-signed-release
+          path: ${{ runner.temp }}/calltag-signed-release
           retention-days: 90
           if-no-files-found: error
