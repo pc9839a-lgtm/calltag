@@ -104,7 +104,14 @@ public final class LoginActivity extends Activity {
             } else if (status == GoogleSignInStatusCodes.SIGN_IN_CURRENTLY_IN_PROGRESS) {
                 finishGoogleError("Google 로그인이 이미 진행 중입니다. 잠시 후 다시 시도해주세요.");
             } else if (status == 10) {
-                finishGoogleError("Google 앱 연결 설정을 확인하지 못했습니다. (코드 10)");
+                String installedSha1 = AppSigningCertificateInfo.sha1Summary(this);
+                String detail = "package=" + getPackageName()
+                        + ",sha1=" + installedSha1
+                        + ",client=" + BuildConfig.GOOGLE_SERVER_CLIENT_ID;
+                Log.e(TAG, "Google developer error. " + detail);
+                CrashTelemetryStore.record(this, "google_login", "developer_error_10", detail);
+                finishGoogleError("Google 앱 인증서 설정이 일치하지 않습니다. 설치 SHA-1: "
+                        + installedSha1);
             } else {
                 finishGoogleError("Google 로그인을 완료하지 못했습니다. (코드 " + status + ")");
             }
