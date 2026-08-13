@@ -9,12 +9,14 @@ import android.content.Intent;
 import android.os.Build;
 import android.provider.Settings;
 import android.util.AttributeSet;
-import android.widget.Button;
+import android.widget.Switch;
 import android.widget.Toast;
 
-/** 수신 전화 고객정보 표시 역할의 상태/설정 버튼. */
-public final class CallerIdSetupButton extends Button {
+/** 수신 전화 고객정보 표시를 앱 설정 ON/OFF와 Android 통화 스크리닝 역할로 분리한다. */
+public final class CallerIdSetupButton extends Switch {
     private static final int REQUEST_SCREENING_ROLE = 7302;
+    private boolean syncing;
+    private boolean enableAfterRoleGrant;
 
     public CallerIdSetupButton(Context context) { super(context); init(); }
     public CallerIdSetupButton(Context context, AttributeSet attrs) { super(context, attrs); init(); }
@@ -23,31 +25,79 @@ public final class CallerIdSetupButton extends Button {
     }
 
     private void init() {
-        setAllCaps(false);
-        setOnClickListener(v -> requestScreeningRoleDirectly());
+        setBackground(null);
+        setText("");
+        setTextOn("ON");
+        setTextOff("OFF");
+        setShowText(true);
+        setPadding(0, 0, 0, 0);
+        setContentDescription("수신 전화 고객정보 표시");
+        setOnCheckedChangeListener((button, checked) -> {
+            if (syncing) return;
+            if (!checked) {
+                enableAfterRoleGrant = false;
+                SettingsStore.setCallerInfoDisplayEnabled(getContext(), false);
+                SettingsStore.setCallerScreeningStatus(getContext(), "수신 전화 고객정보 표시를 껐습니다.");
+                refresh();
+                return;
+            }
+            enableCallerInfoDisplay();
+        });
         refresh();
     }
 
-    @Override protected void onAttachedToWindow() { super.onAttachedToWindow(); refresh(); }
-    @Override public void onWindowFocusChanged(boolean hasWindowFocus) {
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        refresh();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasWindowFocus) {
         super.onWindowFocusChanged(hasWindowFocus);
-        if (hasWindowFocus) refresh();
+        if (!hasWindowFocus) return;
+        if (enableAfterRoleGrant && hasRole()) {
+            SettingsStore.setCallerInfoDisplayEnabled(getContext(), true);
+            SettingsStore.setCallerScreeningStatus(getContext(), "수신 전화 고객정보 표시를 켰습니다.");
+            enableAfterRoleGrant = false;
+            Toast.makeText(getContext(), "수신 고객정보 표시를 켰습니다.", Toast.LENGTH_SHORT).show();
+        }
+        refresh();
+    }
+
+    private void enableCallerInfoDisplay() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            SettingsStore.setCallerInfoDisplayEnabled(getContext(), false);
+            Toast.makeText(getContext(), "이 기기에서는 수신 고객정보 표시를 지원하지 않습니다.",
+                    Toast.LENGTH_SHORT).show();
+            refresh();
+            return;
+        }
+
+        if (hasRole()) {
+            SettingsStore.setCallerInfoDisplayEnabled(getContext(), true);
+            SettingsStore.setCallerScreeningStatus(getContext(), "수신 전화 고객정보 표시를 켰습니다.");
+            refresh();
+            return;
+        }
+
+        // 기능을 켜려는 순간 Android의 실제 통화 스크리닝 역할 허용 UI를 연다.
+        SettingsStore.setCallerInfoDisplayEnabled(getContext(), false);
+        enableAfterRoleGrant = true;
+        setCheckedSilently(false);
+        requestScreeningRoleDirectly();
     }
 
     private void requestScreeningRoleDirectly() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            Toast.makeText(getContext(), "이 기기에서는 수신 고객정보 표시를 지원하지 않습니다.",
-                    Toast.LENGTH_SHORT).show();
-            return;
-        }
-        RoleManager roleManager = (RoleManager) getContext().getSystemService(Context.ROLE_SERVICE);
+        RoleManager roleManager = roleManager();
         if (roleManager == null || !roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)) {
+            enableAfterRoleGrant = false;
             openDefaultAppsSettings();
             return;
         }
         if (roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)) {
-            Toast.makeText(getContext(), "수신 전화 고객정보 표시를 사용 중입니다.",
-                    Toast.LENGTH_SHORT).show();
+            SettingsStore.setCallerInfoDisplayEnabled(getContext(), true);
+            enableAfterRoleGrant = false;
             refresh();
             return;
         }
@@ -55,14 +105,28 @@ public final class CallerIdSetupButton extends Button {
         Intent request = roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING);
         Activity activity = findActivity(getContext());
         try {
-            if (activity != null) activity.startActivityForResult(request, REQUEST_SCREENING_ROLE);
-            else {
+            if (activity != null) {
+                activity.startActivityForResult(request, REQUEST_SCREENING_ROLE);
+            } else {
                 request.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 getContext().startActivity(request);
             }
         } catch (ActivityNotFoundException | SecurityException error) {
+            enableAfterRoleGrant = false;
             openDefaultAppsSettings();
         }
+    }
+
+    private RoleManager roleManager() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null;
+        return (RoleManager) getContext().getSystemService(Context.ROLE_SERVICE);
+    }
+
+    private boolean hasRole() {
+        RoleManager manager = roleManager();
+        return manager != null
+                && manager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)
+                && manager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING);
     }
 
     private void openDefaultAppsSettings() {
@@ -74,7 +138,7 @@ public final class CallerIdSetupButton extends Button {
                 settings.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 getContext().startActivity(settings);
             }
-            Toast.makeText(getContext(), "발신자 ID 및 스팸 앱을 콜태그로 선택해주세요.",
+            Toast.makeText(getContext(), "발신자 ID 및 스팸 앱에서 콜태그를 허용해주세요.",
                     Toast.LENGTH_LONG).show();
         } catch (RuntimeException error) {
             Toast.makeText(getContext(), "Android 기본 앱 설정을 열지 못했습니다.",
@@ -96,25 +160,25 @@ public final class CallerIdSetupButton extends Button {
     private void refresh() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             setEnabled(false);
-            setText("지원 안 됨");
-            setBackgroundResource(R.drawable.bg_secondary_button);
-            setTextColor(getContext().getColor(R.color.text_muted));
+            setCheckedSilently(false);
             return;
         }
-        RoleManager roleManager = (RoleManager) getContext().getSystemService(Context.ROLE_SERVICE);
-        boolean available = roleManager != null
-                && roleManager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING);
-        if (!available) {
-            setEnabled(true);
-            setText("지원 안 됨");
-            setBackgroundResource(R.drawable.bg_secondary_button);
-            setTextColor(getContext().getColor(R.color.text_muted));
-            return;
+        RoleManager manager = roleManager();
+        boolean available = manager != null && manager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING);
+        setEnabled(available);
+        boolean enabled = available
+                && manager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
+                && SettingsStore.isCallerInfoDisplayEnabled(getContext());
+        SettingsStore.updateScreeningRoleState(getContext(), available && manager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING));
+        setCheckedSilently(enabled);
+    }
+
+    private void setCheckedSilently(boolean checked) {
+        syncing = true;
+        try {
+            setChecked(checked);
+        } finally {
+            syncing = false;
         }
-        boolean enabled = roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING);
-        setEnabled(true);
-        setText(enabled ? "사용 중" : "권한 필요");
-        setBackgroundResource(enabled ? R.drawable.bg_secondary_button : R.drawable.bg_primary_button);
-        setTextColor(getContext().getColor(enabled ? R.color.text_primary : android.R.color.white));
     }
 }
