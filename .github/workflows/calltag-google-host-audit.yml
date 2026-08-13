@@ -1,0 +1,33 @@
+name: CallTag Google login host audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/calltag-v04422-billing-live
+    paths:
+      - '.github/workflows/calltag-google-host-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Probe Google ID-token route on every app API host
+        shell: bash
+        run: |
+          set -u
+          for base in 'https://inlet-8mr.pages.dev' 'https://call.pagero.kr' 'https://pagero.kr'; do
+            echo "===== $base ====="
+            status="$(curl -sS --connect-timeout 5 --max-time 12 -o body.txt -w '%{http_code}' \
+              -H 'Content-Type: application/json' \
+              --data '{"idToken":"invalid","nonce":"invalid"}' \
+              "$base/api/call/google/id-token" || true)"
+            echo "status=$status"
+            head -c 1200 body.txt || true
+            echo
+            echo
+          done
