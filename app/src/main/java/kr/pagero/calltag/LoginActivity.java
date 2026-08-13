@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Base64;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
@@ -17,28 +16,23 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.core.content.ContextCompat;
-import androidx.credentials.Credential;
-import androidx.credentials.CredentialManager;
-import androidx.credentials.CredentialManagerCallback;
-import androidx.credentials.CustomCredential;
-import androidx.credentials.GetCredentialRequest;
-import androidx.credentials.GetCredentialResponse;
-import androidx.credentials.exceptions.GetCredentialCancellationException;
-import androidx.credentials.exceptions.GetCredentialException;
-
-import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption;
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.tasks.Task;
 
 import org.json.JSONObject;
 
-import java.security.SecureRandom;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class LoginActivity extends Activity {
     private static final String TAG = "CallTagLogin";
+    private static final int RC_GOOGLE_SIGN_IN = 9301;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
@@ -57,9 +51,8 @@ public final class LoginActivity extends Activity {
     private CheckBox privacyConsent;
     private CheckBox termsConsent;
     private boolean working;
-    private boolean googleCredentialInFlight;
-    private int googleAttemptId;
-    private CredentialManager credentialManager;
+    private boolean googleSignInInFlight;
+    private GoogleSignInClient googleSignInClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,6 +76,42 @@ public final class LoginActivity extends Activity {
             if (!pending.isEmpty()) signupReferral.setText(pending);
         }
         handleGoogleCallback(intent);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != RC_GOOGLE_SIGN_IN) return;
+
+        Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+        try {
+            GoogleSignInAccount account = task.getResult(ApiException.class);
+            if (account == null) {
+                finishGoogleError("Google 계정 정보를 받지 못했습니다. 다시 시도해주세요.");
+                return;
+            }
+            String idToken = account.getIdToken();
+            if (idToken == null || idToken.trim().isEmpty()) {
+                finishGoogleError("Google 로그인 토큰을 받지 못했습니다. 다시 시도해주세요.");
+                return;
+            }
+            exchangeLegacyGoogleToken(idToken);
+        } catch (ApiException error) {
+            Log.e(TAG, "Native Google Sign-In failed. status=" + error.getStatusCode(), error);
+            int status = error.getStatusCode();
+            if (status == GoogleSignInStatusCodes.SIGN_IN_CANCELLED) {
+                finishGoogleError("Google 로그인이 취소되었습니다. 다시 시도해주세요.");
+            } else if (status == GoogleSignInStatusCodes.SIGN_IN_CURRENTLY_IN_PROGRESS) {
+                finishGoogleError("Google 로그인이 이미 진행 중입니다. 잠시 후 다시 시도해주세요.");
+            } else if (status == 10) {
+                finishGoogleError("Google 앱 연결 설정을 확인하지 못했습니다. (코드 10)");
+            } else {
+                finishGoogleError("Google 로그인을 완료하지 못했습니다. (코드 " + status + ")");
+            }
+        } catch (RuntimeException error) {
+            Log.e(TAG, "Native Google Sign-In result failure", error);
+            finishGoogleError("Google 로그인 결과를 처리하지 못했습니다. 다시 시도해주세요.");
+        }
     }
 
     private void bindViews() {
@@ -206,13 +235,13 @@ public final class LoginActivity extends Activity {
     }
 
     private void showReset() {
-        if (working || googleCredentialInFlight) return;
+        if (working || googleSignInInFlight) return;
         showForm(resetForm);
         tabs.setVisibility(View.GONE);
     }
 
     private void showForm(View target) {
-        if (working || googleCredentialInFlight) return;
+        if (working || googleSignInInFlight) return;
         hideKeyboardAndClearFocus();
         clearNotice();
         tabs.setVisibility(View.VISIBLE);
@@ -242,12 +271,13 @@ public final class LoginActivity extends Activity {
     }
 
     /**
-     * Run Credential Manager directly from the Activity that received the user's button tap.
-     * Do not insert a bridge Activity and do not provide our own CancellationSignal. That keeps
-     * the system account picker and its result bound to this visible LoginActivity task stack.
+     * Temporary production-stability path. Credential Manager currently returns a false
+     * GetCredentialCancellationException on some devices after the user selects an account.
+     * GoogleSignInClient keeps the flow fully native and still returns a signed Google ID token
+     * for the exact same backend Web Client ID.
      */
     private void startGoogleLogin() {
-        if (working || googleCredentialInFlight || isFinishing() || isDestroyed()) return;
+        if (working || googleSignInInFlight || isFinishing() || isDestroyed()) return;
         hideKeyboardAndClearFocus();
 
         String serverClientId = BuildConfig.GOOGLE_SERVER_CLIENT_ID == null
@@ -257,153 +287,54 @@ public final class LoginActivity extends Activity {
             return;
         }
 
-        final String nonce = secureNonce();
-        final GetCredentialRequest request;
         try {
-            GetSignInWithGoogleOption option = new GetSignInWithGoogleOption.Builder(serverClientId)
-                    .setNonce(nonce)
+            GoogleSignInOptions options = new GoogleSignInOptions.Builder(
+                    GoogleSignInOptions.DEFAULT_SIGN_IN)
+                    .requestIdToken(serverClientId)
+                    .requestEmail()
                     .build();
-            request = new GetCredentialRequest.Builder()
-                    .addCredentialOption(option)
-                    .build();
+            googleSignInClient = GoogleSignIn.getClient(this, options);
+            googleSignInInFlight = true;
+            setFormsEnabled(false);
+            showNotice("Google 계정을 선택해주세요.", false);
+            startActivityForResult(googleSignInClient.getSignInIntent(), RC_GOOGLE_SIGN_IN);
         } catch (RuntimeException error) {
-            Log.e(TAG, "Unable to create Google credential request", error);
-            showNotice("Google 로그인을 시작하지 못했습니다. 다시 시도해주세요.", true);
-            return;
+            Log.e(TAG, "Unable to start native Google Sign-In", error);
+            finishGoogleError("Google 로그인을 시작하지 못했습니다. 다시 시도해주세요.");
         }
+    }
 
-        final int currentAttempt = ++googleAttemptId;
-        googleCredentialInFlight = true;
-        setFormsEnabled(false);
-        showNotice("Google 계정을 선택해주세요.", false);
-
-        if (credentialManager == null) credentialManager = CredentialManager.create(this);
-        credentialManager.getCredentialAsync(
-                this,
-                request,
-                null,
-                ContextCompat.getMainExecutor(this),
-                new CredentialManagerCallback<GetCredentialResponse, GetCredentialException>() {
-                    @Override
-                    public void onResult(GetCredentialResponse result) {
-                        if (!isGoogleAttemptActive(currentAttempt)) return;
-                        handleGoogleCredential(result, nonce, currentAttempt);
-                    }
-
-                    @Override
-                    public void onError(GetCredentialException error) {
-                        if (!isGoogleAttemptActive(currentAttempt)) return;
-                        googleCredentialInFlight = false;
-                        setFormsEnabled(true);
-                        Log.e(TAG, "Credential Manager failure: class="
-                                + error.getClass().getSimpleName()
-                                + " type=" + error.getType()
-                                + " message=" + error.getMessage(), error);
-                        if (error instanceof GetCredentialCancellationException) {
-                            // Cancellation can also be returned when provider authorization could
-                            // not complete for technical reasons; don't claim the user cancelled.
-                            showNotice("Google 인증을 완료하지 못했습니다. 다시 시도해주세요.", true);
-                        } else {
-                            showNotice(credentialErrorMessage(error), true);
-                        }
-                    }
+    private void exchangeLegacyGoogleToken(String idToken) {
+        showNotice("Google 로그인 확인 중…", false);
+        executor.execute(() -> {
+            try {
+                JSONObject response = AuthApiClient.exchangeLegacyGoogleIdToken(idToken);
+                runOnUiThread(() -> {
+                    googleSignInInFlight = false;
+                    setFormsEnabled(true);
+                    clearNotice();
+                    acceptAuth(response);
                 });
+            } catch (Exception error) {
+                Log.e(TAG, "Native Google ID token exchange failed", error);
+                runOnUiThread(() -> {
+                    googleSignInInFlight = false;
+                    setFormsEnabled(true);
+                    showNotice(googleServerErrorMessage(error), true);
+                });
+            }
+        });
     }
 
-    private void handleGoogleCredential(
-            GetCredentialResponse result,
-            String nonce,
-            int currentAttempt) {
-        if (!isGoogleAttemptActive(currentAttempt)) return;
-        try {
-            Credential credential = result.getCredential();
-            if (!(credential instanceof CustomCredential)) {
-                Log.e(TAG, "Unexpected Google credential class: " + credential.getClass().getName());
-                failGoogleAttempt(currentAttempt,
-                        "Google 계정 응답을 확인하지 못했습니다. 다시 시도해주세요.");
-                return;
-            }
-
-            String type = credential.getType();
-            boolean supportedType = GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL.equals(type)
-                    || GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_SIWG_CREDENTIAL.equals(type);
-            if (!supportedType) {
-                Log.e(TAG, "Unexpected Google credential type: " + type);
-                failGoogleAttempt(currentAttempt,
-                        "Google 계정 응답을 확인하지 못했습니다. 다시 시도해주세요.");
-                return;
-            }
-
-            GoogleIdTokenCredential google = GoogleIdTokenCredential.createFrom(
-                    ((CustomCredential) credential).getData());
-            String idToken = google.getIdToken();
-            if (idToken == null || idToken.trim().isEmpty()) {
-                failGoogleAttempt(currentAttempt,
-                        "Google 로그인 토큰을 받지 못했습니다. 다시 시도해주세요.");
-                return;
-            }
-
-            showNotice("Google 로그인 확인 중…", false);
-            executor.execute(() -> {
-                try {
-                    JSONObject response = AuthApiClient.exchangeGoogleIdToken(idToken, nonce);
-                    runOnUiThread(() -> {
-                        if (!isGoogleAttemptActive(currentAttempt)) return;
-                        googleCredentialInFlight = false;
-                        setFormsEnabled(true);
-                        clearNotice();
-                        acceptAuth(response);
-                    });
-                } catch (Exception error) {
-                    Log.e(TAG, "Google ID token exchange failed", error);
-                    runOnUiThread(() -> {
-                        if (!isGoogleAttemptActive(currentAttempt)) return;
-                        googleCredentialInFlight = false;
-                        setFormsEnabled(true);
-                        showNotice(googleServerErrorMessage(error), true);
-                    });
-                }
-            });
-        } catch (Exception error) {
-            Log.e(TAG, "Failed to parse Google credential", error);
-            failGoogleAttempt(currentAttempt,
-                    "Google 로그인 응답을 처리하지 못했습니다. 다시 시도해주세요.");
-        }
-    }
-
-    private void failGoogleAttempt(int currentAttempt, String message) {
-        if (!isGoogleAttemptActive(currentAttempt)) return;
-        googleCredentialInFlight = false;
+    private void finishGoogleError(String message) {
+        googleSignInInFlight = false;
         setFormsEnabled(true);
         showNotice(message, true);
-    }
-
-    private boolean isGoogleAttemptActive(int currentAttempt) {
-        return currentAttempt == googleAttemptId
-                && !isFinishing()
-                && !isDestroyed();
-    }
-
-    private String credentialErrorMessage(GetCredentialException error) {
-        String type = error == null || error.getType() == null ? "" : error.getType().toLowerCase();
-        if (type.contains("configuration") || type.contains("provider_configuration")) {
-            return "Google 로그인 앱 설정을 확인하지 못했습니다.";
-        }
-        if (type.contains("no_credential")) {
-            return "사용 가능한 Google 계정을 찾지 못했습니다.";
-        }
-        if (type.contains("interrupted")) {
-            return "Google 로그인 요청이 중단되었습니다. 다시 시도해주세요.";
-        }
-        return "Google 계정을 인증하지 못했습니다. 다시 시도해주세요.";
     }
 
     private String googleServerErrorMessage(Exception error) {
         if (error instanceof AuthApiClient.ApiException) {
             AuthApiClient.ApiException api = (AuthApiClient.ApiException) error;
-            if ("GOOGLE_NONCE_MISMATCH".equals(api.code)) {
-                return "Google 로그인 요청 확인에 실패했습니다. 다시 시도해주세요.";
-            }
             if ("GOOGLE_ID_TOKEN_AUDIENCE_INVALID".equals(api.code)) {
                 return "Google 로그인 연결 정보가 일치하지 않습니다.";
             }
@@ -560,8 +491,8 @@ public final class LoginActivity extends Activity {
         }
     }
 
-    private void runTask(Task task, Success success) {
-        if (working || googleCredentialInFlight) return;
+    private void runTask(TaskCall task, Success success) {
+        if (working || googleSignInInFlight) return;
         working = true;
         setFormsEnabled(false);
         showNotice("처리 중입니다.", false);
@@ -669,19 +600,12 @@ public final class LoginActivity extends Activity {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
-    private static String secureNonce() {
-        byte[] bytes = new byte[32];
-        new SecureRandom().nextBytes(bytes);
-        return Base64.encodeToString(bytes, Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING);
-    }
-
     @Override
     protected void onDestroy() {
-        googleAttemptId++;
         executor.shutdownNow();
         super.onDestroy();
     }
 
-    private interface Task { JSONObject run() throws Exception; }
+    private interface TaskCall { JSONObject run() throws Exception; }
     private interface Success { void accept(JSONObject response); }
 }
