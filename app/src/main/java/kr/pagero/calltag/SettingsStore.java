@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 public final class SettingsStore {
     private static final String PREFS = "calltag_settings";
     private static final String KEY_MONITOR_ENABLED = "monitor_enabled";
+    private static final String KEY_CALLER_INFO_DISPLAY_ENABLED = "caller_info_display_enabled";
     private static final String KEY_LAST_CALL_ID = "last_call_id";
     private static final String KEY_LAST_PROCESSED_CALL = "last_processed_call";
     private static final String KEY_CALL_RECOVERY_CURSOR_AT = "call_recovery_cursor_at";
@@ -34,6 +35,14 @@ public final class SettingsStore {
 
     public static void setMonitorEnabled(Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_MONITOR_ENABLED, enabled).apply();
+    }
+
+    public static boolean isCallerInfoDisplayEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_CALLER_INFO_DISPLAY_ENABLED, true);
+    }
+
+    public static void setCallerInfoDisplayEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_CALLER_INFO_DISPLAY_ENABLED, enabled).apply();
     }
 
     public static long lastCallId(Context context) {
