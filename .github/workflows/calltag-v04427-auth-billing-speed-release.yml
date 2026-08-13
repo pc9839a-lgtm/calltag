@@ -1,4 +1,4 @@
-name: CallTag 0.44.28 Auth Billing Speed Release
+name: CallTag 0.44.29 Google Login Fix Release
 
 on:
   workflow_dispatch:
@@ -19,32 +19,44 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify 0.44.28 and latest fixes
+      - name: Verify 0.44.29 and Google login fix
         shell: bash
         run: |
           set -euo pipefail
-          grep -F 'versionCode 2026081214' app/build.gradle
-          grep -F "versionName '0.44.28'" app/build.gradle
+          grep -F 'versionCode 2026081215' app/build.gradle
+          grep -F "versionName '0.44.29'" app/build.gradle
           grep -F "applicationId 'kr.pagero.calltag'" app/build.gradle
+          grep -F '31346298247-o5jfdetjs84mu02c8tp68qg19ifo89en.apps.googleusercontent.com' app/build.gradle
+
+          GOOGLE='app/src/main/java/kr/pagero/calltag/GoogleCredentialLoginActivity.java'
+          grep -F 'GetSignInWithGoogleOption' "$GOOGLE"
+          grep -F 'GoogleIdTokenCredential.createFrom' "$GOOGLE"
+          grep -F 'AuthApiClient.exchangeGoogleIdToken' "$GOOGLE"
+          if grep -F 'GetGoogleIdOption' "$GOOGLE"; then
+            echo 'Silent secondary Google credential request must not exist.' >&2
+            exit 1
+          fi
+          if grep -F 'PROVIDER_TIMEOUT_MS' "$GOOGLE"; then
+            echo 'Credential-provider forced timeout must not exist.' >&2
+            exit 1
+          fi
+          if grep -F 'finishQuietly' "$GOOGLE"; then
+            echo 'Google errors must not close the bridge silently.' >&2
+            exit 1
+          fi
+          if grep -F 'startFallbackLogin' "$GOOGLE"; then
+            echo 'Browser OAuth fallback must not exist.' >&2
+            exit 1
+          fi
 
           API='app/src/main/java/kr/pagero/calltag/AuthApiClient.java'
           grep -F '"https://inlet-8mr.pages.dev"' "$API"
           grep -F 'connection.setConnectTimeout(5_000);' "$API"
           grep -F 'connection.setReadTimeout(10_000);' "$API"
 
-          GOOGLE='app/src/main/java/kr/pagero/calltag/GoogleCredentialLoginActivity.java'
-          grep -F 'GetSignInWithGoogleOption' "$GOOGLE"
-          grep -F 'GetGoogleIdOption' "$GOOGLE"
-          grep -F 'setFilterByAuthorizedAccounts(false)' "$GOOGLE"
-          if grep -F 'startFallbackLogin' "$GOOGLE"; then
-            echo 'Browser OAuth fallback must not exist.' >&2
-            exit 1
-          fi
-
           BILLING='app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java'
           grep -F 'billing.connectAndLoad();' "$BILLING"
           grep -F 'refreshEntitlement(false);' "$BILLING"
-          grep -F 'private boolean refreshing;' "$BILLING"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -124,20 +136,20 @@ jobs:
           keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/aab-certificate.txt"
           grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/aab-certificate.txt"
 
-          OUT="$RUNNER_TEMP/calltag-v0.44.28-auth-billing-speed-release"
+          OUT="$RUNNER_TEMP/calltag-v0.44.29-google-login-fix-release"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.44.28-code2026081214.aab"
-          cp "$APK" "$OUT/CallTag-v0.44.28-code2026081214-release.apk"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V04428_AAB_SHA256.txt"
-          sha256sum "$APK" > "$OUT/CALLTAG_V04428_APK_SHA256.txt"
+          cp "$AAB" "$OUT/CallTag-v0.44.29-code2026081215.aab"
+          cp "$APK" "$OUT/CallTag-v0.44.29-code2026081215-release.apk"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04429_AAB_SHA256.txt"
+          sha256sum "$APK" > "$OUT/CALLTAG_V04429_APK_SHA256.txt"
           cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
-          cp "$RUNNER_TEMP/aab-certificate.txt" "$OUT/CALLTAG_V04428_AAB_CERTIFICATE.txt"
-          cp "$RUNNER_TEMP/apk-signature.txt" "$OUT/CALLTAG_V04428_APK_SIGNATURE.txt"
+          cp "$RUNNER_TEMP/aab-certificate.txt" "$OUT/CALLTAG_V04429_AAB_CERTIFICATE.txt"
+          cp "$RUNNER_TEMP/apk-signature.txt" "$OUT/CALLTAG_V04429_APK_SIGNATURE.txt"
 
       - name: Upload release
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.28-code2026081214-auth-billing-speed-release
-          path: ${{ runner.temp }}/calltag-v0.44.28-auth-billing-speed-release
+          name: calltag-v0.44.29-code2026081215-google-login-fix-release
+          path: ${{ runner.temp }}/calltag-v0.44.29-google-login-fix-release
           retention-days: 90
           if-no-files-found: error
