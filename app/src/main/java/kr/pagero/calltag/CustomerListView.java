@@ -1,7 +1,9 @@
 package kr.pagero.calltag;
 
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Typeface;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.Gravity;
@@ -10,8 +12,9 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
-/** 고객 카드에는 상태/문자/삭제 3개 액션만 작게 노출하고, 나머지는 상세에서 처리한다. */
+/** 고객 카드에는 상태변경/문자보내기는 텍스트, 삭제만 작은 아이콘으로 노출한다. */
 public final class CustomerListView extends LinearLayout {
     public CustomerListView(Context context) { super(context); }
     public CustomerListView(Context context, AttributeSet attrs) { super(context, attrs); }
@@ -84,6 +87,7 @@ public final class CustomerListView extends LinearLayout {
         if (customer == null) return;
 
         final long customerId = customer.id;
+        final String customerName = customer.displayName;
         final String customerPhone = phone;
         final boolean pagero = CustomerSourceResolver.isPagero(customer);
         card.setClickable(true);
@@ -154,23 +158,20 @@ public final class CustomerListView extends LinearLayout {
         if (status == null) return;
 
         actions.removeAllViews();
-        actions.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        actions.setGravity(Gravity.CENTER_VERTICAL);
 
-        View spacer = new View(getContext());
-        actions.addView(spacer, new LinearLayout.LayoutParams(0, dp(40), 1f));
+        configureTextButton(status, "상태 변경", false);
+        actions.addView(status, weightedButtonParams(0));
 
-        configureIconButton(status, R.drawable.ic_customer_status, "상태 변경");
-        actions.addView(status, iconParams(0));
-
-        Button message = iconButton(R.drawable.ic_customer_message, "문자 보내기");
+        Button message = textButton("문자 보내기", true);
         message.setOnClickListener(v -> openCustomerMessage(customerPhone));
-        actions.addView(message, iconParams(7));
+        actions.addView(message, weightedButtonParams(7));
 
         Button delete = iconButton(R.drawable.ic_customer_delete, "고객 삭제");
-        delete.setOnClickListener(v -> getContext().startActivity(
-                new Intent(getContext(), CustomerDeleteActivity.class)
-                        .putExtra(CustomerDeleteActivity.EXTRA_CUSTOMER_ID, customerId)));
-        actions.addView(delete, iconParams(7));
+        delete.setOnClickListener(v -> confirmDelete(card, customerId, customerName));
+        LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(dp(46), dp(44));
+        deleteParams.leftMargin = dp(7);
+        actions.addView(delete, deleteParams);
 
         ViewGroup.LayoutParams raw = actions.getLayoutParams();
         if (raw instanceof LinearLayout.LayoutParams) {
@@ -191,13 +192,38 @@ public final class CustomerListView extends LinearLayout {
         return null;
     }
 
-    private Button iconButton(int drawable, String description) {
+    private Button textButton(String label, boolean primary) {
         Button button = new Button(getContext());
-        configureIconButton(button, drawable, description);
+        configureTextButton(button, label, primary);
         return button;
     }
 
-    private void configureIconButton(Button button, int drawable, String description) {
+    private void configureTextButton(Button button, String label, boolean primary) {
+        button.setText(label);
+        button.setContentDescription(label);
+        button.setAllCaps(false);
+        button.setTextSize(13f);
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        button.setTextColor(getContext().getColor(primary
+                ? android.R.color.white : R.color.text_primary));
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setPadding(dp(7), 0, dp(7), 0);
+        button.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0);
+        button.setBackgroundResource(primary
+                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+    }
+
+    private LinearLayout.LayoutParams weightedButtonParams(int leftMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(44), 1f);
+        params.leftMargin = dp(leftMargin);
+        return params;
+    }
+
+    private Button iconButton(int drawable, String description) {
+        Button button = new Button(getContext());
         button.setText("");
         button.setContentDescription(description);
         button.setMinWidth(0);
@@ -206,14 +232,41 @@ public final class CustomerListView extends LinearLayout {
         button.setMinimumHeight(0);
         button.setPadding(0, 0, 0, 0);
         button.setGravity(Gravity.CENTER);
-        button.setBackgroundResource(R.drawable.bg_clickable_row);
+        button.setBackgroundResource(R.drawable.bg_secondary_button);
         button.setCompoundDrawablesWithIntrinsicBounds(drawable, 0, 0, 0);
+        return button;
     }
 
-    private LinearLayout.LayoutParams iconParams(int leftMargin) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(44), dp(40));
-        params.leftMargin = dp(leftMargin);
-        return params;
+    private void confirmDelete(LinearLayout card, long customerId, String customerName) {
+        AlertDialog dialog = new AlertDialog.Builder(getContext(), R.style.Theme_CallTag_Dialog)
+                .setTitle("고객 삭제")
+                .setMessage(customerName
+                        + " 고객과 연결된 상담·할 일 기록을 콜태그에서 삭제합니다.\n\n문자 발송 이력은 안전 기록으로 유지됩니다.")
+                .setNegativeButton("취소", null)
+                .setPositiveButton("삭제", (d, which) -> deleteCustomer(card, customerId))
+                .create();
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.applyDanger(dialog));
+        dialog.show();
+    }
+
+    private void deleteCustomer(LinearLayout card, long customerId) {
+        CallTagDbHelper db = new CallTagDbHelper(getContext());
+        int removed;
+        try {
+            removed = db.getWritableDatabase().delete(
+                    "customers", "id=?", new String[]{String.valueOf(customerId)});
+        } catch (RuntimeException error) {
+            Toast.makeText(getContext(), "고객을 삭제하지 못했습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        } finally {
+            db.close();
+        }
+        if (removed > 0) {
+            if (card.getParent() == this) removeView(card);
+            Toast.makeText(getContext(), "고객을 삭제했습니다.", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(getContext(), "이미 삭제된 고객입니다.", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void removeOldSourceBadges(LinearLayout row) {
