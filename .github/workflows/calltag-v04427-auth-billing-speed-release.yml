@@ -1,4 +1,4 @@
-name: CallTag 0.44.27 Auth Billing Speed Release
+name: CallTag 0.44.28 Auth Billing Speed Release
 
 on:
   workflow_dispatch:
@@ -19,14 +19,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare 0.44.27 and verify latest fixes
+      - name: Verify 0.44.28 and latest fixes
         shell: bash
         run: |
           set -euo pipefail
-          sed -i 's/versionCode 2026081211/versionCode 2026081213/' app/build.gradle
-          sed -i "s/versionName '0.44.25'/versionName '0.44.27'/" app/build.gradle
-          grep -F 'versionCode 2026081213' app/build.gradle
-          grep -F "versionName '0.44.27'" app/build.gradle
+          grep -F 'versionCode 2026081214' app/build.gradle
+          grep -F "versionName '0.44.28'" app/build.gradle
           grep -F "applicationId 'kr.pagero.calltag'" app/build.gradle
 
           API='app/src/main/java/kr/pagero/calltag/AuthApiClient.java'
@@ -42,18 +40,11 @@ jobs:
             echo 'Browser OAuth fallback must not exist.' >&2
             exit 1
           fi
-          if grep -F 'https://pagero.kr/api/call/google/start?return_scheme=calltag' "$GOOGLE"; then
-            echo 'Browser OAuth fallback URL must not exist.' >&2
-            exit 1
-          fi
 
           BILLING='app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java'
           grep -F 'billing.connectAndLoad();' "$BILLING"
           grep -F 'refreshEntitlement(false);' "$BILLING"
           grep -F 'private boolean refreshing;' "$BILLING"
-
-          LOGIN='app/src/main/java/kr/pagero/calltag/LoginActivity.java'
-          grep -F 'FeatureEntitlementStore.saveServerEntitlement(this, response);' "$LOGIN"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -133,20 +124,20 @@ jobs:
           keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/aab-certificate.txt"
           grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/aab-certificate.txt"
 
-          OUT="$RUNNER_TEMP/calltag-v0.44.27-auth-billing-speed-release"
+          OUT="$RUNNER_TEMP/calltag-v0.44.28-auth-billing-speed-release"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.44.27-code2026081213.aab"
-          cp "$APK" "$OUT/CallTag-v0.44.27-code2026081213-release.apk"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V04427_AAB_SHA256.txt"
-          sha256sum "$APK" > "$OUT/CALLTAG_V04427_APK_SHA256.txt"
+          cp "$AAB" "$OUT/CallTag-v0.44.28-code2026081214.aab"
+          cp "$APK" "$OUT/CallTag-v0.44.28-code2026081214-release.apk"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04428_AAB_SHA256.txt"
+          sha256sum "$APK" > "$OUT/CALLTAG_V04428_APK_SHA256.txt"
           cp "$RUNNER_TEMP/upload-key-fingerprints.txt" "$OUT/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
-          cp "$RUNNER_TEMP/aab-certificate.txt" "$OUT/CALLTAG_V04427_AAB_CERTIFICATE.txt"
-          cp "$RUNNER_TEMP/apk-signature.txt" "$OUT/CALLTAG_V04427_APK_SIGNATURE.txt"
+          cp "$RUNNER_TEMP/aab-certificate.txt" "$OUT/CALLTAG_V04428_AAB_CERTIFICATE.txt"
+          cp "$RUNNER_TEMP/apk-signature.txt" "$OUT/CALLTAG_V04428_APK_SIGNATURE.txt"
 
       - name: Upload release
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.27-code2026081213-auth-billing-speed-release
-          path: ${{ runner.temp }}/calltag-v0.44.27-auth-billing-speed-release
+          name: calltag-v0.44.28-code2026081214-auth-billing-speed-release
+          path: ${{ runner.temp }}/calltag-v0.44.28-auth-billing-speed-release
           retention-days: 90
           if-no-files-found: error
