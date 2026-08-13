@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/admin/admin.css?v=20260813-2" />
   <link rel="stylesheet" href="/admin/payout-request.css?v=20260813-payout1" />
   <link rel="stylesheet" href="/admin/admin-ops.css?v=20260813-ops1" />
+  <link rel="stylesheet" href="/admin/admin-theme.css?v=20260813-theme1" />
 </head>
 <body>
   <header class="topbar">
@@ -102,6 +103,7 @@
   <script src="/admin/play-finance-monthly.js?v=20260813-month1" defer></script>
   <script src="/admin/member-ops.js?v=20260813-ops1" defer></script>
   <script src="/admin/member-ops-sync.js?v=20260813-ops1" defer></script>
+  <script src="/admin/admin-theme.js?v=20260813-theme1" defer></script>
   <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
 </body>
 </html>
