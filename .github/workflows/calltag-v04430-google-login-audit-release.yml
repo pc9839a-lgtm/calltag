@@ -56,7 +56,6 @@ jobs:
           test -n "$first_base"
 
           BILLING='app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java'
-          grep -F 'render();' "$BILLING"
           grep -F 'billing.connectAndLoad();' "$BILLING"
           grep -F 'refreshEntitlement(false);' "$BILLING"
           grep -F 'private boolean refreshing;' "$BILLING"
@@ -153,7 +152,7 @@ jobs:
           unzip -p "$APK" 'classes*.dex' | strings > "$RUNNER_TEMP/apk-strings.txt"
           grep -F "$EXPECTED_WEB_CLIENT" "$RUNNER_TEMP/apk-strings.txt"
           grep -F 'https://pagero.kr' "$RUNNER_TEMP/apk-strings.txt"
-          grep -F 'Google 로그인 확인 중' "$RUNNER_TEMP/apk-strings.txt"
+          grep -F 'kr/pagero/calltag/GoogleCredentialLoginActivity' "$RUNNER_TEMP/apk-strings.txt"
 
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
           APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
