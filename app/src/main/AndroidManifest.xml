@@ -13,9 +13,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
-    <uses-feature
-        android:name="android.hardware.telephony"
-        android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
     <application
         android:name=".CallTagApplication"
@@ -33,13 +31,12 @@
             android:authorities="${applicationId}.files"
             android:exported="false"
             android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
 
         <activity android:name=".InitialPermissionActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".MessageAutomationSettingsActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".PageroLeadMessageSettingsActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".MessageTemplateLibraryActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".MessageTemplateEditorActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".CustomerMessagePickerActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
@@ -70,17 +67,7 @@
         <activity android:name=".PageroUseGuideActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PageroLeadNotificationActivity" android:exported="false" android:screenOrientation="portrait" />
 
-        <activity
-            android:name=".CallerInfoActivity"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:launchMode="singleTop"
-            android:noHistory="true"
-            android:screenOrientation="portrait"
-            android:showWhenLocked="true"
-            android:theme="@style/Theme.CallTag.CallerInfo"
-            android:turnScreenOn="true" />
-
+        <activity android:name=".CallerInfoActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:noHistory="true" android:screenOrientation="portrait" android:showWhenLocked="true" android:theme="@style/Theme.CallTag.CallerInfo" android:turnScreenOn="true" />
         <activity android:name=".CallerIdSetupActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".TaskTypeSettingsActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".StageSettingsActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
@@ -88,57 +75,24 @@
         <activity android:name=".BackupRestoreActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".CallTagSyncStatusActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".CallTagSyncDevicesActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity
-            android:name=".LoginActivity"
-            android:exported="false"
-            android:launchMode="singleTop"
-            android:screenOrientation="portrait"
-            android:windowSoftInputMode="adjustResize" />
-        <activity
-            android:name=".GoogleCredentialLoginActivity"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:launchMode="singleTop"
-            android:screenOrientation="portrait"
-            android:theme="@style/Theme.CallTag.GoogleCredentialBridge" />
-        <activity
-            android:name=".GoogleAuthCallbackActivity"
-            android:excludeFromRecents="true"
-            android:exported="true"
-            android:noHistory="true"
-            android:theme="@style/Theme.CallTag">
+        <activity android:name=".LoginActivity" android:exported="false" android:launchMode="singleTop" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".GoogleCredentialLoginActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:screenOrientation="portrait" android:theme="@style/Theme.CallTag.GoogleCredentialBridge" />
+        <activity android:name=".GoogleAuthCallbackActivity" android:excludeFromRecents="true" android:exported="true" android:noHistory="true" android:theme="@style/Theme.CallTag">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="calltag"
-                    android:host="auth"
-                    android:path="/google" />
+                <data android:scheme="calltag" android:host="auth" android:path="/google" />
             </intent-filter>
         </activity>
         <activity android:name=".CustomerAddActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".CustomerDetailActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".CustomerQuickEditActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".HomeTaskEditorActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity
-            android:name=".PostCallActivity"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:launchMode="singleTop"
-            android:noHistory="false"
-            android:screenOrientation="portrait"
-            android:showWhenLocked="true"
-            android:theme="@style/Theme.CallTag.PostCallPopup"
-            android:turnScreenOn="true"
-            android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".PostCallActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:noHistory="false" android:screenOrientation="portrait" android:showWhenLocked="true" android:theme="@style/Theme.CallTag.PostCallPopup" android:turnScreenOn="true" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".MainActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
 
-        <activity
-            android:name=".AuthGateActivity"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:screenOrientation="portrait">
+        <activity android:name=".AuthGateActivity" android:exported="true" android:launchMode="singleTop" android:screenOrientation="portrait">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -152,44 +106,20 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".CallTagAuthenticatorService"
-            android:exported="true"
-            android:permission="android.permission.BIND_ACCOUNT_AUTHENTICATOR">
-            <intent-filter>
-                <action android:name="android.accounts.AccountAuthenticator" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accounts.AccountAuthenticator"
-                android:resource="@xml/calltag_account_authenticator" />
+        <service android:name=".CallTagAuthenticatorService" android:exported="true" android:permission="android.permission.BIND_ACCOUNT_AUTHENTICATOR">
+            <intent-filter><action android:name="android.accounts.AccountAuthenticator" /></intent-filter>
+            <meta-data android:name="android.accounts.AccountAuthenticator" android:resource="@xml/calltag_account_authenticator" />
         </service>
-
-        <service
-            android:name=".CallTagContactSyncService"
-            android:exported="true"
-            android:permission="android.permission.BIND_SYNC_ADAPTER">
-            <intent-filter>
-                <action android:name="android.content.SyncAdapter" />
-            </intent-filter>
-            <meta-data
-                android:name="android.content.SyncAdapter"
-                android:resource="@xml/calltag_contact_sync_adapter" />
+        <service android:name=".CallTagContactSyncService" android:exported="true" android:permission="android.permission.BIND_SYNC_ADAPTER">
+            <intent-filter><action android:name="android.content.SyncAdapter" /></intent-filter>
+            <meta-data android:name="android.content.SyncAdapter" android:resource="@xml/calltag_contact_sync_adapter" />
         </service>
-
         <service android:name=".CallTagScreeningService" android:exported="true" android:permission="android.permission.BIND_SCREENING_SERVICE">
-            <intent-filter>
-                <action android:name="android.telecom.CallScreeningService" />
-            </intent-filter>
+            <intent-filter><action android:name="android.telecom.CallScreeningService" /></intent-filter>
         </service>
-
-        <service
-            android:name=".CallTagMessagingService"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="com.google.firebase.MESSAGING_EVENT" />
-            </intent-filter>
+        <service android:name=".CallTagMessagingService" android:exported="false">
+            <intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT" /></intent-filter>
         </service>
-
         <service android:name=".CallMonitorService" android:enabled="true" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="User-enabled phone CRM and SMS automation that observes call state, creates follow-up work, and sends configured messages after calls." />
         </service>
@@ -202,6 +132,5 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
-
     </application>
 </manifest>
