@@ -4,11 +4,11 @@
   function statusClass(text = '') {
     const value = String(text || '').trim();
     if (!value) return 'status-neutral';
+    if (/(비활성|해당없음|없음|만료)/.test(value)) return 'status-neutral';
     if (/(체험중|진행중)/.test(value)) return 'status-info';
-    if (/(활성|정상|지급완료|검증됨|이용중)/.test(value)) return 'status-success';
     if (/(확인필요|대기|미지급|지급요청|취소예정|유예|grace)/i.test(value)) return 'status-warning';
     if (/(실패|오류|정지|환불|차단|취소됨)/.test(value)) return 'status-danger';
-    if (/(비활성|해당없음|없음|만료)/.test(value)) return 'status-neutral';
+    if (/(활성|정상|지급완료|검증됨|이용중)/.test(value)) return 'status-success';
     return 'status-neutral';
   }
 
