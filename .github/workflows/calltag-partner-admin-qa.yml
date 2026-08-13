@@ -16,6 +16,8 @@ on:
       - 'web/settlement-security.js'
       - 'web/settlement-finalize.js'
       - 'web/settlement-finalize.css'
+      - 'web/settlement-polish.js'
+      - 'web/settlement-polish.css'
       - '.github/workflows/calltag-partner-admin-qa.yml'
   push:
     branches:
@@ -35,6 +37,8 @@ on:
       - 'web/settlement-security.js'
       - 'web/settlement-finalize.js'
       - 'web/settlement-finalize.css'
+      - 'web/settlement-polish.js'
+      - 'web/settlement-polish.css'
       - '.github/workflows/calltag-partner-admin-qa.yml'
   workflow_dispatch:
 
@@ -65,6 +69,7 @@ jobs:
           node --check web/settlement-core.js
           node --check web/settlement-security.js
           node --check web/settlement-finalize.js
+          node --check web/settlement-polish.js
       - name: Enforce gateway contract
         run: |
           set -euo pipefail
@@ -109,8 +114,13 @@ jobs:
           grep -q "/api/partner/login" web/settlement-security.js
           grep -q "settlement-core.js" web/settlement.js
           grep -q "settlement-finalize.js" _worker.js
+          grep -q "settlement-polish.css" _worker.js
+          grep -q "settlement-polish.js" _worker.js
           grep -q "/api/partner/totp/fresh" web/settlement-finalize.js
           grep -q "/api/partner/logout" web/settlement-finalize.js
+          grep -q "settlementMobileFlow" web/settlement-polish.js
+          grep -q "payoutProfileSummary" web/settlement-polish.js
+          grep -q "추천코드 복사" web/settlement-polish.js
           grep -q "/api/partner/dashboard" web/settlement-core.js
           grep -q "/api/partner/referrals" web/settlement-core.js
           grep -q "/api/partner/earnings" web/settlement-core.js
@@ -125,12 +135,12 @@ jobs:
             echo 'TOTP secret must not be sent to an external QR rendering API.' >&2
             exit 1
           fi
-          if grep -E -n 'purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id' web/settlement-core.js web/settlement-security.js web/settlement-finalize.js admin/play-finance.js admin/play-finance-monthly.js admin/member-ops.js admin/payout-request.js worker/admin-payout-bridge.js worker/admin-ops-bridge.js; then
+          if grep -E -n 'purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id' web/settlement-core.js web/settlement-security.js web/settlement-finalize.js web/settlement-polish.js admin/play-finance.js admin/play-finance-monthly.js admin/member-ops.js admin/payout-request.js worker/admin-payout-bridge.js worker/admin-ops-bridge.js; then
             echo 'Sensitive billing field found in admin or partner settlement surface.' >&2
             exit 1
           fi
-          if grep -E -n 'account_number_ciphertext|account_number_iv|business_number_ciphertext|business_number_iv' worker/admin-payout-bridge.js admin/payout-request.js; then
-            echo 'Encrypted payout storage fields must not cross the admin gateway.' >&2
+          if grep -E -n 'account_number_ciphertext|account_number_iv|business_number_ciphertext|business_number_iv' worker/admin-payout-bridge.js admin/payout-request.js web/settlement-polish.js; then
+            echo 'Encrypted payout storage fields must not cross the browser/admin gateway.' >&2
             exit 1
           fi
           if grep -E -n 'localStorage|sessionStorage|purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id|password' worker/admin.js worker/admin-payout-bridge.js worker/admin-ops-bridge.js admin/admin.js admin/payout-request.js admin/play-finance.js admin/play-finance-monthly.js admin/member-ops.js admin/shell.dat; then
