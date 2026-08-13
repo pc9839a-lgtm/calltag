@@ -71,5 +71,6 @@
     <div id="detailBody" class="drawerbody"></div>
   </aside>
   <script src="/admin/admin.js?v=20260813-1" defer></script>
+  <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
 </body>
 </html>
