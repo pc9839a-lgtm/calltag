@@ -65,12 +65,14 @@ public final class PageroLeadNotificationManager {
         } else {
             text = "기존 고객 문의 " + updated + "건이 상담이력에 반영되었습니다.";
         }
+        String smsSummary = smsSummary(context, customerIds);
+        String expanded = smsSummary.isEmpty() ? text : text + "\n" + smsSummary;
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_notify_chat)
                 .setContentTitle("페이지로 문의 접수")
-                .setContentText(text)
-                .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
+                .setContentText(smsSummary.isEmpty() ? text : smsSummary)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(expanded))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                 .setDefaults(Notification.DEFAULT_ALL)
@@ -78,6 +80,35 @@ public final class PageroLeadNotificationManager {
                 .setAutoCancel(true)
                 .setContentIntent(pending);
         manager.notify(NOTIFICATION_ID, builder.build());
+    }
+
+    private static String smsSummary(Context context, long[] customerIds) {
+        if (customerIds == null || customerIds.length == 0) return "";
+        int sent = 0;
+        int sending = 0;
+        int failed = 0;
+        int notSent = 0;
+        for (long customerId : customerIds) {
+            PageroLeadSmsStatusResolver.State state = PageroLeadSmsStatusResolver.latest(context, customerId);
+            if (state == null) continue;
+            if (PageroLeadReceiptStore.SMS_SENT.equals(state.code)) sent++;
+            else if (PageroLeadReceiptStore.SMS_SENDING.equals(state.code)) sending++;
+            else if (PageroLeadReceiptStore.SMS_FAILED.equals(state.code)) failed++;
+            else notSent++;
+        }
+        int total = sent + sending + failed + notSent;
+        if (total == 0) return "";
+        StringBuilder out = new StringBuilder("문의 문자 · ");
+        if (sent > 0) out.append("완료 ").append(sent).append("건");
+        if (sending > 0) appendState(out, "발송중 " + sending + "건");
+        if (notSent > 0) appendState(out, "미발송 " + notSent + "건");
+        if (failed > 0) appendState(out, "실패 " + failed + "건");
+        return out.toString();
+    }
+
+    private static void appendState(StringBuilder out, String value) {
+        if (!out.toString().endsWith(" · ")) out.append(" · ");
+        out.append(value);
     }
 
     static long[] sanitizeCustomerIds(long[] rawIds) {
