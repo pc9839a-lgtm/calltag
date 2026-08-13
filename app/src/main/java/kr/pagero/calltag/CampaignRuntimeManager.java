@@ -6,8 +6,6 @@ import android.database.Cursor;
 import android.telephony.SmsManager;
 import android.telephony.SubscriptionManager;
 
-import java.util.List;
-
 public final class CampaignRuntimeManager {
     private static final long FIRST_DELAY_MS = 1_500L;
     private static final long RECIPIENT_INTERVAL_MS = 4_000L;
@@ -212,13 +210,20 @@ public final class CampaignRuntimeManager {
         }
     }
 
+    /**
+     * message_jobs.campaign_id is also used as an external-event idempotency namespace by
+     * non-campaign automation (for example PageRo inquiries). Only CAMPAIGN_SEND jobs may enter
+     * the campaign runtime state machine.
+     */
     public static String campaignIdForMessage(Context context, long messageId) {
         if (messageId <= 0L) return "";
         MessageLogStore messages = new MessageLogStore(context);
         try (Cursor cursor = messages.getReadableDatabase().query(
-                "message_jobs", new String[]{"campaign_id"}, "id=?",
+                "message_jobs", new String[]{"campaign_id", "trigger_type"}, "id=?",
                 new String[]{String.valueOf(messageId)}, null, null, null, "1")) {
             if (!cursor.moveToFirst()) return "";
+            String trigger = cursor.getString(1);
+            if (!MessageAutomationManager.TRIGGER_CAMPAIGN.equals(trigger)) return "";
             String value = cursor.getString(0);
             return value == null ? "" : value.trim();
         } finally {
