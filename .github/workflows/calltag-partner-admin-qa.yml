@@ -7,6 +7,7 @@ on:
       - '_worker-core.js'
       - 'admin/**'
       - 'worker/admin.js'
+      - 'worker/admin-payout-bridge.js'
       - 'worker/partner.js'
       - 'web/settlement.html'
       - 'web/settlement.js'
@@ -24,6 +25,7 @@ on:
       - '_worker-core.js'
       - 'admin/**'
       - 'worker/admin.js'
+      - 'worker/admin-payout-bridge.js'
       - 'worker/partner.js'
       - 'web/settlement.html'
       - 'web/settlement.js'
@@ -49,8 +51,10 @@ jobs:
           node --check _worker.js
           node --check _worker-core.js
           node --check worker/admin.js
+          node --check worker/admin-payout-bridge.js
           node --check worker/partner.js
           node --check admin/admin.js
+          node --check admin/payout-request.js
           node --check admin/play-finance.js
           node --check web/settlement.js
           node --check web/settlement-core.js
@@ -65,10 +69,24 @@ jobs:
           grep -q "/api/call/admin/play-finance" worker/admin.js
           grep -q "partner.rate.update" worker/admin.js
           grep -q "partner.settlement.pay" worker/admin.js
+          grep -q "handleAdminPayoutBridge" _worker.js
+          grep -q "/api/call/admin/partners" worker/admin-payout-bridge.js
+          grep -q "/api/call/admin/partner" worker/admin-payout-bridge.js
+          grep -q "/api/call/admin/settlement-pay" worker/admin-payout-bridge.js
+          grep -q "requestId" worker/admin-payout-bridge.js
+          grep -q "payoutRequestCount" worker/admin-payout-bridge.js
+          grep -q "accountNumberMasked" worker/admin-payout-bridge.js
           grep -q "파트너·정산" admin/shell.dat
+          grep -q "지급요청" admin/shell.dat
+          grep -q "partnerRequested" admin/shell.dat
+          grep -q "payout-request.js" admin/shell.dat
           grep -q "Google Play 확정 정산" admin/shell.dat
           grep -q "play-finance.js" admin/shell.dat
           grep -q "정산 지급" admin/admin.js
+          grep -q "지급완료" admin/payout-request.js
+          grep -q "requestId" admin/payout-request.js
+          grep -q "accountNumberMasked" admin/payout-request.js
+          grep -q "/admin/api/settlement-pay" admin/payout-request.js
           grep -q "이용 상태" admin/shell.dat
           grep -q "결제 검증" admin/shell.dat
           grep -q "paymentVerificationLabel" admin/admin.js
@@ -94,11 +112,15 @@ jobs:
             echo 'TOTP secret must not be sent to an external QR rendering API.' >&2
             exit 1
           fi
-          if grep -E -n 'purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id' web/settlement-core.js web/settlement-security.js web/settlement-finalize.js admin/play-finance.js; then
+          if grep -E -n 'purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id' web/settlement-core.js web/settlement-security.js web/settlement-finalize.js admin/play-finance.js admin/payout-request.js worker/admin-payout-bridge.js; then
             echo 'Sensitive billing field found in admin or partner settlement surface.' >&2
             exit 1
           fi
-          if grep -E -n 'localStorage|sessionStorage|purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id|password' worker/admin.js admin/admin.js admin/play-finance.js admin/shell.dat; then
+          if grep -E -n 'account_number_ciphertext|account_number_iv|business_number_ciphertext|business_number_iv' worker/admin-payout-bridge.js admin/payout-request.js; then
+            echo 'Encrypted payout storage fields must not cross the admin gateway.' >&2
+            exit 1
+          fi
+          if grep -E -n 'localStorage|sessionStorage|purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id|password' worker/admin.js worker/admin-payout-bridge.js admin/admin.js admin/payout-request.js admin/play-finance.js admin/shell.dat; then
             echo 'Reusable credential or sensitive billing field found in web admin surface.' >&2
             exit 1
           fi
