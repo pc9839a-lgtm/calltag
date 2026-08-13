@@ -41,28 +41,18 @@ public final class PageroLeadSyncManager {
 
     private PageroLeadSyncManager() {}
 
-    public static boolean requestSync(Context context) {
-        return requestSync(context, false);
-    }
-
+    public static boolean requestSync(Context context) { return requestSync(context, false); }
     public static boolean requestSync(Context context, boolean force) {
         return requestSyncInternal(context, force, false);
     }
-
-    /** FCM 또는 안전 보조 동기화에서 사용한다. 실제 문의가 반영된 뒤에만 알림을 표시한다. */
     public static boolean requestRealtimeSync(Context context) {
         return requestSyncInternal(context, true, true);
     }
-
-    /** 앱이 열린 동안 놓친 푸시를 보완한다. 변경이 있을 때만 사용자에게 알린다. */
     public static boolean requestSyncAndNotify(Context context, boolean force) {
         return requestSyncInternal(context, force, true);
     }
 
-    private static boolean requestSyncInternal(
-            Context context,
-            boolean force,
-            boolean notifyWhenChanged) {
+    private static boolean requestSyncInternal(Context context, boolean force, boolean notifyWhenChanged) {
         if (context == null) return false;
         Context appContext = context.getApplicationContext();
         if (!AuthSessionStore.hasSession(appContext)) {
@@ -72,17 +62,13 @@ public final class PageroLeadSyncManager {
             sendResult(appContext, false, new SyncResult(), message, "SESSION_REQUIRED");
             return false;
         }
-
         if (notifyWhenChanged) NOTIFY_WHEN_CHANGED.set(true);
 
         long now = System.currentTimeMillis();
         long previous = LAST_ATTEMPT_AT.get();
         if (!force && now - previous < MIN_SYNC_INTERVAL_MS) return false;
-        if (force) {
-            LAST_ATTEMPT_AT.set(now);
-        } else if (!LAST_ATTEMPT_AT.compareAndSet(previous, now)) {
-            return false;
-        }
+        if (force) LAST_ATTEMPT_AT.set(now);
+        else if (!LAST_ATTEMPT_AT.compareAndSet(previous, now)) return false;
 
         if (!RUNNING.compareAndSet(false, true)) {
             if (force) PENDING_FORCE.set(true);
@@ -95,16 +81,13 @@ public final class PageroLeadSyncManager {
             try {
                 SyncResult result = syncNow(appContext);
                 changed = result.imported > 0 || result.updated > 0;
-                PageroConnectionStatusStore.markSuccess(
-                        appContext, result.imported, result.updated, result.rejected);
+                PageroConnectionStatusStore.markSuccess(appContext,
+                        result.imported, result.updated, result.rejected);
                 if (changed) {
                     ContactNameSyncManager.requestSyncAll(appContext);
                     if (NOTIFY_WHEN_CHANGED.getAndSet(false)) {
-                        PageroLeadNotificationManager.showImported(
-                                appContext,
-                                result.imported,
-                                result.updated,
-                                result.customerIds());
+                        PageroLeadNotificationManager.showImported(appContext,
+                                result.imported, result.updated, result.customerIds());
                     }
                 }
                 sendResult(appContext, true, result, successMessage(result), "");
@@ -116,26 +99,21 @@ public final class PageroLeadSyncManager {
             } catch (Exception error) {
                 String message = safeMessage(error);
                 Log.e(TAG, "PageRo lead sync failed: " + error.getClass().getSimpleName());
-                PageroConnectionStatusStore.markFailure(
-                        appContext, message, error.getClass().getSimpleName());
+                PageroConnectionStatusStore.markFailure(appContext, message,
+                        error.getClass().getSimpleName());
                 sendResult(appContext, false, new SyncResult(), message,
                         error.getClass().getSimpleName());
             } finally {
                 boolean rerun = PENDING_FORCE.getAndSet(false);
                 RUNNING.set(false);
-                if (rerun) {
-                    requestSyncInternal(appContext, true, NOTIFY_WHEN_CHANGED.get());
-                } else if (!changed) {
-                    NOTIFY_WHEN_CHANGED.set(false);
-                }
+                if (rerun) requestSyncInternal(appContext, true, NOTIFY_WHEN_CHANGED.get());
+                else if (!changed) NOTIFY_WHEN_CHANGED.set(false);
             }
         });
         return true;
     }
 
-    public static boolean isRunning() {
-        return RUNNING.get();
-    }
+    public static boolean isRunning() { return RUNNING.get(); }
 
     private static SyncResult syncNow(Context context) throws Exception {
         String session = AuthSessionStore.session(context);
@@ -157,14 +135,25 @@ public final class PageroLeadSyncManager {
                     }
                     try {
                         ImportResult imported = importLead(db, lead);
+                        // CRM 저장 성공을 먼저 멱등 기록한다. 문자 실패는 문의 수집 성공을 되돌리지 않는다.
                         receipts.markImported(lead.eventId, lead.id, imported.customerId);
+                        Customer savedCustomer = db.findCustomerById(imported.customerId);
+                        if (savedCustomer != null) {
+                            try {
+                                PageroLeadMessageAutomation.onImported(context, lead, savedCustomer);
+                            } catch (RuntimeException smsError) {
+                                receipts.markSms(lead.eventId, 0L,
+                                        PageroLeadReceiptStore.SMS_FAILED,
+                                        safeMessage(smsError));
+                                Log.w(TAG, "PageRo lead SMS automation failed");
+                            }
+                        }
                         acknowledged.add(lead.id);
                         result.record(imported);
                     } catch (IllegalArgumentException invalid) {
                         result.rejected++;
                         try {
-                            PageroLeadApiClient.acknowledgeRejected(
-                                    session, lead.id, safeMessage(invalid));
+                            PageroLeadApiClient.acknowledgeRejected(session, lead.id, safeMessage(invalid));
                         } catch (Exception ackError) {
                             Log.w(TAG, "Unable to reject invalid PageRo lead");
                         }
@@ -172,10 +161,9 @@ public final class PageroLeadSyncManager {
                 }
 
                 if (!acknowledged.isEmpty()) {
-                    PageroLeadApiClient.acknowledgeImported(
-                            session,
-                            acknowledged,
-                            "신규 고객 " + result.imported + "건, 기존 고객 갱신 " + result.updated + "건");
+                    PageroLeadApiClient.acknowledgeImported(session, acknowledged,
+                            "신규 고객 " + result.imported + "건, 기존 고객 갱신 "
+                                    + result.updated + "건");
                     for (Long id : acknowledged) receipts.markAcked(id);
                 }
 
@@ -190,23 +178,17 @@ public final class PageroLeadSyncManager {
         Customer existing = db.findByPhone(lead.phone);
         boolean created = false;
         long customerId;
-
         if (existing == null) {
             try {
-                customerId = db.insertCustomer(
-                        lead.customerName,
-                        lead.phone,
-                        db.firstStage(),
-                        CustomerSourceResolver.PAGERO);
+                customerId = db.insertCustomer(lead.customerName, lead.phone,
+                        db.firstStage(), CustomerSourceResolver.PAGERO);
                 created = true;
             } catch (IllegalArgumentException duplicateRace) {
                 existing = db.findByPhone(lead.phone);
                 if (existing == null) throw duplicateRace;
                 customerId = existing.id;
             }
-        } else {
-            customerId = existing.id;
-        }
+        } else customerId = existing.id;
 
         Customer current = db.findCustomerById(customerId);
         if (current == null) throw new IllegalArgumentException("고객 저장 후 조회에 실패했습니다.");
@@ -222,15 +204,8 @@ public final class PageroLeadSyncManager {
         SQLiteDatabase database = db.getWritableDatabase();
         database.update("customers", values, "id=?", new String[]{String.valueOf(customerId)});
 
-        db.insertInteraction(
-                customerId,
-                "PAGERO_INQUIRY",
-                contactAt,
-                contactAt,
-                0L,
-                "PAGERO_LEAD",
-                lead.inquiryContent.isEmpty() ? "페이지로 문의 접수" : lead.inquiryContent);
-
+        db.insertInteraction(customerId, "PAGERO_INQUIRY", contactAt, contactAt, 0L,
+                "PAGERO_LEAD", lead.interactionNote());
         return new ImportResult(customerId, created);
     }
 
@@ -240,14 +215,13 @@ public final class PageroLeadSyncManager {
         if (next.isEmpty() || current.contains(next)) return current;
         if (current.isEmpty()) return next;
         String merged = next + "\n\n" + current;
-        return merged.length() <= 4000 ? merged : merged.substring(0, 4000);
+        return merged.length() <= 8000 ? merged : merged.substring(0, 8000);
     }
 
     private static String safeMessage(Throwable error) {
         String message = error == null ? "" : error.getMessage();
         return message == null || message.trim().isEmpty()
-                ? "페이지로 문의를 동기화하지 못했습니다."
-                : message.trim();
+                ? "페이지로 문의를 동기화하지 못했습니다." : message.trim();
     }
 
     private static String successMessage(SyncResult result) {
@@ -267,12 +241,8 @@ public final class PageroLeadSyncManager {
         return message.toString();
     }
 
-    private static void sendResult(
-            Context context,
-            boolean success,
-            SyncResult result,
-            String message,
-            String errorCode) {
+    private static void sendResult(Context context, boolean success, SyncResult result,
+                                   String message, String errorCode) {
         Intent intent = new Intent(ACTION_LEADS_UPDATED)
                 .setPackage(context.getPackageName())
                 .putExtra(EXTRA_SUCCESS, success)
@@ -288,7 +258,6 @@ public final class PageroLeadSyncManager {
     private static final class ImportResult {
         final long customerId;
         final boolean created;
-
         ImportResult(long customerId, boolean created) {
             this.customerId = customerId;
             this.created = created;
@@ -300,14 +269,12 @@ public final class PageroLeadSyncManager {
         int updated;
         int rejected;
         final Set<Long> changedCustomerIds = new LinkedHashSet<>();
-
         void record(ImportResult importedResult) {
             if (importedResult == null) return;
             if (importedResult.created) imported++;
             else updated++;
             if (importedResult.customerId > 0L) changedCustomerIds.add(importedResult.customerId);
         }
-
         long[] customerIds() {
             long[] values = new long[changedCustomerIds.size()];
             int index = 0;
