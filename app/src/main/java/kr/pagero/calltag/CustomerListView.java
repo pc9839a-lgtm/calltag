@@ -3,6 +3,7 @@ package kr.pagero.calltag;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
+import android.provider.ContactsContract;
 import android.text.TextUtils;
 import android.util.AttributeSet;
 import android.view.Gravity;
@@ -13,15 +14,10 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+/** 고객 카드: 상태 변경/문자 보내기/연락처 저장/삭제를 카드에서 바로 실행한다. */
 public final class CustomerListView extends LinearLayout {
-    public CustomerListView(Context context) {
-        super(context);
-    }
-
-    public CustomerListView(Context context, AttributeSet attrs) {
-        super(context, attrs);
-    }
-
+    public CustomerListView(Context context) { super(context); }
+    public CustomerListView(Context context, AttributeSet attrs) { super(context, attrs); }
     public CustomerListView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
     }
@@ -40,14 +36,12 @@ public final class CustomerListView extends LinearLayout {
             empty.setPadding(dp(14), dp(12), dp(14), dp(12));
             return;
         }
-
         if (!(child instanceof LinearLayout)) return;
         LinearLayout card = (LinearLayout) child;
         card.setPadding(dp(14), dp(13), dp(14), dp(13));
         card.setBackgroundResource(R.drawable.bg_card);
         card.setMinimumHeight(dp(138));
         decorateCustomerCard(card);
-
         if (params instanceof LinearLayout.LayoutParams) {
             ((LinearLayout.LayoutParams) params).bottomMargin = dp(8);
         }
@@ -93,6 +87,10 @@ public final class CustomerListView extends LinearLayout {
         if (customer == null) return;
 
         final long customerId = customer.id;
+        final String customerPhone = phone;
+        final String customerName = customer.displayName;
+        final String customerEmail = extractEmail(customer.memo);
+        final boolean pagero = CustomerSourceResolver.isPagero(customer);
         card.setClickable(true);
         card.setFocusable(true);
         card.setOnClickListener(v -> openCustomer(customerId));
@@ -107,10 +105,8 @@ public final class CustomerListView extends LinearLayout {
         phoneView.setSingleLine(true);
         phoneView.setEllipsize(TextUtils.TruncateAt.END);
         phoneView.setTextSize(14f);
-        contactRow.addView(phoneView, new LinearLayout.LayoutParams(
-                0, LayoutParams.WRAP_CONTENT, 1f));
-
-        if (CustomerSourceResolver.isPagero(customer)) {
+        contactRow.addView(phoneView, new LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        if (pagero) {
             TextView source = CustomerSourceBadge.create(getContext(), "페이지로");
             LinearLayout.LayoutParams sourceParams = new LinearLayout.LayoutParams(
                     LayoutParams.WRAP_CONTENT, dp(26));
@@ -130,22 +126,59 @@ public final class CustomerListView extends LinearLayout {
         memoView.setIncludeFontPadding(false);
         card.addView(memoView, Math.min(2, card.getChildCount()), topMargin(6));
 
+        int contentIndex = 3;
+        if (pagero) {
+            PageroLeadSmsStatusResolver.State sms = PageroLeadSmsStatusResolver.latest(
+                    getContext(), customerId);
+            if (sms != null) {
+                TextView state = new TextView(getContext());
+                state.setText(sms.label + (sms.reason.isEmpty() ? "" : " · " + compact(sms.reason)));
+                state.setTextSize(12f);
+                state.setSingleLine(true);
+                state.setEllipsize(TextUtils.TruncateAt.END);
+                state.setIncludeFontPadding(false);
+                state.setTextColor(getContext().getColor(
+                        PageroLeadReceiptStore.SMS_FAILED.equals(sms.code)
+                                ? R.color.danger : R.color.text_secondary));
+                card.addView(state, Math.min(contentIndex++, card.getChildCount()), topMargin(5));
+            }
+        }
+
         if (recentView != null) {
             recentView.setSingleLine(true);
             recentView.setEllipsize(TextUtils.TruncateAt.END);
             recentView.setTextSize(12f);
-            card.addView(recentView, Math.min(3, card.getChildCount()), topMargin(5));
+            card.addView(recentView, Math.min(contentIndex, card.getChildCount()), topMargin(5));
         }
 
         if (actions == null) return;
         removeDetailButton(actions);
         if (!hasMessageButton(actions)) {
-            final String customerPhone = phone;
             Button message = compactButton("문자 보내기", true);
             message.setTag("customer_message_button");
             message.setOnClickListener(v -> openCustomerMessage(customerPhone));
-            actions.addView(message, new LinearLayout.LayoutParams(0, dp(42), 1.2f));
+            actions.addView(message, new LinearLayout.LayoutParams(0, dp(42), 1f));
         }
+        normalizeActionRow(actions);
+
+        LinearLayout secondRow = new LinearLayout(getContext());
+        secondRow.setOrientation(HORIZONTAL);
+        Button saveContact = compactButton("연락처 저장", false);
+        saveContact.setOnClickListener(v -> openContactInsert(customerName, customerPhone, customerEmail));
+        secondRow.addView(saveContact, new LinearLayout.LayoutParams(0, dp(42), 1f));
+
+        Button delete = compactButton("삭제", false);
+        delete.setTextColor(getContext().getColor(R.color.danger));
+        delete.setOnClickListener(v -> getContext().startActivity(
+                new Intent(getContext(), CustomerDeleteActivity.class)
+                        .putExtra(CustomerDeleteActivity.EXTRA_CUSTOMER_ID, customerId)));
+        LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(0, dp(42), 1f);
+        deleteParams.leftMargin = dp(7);
+        secondRow.addView(delete, deleteParams);
+        card.addView(secondRow, topMargin(7));
+    }
+
+    private void normalizeActionRow(LinearLayout actions) {
         for (int i = 0; i < actions.getChildCount(); i++) {
             View child = actions.getChildAt(i);
             if (child instanceof Button) {
@@ -159,6 +192,18 @@ public final class CustomerListView extends LinearLayout {
                 item.leftMargin = i == 0 ? 0 : dp(7);
                 child.setLayoutParams(item);
             }
+        }
+    }
+
+    private void openContactInsert(String name, String phone, String email) {
+        try {
+            Intent intent = new Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
+                    .putExtra(ContactsContract.Intents.Insert.NAME, name)
+                    .putExtra(ContactsContract.Intents.Insert.PHONE, phone);
+            if (!email.isEmpty()) intent.putExtra(ContactsContract.Intents.Insert.EMAIL, email);
+            getContext().startActivity(intent);
+        } catch (RuntimeException error) {
+            Toast.makeText(getContext(), "연락처 저장 화면을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -180,8 +225,7 @@ public final class CustomerListView extends LinearLayout {
     private void removeDetailButton(LinearLayout row) {
         for (int i = row.getChildCount() - 1; i >= 0; i--) {
             View child = row.getChildAt(i);
-            if (child instanceof Button
-                    && "고객 상세".contentEquals(((Button) child).getText())) {
+            if (child instanceof Button && "고객 상세".contentEquals(((Button) child).getText())) {
                 row.removeViewAt(i);
             }
         }
@@ -190,9 +234,7 @@ public final class CustomerListView extends LinearLayout {
     private void removeOldSourceBadges(LinearLayout row) {
         if (row == null) return;
         for (int i = row.getChildCount() - 1; i >= 0; i--) {
-            if ("customer_source_badge".equals(row.getChildAt(i).getTag())) {
-                row.removeViewAt(i);
-            }
+            if ("customer_source_badge".equals(row.getChildAt(i).getTag())) row.removeViewAt(i);
         }
     }
 
@@ -200,6 +242,15 @@ public final class CustomerListView extends LinearLayout {
         if (value == null) return "";
         String safe = value.trim().replaceAll("\\s+", " ");
         return safe.length() <= 52 ? safe : safe.substring(0, 49) + "…";
+    }
+
+    private String extractEmail(String memo) {
+        if (memo == null || memo.trim().isEmpty()) return "";
+        for (String line : memo.split("\\r?\\n")) {
+            String value = line.trim();
+            if (value.startsWith("이메일:")) return value.substring(4).trim();
+        }
+        return "";
     }
 
     private boolean hasMessageButton(LinearLayout row) {
@@ -215,10 +266,7 @@ public final class CustomerListView extends LinearLayout {
     }
 
     private void openCustomerMessage(String phone) {
-        if (!FeatureEntitlementStore.hasMessageAccess(getContext())) {
-            Toast.makeText(getContext(), "문자 기능 이용 권한이 필요합니다.", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if (!FeatureAccessGate.require(getContext(), FeatureAccessGate.MESSAGE)) return;
         long customerId = 0L;
         CallTagDbHelper db = new CallTagDbHelper(getContext());
         try {
@@ -227,15 +275,13 @@ public final class CustomerListView extends LinearLayout {
         } finally {
             db.close();
         }
-        Intent intent = new Intent(getContext(), ManualMessageActivity.class)
+        getContext().startActivity(new Intent(getContext(), ManualMessageActivity.class)
                 .putExtra(ManualMessageActivity.EXTRA_PHONE, phone)
-                .putExtra(ManualMessageActivity.EXTRA_CUSTOMER_ID, customerId);
-        getContext().startActivity(intent);
+                .putExtra(ManualMessageActivity.EXTRA_CUSTOMER_ID, customerId));
     }
 
     private LayoutParams topMargin(int value) {
-        LayoutParams params = new LayoutParams(
-                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
         params.topMargin = dp(value);
         return params;
     }
