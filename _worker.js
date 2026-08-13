@@ -8,7 +8,7 @@ const SEO_DESCRIPTION='통화가 끝나면 고객을 태그하고 상담 상태�
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
 const WORKER_VERSION='v153-partner-totp3';
 const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260811-runtime60';
-const PARTNER_SECURITY_SRC='/web/settlement-security.js?v=20260813-totp1';
+const PARTNER_SECURITY_SRC='/web/settlement-security.js?v=20260813-qrfix2';
 const STYLE_BUNDLE_PATH='/assets/calltag-style-bundle.css';
 const STYLE_BUNDLE_VERSION='20260812-cssbundle1';
 const STYLE_ASSETS=[
