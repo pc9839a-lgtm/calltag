@@ -3,6 +3,7 @@
     <style name="Theme.CallTag" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:buttonStyle">@style/Widget.CallTag.Button</item>
+        <item name="android:switchStyle">@style/Widget.CallTag.Switch</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
         <item name="android:statusBarColor">@color/background</item>
@@ -23,6 +24,12 @@
         <item name="android:minHeight">0dp</item>
         <item name="android:minWidth">0dp</item>
         <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="Widget.CallTag.Switch" parent="android:style/Widget.Material.CompoundButton.Switch">
+        <item name="android:textSize">0sp</item>
+        <item name="android:switchMinWidth">48dp</item>
+        <item name="android:switchPadding">0dp</item>
     </style>
 
     <style name="Theme.CallTag.CallerInfo" parent="android:style/Theme.Material.NoActionBar">
