@@ -3,6 +3,8 @@ import { handleAdminOpsBridge } from './worker/admin-ops-bridge.js';
 import { handleAdminPayoutBridge } from './worker/admin-payout-bridge.js';
 
 const SETTLEMENT_FINALIZER='/web/settlement-finalize.js?v=20260813-final1';
+const SETTLEMENT_POLISH_STYLE='/web/settlement-polish.css?v=20260813-polish1';
+const SETTLEMENT_POLISH_SCRIPT='/web/settlement-polish.js?v=20260813-polish1';
 
 export default {
   async fetch(request,env,context){
@@ -21,10 +23,16 @@ export default {
     const headers=new Headers(response.headers);
     ['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));
     headers.set('cache-control','no-cache, no-store, must-revalidate');
-    headers.set('x-calltag-settlement-finalizer','20260813-final1');
+    headers.set('x-calltag-settlement-finalizer','20260813-polish1');
     let body=await response.text();
+    if(!body.includes('settlement-polish.css')){
+      body=body.replace('</head>',`<link rel="stylesheet" href="${SETTLEMENT_POLISH_STYLE}"></head>`);
+    }
     if(!body.includes('settlement-finalize.js')){
       body=body.replace('</body>',`<script src="${SETTLEMENT_FINALIZER}" defer></script></body>`);
+    }
+    if(!body.includes('settlement-polish.js')){
+      body=body.replace('</body>',`<script src="${SETTLEMENT_POLISH_SCRIPT}" defer></script></body>`);
     }
     return new Response(body,{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
   }
