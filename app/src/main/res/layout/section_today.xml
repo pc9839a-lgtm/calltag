@@ -16,9 +16,19 @@
         android:paddingRight="16dp"
         android:paddingBottom="96dp">
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:includeFontPadding="false"
+            android:text="전화 기능"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="68dp"
+            android:layout_height="88dp"
+            android:layout_marginTop="8dp"
             android:background="@drawable/bg_card"
             android:gravity="center_vertical"
             android:orientation="horizontal"
@@ -40,16 +50,16 @@
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
-                <TextView
+                <kr.pagero.calltag.PhoneMonitorStateTextView
                     android:id="@+id/monitorStateText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
+                    android:layout_marginTop="4dp"
                     android:includeFontPadding="false"
-                    android:maxLines="1"
-                    android:text="통화 감지가 꺼져 있어요"
+                    android:maxLines="2"
+                    android:text="사용 안 함"
                     android:textColor="@color/text_secondary"
-                    android:textSize="13sp" />
+                    android:textSize="12.5sp" />
             </LinearLayout>
 
             <Switch
@@ -59,17 +69,54 @@
                 android:layout_marginStart="12dp" />
         </LinearLayout>
 
-        <kr.pagero.calltag.CallerIdSetupButton
-            android:id="@+id/callerIdSetupButton"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="44dp"
+            android:layout_height="88dp"
             android:layout_marginTop="8dp"
-            android:background="@drawable/bg_secondary_button"
-            android:text="수신 고객정보 표시"
-            android:textAllCaps="false"
-            android:textColor="@color/text_primary"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:background="@drawable/bg_card"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingLeft="16dp"
+            android:paddingRight="12dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:includeFontPadding="false"
+                    android:text="수신 전화 고객정보 표시"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:includeFontPadding="false"
+                    android:maxLines="2"
+                    android:text="전화가 올 때 저장된 고객명과 최근 메모를 표시합니다."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12.5sp" />
+            </LinearLayout>
+
+            <kr.pagero.calltag.CallerIdSetupButton
+                android:id="@+id/callerIdSetupButton"
+                android:layout_width="92dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/bg_primary_button"
+                android:text="권한 필요"
+                android:textAllCaps="false"
+                android:textColor="@android:color/white"
+                android:textSize="12.5sp"
+                android:textStyle="bold" />
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -93,12 +140,7 @@
                 android:textColor="@color/text_primary"
                 android:textSize="14sp"
                 android:textStyle="bold" />
-
-            <View
-                android:layout_width="1dp"
-                android:layout_height="34dp"
-                android:background="@color/border" />
-
+            <View android:layout_width="1dp" android:layout_height="34dp" android:background="@color/border" />
             <TextView
                 android:id="@+id/overdueCount"
                 android:layout_width="0dp"
@@ -111,12 +153,7 @@
                 android:textColor="@color/danger"
                 android:textSize="14sp"
                 android:textStyle="bold" />
-
-            <View
-                android:layout_width="1dp"
-                android:layout_height="34dp"
-                android:background="@color/border" />
-
+            <View android:layout_width="1dp" android:layout_height="34dp" android:background="@color/border" />
             <TextView
                 android:id="@+id/todayNewCount"
                 android:layout_width="0dp"
@@ -146,7 +183,6 @@
             android:layout_height="48dp"
             android:layout_marginTop="9dp"
             android:orientation="horizontal">
-
             <kr.pagero.calltag.CustomerAddLauncherView
                 android:id="@+id/quickAddCustomer"
                 android:layout_width="0dp"
@@ -158,7 +194,6 @@
                 android:textColor="@android:color/white"
                 android:textSize="13sp"
                 android:textStyle="bold" />
-
             <TextView
                 android:id="@+id/quickCustomers"
                 android:layout_width="0dp"
@@ -171,7 +206,6 @@
                 android:textColor="@color/text_primary"
                 android:textSize="13sp"
                 android:textStyle="bold" />
-
             <kr.pagero.calltag.QuickCustomerMessageView
                 android:id="@+id/quickConsultations"
                 android:layout_width="0dp"
@@ -198,7 +232,6 @@
             android:layout_marginTop="20dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
-
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -208,7 +241,6 @@
                 android:textColor="@color/text_primary"
                 android:textSize="17sp"
                 android:textStyle="bold" />
-
             <kr.pagero.calltag.HomeTaskAddButton
                 android:id="@+id/homeTaskAddButton"
                 android:layout_width="118dp"
