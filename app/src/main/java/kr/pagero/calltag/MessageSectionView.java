@@ -9,7 +9,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-/** 고객을 기준으로 시작하는 문자 허브. */
+/** 고객 문자 화면의 핵심 진입점을 3개로 고정한다. */
 public final class MessageSectionView extends LinearLayout {
     public static final String ACTION_CHANGED = "kr.pagero.calltag.MESSAGE_CHANGED";
 
@@ -33,21 +33,29 @@ public final class MessageSectionView extends LinearLayout {
         MessageAutomationStore.ensureDefaults(getContext());
         MessageTemplateStore.ensureDefaults(getContext());
 
-        TextView primary = primaryAction("고객 선택 후 문자");
-        primary.setOnClickListener(v -> {
-            if (!requireMessageAccess()) return;
-            getContext().startActivity(new Intent(
-                    getContext(), CustomerMessagePickerActivity.class));
-        });
-        addView(primary, new LayoutParams(LayoutParams.MATCH_PARENT, dp(56)));
+        TextView section = label("문자 보내기");
+        addView(section, topMargin(2));
 
-        LinearLayout automation = automationCard();
-        LayoutParams automationParams = new LayoutParams(LayoutParams.MATCH_PARENT, dp(82));
-        automationParams.topMargin = dp(10);
-        addView(automation, automationParams);
+        LinearLayout primaryMenu = new LinearLayout(getContext());
+        primaryMenu.setOrientation(VERTICAL);
+        primaryMenu.setPadding(dp(4), dp(4), dp(4), dp(4));
+        primaryMenu.setBackgroundResource(R.drawable.bg_card);
+        addPrimaryRow(primaryMenu,
+                "고객선택후 문자",
+                "고객을 선택하고 바로 문자 작성",
+                CustomerMessagePickerActivity.class);
+        addPrimaryRow(primaryMenu,
+                "통화후 자동문자",
+                "통화 종료 후 조건에 맞춰 자동 발송",
+                MessageAutomationSettingsActivity.class);
+        addPrimaryRow(primaryMenu,
+                "페이지로 문의접수문자",
+                "페이지로 문의가 접수되면 자동 발송",
+                PageroLeadMessageSettingsActivity.class);
+        addView(primaryMenu, topMargin(8));
 
-        TextView section = label("문자 관리");
-        addView(section, topMargin(20));
+        TextView management = label("문자 관리");
+        addView(management, topMargin(20));
 
         LinearLayout menu = new LinearLayout(getContext());
         menu.setOrientation(VERTICAL);
@@ -59,36 +67,39 @@ public final class MessageSectionView extends LinearLayout {
         addView(menu, topMargin(8));
     }
 
-    private LinearLayout automationCard() {
-        LinearLayout card = new LinearLayout(getContext());
-        card.setOrientation(HORIZONTAL);
-        card.setGravity(Gravity.CENTER_VERTICAL);
-        card.setPadding(dp(17), 0, dp(11), 0);
-        card.setBackgroundResource(R.drawable.bg_selected_row);
-        card.setClickable(true);
-        card.setFocusable(true);
-        card.setOnClickListener(v -> {
+    private void addPrimaryRow(LinearLayout parent, String title, String subtitle,
+                               Class<?> destination) {
+        LinearLayout row = new LinearLayout(getContext());
+        row.setOrientation(HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(15), 0, dp(8), 0);
+        row.setBackgroundResource(R.drawable.bg_clickable_row);
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setOnClickListener(v -> {
             if (!requireMessageAccess()) return;
-            getContext().startActivity(new Intent(
-                    getContext(), MessageAutomationSettingsActivity.class));
+            getContext().startActivity(new Intent(getContext(), destination));
         });
 
         LinearLayout labels = new LinearLayout(getContext());
         labels.setOrientation(VERTICAL);
-        TextView title = text("통화 후 자동문자", 17f, true);
-        labels.addView(title, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-        TextView subtitle = text("통화가 끝난 뒤 조건에 맞춰 자동으로 문자 발송", 12.5f, false);
-        subtitle.setTextColor(getContext().getColor(R.color.text_secondary));
+        labels.addView(text(title, 15.5f, true), new LayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        TextView sub = text(subtitle, 12f, false);
+        sub.setTextColor(getContext().getColor(R.color.text_secondary));
         LayoutParams subParams = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-        subParams.topMargin = dp(5);
-        labels.addView(subtitle, subParams);
-        card.addView(labels, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        subParams.topMargin = dp(4);
+        labels.addView(sub, subParams);
+        row.addView(labels, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView arrow = text("›", 27f, false);
+        TextView arrow = text("›", 24f, false);
         arrow.setTextColor(getContext().getColor(R.color.primary));
         arrow.setGravity(Gravity.CENTER);
-        card.addView(arrow, new LayoutParams(dp(32), dp(52)));
-        return card;
+        row.addView(arrow, new LayoutParams(dp(30), dp(48)));
+
+        LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, dp(68));
+        params.bottomMargin = dp(3);
+        parent.addView(row, params);
     }
 
     private void addMenuRow(LinearLayout parent, String title, String subtitle,
@@ -128,18 +139,9 @@ public final class MessageSectionView extends LinearLayout {
 
     private boolean requireMessageAccess() {
         if (FeatureEntitlementStore.hasMessageAccess(getContext())) return true;
-        Toast.makeText(getContext(), "문자 기능 이용 권한이 필요합니다.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(getContext(), "문자자동화 이용권이 필요합니다.", Toast.LENGTH_SHORT).show();
+        getContext().startActivity(new Intent(getContext(), BillingEntitlementActivity.class));
         return false;
-    }
-
-    private TextView primaryAction(String label) {
-        TextView view = text(label, 15f, true);
-        view.setTextColor(getContext().getColor(android.R.color.white));
-        view.setGravity(Gravity.CENTER);
-        view.setBackgroundResource(R.drawable.bg_primary_button);
-        view.setClickable(true);
-        view.setFocusable(true);
-        return view;
     }
 
     private TextView label(String value) {
