@@ -3,6 +3,7 @@ package kr.pagero.calltag;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.provider.ContactsContract;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
@@ -34,6 +35,7 @@ public final class CustomerQuickEditActivity extends Activity {
     private Button statusButton;
     private EditText memoInput;
     private Button saveButton;
+    private Button contactSaveButton;
     private boolean saving;
 
     @Override
@@ -114,6 +116,15 @@ public final class CustomerQuickEditActivity extends Activity {
         saveButton.setBackgroundResource(R.drawable.bg_primary_button);
         saveButton.setOnClickListener(v -> save());
         content.addView(saveButton, fixedHeight(52, 22));
+
+        contactSaveButton = new Button(this);
+        contactSaveButton.setText("연락처 저장");
+        contactSaveButton.setAllCaps(false);
+        contactSaveButton.setTextColor(getColor(R.color.text_primary));
+        contactSaveButton.setTextSize(14f);
+        contactSaveButton.setBackgroundResource(R.drawable.bg_secondary_button);
+        contactSaveButton.setOnClickListener(v -> saveToContacts());
+        content.addView(contactSaveButton, fixedHeight(48, 10));
 
         Button detail = new Button(this);
         detail.setText("상세 이력 보기");
@@ -212,6 +223,31 @@ public final class CustomerQuickEditActivity extends Activity {
         }
     }
 
+    private void saveToContacts() {
+        if (saving) return;
+        Customer latest;
+        try {
+            latest = resolveCustomer();
+        } catch (RuntimeException error) {
+            latest = null;
+        }
+        if (latest == null) {
+            Toast.makeText(this, "고객 정보를 찾을 수 없습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String name = nameInput.getText().toString().trim();
+        if (name.isEmpty()) name = latest.displayName;
+        try {
+            Intent intent = new Intent(ContactsContract.Intents.Insert.ACTION);
+            intent.setType(ContactsContract.RawContacts.CONTENT_TYPE);
+            intent.putExtra(ContactsContract.Intents.Insert.NAME, name);
+            intent.putExtra(ContactsContract.Intents.Insert.PHONE, latest.primaryPhone);
+            startActivity(intent);
+        } catch (RuntimeException error) {
+            Toast.makeText(this, "연락처 저장 화면을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private void openDetail() {
         if (customerId <= 0L || saving) return;
         try {
@@ -228,7 +264,6 @@ public final class CustomerQuickEditActivity extends Activity {
             startActivity(new Intent(this, MainActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
         } catch (RuntimeException ignored) {
-            // Auth/setup routing will recover on the next launcher open.
         }
         finish();
     }
@@ -239,6 +274,7 @@ public final class CustomerQuickEditActivity extends Activity {
         statusButton.setEnabled(!value);
         memoInput.setEnabled(!value);
         saveButton.setEnabled(!value);
+        if (contactSaveButton != null) contactSaveButton.setEnabled(!value);
         saveButton.setAlpha(value ? 0.55f : 1f);
         saveButton.setText(value ? "저장 중" : "저장");
     }
