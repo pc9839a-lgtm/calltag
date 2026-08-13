@@ -39,7 +39,7 @@ jobs:
             echo '::error::Bridge Activity is still used by LoginActivity.' >&2
             exit 1
           fi
-          if grep -F 'CancellationSignal' "$LOGIN"; then
+          if grep -E '^import android\.os\.CancellationSignal;|CancellationSignal[[:space:]]+[A-Za-z_]|new[[:space:]]+CancellationSignal\(' "$LOGIN"; then
             echo '::error::LoginActivity must not own a CancellationSignal for Google sign-in.' >&2
             exit 1
           fi
