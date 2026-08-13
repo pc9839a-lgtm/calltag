@@ -61,6 +61,8 @@ public final class PageroLeadReceiptStore extends SQLiteOpenHelper {
                 "ON lead_receipts(status, server_lead_id)");
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_lead_receipts_customer " +
                 "ON lead_receipts(customer_id, received_at DESC)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_lead_receipts_sms_job " +
+                "ON lead_receipts(sms_job_id)");
     }
 
     public boolean isImported(String eventId) {
@@ -97,13 +99,26 @@ public final class PageroLeadReceiptStore extends SQLiteOpenHelper {
 
     public void markSms(String eventId, long jobId, String status, String reason) {
         if (eventId == null || eventId.trim().isEmpty()) return;
+        ContentValues values = smsValues(jobId, status, reason, true);
+        getWritableDatabase().update("lead_receipts", values, "event_id=?",
+                new String[]{eventId.trim()});
+    }
+
+    /** SmsStatusReceiver가 실제 통신사 callback을 받은 시점의 최종 상태를 receipt에도 영구 반영한다. */
+    public void markSmsByJobId(long jobId, String status, String reason) {
+        if (jobId <= 0L) return;
+        ContentValues values = smsValues(jobId, status, reason, false);
+        getWritableDatabase().update("lead_receipts", values, "sms_job_id=?",
+                new String[]{String.valueOf(jobId)});
+    }
+
+    private ContentValues smsValues(long jobId, String status, String reason, boolean writeJobId) {
         ContentValues values = new ContentValues();
-        values.put("sms_job_id", Math.max(0L, jobId));
+        if (writeJobId) values.put("sms_job_id", Math.max(0L, jobId));
         values.put("sms_status", normalizeSmsStatus(status));
         values.put("sms_reason", reason == null ? "" : reason.trim());
         values.put("sms_updated_at", System.currentTimeMillis());
-        getWritableDatabase().update("lead_receipts", values, "event_id=?",
-                new String[]{eventId.trim()});
+        return values;
     }
 
     public SmsSnapshot latestSmsForCustomer(long customerId) {
