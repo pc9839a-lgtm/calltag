@@ -101,6 +101,7 @@
   <script src="/admin/payout-request.js?v=20260813-payout1" defer></script>
   <script src="/admin/play-finance-monthly.js?v=20260813-month1" defer></script>
   <script src="/admin/member-ops.js?v=20260813-ops1" defer></script>
+  <script src="/admin/member-ops-sync.js?v=20260813-ops1" defer></script>
   <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
 </body>
 </html>
