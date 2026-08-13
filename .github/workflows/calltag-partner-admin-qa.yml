@@ -3,24 +3,34 @@ name: CallTag Partner Admin QA
 on:
   pull_request:
     paths:
+      - '_worker.js'
+      - '_worker-core.js'
       - 'admin/**'
       - 'worker/admin.js'
       - 'worker/partner.js'
       - 'web/settlement.html'
       - 'web/settlement.js'
+      - 'web/settlement-core.js'
       - 'web/settlement-security.js'
+      - 'web/settlement-finalize.js'
+      - 'web/settlement-finalize.css'
       - '.github/workflows/calltag-partner-admin-qa.yml'
   push:
     branches:
       - 'main'
       - 'agent/calltag-admin-partner-settlement'
     paths:
+      - '_worker.js'
+      - '_worker-core.js'
       - 'admin/**'
       - 'worker/admin.js'
       - 'worker/partner.js'
       - 'web/settlement.html'
       - 'web/settlement.js'
+      - 'web/settlement-core.js'
       - 'web/settlement-security.js'
+      - 'web/settlement-finalize.js'
+      - 'web/settlement-finalize.css'
       - '.github/workflows/calltag-partner-admin-qa.yml'
   workflow_dispatch:
 
@@ -36,12 +46,16 @@ jobs:
       - name: Parse scripts
         run: |
           set -euo pipefail
+          node --check _worker.js
+          node --check _worker-core.js
           node --check worker/admin.js
           node --check worker/partner.js
           node --check admin/admin.js
           node --check admin/play-finance.js
           node --check web/settlement.js
+          node --check web/settlement-core.js
           node --check web/settlement-security.js
+          node --check web/settlement-finalize.js
       - name: Enforce gateway contract
         run: |
           set -euo pipefail
@@ -62,10 +76,14 @@ jobs:
           grep -q "/admin/api/play-finance" admin/play-finance.js
           grep -q "settlement-security.js" web/settlement.html
           grep -q "/api/partner/login" web/settlement-security.js
-          grep -q "/api/partner/dashboard" web/settlement.js
-          grep -q "/api/partner/referrals" web/settlement.js
-          grep -q "/api/partner/earnings" web/settlement.js
-          grep -q "/api/partner/settlements" web/settlement.js
+          grep -q "settlement-core.js" web/settlement.js
+          grep -q "settlement-finalize.js" _worker.js
+          grep -q "/api/partner/totp/fresh" web/settlement-finalize.js
+          grep -q "/api/partner/logout" web/settlement-finalize.js
+          grep -q "/api/partner/dashboard" web/settlement-core.js
+          grep -q "/api/partner/referrals" web/settlement-core.js
+          grep -q "/api/partner/earnings" web/settlement-core.js
+          grep -q "/api/partner/settlements" web/settlement-core.js
           grep -q "inlet-8mr.pages.dev" worker/partner.js
           grep -q "Google Authenticator 등록" web/settlement-security.js
           grep -q "QR 코드 스캔" web/settlement-security.js
@@ -76,7 +94,7 @@ jobs:
             echo 'TOTP secret must not be sent to an external QR rendering API.' >&2
             exit 1
           fi
-          if grep -E -n 'purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id' web/settlement.js web/settlement-security.js admin/play-finance.js; then
+          if grep -E -n 'purchaseToken|purchase_token|order_id|payment_reference|external_subscription_id' web/settlement-core.js web/settlement-security.js web/settlement-finalize.js admin/play-finance.js; then
             echo 'Sensitive billing field found in admin or partner settlement surface.' >&2
             exit 1
           fi
