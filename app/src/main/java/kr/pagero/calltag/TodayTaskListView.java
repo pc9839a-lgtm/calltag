@@ -15,7 +15,7 @@ import android.widget.Toast;
 
 import java.util.List;
 
-/** 오늘 할 일 카드에 작은 삭제 아이콘만 추가한다. */
+/** 오늘 할 일 카드에 작은 X 삭제 아이콘만 추가한다. */
 public final class TodayTaskListView extends LinearLayout {
     private int renderIndex;
 
@@ -78,7 +78,7 @@ public final class TodayTaskListView extends LinearLayout {
         delete.setPadding(0, 0, 0, 0);
         delete.setGravity(Gravity.CENTER);
         delete.setBackgroundResource(R.drawable.bg_clickable_row);
-        delete.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_customer_delete, 0, 0, 0);
+        delete.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_action_close, 0, 0, 0);
         delete.setOnClickListener(v -> confirmDelete(card, task));
 
         LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(dp(44), dp(46));
