@@ -45,15 +45,27 @@ public final class AuthApiClient {
     }
 
     /**
-     * Google ID tokens are always exchanged against the canonical production environment.
-     * A token must never be validated by whichever preview host happens to answer first because
-     * OAuth audience/session configuration is environment-scoped.
+     * Credential Manager Google ID tokens include a nonce and are always exchanged against the
+     * canonical production environment.
      */
     public static JSONObject exchangeGoogleIdToken(String idToken, String nonce) throws Exception {
         return request(PRODUCTION_API_BASE + "/api/call/google/id-token", "POST",
                 new JSONObject()
                         .put("idToken", clean(idToken))
                         .put("nonce", clean(nonce)),
+                "");
+    }
+
+    /**
+     * Native GoogleSignInClient fallback. The legacy native API issues a verifiable Google ID
+     * token for the same Web Client ID but does not embed a nonce, so the server verifies the
+     * signed token using the legacyNative contract.
+     */
+    public static JSONObject exchangeLegacyGoogleIdToken(String idToken) throws Exception {
+        return request(PRODUCTION_API_BASE + "/api/call/google/id-token", "POST",
+                new JSONObject()
+                        .put("idToken", clean(idToken))
+                        .put("legacyNative", true),
                 "");
     }
 
