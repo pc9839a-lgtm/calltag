@@ -175,10 +175,9 @@ public final class PendingCallSectionView extends LinearLayout {
         taskParams.leftMargin = dp(7);
         actions.addView(taskButton, taskParams);
 
-        Button deleteButton = actionButton("삭제", false);
-        deleteButton.setTextColor(getContext().getColor(R.color.danger));
+        Button deleteButton = deleteIconButton();
         deleteButton.setOnClickListener(v -> confirmDelete(call));
-        LayoutParams deleteParams = new LayoutParams(0, dp(46), 0.72f);
+        LayoutParams deleteParams = new LayoutParams(dp(46), dp(46));
         deleteParams.leftMargin = dp(7);
         actions.addView(deleteButton, deleteParams);
         card.addView(actions, topMargin(14));
@@ -229,7 +228,7 @@ public final class PendingCallSectionView extends LinearLayout {
                     }
                 })
                 .create();
-        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.applyDanger(dialog));
         dialog.show();
     }
 
@@ -258,13 +257,28 @@ public final class PendingCallSectionView extends LinearLayout {
         Button button = new Button(getContext());
         button.setText(label);
         button.setAllCaps(false);
-        button.setTextColor(getContext().getColor(R.color.text_primary));
+        button.setTextColor(getContext().getColor(primary ? android.R.color.white : R.color.text_primary));
         button.setTextSize(13f);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setMinWidth(0);
         button.setPadding(dp(5), 0, dp(5), 0);
         button.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        return button;
+    }
+
+    private Button deleteIconButton() {
+        Button button = new Button(getContext());
+        button.setText("");
+        button.setContentDescription("확인할 통화 삭제");
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setPadding(0, 0, 0, 0);
+        button.setGravity(Gravity.CENTER);
+        button.setBackgroundResource(R.drawable.bg_secondary_button);
+        button.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_customer_delete, 0, 0, 0);
         return button;
     }
 
