@@ -6,6 +6,7 @@
   <meta name="robots" content="noindex,nofollow,noarchive,nosnippet" />
   <title>콜태그 관리자</title>
   <link rel="stylesheet" href="/admin/admin.css?v=20260813-2" />
+  <link rel="stylesheet" href="/admin/payout-request.css?v=20260813-payout1" />
 </head>
 <body>
   <header class="topbar">
@@ -30,7 +31,7 @@
       </section>
       <section class="metrics revenue-metrics">
         <article><span>월 환산 매출</span><strong id="metricRevenueGross">—</strong><small>활성·검증 구독 정가 기준</small></article>
-        <article><span>Play 15% 예상 수수료</span><strong id="metricPlayFee">—</strong><small>Google Play 구독만 계산</small></article>
+        <article><span>Play 15% 예상 수수료</span><strong id="playActualFee">—</strong><small>Google Play 구독만 계산</small></article>
         <article><span>수수료 제외 예상매출</span><strong id="metricRevenueNet">—</strong><small>실제 정산액과 차이날 수 있음</small></article>
       </section>
       <div class="viewbar"><div><strong>Google Play 확정 정산</strong><span id="playFinanceMeta">수익보고서 연결 확인 중</span></div></div>
@@ -55,18 +56,19 @@
 
     <section id="partnersView" hidden>
       <div class="viewbar">
-        <div><strong>파트너 정산</strong><span>월별 발생·미지급·지급완료</span></div>
+        <div><strong>파트너 정산</strong><span>사용자 지급요청 → 송금 확인 → 지급완료</span></div>
         <label class="monthpick"><span>정산 월</span><input id="partnerMonth" type="month" min="2026-01" /></label>
       </div>
       <section class="metrics partner-metrics">
         <article><span>파트너</span><strong id="partnerCount">—</strong></article>
+        <article><span>지급요청</span><strong id="partnerRequested">—</strong><small id="partnerRequestedAmount">—</small></article>
         <article><span>월 결제매출</span><strong id="partnerGross">—</strong></article>
         <article><span>발생 수수료</span><strong id="partnerEarned">—</strong></article>
         <article><span>미지급</span><strong id="partnerPayable">—</strong></article>
         <article><span>지급완료</span><strong id="partnerPaid">—</strong></article>
       </section>
       <section class="panel">
-        <div class="panelhead"><div><h1>파트너 목록</h1><p id="partnerGeneratedAt">수수료는 파트너별 20% 또는 50%</p></div></div>
+        <div class="panelhead"><div><h1>파트너 목록</h1><p id="partnerGeneratedAt">지급요청이 들어온 파트너를 우선 표시합니다.</p></div></div>
         <div class="tablewrap">
           <table class="partner-table">
             <thead><tr><th>파트너</th><th>추천코드</th><th>수수료</th><th>추천</th><th>유료</th><th>월 매출</th><th>발생 수수료</th><th>미지급</th><th>지급완료</th><th>상태</th><th></th></tr></thead>
@@ -84,6 +86,7 @@
     <div id="detailBody" class="drawerbody"></div>
   </aside>
   <script src="/admin/admin.js?v=20260813-2" defer></script>
+  <script src="/admin/payout-request.js?v=20260813-payout1" defer></script>
   <script src="/admin/play-finance.js?v=20260813-1" defer></script>
   <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
 </body>
