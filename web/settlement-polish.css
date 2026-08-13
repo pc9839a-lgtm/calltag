@@ -1,0 +1,25 @@
+.settlement-mobile-flow{display:none}
+.payout-profile-summary{margin:0 0 14px;padding:15px 16px;border:1px solid #dfe4ec;border-radius:12px;background:#f8fafc}
+.payout-profile-summary__head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.payout-profile-summary__head strong{font-size:13px;font-weight:950;color:#111827}
+.payout-profile-summary__status{display:inline-flex;align-items:center;min-height:24px;padding:0 8px;border-radius:999px;background:#eef2ff;color:#3730a3;font-size:10px;font-weight:900}
+.payout-profile-summary__grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.payout-profile-summary__item{min-width:0}
+.payout-profile-summary__item span{display:block;margin-bottom:3px;color:#8a93a1;font-size:10px;font-weight:850}
+.payout-profile-summary__item strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#303641;font-size:12px;font-weight:900}
+.payout-profile-summary__note{margin:10px 0 0;color:#77808d;font-size:10.5px;line-height:1.5}
+.partner-empty-state .partner-empty-action{margin-top:12px;min-height:38px;padding:0 12px;border:0;border-radius:9px;background:#111827;color:#fff;font-size:11px;font-weight:900}
+@media(max-width:720px){
+  .settlement-mobile-flow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:0 0 10px}
+  .settlement-mobile-flow__item{min-width:0;padding:13px 10px;border:1px solid #e4e7ec;border-radius:11px;background:#fff}
+  .settlement-mobile-flow__item span{display:block;color:#7c8491;font-size:9px;font-weight:850;white-space:nowrap}
+  .settlement-mobile-flow__item strong{display:block;margin-top:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#111318;font-size:15px;font-weight:950;letter-spacing:-.045em}
+  .settlement-mobile-flow__link{grid-column:1/-1;min-height:40px;border:1px solid #d8dde6;border-radius:10px;background:#f8f9fb;color:#303641;font-size:11px;font-weight:900}
+  #panel-overview .balance-card{margin-top:0}
+  .payout-profile-summary{padding:13px;margin-bottom:10px}
+  .payout-profile-summary__grid{grid-template-columns:1fr 1fr;gap:9px 12px}
+  .settings-section .form-grid{grid-template-columns:1fr}
+  .settings-section .field.full{grid-column:auto}
+  .settings-section .form-actions{position:sticky;bottom:78px;z-index:12;margin:14px -4px 0;padding:8px 4px;background:linear-gradient(to bottom,rgba(255,255,255,.1),#fff 30%)}
+  .settings-section .primary-btn{width:100%;min-height:48px}
+}
