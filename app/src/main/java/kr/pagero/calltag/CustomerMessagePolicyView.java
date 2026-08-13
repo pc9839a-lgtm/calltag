@@ -3,17 +3,22 @@ package kr.pagero.calltag;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Typeface;
+import android.provider.ContactsContract;
 import android.util.AttributeSet;
 import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-/** 고객별 문자 발송 정책을 허용/비허용 두 상태로만 관리한다. */
+/** 고객별 문자 발송 정책을 관리하고 상세 화면에 연락처 저장 액션을 제공한다. */
 public final class CustomerMessagePolicyView extends LinearLayout {
     private Customer customer;
     private TextView summary;
+    private boolean contactActionInstalled;
 
     public CustomerMessagePolicyView(Context context) {
         super(context);
@@ -57,10 +62,11 @@ public final class CustomerMessagePolicyView extends LinearLayout {
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         loadCustomer();
+        installContactAction();
     }
 
     @Override
-    protected void onVisibilityChanged(android.view.View changedView, int visibility) {
+    protected void onVisibilityChanged(View changedView, int visibility) {
         super.onVisibilityChanged(changedView, visibility);
         if (visibility == VISIBLE && summary != null) loadCustomer();
     }
@@ -77,6 +83,60 @@ public final class CustomerMessagePolicyView extends LinearLayout {
             db.close();
         }
         render();
+    }
+
+    private void installContactAction() {
+        if (contactActionInstalled || customer == null) return;
+        ViewParentInfo info = previousActionRow();
+        if (info == null) return;
+
+        View divider = new View(getContext());
+        divider.setBackgroundColor(getContext().getColor(R.color.border));
+        info.row.addView(divider, new LinearLayout.LayoutParams(dp(1), dp(28)));
+
+        TextView save = text("연락처 저장", 13f, true);
+        save.setGravity(Gravity.CENTER);
+        save.setClickable(true);
+        save.setFocusable(true);
+        save.setContentDescription("고객 연락처 저장");
+        save.setOnClickListener(v -> openContactInsert());
+        info.row.addView(save, new LinearLayout.LayoutParams(0, LayoutParams.MATCH_PARENT, 1f));
+        contactActionInstalled = true;
+    }
+
+    private ViewParentInfo previousActionRow() {
+        if (!(getParent() instanceof LinearLayout)) return null;
+        LinearLayout parent = (LinearLayout) getParent();
+        int index = parent.indexOfChild(this);
+        if (index <= 0) return null;
+        View previous = parent.getChildAt(index - 1);
+        if (!(previous instanceof LinearLayout)) return null;
+        LinearLayout row = (LinearLayout) previous;
+        if (row.getOrientation() != HORIZONTAL || row.getChildCount() < 3) return null;
+        return new ViewParentInfo(row);
+    }
+
+    private void openContactInsert() {
+        if (customer == null) return;
+        try {
+            Intent intent = new Intent(Intent.ACTION_INSERT, ContactsContract.Contacts.CONTENT_URI)
+                    .putExtra(ContactsContract.Intents.Insert.NAME, customer.displayName)
+                    .putExtra(ContactsContract.Intents.Insert.PHONE, customer.primaryPhone);
+            String email = extractEmail(customer.memo);
+            if (!email.isEmpty()) intent.putExtra(ContactsContract.Intents.Insert.EMAIL, email);
+            getContext().startActivity(intent);
+        } catch (RuntimeException error) {
+            Toast.makeText(getContext(), "연락처 저장 화면을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private String extractEmail(String memo) {
+        if (memo == null || memo.trim().isEmpty()) return "";
+        for (String line : memo.split("\\r?\\n")) {
+            String value = line.trim();
+            if (value.startsWith("이메일:")) return value.substring(4).trim();
+        }
+        return "";
     }
 
     private void render() {
@@ -139,5 +199,10 @@ public final class CustomerMessagePolicyView extends LinearLayout {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private static final class ViewParentInfo {
+        final LinearLayout row;
+        ViewParentInfo(LinearLayout row) { this.row = row; }
     }
 }
