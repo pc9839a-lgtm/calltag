@@ -34,6 +34,13 @@ public final class CallTagScreeningService extends CallScreeningService {
             return;
         }
 
+        if (!SettingsStore.isCallerInfoDisplayEnabled(this)) {
+            SettingsStore.setCallerScreeningStatus(this,
+                    "수신 전화 고객정보 표시가 꺼져 있어 표시하지 않았습니다. · " + device);
+            CrashTelemetryStore.record(this, "call_screening", "display_disabled", device);
+            return;
+        }
+
         Uri handle = callDetails.getHandle();
         if (handle == null || handle.getSchemeSpecificPart() == null) {
             SettingsStore.setCallerScreeningStatus(this,
