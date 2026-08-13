@@ -48,6 +48,7 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
                     if (success >= partCount) {
                         prefs.edit().remove(key).apply();
                         store.markSent(messageId);
+                        persistPageroReceipt(context, before, true, "");
                         recordTimeline(context, before, true, "");
                         DiagnosticEventStore.record(context, "SMS 발송 완료", messageId,
                                 "분할 " + partCount + "개 완료");
@@ -61,6 +62,7 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
                 String error = errorLabel(resultCode);
                 store.markFailed(messageId, error);
                 clearPartState(context, messageId);
+                persistPageroReceipt(context, before, false, error);
                 recordTimeline(context, before, false, error);
                 finalResult = true;
                 DiagnosticEventStore.record(context, "SMS 발송 실패", messageId,
@@ -75,6 +77,20 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
         }
         context.sendBroadcast(new Intent(MessageSectionView.ACTION_CHANGED)
                 .setPackage(context.getPackageName()));
+    }
+
+    private void persistPageroReceipt(Context context, MessageRecord record,
+                                      boolean sent, String error) {
+        if (record == null || !PageroLeadMessageAutomation.TRIGGER_PAGERO_LEAD_RECEIVED
+                .equals(record.triggerType)) return;
+        PageroLeadReceiptStore receipts = new PageroLeadReceiptStore(context);
+        try {
+            receipts.markSmsByJobId(record.id,
+                    sent ? PageroLeadReceiptStore.SMS_SENT : PageroLeadReceiptStore.SMS_FAILED,
+                    sent ? "" : error);
+        } finally {
+            receipts.close();
+        }
     }
 
     private void clearPartState(Context context, long messageId) {
