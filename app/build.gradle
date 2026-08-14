@@ -11,7 +11,7 @@ def uploadStorePath = System.getenv('CALLTAG_UPLOAD_KEYSTORE_PATH') ?: ''
 def uploadStorePassword = System.getenv('CALLTAG_UPLOAD_STORE_PASSWORD') ?: ''
 def uploadKeyAlias = System.getenv('CALLTAG_UPLOAD_KEY_ALIAS') ?: ''
 def uploadKeyPassword = System.getenv('CALLTAG_UPLOAD_KEY_PASSWORD') ?: ''
-def googleServerClientId = System.getenv('CALLTAG_GOOGLE_SERVER_CLIENT_ID') ?: '31346298247-o5jfdetjs84mu02c8tp68qg19ifo89en.apps.googleusercontent.com'
+def googleServerClientId = System.getenv('CALLTAG_GOOGLE_SERVER_CLIENT_ID') ?: '31346298247-26okq7jrsac89q8pucjeuui6jrfofvqn.apps.googleusercontent.com'
 def releaseSigningConfigured = !uploadStorePath.trim().isEmpty()
         && !uploadStorePassword.trim().isEmpty()
         && !uploadKeyAlias.trim().isEmpty()
@@ -26,8 +26,8 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        versionCode 2026081220
-        versionName '0.44.34'
+        versionCode 2026081221
+        versionName '0.44.35'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
