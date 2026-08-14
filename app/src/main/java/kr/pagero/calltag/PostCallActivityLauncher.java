@@ -17,6 +17,20 @@ public final class PostCallActivityLauncher {
     private PostCallActivityLauncher() {}
 
     public static synchronized boolean launch(Context context, Intent source) {
+        return launchInternal(context, source, true, "initial");
+    }
+
+    /**
+     * One retry used only after the first launch request was accepted but Android never made the
+     * PostCallActivity visible. The retry deliberately does not schedule another guard, otherwise
+     * a blocked background activity could create an endless retry chain.
+     */
+    static synchronized boolean retryOnce(Context context, Intent source) {
+        return launchInternal(context, source, false, "visibility_retry");
+    }
+
+    private static boolean launchInternal(Context context, Intent source,
+                                          boolean scheduleDeliveryGuard, String sourceLabel) {
         if (context == null || source == null) return false;
 
         long callId = source.getLongExtra(PostCallActivity.EXTRA_CALL_LOG_ID, -1L);
@@ -45,7 +59,8 @@ public final class PostCallActivityLauncher {
         PostCallLaunchReceipt.closeStaleActivity(callId);
         Intent target = prepareTarget(source);
         PostCallLaunchReceipt.arm(context, target);
-        CrashTelemetryStore.record(context, "post_call_launcher", "attempt", "call=" + callId);
+        CrashTelemetryStore.record(context, "post_call_launcher", "attempt",
+                "call=" + callId + ",source=" + sourceLabel);
 
         int requestCode = (int) (callId & 0x7fffffff);
         PendingIntent pending = createActivityPendingIntent(context, requestCode, target);
@@ -66,25 +81,31 @@ public final class PostCallActivityLauncher {
             }
             accepted = true;
             CrashTelemetryStore.record(context, "post_call_launcher",
-                    "pending_intent_accepted", "call=" + callId);
+                    "pending_intent_accepted",
+                    "call=" + callId + ",source=" + sourceLabel);
         } catch (PendingIntent.CanceledException | RuntimeException firstError) {
             CrashTelemetryStore.record(context, "post_call_launcher",
-                    "pending_intent_failed", firstError.getClass().getSimpleName());
+                    "pending_intent_failed",
+                    sourceLabel + "," + firstError.getClass().getSimpleName());
             try {
                 context.startActivity(prepareTarget(source));
                 accepted = true;
                 CrashTelemetryStore.record(context, "post_call_launcher",
-                        "direct_start_accepted", "call=" + callId);
+                        "direct_start_accepted",
+                        "call=" + callId + ",source=" + sourceLabel);
             } catch (RuntimeException secondError) {
                 accepted = false;
                 CrashTelemetryStore.record(context, "post_call_launcher",
-                        "direct_start_failed", secondError.getClass().getSimpleName());
+                        "direct_start_failed",
+                        sourceLabel + "," + secondError.getClass().getSimpleName());
             }
         }
 
         lastCallId = callId;
         lastLaunchAt = now;
-        PostCallDeliveryGuard.schedule(context, target);
+        if (scheduleDeliveryGuard) {
+            PostCallDeliveryGuard.schedule(context, target);
+        }
         return accepted;
     }
 
