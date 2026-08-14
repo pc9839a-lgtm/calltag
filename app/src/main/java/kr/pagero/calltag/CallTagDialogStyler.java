@@ -1,9 +1,9 @@
 package kr.pagero.calltag;
 
 import android.app.AlertDialog;
-import android.content.res.ColorStateList;
-import android.graphics.Typeface;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
@@ -48,32 +48,36 @@ public final class CallTagDialogStyler {
         }
     }
 
-    /** Use for irreversible delete confirmations: cancel stays neutral, delete is visibly destructive. */
+    /** 삭제 팝업은 OEM 테마 tint와 무관하게 회색 취소 / 빨간 삭제로 고정한다. */
     public static void applyDanger(AlertDialog dialog) {
         apply(dialog);
         if (dialog == null || !dialog.isShowing()) return;
-        Button delete = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
-        if (delete != null) {
-            delete.setTextColor(Color.WHITE);
-            delete.setBackgroundResource(R.drawable.bg_primary_button);
-            int[][] states = new int[][]{
-                    new int[]{-android.R.attr.state_enabled},
-                    new int[]{android.R.attr.state_pressed},
-                    new int[]{}
-            };
-            int[] colors = new int[]{
-                    Color.parseColor("#563238"),
-                    Color.parseColor("#B83F4C"),
-                    Color.parseColor("#D9515D")
-            };
-            delete.setBackgroundTintList(new ColorStateList(states, colors));
-        }
+
         Button cancel = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
         if (cancel != null) {
-            cancel.setBackgroundTintList(null);
-            cancel.setBackgroundResource(R.drawable.bg_secondary_button);
+            styleButton(cancel, false);
             cancel.setTextColor(cancel.getContext().getColor(R.color.text_primary));
+            cancel.setBackground(rounded(cancel, Color.parseColor("#282B31"),
+                    Color.parseColor("#3B3F47")));
+            cancel.setMinWidth(dp(cancel, 96));
         }
+
+        Button delete = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        if (delete != null) {
+            styleButton(delete, true);
+            delete.setTextColor(Color.WHITE);
+            delete.setBackground(rounded(delete, Color.parseColor("#D9515D"),
+                    Color.parseColor("#E46973")));
+            delete.setMinWidth(dp(delete, 96));
+        }
+    }
+
+    private static GradientDrawable rounded(View view, int fill, int stroke) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(fill);
+        drawable.setCornerRadius(dp(view, 12));
+        drawable.setStroke(dp(view, 1), stroke);
+        return drawable;
     }
 
     private static void styleText(AlertDialog dialog, int id, int color, float size, boolean bold) {
@@ -94,8 +98,7 @@ public final class CallTagDialogStyler {
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         button.setTextSize(14f);
         button.setMinHeight(dp(button, 44));
-        button.setPadding(dp(button, 12), dp(button, 6), dp(button, 12), dp(button, 6));
-        button.setBackgroundTintList(null);
+        button.setPadding(dp(button, 16), dp(button, 6), dp(button, 16), dp(button, 6));
         button.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
     }
