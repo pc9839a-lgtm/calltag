@@ -12,7 +12,7 @@ import android.util.AttributeSet;
 import android.widget.Switch;
 import android.widget.Toast;
 
-/** 수신 전화 고객정보 표시를 앱 설정 ON/OFF와 Android 통화 스크리닝 역할로 분리한다. */
+/** 수신 전화 고객정보 표시를 앱 설정과 Android 통화 스크리닝 역할로 분리한다. */
 public final class CallerIdSetupButton extends Switch {
     private static final int REQUEST_SCREENING_ROLE = 7302;
     private boolean syncing;
@@ -27,9 +27,7 @@ public final class CallerIdSetupButton extends Switch {
     private void init() {
         setBackground(null);
         setText("");
-        setTextOn("ON");
-        setTextOff("OFF");
-        setShowText(true);
+        setShowText(false);
         setPadding(0, 0, 0, 0);
         setContentDescription("수신 전화 고객정보 표시");
         setOnCheckedChangeListener((button, checked) -> {
@@ -81,7 +79,6 @@ public final class CallerIdSetupButton extends Switch {
             return;
         }
 
-        // 기능을 켜려는 순간 Android의 실제 통화 스크리닝 역할 허용 UI를 연다.
         SettingsStore.setCallerInfoDisplayEnabled(getContext(), false);
         enableAfterRoleGrant = true;
         setCheckedSilently(false);
@@ -166,10 +163,9 @@ public final class CallerIdSetupButton extends Switch {
         RoleManager manager = roleManager();
         boolean available = manager != null && manager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING);
         setEnabled(available);
-        boolean enabled = available
-                && manager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
-                && SettingsStore.isCallerInfoDisplayEnabled(getContext());
-        SettingsStore.updateScreeningRoleState(getContext(), available && manager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING));
+        boolean held = available && manager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING);
+        boolean enabled = held && SettingsStore.isCallerInfoDisplayEnabled(getContext());
+        SettingsStore.updateScreeningRoleState(getContext(), held);
         setCheckedSilently(enabled);
     }
 
