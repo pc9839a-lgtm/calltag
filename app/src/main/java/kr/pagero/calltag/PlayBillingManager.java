@@ -1,6 +1,8 @@
 package kr.pagero.calltag;
 
 import android.app.Activity;
+import android.os.Handler;
+import android.os.Looper;
 
 import com.android.billingclient.api.BillingClient;
 import com.android.billingclient.api.BillingClientStateListener;
@@ -29,6 +31,7 @@ import java.util.Map;
 public final class PlayBillingManager implements PurchasesUpdatedListener {
     public interface Listener {
         void onBillingReady(Map<String, ProductDetails> products);
+        void onBillingUnavailable(String message);
         void onBillingMessage(String message);
         void onServerVerified();
     }
@@ -36,9 +39,12 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
     private final Activity activity;
     private final Listener listener;
     private final BillingClient billingClient;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Map<String, ProductDetails> products = new HashMap<>();
     private boolean connecting;
     private boolean ready;
+    private boolean reconnectAttempted;
+    private boolean closed;
 
     public PlayBillingManager(Activity activity, Listener listener) {
         this.activity = activity;
@@ -53,14 +59,8 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
     }
 
     public void connectAndLoad() {
-        if (!billingReleaseAvailable()) {
-            connecting = false;
-            ready = false;
-            products.clear();
-            listener.onBillingReady(Collections.emptyMap());
-            return;
-        }
-        if (ready) {
+        if (closed) return;
+        if (ready && billingClient.isReady()) {
             queryProducts();
             return;
         }
@@ -70,41 +70,53 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
             @Override
             public void onBillingSetupFinished(BillingResult billingResult) {
                 connecting = false;
+                if (closed) return;
                 ready = billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK;
                 if (ready) {
+                    reconnectAttempted = false;
                     queryProducts();
                 } else {
-                    listener.onBillingMessage("결제를 시작하지 못했습니다. 잠시 후 다시 시도해주세요.");
+                    products.clear();
+                    listener.onBillingUnavailable(userMessage(billingResult));
                 }
             }
 
             @Override
             public void onBillingServiceDisconnected() {
                 ready = false;
+                if (closed) return;
+                if (!reconnectAttempted) {
+                    reconnectAttempted = true;
+                    mainHandler.postDelayed(() -> {
+                        if (!closed) connectAndLoad();
+                    }, 700L);
+                } else {
+                    listener.onBillingUnavailable("Google Play 결제 연결이 끊겼습니다. 다시 시도해주세요.");
+                }
             }
         });
     }
 
+    public boolean isReady() {
+        return !closed && ready && billingClient.isReady();
+    }
+
     public void purchase(String productId) {
-        if (!billingReleaseAvailable()) {
-            listener.onBillingMessage(playPreparationMessage());
-            return;
-        }
         if (!FeatureEntitlementStore.PLAN_PHONE.equals(productId)
                 && !FeatureEntitlementStore.PLAN_MESSAGE.equals(productId)) {
             listener.onBillingMessage("현재 구매할 수 없는 이용권입니다.");
             return;
         }
         ProductDetails details = products.get(productId);
-        if (!ready || details == null) {
-            listener.onBillingMessage("결제를 준비하고 있습니다. 잠시 후 다시 눌러주세요.");
+        if (!isReady() || details == null) {
+            listener.onBillingMessage("결제 정보를 다시 불러옵니다.");
             connectAndLoad();
             return;
         }
         ProductDetails.SubscriptionOfferDetails selectedOffer = selectPurchaseOffer(
                 details.getSubscriptionOfferDetails());
         if (selectedOffer == null) {
-            listener.onBillingMessage("현재 결제를 시작할 수 없습니다. 잠시 후 다시 시도해주세요.");
+            listener.onBillingMessage("이 Google Play 계정에서 사용할 수 있는 결제 옵션이 없습니다.");
             return;
         }
         BillingFlowParams.ProductDetailsParams productParams =
@@ -123,12 +135,8 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
     }
 
     public void restore() {
-        if (!billingReleaseAvailable()) {
-            listener.onBillingMessage(playPreparationMessage());
-            return;
-        }
-        if (!ready) {
-            listener.onBillingMessage("구매 내역을 확인하고 있습니다.");
+        if (!isReady()) {
+            listener.onBillingMessage("Google Play에 다시 연결합니다.");
             connectAndLoad();
             return;
         }
@@ -150,16 +158,14 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
     }
 
     public void close() {
+        closed = true;
+        mainHandler.removeCallbacksAndMessages(null);
         if (billingClient.isReady()) billingClient.endConnection();
         ready = false;
     }
 
     @Override
     public void onPurchasesUpdated(BillingResult billingResult, List<Purchase> purchases) {
-        if (!billingReleaseAvailable()) {
-            listener.onBillingMessage(playPreparationMessage());
-            return;
-        }
         if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.USER_CANCELED) {
             listener.onBillingMessage("결제가 취소되었습니다.");
             return;
@@ -173,7 +179,7 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
     }
 
     private void queryProducts() {
-        if (!billingReleaseAvailable()) return;
+        if (closed || !isReady()) return;
         List<QueryProductDetailsParams.Product> request = new ArrayList<>();
         request.add(subscription(FeatureEntitlementStore.PLAN_PHONE));
         request.add(subscription(FeatureEntitlementStore.PLAN_MESSAGE));
@@ -185,8 +191,11 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
 
     private void handleProductDetails(BillingResult billingResult, QueryProductDetailsResult result) {
         products.clear();
-        if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK
-                && result != null) {
+        if (billingResult.getResponseCode() != BillingClient.BillingResponseCode.OK) {
+            listener.onBillingUnavailable(userMessage(billingResult));
+            return;
+        }
+        if (result != null) {
             for (ProductDetails details : result.getProductDetailsList()) {
                 if (FeatureEntitlementStore.PLAN_PHONE.equals(details.getProductId())
                         || FeatureEntitlementStore.PLAN_MESSAGE.equals(details.getProductId())) {
@@ -194,10 +203,12 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                 }
             }
         }
-        listener.onBillingReady(Collections.unmodifiableMap(new HashMap<>(products)));
-        if (billingReleaseAvailable() && products.isEmpty()) {
-            listener.onBillingMessage("이용권을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
+        if (products.isEmpty()) {
+            listener.onBillingUnavailable(
+                    "Google Play에서 이용권을 찾지 못했습니다. 계정 국가와 상품 판매 국가를 확인해주세요.");
+            return;
         }
+        listener.onBillingReady(Collections.unmodifiableMap(new HashMap<>(products)));
     }
 
     private QueryProductDetailsParams.Product subscription(String productId) {
@@ -281,7 +292,6 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                 item.put("products", supportedProducts);
                 payload.put(item);
             } catch (Exception ignored) {
-                // Primitive values only.
             }
         }
         if (payload.length() == 0) {
@@ -298,14 +308,6 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                         "구매 내역을 복원하지 못했습니다. 잠시 후 다시 시도해주세요."));
             }
         }, "calltag-play-restore").start();
-    }
-
-    private boolean billingReleaseAvailable() {
-        return FeatureEntitlementStore.isPlayBillingAvailable(activity);
-    }
-
-    private String playPreparationMessage() {
-        return "결제를 시작할 수 없습니다. 잠시 후 다시 시도해주세요.";
     }
 
     private String obfuscatedAccountId() {
@@ -329,11 +331,18 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
             return "이미 이용 중입니다. 구매 복원을 눌러주세요.";
         }
         if (code == BillingClient.BillingResponseCode.ITEM_UNAVAILABLE) {
-            return "현재 구매할 수 없는 이용권입니다.";
+            return "현재 계정 또는 국가에서는 이 이용권을 구매할 수 없습니다.";
+        }
+        if (code == BillingClient.BillingResponseCode.BILLING_UNAVAILABLE) {
+            return "이 Google Play 계정에서는 결제를 사용할 수 없습니다. 계정 국가와 결제 프로필을 확인해주세요.";
         }
         if (code == BillingClient.BillingResponseCode.SERVICE_UNAVAILABLE
-                || code == BillingClient.BillingResponseCode.SERVICE_DISCONNECTED) {
-            return "결제 연결을 확인해주세요.";
+                || code == BillingClient.BillingResponseCode.SERVICE_DISCONNECTED
+                || code == BillingClient.BillingResponseCode.NETWORK_ERROR) {
+            return "Google Play 결제 연결을 확인해주세요.";
+        }
+        if (code == BillingClient.BillingResponseCode.DEVELOPER_ERROR) {
+            return "Google Play 상품 설정을 확인할 수 없습니다.";
         }
         return "결제를 진행하지 못했습니다. 잠시 후 다시 시도해주세요.";
     }
