@@ -1,216 +1,132 @@
 # CallTag Google Play 결제 실연동 가이드
 
-기준일: **2026-08-11**  
-앱: **CallTag**  
+기준일: **2026-08-14**  
+앱: **CallTag 0.44.38 / versionCode 2026081224**  
 패키지: `kr.pagero.calltag`  
-현재 내부 테스트 릴리스: **0.44.14 / versionCode 2026081101**  
-클라이언트 Billing Library: `com.android.billingclient:billing:9.1.0`
+Billing Library: `com.android.billingclient:billing:9.1.0`
 
-## 현재 상태 — 이미 완료
+## 1. 현재 Play 상품
 
-- 결제 프로필 생성 완료
-- 내부 테스트 트랙 생성 완료
-- `0.44.14 / 2026081101` 내부 테스트 게시 완료
-- Play Console 화면에서 `내부 테스터에게 제공됨` 상태 확인 완료
-- 같은 `versionCode 2026081101` AAB 재업로드 금지
-- 앱에 Google Play Billing Library 및 `com.android.vending.BILLING` 포함
-- 앱 클라이언트에 상품 조회/구매/복원/서버 검증 호출 구현됨
-
-**중요:** 현재 `제품 → 정기 결제` 메뉴가 안 보이는 문제를 AAB 재업로드 문제로 판단하지 않는다. 최신 AAB는 이미 유효하게 내부 테스트에 게시되어 있다.
-
----
-
-## 1. 확정 Play 구독 상품
+현재 Android Play 정기결제는 아래 2개만 사용한다.
 
 | 기능 | Product ID | 월 가격 |
 |---|---|---:|
 | 전화관리 | `call_monthly` | 1,900원 |
 | 문자자동화 | `message_monthly` | 990원 |
-| 통합권 | `all_monthly` | 6,000원 |
 
-페이지로 3,500원 단독권은 현재 CallTag Android Play 상품으로 만들지 않는다.
+**현재 `all_monthly`는 만들거나 조회하지 않는다.** 과거 통합권 6,000원 Play 상품 정의는 폐기한다.
 
-무료체험은 Play Offer가 아니라 CallTag 서버 entitlement로 처리한다.
+페이지로 웹 요금제는 Android Play 구독과 별도다.
 
-- 일반 가입: 7일
-- 추천코드 가입: +7일
-- 종료 후 자동결제 없음
+## 2. 현재 구현 상태
 
----
-
-## 2. 현재 최우선 — `정기 결제` 메뉴 미노출 원인 확인
-
-공식 Play Console 경로:
-
-`Play를 통한 수익 창출(Monetize with Play) → 제품(Products) → 정기 결제(Subscriptions)`
-
-현재 최신 내부 테스트 릴리스가 이미 게시됐으므로 아래만 확인한다.
-
-### 2.1 사용자 권한 확인
-
-Play Console → `사용자 및 권한`
-
-현재 로그인 계정이 **계정 소유자(Account owner)**라면 권한 문제는 아님.
-
-소유자가 아니라면 최소한 해당 앱에 **스토어 등록정보 관리(Manage store presence)** 권한이 있어야 한다. Google 공식 권한 정의에서 이 권한에는 앱 가격 편집과 인앱 제품 관리가 포함된다.
-
-`주문 및 정기 결제 관리` 권한은 이미 생성된 주문 조회/환불/구독 취소용이며, 상품 카탈로그 생성 권한과 혼동하지 않는다.
-
-### 2.2 결제 프로필 상태 확인
-
-결제 프로필이 존재하는지만이 아니라 Play 개발자 계정에 연결된 merchant/payments profile인지 확인한다.
-
-현재 확인된 상태:
-
-- 결제 프로필 화면 접근 가능
-- KRW 수익 화면 노출
-- 지급수단 설정 가능
-
-따라서 프로필 자체는 생성되어 있다.
-
-### 2.3 메뉴 위치 확인
-
-왼쪽 사이드바의 `Play를 통한 수익 창출` 섹션을 열고 그 하위의 `제품`을 확인한다.
-
-Play Academy의 `시작하기` 버튼은 결제 설정 버튼이 아니다. 교육 페이지는 결제 활성화와 무관하므로 사용하지 않는다.
-
-### 2.4 여기까지 정상인데 메뉴가 없으면
-
-AAB를 다시 올리지 않는다.
-
-다음 순서로 진단한다.
-
-1. 현재 로그인 계정의 `사용자 및 권한` 화면 확인
-2. 계정 소유자 여부 확인
-3. `Manage store presence` 권한 확인
-4. `Play를 통한 수익 창출` 섹션 전체 메뉴 캡처 확인
-5. 필요하면 Play Console 지원 문의
-
----
-
-## 3. 정기 결제 메뉴가 보인 뒤 생성할 값
-
-### 전화관리
-
-- Product ID: `call_monthly`
-- 이름: `콜태그 전화관리`
-- Base plan ID: `monthly`
-- 유형: Auto-renewing
-- 기간: 1개월
-- 대한민국 가격: ₩1,900
-
-### 문자자동화
-
-- Product ID: `message_monthly`
-- 이름: `콜태그 문자자동화`
-- Base plan ID: `monthly`
-- 유형: Auto-renewing
-- 기간: 1개월
-- 대한민국 가격: ₩990
-
-### 통합권
-
-- Product ID: `all_monthly`
-- 이름: `콜태그 통합권`
-- Base plan ID: `monthly`
-- 유형: Auto-renewing
-- 기간: 1개월
-- 대한민국 가격: ₩6,000
-
-각 Base plan은 저장 후 **Activate**까지 완료한다.
-
-별도 무료체험 Offer는 만들지 않는다.
-
----
-
-## 4. 현재 앱 클라이언트 구현 상태
-
-이미 구현됨:
+완료:
 
 - BillingClient 연결
-- SUBS 상품 3개 조회
-- `ProductDetails` 로드
-- 구매창 실행
-- `obfuscatedAccountId`
-- PENDING 구매 entitlement 미부여
-- PURCHASED 구매 서버 검증 요청
+- `call_monthly`, `message_monthly` ProductDetails 조회
+- 구매 실행
 - 구매 복원
-- Google Play 구독 관리 링크
-- 웹 구독/기존 구독 중복결제 사전 차단
+- purchase token 서버 검증
+- 실제 `call_monthly` 활성/검증/autoRenew 확인
+- entitlement UI 반영
+- Billing 연결 끊김 재연결
+- 상품조회 실패/타임아웃 재시도 UI
 
-클라이언트 Product ID:
+### 성능 구조
+
+결제 화면 진입 시:
+
+1. Google Play Billing 연결/상품조회를 즉시 시작
+2. 서버 entitlement 조회를 별도 백그라운드 실행
+3. 서버의 `playBillingAvailable` 응답을 기다려 BillingClient를 시작하지 않음
+4. ProductDetails가 오면 결제 버튼을 즉시 활성화
+5. 연결/상품조회 실패 시 무한 `결제 준비 중` 대신 `다시 시도`
+
+즉 Play 상품조회와 서버 entitlement 조회가 서로 발목을 잡지 않게 분리되어 있다.
+
+## 3. 서버 검증
+
+앱에서 결제 성공만으로 영구 권한을 확정하지 않는다.
 
 ```text
-call_monthly
-message_monthly
-all_monthly
+Google Play 구매
+→ purchaseToken 확보
+→ 서버 검증 API
+→ Google Play Developer API 조회
+→ productId / package / purchase state 확인
+→ entitlement 반영
 ```
 
-서버 호출:
+민감한 Google Play 서비스계정 private key는 앱이나 문서에 넣지 않는다.
 
-```text
-GET  /api/billing/entitlements
-POST /api/billing/google/verify
-POST /api/billing/google/restore
-```
+## 4. 아직 미구현: RTDN
 
----
+Google Play Real-time Developer Notifications 기반 lifecycle 자동 동기화는 아직 완료되지 않았다.
 
-## 5. Play 상품 생성 후 서버 작업
+남은 항목:
 
-Google Cloud:
+- Pub/Sub topic
+- Google Play notification publisher 권한
+- Play Console RTDN 설정
+- subscriber endpoint
+- 알림 수신 후 Google Play Developer API 재조회
+- renewal
+- cancel
+- expiry
+- grace period
+- account hold
+- resume
+- refund/revoke
+- 해당 결과에 따른 entitlement 갱신
 
-1. Google Play Android Developer API 활성화
-2. Service Account 생성
-3. Play Console에서 서비스 계정 권한 부여
-4. 서버 Secret에 서비스 계정 인증정보 보관
+RTDN이 없으면 사용자가 앱을 열어 복원/조회할 때 상태가 보정될 수는 있지만, 서버가 모든 구독 변경을 실시간으로 추적한다고 기록하면 안 된다.
 
-서버 구매 검증:
+## 5. 결제 국가 오류
 
-1. 로그인 세션 확인
-2. productId 허용목록 검사
-3. purchaseToken으로 Google Play Developer API 조회
-4. packageName / 상품 / 구독상태 검증
-5. purchaseToken 중복 사용 방지
-6. entitlement 저장
-7. acknowledgement 처리
-8. 최신 entitlement 반환
+`거주 중인 국가에서는 결제할 수 없습니다`가 나오면 아래를 순서대로 확인한다.
 
-RTDN + Pub/Sub도 연결해 갱신/취소/만료/grace/account hold 상태를 서버에서 동기화한다.
+1. 휴대폰 Play Store에서 실제 결제 테스트 중인 Google 계정 확인
+2. 그 계정의 Google Play 국가가 대한민국인지
+3. Google 결제 프로필 국가가 대한민국인지
+4. Play Console 비공개 테스트 트랙 대상 국가에 대한민국 포함 여부
+5. `call_monthly` 기본 요금제의 대한민국 판매 가능 여부
+6. `message_monthly` 기본 요금제의 대한민국 판매 가능 여부
+7. 필요 시 해당 계정 라이선스 테스트 등록
 
----
+이 오류는 앱 코드 문제가 아니라 계정/상품 국가 설정 때문에 발생할 수 있다.
 
-## 6. 내부 테스트 결제 QA
+## 6. Google 로그인과 Billing을 혼동하지 말 것
 
-1. 라이선스 테스터 Gmail 등록
-2. 같은 계정을 내부 테스트 테스터로 등록
-3. Play Store 내부 테스트 링크로 CallTag 설치
-4. CallTag 로그인
-5. `더보기 → 이용권·결제`
-6. Google Play 상품 3개 로드 확인
-7. 테스트 결제 진행
-8. 서버 entitlement 즉시 반영 확인
-9. 앱 재설치 후 구매 복원 확인
-10. 취소/갱신/결제실패/만료 상태 확인
+Google 로그인 OAuth와 Google Play Billing은 별개다.
 
----
+Google 로그인 Web/Backend Client ID:
 
-## 7. 현재 체크리스트
+`31346298247-o5jfdetjs84mu02c8tp68qg19ifo89en.apps.googleusercontent.com`
 
-- [x] 결제 프로필 생성
-- [x] 내부 테스트 트랙 생성
-- [x] `0.44.14 / 2026081101` 내부 테스트 게시
-- [x] Billing Library 포함
-- [ ] 현재 로그인 계정의 Play Console 권한 확인
-- [ ] `Play를 통한 수익 창출 → 제품 → 정기 결제` 메뉴 노출
-- [ ] `call_monthly` 생성 + monthly 활성
-- [ ] `message_monthly` 생성 + monthly 활성
-- [ ] `all_monthly` 생성 + monthly 활성
-- [ ] 라이선스 테스터 등록
-- [ ] Google Play Developer API 서비스 계정
-- [ ] 서버 purchaseToken 검증
-- [ ] acknowledgement
-- [ ] RTDN
-- [ ] 실제 테스트 결제 성공
+Android OAuth Client ID:
 
-**현재 다음 액션은 AAB 업로드가 아니라 Play Console 사용자 권한/수익화 메뉴 노출 원인 확인이다.**
+`31346298247-26okq7jrsac89q8pucjeuui6jrfofvqn.apps.googleusercontent.com`
+
+Billing 상품 조회/결제는 OAuth Client ID를 사용하지 않는다.
+
+## 7. Play 업로드 서명
+
+현재 업로드 인증서:
+
+- SHA-1: `79:80:FD:C6:4E:BE:DD:2B:80:54:5B:60:87:03:6D:5F:78:05:75:8B`
+- SHA-256: `C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7`
+
+CI는 위 인증서와 다르면 릴리스 AAB 생성을 실패시킨다. 새 업로드 키 자동 생성은 금지한다.
+
+## 8. 배포 체크
+
+Play 업로드 전:
+
+- `versionCode`가 기존 Play 등록값보다 큰지
+- `call_monthly`, `message_monthly`만 조회하는지
+- AAB가 기존 업로드키로 서명됐는지
+- 내부테스트 대상 국가/테스터가 맞는지
+- 실제 Play 설치본에서 구매창이 정상 노출되는지
+- 구매 후 서버 entitlement가 갱신되는지
+
+현재 기준 릴리스는 `0.44.38 / 2026081224`다.
