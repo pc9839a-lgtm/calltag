@@ -8,6 +8,8 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -23,7 +25,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-/** 더보기 > 이용권. */
+/** 더보기 > 이용권. Play 상품조회와 서버 이용권 확인은 서로 기다리지 않는다. */
 public final class BillingEntitlementActivity extends Activity
         implements PlayBillingManager.Listener {
     private static final int BLUE = Color.rgb(67, 137, 255);
@@ -33,7 +35,9 @@ public final class BillingEntitlementActivity extends Activity
     private static final int SURFACE = Color.rgb(28, 30, 34);
     private static final int BACKGROUND = Color.rgb(16, 17, 19);
     private static final int BORDER = Color.rgb(41, 44, 49);
+    private static final long PLAY_LOAD_TIMEOUT_MS = 6000L;
 
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView stateTitle;
     private TextView stateDetail;
     private TextView stateMeta;
@@ -47,6 +51,16 @@ public final class BillingEntitlementActivity extends Activity
     private boolean working;
     private boolean refreshing;
     private boolean productQueryCompleted;
+    private boolean billingLoadFailed;
+    private String billingError = "";
+
+    private final Runnable billingTimeout = () -> {
+        if (isFinishing() || isDestroyed() || productQueryCompleted) return;
+        productQueryCompleted = true;
+        billingLoadFailed = true;
+        billingError = "Google Play 응답이 늦습니다. 다시 시도해주세요.";
+        render();
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,15 +68,14 @@ public final class BillingEntitlementActivity extends Activity
         setContentView(buildScreen());
         billing = new PlayBillingManager(this, this);
 
-        // Paint the last verified entitlement immediately and load Play products in parallel.
-        // A network refresh must never blank/disable a valid cached subscription screen.
         render();
-        billing.connectAndLoad();
+        startPlayLoad();
         refreshEntitlement(false);
     }
 
     @Override
     protected void onDestroy() {
+        mainHandler.removeCallbacks(billingTimeout);
         if (billing != null) billing.close();
         super.onDestroy();
     }
@@ -94,7 +107,10 @@ public final class BillingEntitlementActivity extends Activity
         header.addView(title, titleParams);
 
         refreshButton = button("새로고침", false);
-        refreshButton.setOnClickListener(v -> refreshEntitlement(true));
+        refreshButton.setOnClickListener(v -> {
+            startPlayLoad();
+            refreshEntitlement(true);
+        });
         header.addView(refreshButton, new LinearLayout.LayoutParams(dp(86), dp(40)));
         root.addView(header, full());
 
@@ -127,12 +143,12 @@ public final class BillingEntitlementActivity extends Activity
 
         restoreButton = button("구매 복원", false);
         restoreButton.setOnClickListener(v -> {
-            FeatureEntitlementStore.Snapshot snapshot = FeatureEntitlementStore.snapshot(this);
-            if (!snapshot.playBillingAvailable) {
-                showPlayPreparing();
-                return;
+            if (billing != null && billing.isReady()) {
+                billing.restore();
+            } else {
+                startPlayLoad();
+                Toast.makeText(this, "Google Play에 다시 연결합니다.", Toast.LENGTH_SHORT).show();
             }
-            billing.restore();
         });
         root.addView(restoreButton, fixedTop(50, 16));
 
@@ -157,13 +173,22 @@ public final class BillingEntitlementActivity extends Activity
         return scroll;
     }
 
+    private void startPlayLoad() {
+        if (billing == null) return;
+        productQueryCompleted = false;
+        billingLoadFailed = false;
+        billingError = "";
+        mainHandler.removeCallbacks(billingTimeout);
+        mainHandler.postDelayed(billingTimeout, PLAY_LOAD_TIMEOUT_MS);
+        billing.connectAndLoad();
+        render();
+    }
+
     private void refreshEntitlement(boolean notify) {
         if (refreshing) return;
         String session = AuthSessionStore.session(this);
         if (session.isEmpty()) {
-            if (notify) {
-                Toast.makeText(this, "로그인 정보를 다시 확인해주세요.", Toast.LENGTH_LONG).show();
-            }
+            if (notify) Toast.makeText(this, "로그인 정보를 다시 확인해주세요.", Toast.LENGTH_LONG).show();
             return;
         }
 
@@ -177,21 +202,16 @@ public final class BillingEntitlementActivity extends Activity
                     refreshing = false;
                     if (notify) setWorking(false);
                     render();
-                    if (!productQueryCompleted) billing.connectAndLoad();
-                    if (notify) {
-                        Toast.makeText(this, "이용권을 새로 확인했습니다.", Toast.LENGTH_SHORT).show();
-                    }
+                    if (notify) Toast.makeText(this, "이용권을 새로 확인했습니다.", Toast.LENGTH_SHORT).show();
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
                     refreshing = false;
                     if (notify) setWorking(false);
                     render();
-                    if (notify) {
-                        Toast.makeText(this,
-                                "이용권을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.",
-                                Toast.LENGTH_LONG).show();
-                    }
+                    if (notify) Toast.makeText(this,
+                            "이용권 상태 확인에 실패했습니다. 결제 상품은 별도로 다시 불러올 수 있습니다.",
+                            Toast.LENGTH_LONG).show();
                 });
             }
         }, "calltag-entitlement-refresh").start();
@@ -205,41 +225,37 @@ public final class BillingEntitlementActivity extends Activity
         }
 
         FeatureEntitlementStore.Snapshot snapshot = FeatureEntitlementStore.snapshot(this);
-        if (!snapshot.serverChecked || !snapshot.playBillingAvailable) {
-            showPlayPreparing();
-        } else if (snapshot.isWebSubscription()) {
-            showBlocked("페이지로에서 이용 중입니다.",
-                    "현재 이용권은 페이지로에서 관리해주세요.");
-        } else if (snapshot.isProductSubscribed(productId)) {
-            showBlocked("이미 이용 중입니다.",
-                    productName(productId) + " 이용권을 이미 사용하고 있습니다.");
-        } else if (!snapshot.canStartPlayPurchase(productId)) {
-            showBlocked("결제를 시작할 수 없습니다.",
-                    "잠시 후 다시 시도해주세요.");
-        } else if (!productQueryCompleted || !playProducts.containsKey(productId)) {
-            billing.connectAndLoad();
-            Toast.makeText(this, "결제 정보를 불러오는 중입니다.", Toast.LENGTH_SHORT).show();
-        } else {
-            billing.purchase(productId);
+        if (snapshot.serverChecked && snapshot.isWebSubscription()) {
+            showBlocked("페이지로에서 이용 중입니다.", "현재 이용권은 페이지로에서 관리해주세요.");
+            return;
         }
+        if (snapshot.isProductSubscribed(productId)) {
+            showBlocked("이미 이용 중입니다.", productName(productId) + " 이용권을 이미 사용하고 있습니다.");
+            return;
+        }
+        if (snapshot.serverChecked && snapshot.purchaseBlocked) {
+            String reason = snapshot.blockReason == null || snapshot.blockReason.trim().isEmpty()
+                    ? "현재 계정에서는 새 결제를 시작할 수 없습니다." : snapshot.blockReason;
+            showBlocked("결제를 시작할 수 없습니다.", reason);
+            return;
+        }
+        if (!playProducts.containsKey(productId)) {
+            startPlayLoad();
+            Toast.makeText(this,
+                    billingError.isEmpty() ? "결제 정보를 다시 불러옵니다." : billingError,
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        billing.purchase(productId);
     }
 
     private void render() {
         FeatureEntitlementStore.Snapshot value = FeatureEntitlementStore.snapshot(this);
         renderCurrentPlan(value);
-        updateProductButton(
-                phoneButton,
-                "월 1,900원 시작",
-                FeatureEntitlementStore.PLAN_PHONE,
-                value);
-        updateProductButton(
-                messageButton,
-                "월 990원 시작",
-                FeatureEntitlementStore.PLAN_MESSAGE,
-                value);
+        updateProductButton(phoneButton, "월 1,900원 시작", FeatureEntitlementStore.PLAN_PHONE, value);
+        updateProductButton(messageButton, "월 990원 시작", FeatureEntitlementStore.PLAN_MESSAGE, value);
 
-        boolean playEnabled = value.serverChecked && value.playBillingAvailable && !working;
-        setEnabled(restoreButton, playEnabled);
+        setEnabled(restoreButton, !working);
         boolean hasPaid = value.phoneSubscribed || value.messageSubscribed;
         manageButton.setVisibility(hasPaid ? View.VISIBLE : View.GONE);
         setEnabled(manageButton, !working && hasPaid);
@@ -250,7 +266,7 @@ public final class BillingEntitlementActivity extends Activity
 
         if (!value.serverChecked) {
             stateTitle.setText("이용권 확인 중");
-            stateDetail.setText("잠시만 기다려주세요.");
+            stateDetail.setText("저장된 상태를 먼저 표시하고 서버에서 갱신합니다.");
             stateMeta.setVisibility(View.GONE);
             return;
         }
@@ -329,38 +345,54 @@ public final class BillingEntitlementActivity extends Activity
             setEnabled(view, false);
             return;
         }
-        if (!snapshot.serverChecked) {
-            view.setText("확인 중…");
-            setEnabled(view, false);
-            return;
-        }
-        if (snapshot.isWebSubscription()) {
+        if (snapshot.serverChecked && snapshot.isWebSubscription()) {
             view.setText("통합 이용 중");
             setEnabled(view, false);
             return;
         }
-        if (!snapshot.playBillingAvailable) {
-            view.setText("잠시 후 다시 시도");
+        if (snapshot.serverChecked && snapshot.purchaseBlocked) {
+            view.setText("구매 불가");
             setEnabled(view, false);
             return;
         }
-        if (!productQueryCompleted || !playProducts.containsKey(productId)) {
-            view.setText("결제 준비 중…");
-            setEnabled(view, false);
+        if (playProducts.containsKey(productId)) {
+            view.setText(normalLabel);
+            setEnabled(view, !working);
             return;
         }
-        view.setText(normalLabel);
-        setEnabled(view, !working && snapshot.canStartPlayPurchase(productId));
+        if (billingLoadFailed || productQueryCompleted) {
+            view.setText("다시 시도");
+            setEnabled(view, !working);
+            return;
+        }
+        view.setText("불러오는 중…");
+        setEnabled(view, false);
     }
 
     @Override
     public void onBillingReady(Map<String, ProductDetails> products) {
         runOnUiThread(() -> {
+            mainHandler.removeCallbacks(billingTimeout);
             productQueryCompleted = true;
+            billingLoadFailed = false;
+            billingError = "";
             playProducts = products == null
                     ? Collections.emptyMap()
                     : Collections.unmodifiableMap(new HashMap<>(products));
             render();
+        });
+    }
+
+    @Override
+    public void onBillingUnavailable(String message) {
+        runOnUiThread(() -> {
+            mainHandler.removeCallbacks(billingTimeout);
+            productQueryCompleted = true;
+            billingLoadFailed = true;
+            billingError = message == null ? "Google Play 결제 정보를 불러오지 못했습니다." : message;
+            playProducts = Collections.emptyMap();
+            render();
+            Toast.makeText(this, billingError, Toast.LENGTH_LONG).show();
         });
     }
 
@@ -374,7 +406,6 @@ public final class BillingEntitlementActivity extends Activity
         runOnUiThread(() -> {
             render();
             Toast.makeText(this, "결제 확인 완료", Toast.LENGTH_SHORT).show();
-            EntitlementRefreshManager.request(this, false);
         });
     }
 
@@ -396,11 +427,6 @@ public final class BillingEntitlementActivity extends Activity
         if (view == null) return;
         view.setEnabled(enabled);
         view.setAlpha(enabled ? 1f : 0.52f);
-    }
-
-    private void showPlayPreparing() {
-        showBlocked("결제를 시작할 수 없습니다.",
-                "잠시 후 다시 시도해주세요.");
     }
 
     private void showBlocked(String title, String message) {
