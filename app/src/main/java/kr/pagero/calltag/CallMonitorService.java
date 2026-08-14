@@ -33,6 +33,7 @@ public final class CallMonitorService extends Service {
     private static final long POST_CALL_SETTLE_DELAY_MS = 1_800L;
     private static final long CALL_MATCH_TOLERANCE_MS = 20_000L;
     private static final long STARTUP_RECOVERY_DELAY_MS = 1_200L;
+    private static final long CALL_LOG_RECOVERY_DELAY_MS = 900L;
     private static final long RECOVERY_LOOKBACK_MS = 12L * 60L * 60L * 1000L;
     private static final long RECOVERY_GRACE_MS = 5L * 60L * 1000L;
     private static final int RECOVERY_LIMIT = 40;
@@ -41,9 +42,15 @@ public final class CallMonitorService extends Service {
     private final ContentObserver callLogObserver = new ContentObserver(handler) {
         @Override
         public void onChange(boolean selfChange) {
-            if (!lookupRunning) return;
-            int generation = lookupGeneration;
-            handler.postDelayed(() -> lookupImmediately(generation), 250L);
+            if (lookupRunning) {
+                int generation = lookupGeneration;
+                handler.postDelayed(() -> lookupImmediately(generation), 250L);
+                return;
+            }
+
+            // Some OEMs/process restarts can miss RINGING/OFFHOOK completely. The call log is the
+            // durable second source of truth, so reconcile it even when no live state was seen.
+            scheduleCallLogRecovery("call_log_changed");
         }
     };
 
@@ -55,6 +62,7 @@ public final class CallMonitorService extends Service {
     private boolean listenerRegistered;
     private boolean observerRegistered;
     private boolean startupRecoveryScheduled;
+    private boolean callLogRecoveryScheduled;
     private long callEventStartedAt;
     private int lookupGeneration;
 
@@ -102,6 +110,17 @@ public final class CallMonitorService extends Service {
             PostCallRecoveryStore.recoverLatest(this, false);
             recoverCallsAfterRestart();
         }, STARTUP_RECOVERY_DELAY_MS);
+    }
+
+    private void scheduleCallLogRecovery(String source) {
+        if (callLogRecoveryScheduled) return;
+        callLogRecoveryScheduled = true;
+        handler.postDelayed(() -> {
+            callLogRecoveryScheduled = false;
+            if (!canMonitor()) return;
+            CrashTelemetryStore.record(this, "call_resolution", "reconcile_trigger", source);
+            recoverCallsAfterRestart();
+        }, CALL_LOG_RECOVERY_DELAY_MS);
     }
 
     /**
@@ -212,10 +231,17 @@ public final class CallMonitorService extends Service {
         }
 
         if (state == TelephonyManager.CALL_STATE_IDLE) {
+            // registerTelephonyCallback/listen can immediately deliver a stale IDLE state. Never
+            // let that callback tear down a fresh CallScreeningService overlay.
+            if (!sawCall) {
+                scheduleCallLogRecovery("idle_without_live_state");
+                return;
+            }
+
             CallerOverlayManager.hide(this);
             CallerOverlayCallStateWatcher.stop(this);
 
-            if (sawCall && !lookupRunning) {
+            if (!lookupRunning) {
                 lookupRunning = true;
                 lookupGeneration++;
                 lookupCall(0, lookupGeneration);
@@ -430,6 +456,7 @@ public final class CallMonitorService extends Service {
     @Override
     public void onDestroy() {
         handler.removeCallbacksAndMessages(null);
+        callLogRecoveryScheduled = false;
         CallerOverlayCallStateWatcher.stop(this);
         if (observerRegistered) {
             try {
