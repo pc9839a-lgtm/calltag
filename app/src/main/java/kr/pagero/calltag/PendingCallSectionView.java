@@ -13,6 +13,8 @@ import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -33,19 +35,10 @@ public final class PendingCallSectionView extends LinearLayout {
         }
     };
 
-    public PendingCallSectionView(Context context) {
-        super(context);
-        init();
-    }
-
-    public PendingCallSectionView(Context context, AttributeSet attrs) {
-        super(context, attrs);
-        init();
-    }
-
+    public PendingCallSectionView(Context context) { super(context); init(); }
+    public PendingCallSectionView(Context context, AttributeSet attrs) { super(context, attrs); init(); }
     public PendingCallSectionView(Context context, AttributeSet attrs, int defStyleAttr) {
-        super(context, attrs, defStyleAttr);
-        init();
+        super(context, attrs, defStyleAttr); init();
     }
 
     private void init() {
@@ -63,10 +56,7 @@ public final class PendingCallSectionView extends LinearLayout {
     @Override
     protected void onDetachedFromWindow() {
         if (receiverRegistered) {
-            try {
-                getContext().unregisterReceiver(refreshReceiver);
-            } catch (RuntimeException ignored) {
-            }
+            try { getContext().unregisterReceiver(refreshReceiver); } catch (RuntimeException ignored) {}
             receiverRegistered = false;
         }
         super.onDetachedFromWindow();
@@ -164,6 +154,7 @@ public final class PendingCallSectionView extends LinearLayout {
 
         LinearLayout actions = new LinearLayout(getContext());
         actions.setOrientation(HORIZONTAL);
+        actions.setGravity(Gravity.CENTER_VERTICAL);
 
         Button callButton = actionButton("다시 전화", true);
         callButton.setOnClickListener(v -> dial(call.phone));
@@ -175,9 +166,9 @@ public final class PendingCallSectionView extends LinearLayout {
         taskParams.leftMargin = dp(7);
         actions.addView(taskButton, taskParams);
 
-        Button deleteButton = deleteIconButton();
+        ImageButton deleteButton = deleteIconButton();
         deleteButton.setOnClickListener(v -> confirmDelete(call));
-        LayoutParams deleteParams = new LayoutParams(dp(46), dp(46));
+        LayoutParams deleteParams = new LayoutParams(dp(44), dp(44));
         deleteParams.leftMargin = dp(7);
         actions.addView(deleteButton, deleteParams);
         card.addView(actions, topMargin(14));
@@ -213,7 +204,7 @@ public final class PendingCallSectionView extends LinearLayout {
     private void confirmDelete(PendingCallRecord call) {
         AlertDialog dialog = new AlertDialog.Builder(getContext(), R.style.Theme_CallTag_Dialog)
                 .setTitle("확인할 통화 삭제")
-                .setMessage("콜태그의 확인할 통화 목록에서만 삭제합니다. 휴대폰 기본 통화기록은 삭제하지 않습니다.")
+                .setMessage("콜태그 목록에서만 삭제합니다.\n휴대폰 통화기록은 유지됩니다.")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("삭제", (value, which) -> {
                     try (PendingCallStore store = new PendingCallStore(getContext())) {
@@ -267,18 +258,15 @@ public final class PendingCallSectionView extends LinearLayout {
         return button;
     }
 
-    private Button deleteIconButton() {
-        Button button = new Button(getContext());
-        button.setText("");
+    private ImageButton deleteIconButton() {
+        ImageButton button = new ImageButton(getContext());
         button.setContentDescription("확인할 통화 삭제");
-        button.setMinWidth(0);
-        button.setMinimumWidth(0);
-        button.setMinHeight(0);
-        button.setMinimumHeight(0);
-        button.setPadding(0, 0, 0, 0);
-        button.setGravity(Gravity.CENTER);
         button.setBackgroundResource(R.drawable.bg_secondary_button);
-        button.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_customer_delete, 0, 0, 0);
+        button.setImageResource(R.drawable.ic_customer_delete);
+        button.setScaleType(ImageView.ScaleType.CENTER);
+        button.setPadding(dp(10), dp(10), dp(10), dp(10));
+        button.setMinimumWidth(0);
+        button.setMinimumHeight(0);
         return button;
     }
 
