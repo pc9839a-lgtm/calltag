@@ -10,6 +10,8 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -167,9 +169,9 @@ public final class CustomerListView extends LinearLayout {
         message.setOnClickListener(v -> openCustomerMessage(customerPhone));
         actions.addView(message, weightedButtonParams(7));
 
-        Button delete = iconButton(R.drawable.ic_customer_delete, "고객 삭제");
+        ImageButton delete = deleteIconButton("고객 삭제");
         delete.setOnClickListener(v -> confirmDelete(card, customerId, customerName));
-        LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(dp(46), dp(44));
+        LinearLayout.LayoutParams deleteParams = new LinearLayout.LayoutParams(dp(44), dp(44));
         deleteParams.leftMargin = dp(7);
         actions.addView(delete, deleteParams);
 
@@ -222,26 +224,22 @@ public final class CustomerListView extends LinearLayout {
         return params;
     }
 
-    private Button iconButton(int drawable, String description) {
-        Button button = new Button(getContext());
-        button.setText("");
+    private ImageButton deleteIconButton(String description) {
+        ImageButton button = new ImageButton(getContext());
         button.setContentDescription(description);
-        button.setMinWidth(0);
-        button.setMinimumWidth(0);
-        button.setMinHeight(0);
-        button.setMinimumHeight(0);
-        button.setPadding(0, 0, 0, 0);
-        button.setGravity(Gravity.CENTER);
         button.setBackgroundResource(R.drawable.bg_secondary_button);
-        button.setCompoundDrawablesWithIntrinsicBounds(drawable, 0, 0, 0);
+        button.setImageResource(R.drawable.ic_customer_delete);
+        button.setScaleType(ImageView.ScaleType.CENTER);
+        button.setPadding(dp(10), dp(10), dp(10), dp(10));
+        button.setMinimumWidth(0);
+        button.setMinimumHeight(0);
         return button;
     }
 
     private void confirmDelete(LinearLayout card, long customerId, String customerName) {
         AlertDialog dialog = new AlertDialog.Builder(getContext(), R.style.Theme_CallTag_Dialog)
                 .setTitle("고객 삭제")
-                .setMessage(customerName
-                        + " 고객과 연결된 상담·할 일 기록을 콜태그에서 삭제합니다.\n\n문자 발송 이력은 안전 기록으로 유지됩니다.")
+                .setMessage(customerName + " 고객과 상담·할 일을 삭제합니다.\n문자 발송 이력은 유지됩니다.")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("삭제", (d, which) -> deleteCustomer(card, customerId))
                 .create();
