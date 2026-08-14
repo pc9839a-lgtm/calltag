@@ -147,14 +147,22 @@ jobs:
           test -s "$AAB"
           test -s "$APK"
 
-          # Verify the compiled artifact contains the correct Web OAuth client and not the Android client.
-          unzip -p "$APK" classes.dex > "$RUNNER_TEMP/classes.dex"
-          strings "$RUNNER_TEMP/classes.dex" > "$RUNNER_TEMP/apk-strings.txt"
-          grep -F '31346298247-o5jfdetjs84mu02c8tp68qg19ifo89en.apps.googleusercontent.com' "$RUNNER_TEMP/apk-strings.txt"
-          if grep -F '31346298247-26okq7jrsac89q8pucjeuui6jrfofvqn.apps.googleusercontent.com' "$RUNNER_TEMP/apk-strings.txt"; then
+          # Verify every DEX in the APK so multidex builds cannot hide a wrong OAuth client.
+          rm -f "$RUNNER_TEMP/apk-strings.txt"
+          touch "$RUNNER_TEMP/apk-strings.txt"
+          while IFS= read -r dex; do
+            test -n "$dex"
+            unzip -p "$APK" "$dex" | strings >> "$RUNNER_TEMP/apk-strings.txt"
+          done < <(unzip -Z1 "$APK" | grep -E '^classes([0-9]+)?\.dex$')
+
+          WEB_CLIENT='31346298247-o5jfdetjs84mu02c8tp68qg19ifo89en.apps.googleusercontent.com'
+          ANDROID_CLIENT='31346298247-26okq7jrsac89q8pucjeuui6jrfofvqn.apps.googleusercontent.com'
+          grep -F "$WEB_CLIENT" "$RUNNER_TEMP/apk-strings.txt"
+          if grep -F "$ANDROID_CLIENT" "$RUNNER_TEMP/apk-strings.txt"; then
             echo 'Final APK contains the Android OAuth client as serverClientId.' >&2
             exit 1
           fi
+          echo 'OAuth client verification passed: Web client present, Android client absent.'
 
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
           APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
