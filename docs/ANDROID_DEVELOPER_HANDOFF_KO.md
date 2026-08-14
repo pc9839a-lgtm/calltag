@@ -1,552 +1,250 @@
 # 콜태그 Android 개발자 인수인계
 
-기준 버전: **0.38.2**  
-versionCode: **46**  
-기준일: **2026-08-02**  
+기준 버전: **0.44.38**  
+versionCode: **2026081224**  
+기준일: **2026-08-14**  
 저장소: `pc9839a-lgtm/calltag`  
-개발 브랜치: `agent/calltag-foundation`  
-개발 PR: Draft PR `#1`  
+정본 브랜치: `agent/calltag-v04422-billing-live`  
 패키지: `kr.pagero.calltag`  
-최소 Android: API 26  
-Target/Compile SDK: 35
+minSdk: **26**  
+compileSdk / targetSdk: **36 / 36**
 
-> 이 문서는 다음 Android 개발자가 현재 구현을 파악하고 안전하게 이어서 작업하기 위한 정본이다. 기획 문서보다 실제 코드와 `app/build.gradle`을 우선한다. 빌드 성공과 실제 휴대전화 동작 성공은 반드시 구분한다.
+> 이 문서를 현재 Android 구현의 정본으로 사용한다. 충돌 시 `app/build.gradle`과 실제 코드가 최우선이다. 과거 버전별 HOTFIX/릴리스 문서는 정본으로 사용하지 않는다.
 
----
-
-## 1. 작업 시작 전 반드시 확인할 것
-
-1. 작업 저장소는 `pc9839a-lgtm/calltag` 하나다.
-2. 작업 브랜치는 `agent/calltag-foundation`이다.
-3. 사용자 명시 지시 전 `main`에 병합하지 않는다.
-4. PR `#1`은 Draft 상태를 유지한다.
-5. 최신 버전은 `app/build.gradle`에서 다시 확인한다.
-6. 기존 고객·문자·일정·캠페인 데이터를 초기화하지 않는다.
-7. DB 스키마 변경 시 기존 데이터를 보존하는 마이그레이션을 작성한다.
-8. 기능 구현 후 임시 검증 브랜치와 Draft PR로 Android 빌드를 확인하고, 검증 PR은 병합하지 않고 닫는다.
-9. GitHub Actions 성공을 실제 단말 검증 완료로 기록하지 않는다.
+## 1. 현재 릴리스
 
----
+- 앱 버전: `0.44.38`
+- versionCode: `2026081224`
+- 현재 브랜치 HEAD 기준 릴리스/CI 정리 커밋: `4260165f70a03a73cd31221523ec007f8acd3cc3`
+- 통화 안정화 핵심 패치: `0f0e55eca88e71521197c9bdd580463651e06730`
+- Google Play 내부테스트용 AAB 빌드 성공
+- GitHub Actions run: `31793522034`
+- AAB artifact: `9216491193`
+- 테스트 APK artifact: `9216491634`
 
-## 2. 제품 구조
-
-콜태그는 전화 전후의 고객관리를 한 앱에서 처리한다.
-
-```text
-전화 수신/발신
-→ 고객정보 확인
-→ 통화 종료 정리
-→ 고객 상태·메모·오늘 할 일 저장
-→ 고객별 문자 또는 후속 예약
-→ 캘린더·통계·단체문자로 후속 관리
-```
-
-### 하단 내비게이션
-
-왼쪽부터 다음 5개다.
-
-```text
-고객 / 캘린더 / 홈 / 통계 / 더보기
-```
-
-- `홈`은 중앙에 있지만 과도한 원형 FAB가 아니다.
-- 다른 메뉴보다 아이콘과 라벨만 한 단계 강조한다.
-- `MainActivity` 외의 하위 Activity는 일반 Android 뒤로가기를 사용한다.
-- `MainActivity`에서 다른 탭의 뒤로가기 → 홈 이동.
-- 홈에서 다시 뒤로가기 → `앱을 종료할까요?` 확인창.
-
----
-
-## 3. 현재 0.38.2 핵심 변경
-
-### 일정 고객 선택
-
-- 일정 추가 시 고객 전체를 화면 높이만큼 나열하지 않는다.
-- 옵션이 9개 이상이면 `ActionChoiceDialog`에 검색창이 자동 표시된다.
-- 고객명·전화번호·부제목 검색을 지원한다.
-- 검색 결과 수를 표시한다.
-- 목록은 고정 최대 높이 안에서 내부 스크롤한다.
-- 이 기능은 공통 선택창에 적용되므로 고객 외의 대량 옵션 선택에도 영향을 줄 수 있다.
-
-### 뒤로가기 종료 방지
-
-- `CallTagApplication`이 `MainActivity` resume 시 `MainExitGuard.install(activity)`을 호출한다.
-- Android 13 이상은 `OnBackInvokedDispatcher`를 사용한다.
-- Android 12 이하는 Window decor의 back key listener를 사용한다.
-- 다른 탭에서는 홈으로 이동하고 홈에서만 종료 확인창을 띄운다.
-- Activity destroy 시 `MainExitGuard.uninstall(activity)`을 호출한다.
-
-### 통계 고도화
-
-상단 기간:
-
-```text
-오늘 / 7일 / 30일 / 선택
-```
-
-- 직접 선택은 시작일과 종료일을 같은 설정창에서 확인한 뒤 적용한다.
-- 종료일이 시작일보다 빠르면 차단한다.
-- 미래 날짜를 선택하지 못하게 한다.
-- 직접 조회 최대 범위는 365일이다.
-- 7일·30일 또는 직접 선택 2~30일 범위에서는 일별 추이 차트를 표시한다.
-- 차트 시리즈:
-  - 파란색: 일별 통화 건수
-  - 초록색: 일별 페이지로 유입 고객 수
-- 차트는 `StatsTrendChartView`가 Canvas로 직접 그린다.
-- 차트는 현재 표시용이며 확대·드래그·툴팁은 없다.
-
-통계 화면 위계:
-
-1. 전체 통화 대표 숫자
-2. 연락 고객·신규 고객·완료한 일
-3. 일별 추이 차트
-4. 통화유형: 수신·발신·부재중·거절
-5. 페이지로: 유입 고객·연락률·연락 완료·미연락
-6. 처리할 일: 오늘 할 일·기한 지남·확인할 통화
-
-### 검증 결과
-
-- Workflow: `Validate CallTag Android`
-- Run ID: `30731475511`
-- Job ID: `91452540504`
-- Android 리소스 처리: 성공
-- Java 컴파일: 성공
-- Debug APK 패키징: 성공
-- APK 업로드: 성공
-- Artifact ID: `8828114600`
-- Artifact digest: `sha256:92dcc96bfb35b2d2fe28f21d69bd4e3c967273b4c35f55256d0849010b810499`
-- 실제 APK SHA-256: `d13ffe43d261be6ca3ff7af73d00830bbc426aff44ebc587d42b8d7f5c4876d5`
-- 실제 APK 크기: `2,657,934 bytes`
-- 임시 검증 PR `#18`: 병합 없이 종료
-
----
-
-## 4. 검증된 핵심 파일
-
-### 앱 진입·전역 lifecycle
-
-| 역할 | 파일 |
-|---|---|
-| Application 초기화·복구·Activity lifecycle | `CallTagApplication.java` |
-| 로그인·앱 진입 분기 | `AuthGateActivity.java`, `LoginActivity.java` |
-| 초기 설정 준비 여부 | `SetupRequirements.java` |
-| 메인 탭·홈·고객·캘린더 렌더링 | `MainActivity.java`, `activity_main.xml` |
-| 메인 종료 확인 | `MainExitGuard.java` |
-| 공통 옵션 선택창 | `ActionChoiceDialog.java` |
-
-`SetupRequirements.isReady()`는 현재 강제 중간 설정 화면으로 보내지 않도록 구성돼 있다. 기능별 권한은 해당 기능 화면에서 요청한다.
-
-### 고객·일정·통계 데이터
-
-| 역할 | 파일 |
-|---|---|
-| 고객·interaction·일정 SQLite | `CallTagDbHelper.java` |
-| 고객 모델 | `Customer.java` |
-| 일정 모델 | `FollowUpTask.java` |
-| interaction 모델 | `InteractionRecord.java` |
-| 통계 집계·날짜 필터 | `CustomerStatsView.java` |
-| 통계 추이 차트 | `StatsTrendChartView.java` |
-
-### 통화 수신·종료
-
-| 역할 | 파일 |
-|---|---|
-| 통화 감지 | `CallMonitorService.java` |
-| 수신 고객정보 | `CallTagScreeningService.java`, `CallerInfoActivity.java` |
-| 통화 종료 정리 | `PostCallActivity.java`, `activity_post_call.xml` |
-| 종료 화면 직접 호출·전체화면 알림 | `CallPopupNotificationManager.java` |
-| 미정리 통화 | `PendingCallStore.java` |
-
-### 문자·템플릿
-
-| 역할 | 파일 |
-|---|---|
-| 고객 선택 문자 시작 | `CustomerMessagePickerActivity.java` |
-| 문자 작성·예약 | `ManualMessageActivity.java` |
-| 문자 작성 UX 후처리 | `ManualMessageUxEnhancer.java` |
-| 템플릿 목록 | `MessageTemplateLibraryActivity.java` |
-| 템플릿 편집 | `MessageTemplateEditorActivity.java` |
-| 템플릿 저장 | `MessageTemplateStore.java` |
-| 중복 템플릿 정리 | `MessageTemplateCleanup.java` |
-| 이미지 저장 | `MessageAttachmentStore.java` |
-| MMS 사용자 확인 흐름 | `MmsComposeActivity.java` |
-| 자동문자 설정 | `MessageAutomationSettingsActivity.java`, `MessageAutomationStore.java` |
-| 발송 내역 | `MessageHistoryActivity.java` |
-
-### 그룹·캠페인
-
-| 역할 | 파일 |
-|---|---|
-| 수동·스마트 그룹 | `MessageGroupActivity.java` 및 그룹 Store 관련 코드 |
-| 그룹·단체문자 진입 | `GroupCampaignHubActivity.java` |
-| 캠페인 목록 | `CampaignListActivity.java` |
-| 캠페인 작성 | `CampaignComposerActivity.java` |
-| 캠페인 상세 | `CampaignDetailActivity.java` |
-
-### 계정·진단·백업
-
-| 역할 | 파일 |
-|---|---|
-| 계정 | `AccountActivity.java`, `activity_account.xml` |
-| 진단 | `DiagnosticActivity.java` |
-| 백업·복원 UI | `BackupRestoreActivity.java` |
-| 암호화 백업 처리 | `CallTagBackupManager.java` |
-
-### 기능 위치를 찾을 때 사용할 검색어
-
-파일명이 여러 번 바뀐 기능은 클래스명을 추측하지 말고 다음 문자열로 검색한다.
-
-```text
-CalendarContract.Events.CONTENT_URI   외부 캘린더 등록
-PageroLeadSyncManager                 페이지로 고객 동기화
-CustomerSourceResolver                페이지로 유입 판별
-message allowed / excluded            고객별 문자 허용·발송 제외
-setFullScreenIntent                   통화 종료 전체화면 알림
-ROLE_CALL_SCREENING                   수신 고객정보 역할 요청
-SENDING                               문자·캠페인 발송 안전 상태
-```
-
----
-
-## 5. 화면별 동작 기준
-
-### 홈
-
-홈 빠른 메뉴의 기본 방향:
-
-```text
-고객 추가 / 고객 목록 / 문자
-```
-
-오늘 할 일 카드에는 일정 종류, 고객명, 예정시간, 핵심 실행 버튼만 보여준다. 페이지로 여부는 고객명으로 추정하면 안 된다.
-
-### 고객
-
-고객 카드 정보 순서:
+### Play 업로드 키
 
-```text
-고객명·상태
-연락처 + 페이지로 배지(해당 고객만)
-메모 한 줄
-최근 연락
-문자 / 상태 변경
-```
+공개 인증서 지문만 기록한다. 키 파일/비밀번호는 문서에 기록하지 않는다.
 
-#### 페이지로 판별 규칙
+- SHA-1: `79:80:FD:C6:4E:BE:DD:2B:80:54:5B:60:87:03:6D:5F:78:05:75:8B`
+- SHA-256: `C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7`
+- CI는 위 SHA-256과 다르면 릴리스 빌드를 중단한다.
+- 업로드 키가 없다고 새 키를 자동 생성하지 않는다.
 
-- `customer.source`에 `pagero`, `페이지로`, `landing`, `lead_form`이 포함된 경우만 페이지로로 본다.
-- 고객명, 일정명, 전화 통화 여부로 페이지로 고객을 추정하지 않는다.
-- 직접 등록 고객과 전화 유입 고객은 별도 유입 배지를 화면에 표시하지 않는다.
-- 페이지로 동기화 진입은 `PageroLeadSyncManager`를 확인한다.
+## 2. Google 로그인 — 해결 완료
 
-### 캘린더·일정
+2026-08-14 실제 단말에서 Google 로그인 성공 확인.
 
-일정 추가 흐름:
+OAuth 역할을 절대 혼동하지 않는다.
 
-```text
-날짜 선택
-→ + 일정 추가
-→ 고객 검색·선택
-→ 일정 종류 선택
-→ 시간 선택
-→ FollowUpTask 저장
-```
+- Android OAuth Client ID: `31346298247-26okq7jrsac89q8pucjeuui6jrfofvqn.apps.googleusercontent.com`
+  - 용도: Android 앱 패키지 + SHA-1 식별
+  - `requestIdToken()`의 server client ID로 사용하지 않는다.
+- Web/Backend OAuth Client ID: `31346298247-o5jfdetjs84mu02c8tp68qg19ifo89en.apps.googleusercontent.com`
+  - 용도: Android 앱 `requestIdToken()` / 서버 ID Token audience 검증
+  - `BuildConfig.GOOGLE_SERVER_CLIENT_ID` 기본값은 이 값이어야 한다.
 
-외부 캘린더 공유:
+과거 코드 10(`DEVELOPER_ERROR`) 원인은 Android Client ID를 Web server client ID 위치에 넣은 것이었다. CI에서 완성 APK의 DEX 전체를 검사해 Web Client가 들어가고 Android Client가 server client 위치에 들어가지 않도록 유지한다.
 
-- Android Calendar INSERT Intent를 사용한다.
-- 저장소에서 `CalendarContract.Events.CONTENT_URI`를 검색하면 구현 위치를 찾을 수 있다.
-- Google 캘린더·삼성 캘린더 등 설치된 앱에서 저장 계정을 사용자가 선택한다.
-- 현재는 콜태그 → 외부 캘린더 단방향 등록이다.
-- 양방향 동기화나 외부 이벤트 자동 수정·삭제는 구현되지 않았다.
+## 3. 통화 전 고객정보 표시
 
-### 통계
-
-집계 데이터:
-
-- 통화: `InteractionRecord.type`의 `INCOMING_CALL`, `OUTGOING_CALL`, `MISSED_CALL`, `REJECTED_CALL`
-- 완료한 일: `TASK_COMPLETE`, `TASK_AUTO_COMPLETE`
-- 신규 고객: `Customer.firstContactAt`
-- 페이지로 유입: 생성일이 기간 안이고 페이지로 source 판별이 true
-- 페이지로 연락 완료: 선택 기간의 통화 interaction에 해당 고객 ID가 포함됨
+핵심 파일:
 
-주의:
+- `CallTagScreeningService.java`
+- `CallerOverlayManager.java`
+- `CallerOverlayCallStateWatcher.java`
+- `CallerIdSetupButton.java`
 
-- `listRecentInteractions(5000)` 상한이 있다.
-- 장기 운영·대량 데이터에서는 기간 기반 SQL 쿼리로 바꾸는 것이 다음 개선점이다.
-- 직접 선택은 최대 365일이지만 차트는 최대 30일까지만 표시한다.
-- 31일 이상은 숫자 집계만 표시한다.
+현재 기준:
 
-### 통화 종료 큰 화면
+- Android `ROLE_CALL_SCREENING` 역할을 사용한다.
+- 사용자 설정 `수신 전화 고객정보 표시`가 ON이고 등록 고객이면 고객명/최근 메모를 표시한다.
+- 오버레이 권한이 없거나 표시 실패 시 알림 fallback을 사용한다.
+- 홈의 `통화 감지` / `수신 전화 고객정보 표시`는 ON/OFF 텍스트를 별도로 쓰지 않고 스위치 자체로 상태를 표현한다.
+- 역할 권한이 없는데 사용자가 켜면 시스템 역할 요청창을 즉시 연다.
 
-1. 통화 기록을 확인한다.
-2. `PostCallActivity` 직접 실행을 시도한다.
-3. Android 14 이상 백그라운드 Activity 실행 허용 경로를 시도한다.
-4. 제조사·OS 정책이 직접 실행을 막으면 전체화면 알림으로 재진입한다.
-
-제한:
-
-- Android와 제조사 정책상 백그라운드 Activity 실행을 100% 강제할 수 없다.
-- 알림 권한, 전체화면 알림 권한, 배터리 최적화, 잠금화면 설정에 따라 다르다.
-- 코드 빌드 성공만으로 실제 단말에서 큰 화면이 떴다고 기록하지 않는다.
+### 0.44.38 안정화
 
-### 문자 작성
+기존에는 `CallScreeningService`가 고객정보를 띄운 뒤 `CallMonitorService`가 초기/지연 `IDLE` 콜백을 받으면 실제 통화 시작 여부와 관계없이 오버레이를 닫을 수 있었다.
 
-- 고객과 연결된 경우 전화번호 입력칸을 다시 보여주지 않는다.
-- 고객명·전화번호를 상단에 표시한다.
-- 템플릿 선택은 한 줄 compact 설정이다.
-- 선택한 템플릿명과 수정 버튼을 표시한다.
-- 이미지 첨부는 이미지가 있을 때만 미리보기·삭제를 보인다.
-- 발송·후속 예약 핵심 행동은 하단에 고정한다.
-
-### 템플릿
-
-- 사용자가 입력하는 필드는 이름·내용·이미지다.
-- 내부 purpose 값은 사용자에게 노출하지 않는다.
-- `수신`, `발신`, `후속`, `일반` 같은 내부 구분을 템플릿명 옆에 나열하지 않는다.
-- 별표 즐겨찾기 UI를 사용하지 않는다.
-- 기본 템플릿은 `기본` 배지로 표시한다.
-- 이미지 템플릿은 자동 SMS 기본값으로 지정하지 않는다.
-- 이미지 문자는 시스템 메시지 앱을 열고 사용자가 최종 전송한다.
+현재는:
 
-### 자동문자·문자 허용
+- 실제 `RINGING/OFFHOOK`을 관찰한 뒤의 `IDLE`에서만 통화 종료 처리를 한다.
+- 수신 오버레이는 `CallerOverlayCallStateWatcher`가 `TelecomManager.isInCall()`로 실제 통화 lifecycle을 보조 감시한다.
+- 초기 가짜/선행 `IDLE` 때문에 수신정보가 바로 사라지는 경로를 막았다.
 
-자동문자 화면에는 다음 3개만 주요 시점으로 보인다.
+## 4. 통화 종료 후 작은 팝업
 
-```text
-통화 후 / 부재중 / 후속 예약
-```
+핵심 파일:
 
-공통 발송 설정에 업무시간·중복 방지·회선·후속 시점을 묶는다.
+- `CallMonitorService.java`
+- `PostCallActivity.java`
+- `PostCallActivityLauncher.java`
+- `PostCallDeliveryGuard.java`
+- `PostCallRecoveryStore.java`
+- `PostCallLaunchReceipt.java`
+- `CallProcessingLedger.java`
 
-고객별 문자 설정은 사용자 화면에서 `허용 / 비허용`만 제공한다. 실제 저장 위치는 고객 상세와 발송 직전 검사 코드를 함께 검색해 확인한다.
+현재 기준:
 
-### 수동그룹
+- 통화 종료 후 전체화면이 아니라 작은 `PostCallActivity` 팝업 1개가 기본이다.
+- Android가 백그라운드 Activity 표시를 막으면 고우선 알림 fallback을 사용한다.
+- `PostCallRecoveryStore`가 미전달 건을 보존한다.
+- `CallProcessingLedger`가 동일 CallLog row의 중복 처리를 막는다.
 
-- 고객명·전화번호·상태 검색
-- 검색 결과 기준 전체 선택
-- 검색 결과 기준 전체 해제
-- 선택 고객 수 표시
+### 0.44.38 안정화
 
----
+이전 구조는 `RINGING/OFFHOOK → IDLE` 콜백을 모두 받아야 종료 처리를 시작했다. 제조사/OEM/프로세스 상태 때문에 앞 이벤트를 놓치면 CallLog가 생겨도 팝업이 누락될 수 있었다.
 
-## 6. 데이터 계층과 변경 원칙
+현재는 두 경로를 사용한다.
 
-### 주요 데이터 객체
+1. Telephony call state → 실시간 1차 트리거
+2. CallLog `ContentObserver` → 2차 복구 트리거
 
-- `Customer`
-- `FollowUpTask`
-- `InteractionRecord`
-- `CallRecord`
-- 문자 작업·캠페인·수신자 관련 모델
+따라서 전화 상태 콜백을 놓쳐도 새 CallLog row가 생성되면 ledger 확인 후 종료 후속처리를 다시 시도한다.
 
-### DB 변경 규칙
+남은 실기기 QA:
 
-- 데이터베이스 삭제·재생성으로 마이그레이션하지 않는다.
-- 기존 ID와 연결 관계를 보존한다.
-- 고객 → interaction → 일정 → 문자 → 캠페인 수신자의 참조를 확인한다.
-- 마이그레이션 후 `PRAGMA quick_check`와 정합성 복구 흐름을 확인한다.
-- 백업·복원 호환성도 같이 검토한다.
+- 앱 전면 상태 연속 수신/발신
+- 앱 백그라운드
+- 화면 잠금
+- 장시간 미사용 후 첫 통화
+- 부재중/거절/짧은 통화
+- 연속 통화에서 중복 팝업 여부
 
----
+## 5. 고객 화면 UX
 
-## 7. 절대 변경하면 안 되는 발송 안전 규칙
+현재 기준:
 
-1. 발송 직전 고객별 문자 허용 여부를 다시 확인한다.
-2. 발송 제외 번호를 다시 확인한다.
-3. 중복발송 방지 시간을 다시 확인한다.
-4. 선택 SIM과 현재 활성 SIM 상태를 다시 확인한다.
-5. 캠페인 일시정지·취소 상태를 다시 확인한다.
-6. 불명확한 `SENDING` 작업은 자동 재발송하지 않는다.
-7. 일시정지 캠페인을 앱 시작·재부팅 시 자동 재개하지 않는다.
-8. 누락 작업을 추측해 새로 만들지 않는다.
-9. 고아 작업을 자동 발송하지 않는다.
-10. 이미지 문자는 시스템 메시지 앱에서 사용자가 최종 전송한다.
-11. 복구는 상태를 복원하는 작업이지 발송을 새로 시작하는 작업이 아니다.
+- 고객목록 빠른 액션: `상태 변경` / `문자 보내기`는 텍스트 버튼 유지.
+- 삭제만 작은 휴지통 아이콘.
+- 삭제 아이콘은 `ImageButton` 중앙정렬 터치영역을 사용한다.
+- 고객 삭제는 별도 Activity로 이동하지 않고 현재 화면 위 확인 팝업에서 처리한다.
+- 삭제 확인: 취소=회색, 삭제=빨강.
+- 고객수정/상세에서 연락처 저장 기능을 제공한다.
+- Android 연락처 INSERT 화면에 고객명/전화번호를 채워 연다.
 
----
+## 6. 문자 기능
 
-## 8. UX/UI 규칙
+문자 메인 상단 3개 우선 메뉴:
 
-정본: `docs/DESIGN_SYSTEM_KO.md`
+1. `고객선택후 문자`
+2. `통화후 자동문자`
+3. `페이지로 문의접수문자`
 
-핵심 규칙:
+관리 기능:
 
-- 주요 색상은 파란색 1개와 무채색 중심.
-- 위험·경고·성공은 의미가 있을 때만 제한적으로 사용.
-- 앱바 높이 56dp.
-- 화면 좌우 여백 16dp.
-- 화면 제목 21~22sp.
-- 버튼 기본 높이 48~52dp.
-- 주요 CTA는 한 화면에 1개를 우선한다.
-- 카드 안에 카드와 버튼을 반복해서 중첩하지 않는다.
-- 텍스트를 버튼처럼 보이게 두지 않는다. 전체 행에 클릭 배경·터치 영역·화살표를 제공한다.
-- 긴 고객명·템플릿명·메모는 말줄임 처리한다.
-- 360dp 폭과 큰 글자 설정에서 깨지지 않아야 한다.
-- 고객·템플릿·그룹이 많아지는 화면은 검색과 내부 스크롤을 기본으로 고려한다.
+- 문자 템플릿
+- 그룹·단체문자
+- 발송 내역
 
-### 호환 ID 주의
+페이지로 문의접수 자동문자 설정 화면은 설명문을 최소화하고 아래만 남긴다.
 
-일부 레이아웃에는 이전 `MainActivity` 바인딩과의 호환을 위해 숨김 View ID가 남아 있을 수 있다. 화면에서 안 보인다는 이유로 제거하면 `findViewById()` 이후 NPE가 날 수 있다.
-
-리팩터링 전 반드시 다음 문자열을 검색한다.
-
-```text
-customerListTab
-customerStatsTab
-customerStatsPanel
-customerStatsContent
-stageSettingsButton
-moreMenuList
-```
+- 사용 여부
+- 문자 내용/템플릿
+- 발송 지연
+- 페이지별 설정
+- 저장
 
-ID를 제거하려면 `MainActivity`의 바인딩과 동작을 먼저 함께 제거한다.
+권한이 부족할 때만 짧은 상태와 권한 허용 액션을 표시한다.
 
----
+## 7. 페이지로 문의 → 콜태그
 
-## 9. 빌드와 검증 절차
+정본 상세 문서: `PAGERO_CUSTOMER_INTEGRATION_KO.md`
 
-### 로컬 기준
+현재 주요 동작:
 
-```bash
-gradle :app:assembleDebug --stacktrace
-```
+- 같은 Inlet 계정 owner 기준 자동 연결
+- 일반 사용자가 webhook/비밀키를 직접 넣지 않는다.
+- 페이지로 문의가 콜태그 고객으로 생성/갱신된다.
+- 문의 메타데이터의 `answers`, `values`, `pageTitle`, `site`, `campaign`, `source`, `email`, `content`와 동적 필드를 가능한 한 보존한다.
+- 문의 전체 내용을 고객 memo 구성에 사용한다.
+- 페이지로 자동문자 기본값은 OFF.
+- eventId 기준 중복 수신/발송을 방지한다.
+- 페이지로 문의 eventId를 일반 단체문자 campaign 상태머신으로 오인하지 않게 분리되어 있다.
 
-- JDK 17
-- Gradle 8.9
-- compileSdk 35
+## 8. Google Play Billing
 
-### GitHub Actions 검증 방식
+정본 상세 문서: `GOOGLE_PLAY_BILLING_SETUP_KO.md`
 
-1. `agent/calltag-foundation` 최신 HEAD에서 임시 브랜치를 생성한다.
-2. 임시 Draft PR을 `agent/android-ci-base` 대상으로 연다.
-3. Workflow `Validate CallTag Android`를 기다린다.
-4. Java 컴파일·APK 패키징·아티팩트 업로드를 확인한다.
-5. APK를 내려받아 실제 버전과 SHA-256을 확인한다.
-6. 임시 PR은 병합하지 않고 닫는다.
-7. PR `#1`과 `main`은 병합하지 않는다.
+현재 Play 정기결제 상품은 **2개만** 사용한다.
 
-주의: 검증 Workflow 아티팩트 이름이 과거 버전명으로 고정돼 표시될 수 있다. 실제 버전은 APK와 `app/build.gradle`로 확인한다.
+| Product ID | 가격 | 범위 |
+|---|---:|---|
+| `call_monthly` | 1,900원/월 | 전화관리 |
+| `message_monthly` | 990원/월 | 문자자동화 |
 
----
+현재 `all_monthly` 통합권은 만들지 않는다.
 
-## 10. 실제 단말 필수 검수
+Billing UI 성능 기준:
 
-### 공통
+- 화면 진입 즉시 Google Play Billing 연결/상품조회를 시작한다.
+- 서버 `playBillingAvailable` 응답을 기다린 뒤 BillingClient를 시작하지 않는다.
+- Play 상품조회와 서버 entitlement 조회는 서로 독립적으로 실행한다.
+- 상품정보가 오면 결제 버튼을 즉시 활성화한다.
+- 무한 `결제 준비 중` 금지.
+- 실패/타임아웃은 `다시 시도`로 전환한다.
+- Billing 연결 끊김 시 재연결한다.
 
-- Android 8~15
-- 360dp 폭
-- 큰 글자·화면 확대
-- 키보드가 열린 상태
-- 긴 고객명·전화번호·메모·템플릿명
-- 고객 500명 이상
+서버 purchase token 검증은 구현되어 있고 실제 `call_monthly` 구매 검증까지 확인됐다.
 
-### 뒤로가기
+### 아직 미구현
 
-- 각 메인 탭에서 뒤로가기 → 홈
-- 홈에서 뒤로가기 → 종료 확인
-- Android 13 이상 제스처 뒤로가기
-- Android 12 이하 물리/소프트 back key
-- 확인창 중복 표시 여부
-- 하위 Activity 일반 뒤로가기 유지
-
-### 일정
-
-- 고객 8명 이하 선택창
-- 고객 9명 이상 검색형 선택창
-- 고객 500명 검색 성능
-- 한글 고객명·숫자 전화번호 검색
-- 일정 저장 후 캘린더 표시
-- Google 캘린더·삼성 캘린더 공유
-
-### 통계
-
-- 데이터 없는 기간
-- 오늘
-- 최근 7일
-- 최근 30일
-- 직접 선택 2일·30일·31일·365일
-- 시작일 > 종료일 차단
-- 미래 날짜 차단
-- 통화 차트와 페이지로 차트 값 비교
-- interaction 5,000건 이상에서 정확도 확인
-
-### 통화 종료 큰 화면
-
-- 수신·발신·부재중·거절
-- 앱 foreground/background/종료
-- 화면 잠금 상태
-- 알림 권한 허용/거부
-- 전체화면 알림 허용/거부
-- 제조사 배터리 최적화 켜짐/꺼짐
-
-### 문자·캠페인
-
-- 단문·장문·분할 문자
-- 예약 발송
-- 중복 방지
-- 허용/비허용
-- 발송 제외
-- SIM 교체
-- 일시정지·재개·취소
-- 재부팅·앱 업데이트 복구
-
----
-
-## 11. 다음 개발 우선순위
-
-### 1순위 — 0.38.2 실기기 QA
-
-- 일정 고객 검색형 선택창
-- Android 13+ 뒤로가기 종료 확인
-- Android 12 이하 back key 확인
-- 통계 차트 값과 날짜 범위 선택
-- 통화 종료 큰 화면 제조사별 동작
-
-### 2순위 — 캠페인 수신자 관리
-
-- 검색
-- 상태 필터
-- 실패 사유 필터
-- 선택 재시도
-- 선택 취소
-- 대량 목록 성능
-
-### 3순위 — 캠페인 작성 최종 확인
-
-- 실제 수신자 수
-- 제외·중복 예상 수
-- 변수 치환 샘플
-- 장문 분할 예상
-- 선택 SIM
-- 중복 시작 방지
-
-### 4순위 — 결제·구독
-
-- 실제 Play Billing
-- 영수증 검증
-- 만료·환불·복원
-- 오프라인 유예
-- 운영자·일반 계정 권한
-
-### 5순위 — 출시 QA
-
-- 릴리스 서명
-- AAB
-- Play Console 권한 설명
-- 개인정보처리방침 일치
-- Crash·ANR
-
----
-
-## 12. 다음 개발자가 첫날 할 일
-
-1. `agent/calltag-foundation` checkout.
-2. `app/build.gradle`에서 `0.38.2 / 46` 확인.
-3. `README.md`, 이 문서, `DEVELOPMENT_STATUS_AND_ROADMAP_KO.md`, `DESIGN_SYSTEM_KO.md` 순서로 읽기.
-4. Debug APK 빌드.
-5. 실제 기기에서 일정 고객 검색·뒤로가기·통계 차트·통화 종료 큰 화면 확인.
-6. 문제를 재현한 뒤 관련 파일만 최소 범위로 수정.
-7. 데이터·발송 안전 규칙을 건드리는 변경은 별도 검토.
-8. 임시 검증 PR로 빌드 후 병합 없이 종료.
-9. 패치 종료 시 버전·검증 Run·실기기 확인 여부·남은 패치를 문서에 업데이트.
+Google Play RTDN(Pub/Sub) 기반 구독 lifecycle 동기화는 아직 완료되지 않았다.
+
+미구현 범위:
+
+- Pub/Sub topic
+- Play notification publisher 권한
+- RTDN 설정
+- subscriber endpoint
+- renewal/cancel/expiry/grace/hold/resume/refund 이벤트 재조회 및 entitlement 갱신
+
+이를 완료하기 전에는 구독 lifecycle 자동 동기화 완료라고 기록하지 않는다.
+
+## 9. 결제 국가 오류 확인 항목
+
+사용자에게 `거주 중인 국가에서는 결제할 수 없습니다`가 뜨면 앱 코드만 보지 않는다.
+
+확인 순서:
+
+1. 테스트 Google Play 계정의 Play 국가가 대한민국인지
+2. Google 결제 프로필 국가가 대한민국인지
+3. 비공개 테스트 트랙 대상 국가에 대한민국 포함 여부
+4. `call_monthly`, `message_monthly` 기본 요금제의 대한민국 판매 가능 여부
+5. 현재 Play Store에 선택된 테스트 계정이 올바른지
+6. 필요 시 라이선스 테스터 등록 여부
+
+## 10. CI / 릴리스
+
+현재 `Build CallTag Play Internal` workflow는:
+
+- `app/build.gradle`에서 versionName/versionCode 자동 인식
+- 현재 Firebase 필수값 확인
+- Android API 36 빌드
+- 저장된 기존 Play 업로드 키만 사용
+- 업로드 키 SHA-256 고정 검증
+- signed release AAB 생성
+- 테스트 APK 생성
+
+예전처럼 특정 버전 `0.43.0 / code68`을 하드코딩하거나 업로드키가 없다고 새 키를 생성하지 않는다.
+
+## 11. 작업 시 금지사항
+
+- `all_monthly`를 임의로 추가하지 않는다.
+- Google Android OAuth Client ID를 `requestIdToken()` server client ID로 넣지 않는다.
+- Play 업로드 키를 새로 생성/교체하지 않는다.
+- 통화 종료 팝업을 전체화면으로 되돌리지 않는다.
+- 고객목록의 상태/문자 버튼을 아이콘만으로 바꾸지 않는다.
+- 페이지로 문의 내용을 일부 필드만 남기고 버리지 않는다.
+- 사용자에게 서비스계정 private key, keystore, 비밀번호를 요구하지 않는다.
+- RTDN이 없는 상태에서 구독 lifecycle 동기화 완료라고 쓰지 않는다.
+
+## 12. 현재 우선순위
+
+1. 0.44.38 통화 전/후 팝업 실기기 반복 QA
+2. 결제 화면 실제 계정별 속도/국가 오류 QA
+3. 페이지로 문의 자동문자 실사용 QA
+4. 고객목록/삭제/연락처 저장 UI 최종 확인
+5. Google Play RTDN 구현 여부 결정 및 구현
+6. Play 내부테스트 안정화 후 프로덕션 준비
