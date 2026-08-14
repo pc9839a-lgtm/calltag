@@ -80,6 +80,10 @@ public final class CallTagScreeningService extends CallScreeningService {
             boolean requested = CallerOverlayManager.show(
                     getApplicationContext(), customer, memo, stageColor, shown -> {
                         if (shown) {
+                            // CallScreeningService can run before TelephonyCallback reports
+                            // RINGING. Keep an independent Telecom watcher so a stale initial
+                            // IDLE callback cannot immediately tear down the fresh overlay.
+                            CallerOverlayCallStateWatcher.start(getApplicationContext());
                             SettingsStore.setCallerScreeningStatus(getApplicationContext(),
                                     "전화 화면 위 고객명·최근 메모 표시 성공: "
                                             + snapshot.customer.displayName + " · " + device);
