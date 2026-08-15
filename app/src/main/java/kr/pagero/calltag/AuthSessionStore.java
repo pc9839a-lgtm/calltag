@@ -47,10 +47,20 @@ public final class AuthSessionStore {
         if (entitlement == null) entitlement = new JSONObject();
 
         SharedPreferences current = prefs(context);
+        String currentOwnerId = current.getString(KEY_OWNER_ID, "");
+        String incomingOwnerId = profile.has("ownerId")
+                ? profile.optString("ownerId", "").trim() : currentOwnerId;
+        if (!currentOwnerId.isEmpty()
+                && !incomingOwnerId.isEmpty()
+                && !currentOwnerId.equals(incomingOwnerId)) {
+            FeatureEntitlementStore.clear(context);
+            ReferralStateStore.clear(context);
+            PageroAccountStatusStore.clear(context);
+        }
+
         boolean saved = current.edit()
                 .putString(KEY_SESSION, encrypt(session))
-                .putString(KEY_OWNER_ID, profile.has("ownerId")
-                        ? profile.optString("ownerId", "") : current.getString(KEY_OWNER_ID, ""))
+                .putString(KEY_OWNER_ID, incomingOwnerId)
                 .putString(KEY_NAME, profile.has("name")
                         ? profile.optString("name", "") : current.getString(KEY_NAME, ""))
                 .putString(KEY_EMAIL, profile.has("email")
