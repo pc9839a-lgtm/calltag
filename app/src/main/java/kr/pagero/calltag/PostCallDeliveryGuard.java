@@ -6,11 +6,14 @@ import android.os.Handler;
 import android.os.Looper;
 
 /**
- * Verifies post-call delivery without ever launching a second Activity instance.
- * If the compact popup was blocked by Android, leave a notification fallback only.
+ * Verifies that the compact post-call popup was actually visible.
+ * Some OEM phone apps keep the call UI in front for a few seconds after IDLE, so an accepted
+ * PendingIntent is not treated as delivery. Retry the popup once after the phone UI has had time
+ * to settle, then fall back to a notification only when that channel can really be shown.
  */
 public final class PostCallDeliveryGuard {
     private static final long VERIFY_DELAY_MS = 2_400L;
+    private static final long RETRY_VERIFY_DELAY_MS = 2_200L;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
     private PostCallDeliveryGuard() {}
@@ -24,9 +27,23 @@ public final class PostCallDeliveryGuard {
 
         MAIN.postDelayed(() -> {
             if (PostCallLaunchReceipt.wasVisible(app, callId)) return;
+
             CrashTelemetryStore.record(app, "post_call_delivery",
-                    "activity_not_visible_notification_only", "call=" + callId);
-            showFallback(app, review);
+                    "activity_not_visible_retry", "call=" + callId);
+            boolean retryAccepted = PostCallActivityLauncher.retryOnce(app, review);
+            if (!retryAccepted) {
+                CrashTelemetryStore.record(app, "post_call_delivery",
+                        "activity_retry_rejected", "call=" + callId);
+                showFallback(app, review);
+                return;
+            }
+
+            MAIN.postDelayed(() -> {
+                if (PostCallLaunchReceipt.wasVisible(app, callId)) return;
+                CrashTelemetryStore.record(app, "post_call_delivery",
+                        "activity_retry_not_visible", "call=" + callId);
+                showFallback(app, review);
+            }, RETRY_VERIFY_DELAY_MS);
         }, VERIFY_DELAY_MS);
     }
 
@@ -41,11 +58,21 @@ public final class PostCallDeliveryGuard {
                 PostCallActivity.EXTRA_DURATION_SEC, 0L));
         if (callId < 0L || phone.isEmpty()) return;
 
+        if (!CallPopupNotificationManager.isPopupReady(
+                context, CallPopupNotificationManager.POST_CALL_CHANNEL_ID)) {
+            CrashTelemetryStore.record(context, "post_call_delivery",
+                    "fallback_notification_unavailable", "call=" + callId);
+            // Do not mark this review delivered. PostCallRecoveryStore keeps it so the next
+            // foreground/service recovery can try again instead of silently losing the memo UI.
+            return;
+        }
+
         CallRecord record = new CallRecord(callId, phone, cachedName, type, startedAt, durationSec);
         CallTagDbHelper db = new CallTagDbHelper(context);
         try {
             Customer customer = db.findByPhone(phone);
-            String memo = customer == null ? "" : CustomerInsightResolver.latestMemo(db, customer);
+            String memo = customer == null
+                    ? "" : CustomerInsightResolver.latestMemo(db, customer);
             boolean posted = CallPopupNotificationManager.showPostCall(
                     context, record, customer, review, memo);
             if (posted) PostCallRecoveryStore.markDelivered(context, callId);
