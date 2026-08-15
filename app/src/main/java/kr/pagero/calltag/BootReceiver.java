@@ -61,14 +61,13 @@ public final class BootReceiver extends BroadcastReceiver {
     }
 
     private boolean hasRequiredPermissions(Context context) {
-        boolean granted = context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE)
+        // Notification permission controls whether fallback notifications are visible. It must not
+        // disable the call monitor itself after a reboot/package update. Live call resolution only
+        // requires phone-state and call-log access; the post-call delivery layer handles its own
+        // notification availability independently.
+        return context.checkSelfPermission(Manifest.permission.READ_PHONE_STATE)
                 == PackageManager.PERMISSION_GRANTED
                 && context.checkSelfPermission(Manifest.permission.READ_CALL_LOG)
                 == PackageManager.PERMISSION_GRANTED;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            granted = granted && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                    == PackageManager.PERMISSION_GRANTED;
-        }
-        return granted;
     }
 }
