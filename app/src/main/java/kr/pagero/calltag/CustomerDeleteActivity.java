@@ -37,7 +37,7 @@ public final class CustomerDeleteActivity extends Activity {
                 .setPositiveButton("삭제", (d, w) -> delete(customerId))
                 .setOnCancelListener(d -> finish())
                 .create();
-        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.applyDangerCompact(dialog));
         dialog.show();
     }
 
