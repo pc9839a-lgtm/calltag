@@ -94,6 +94,7 @@ function sanitizeMembers(data){
       ownerId:owner(x?.ownerId),email:safeText(x?.email,320),phone:safeText(x?.phone,40),createdAt:date(x?.createdAt),updatedAt:date(x?.updatedAt),
       trialEndsAt:date(x?.trialEndsAt),referralBonusDays:num(x?.referralBonusDays),
       subscriptions:(Array.isArray(x?.subscriptions)?x.subscriptions.slice(0,6):[]).map(sub).filter(Boolean),
+      adminEntitlement:adminGrant(x?.adminEntitlement),
     })).filter(x=>x.ownerId),
     generatedAt:date(data?.generatedAt),
   };
@@ -131,21 +132,25 @@ function sanitizePlayFinanceMonthly(data){
 }
 
 function sanitizeEntitlement(data){
-  const e=data?.entitlement||null;
   return{
     ok:true,
     ownerId:owner(data?.ownerId),
-    entitlement:e?{
-      active:e?.active===true,
-      status:token(e?.status,24),
-      scope:['call','message','all'].includes(String(e?.scope||''))?String(e.scope):'',
-      startsAt:date(e?.startsAt),
-      expiresAt:date(e?.expiresAt),
-      note:safeText(e?.note,300),
-      grantedAt:date(e?.grantedAt),
-      revokedAt:date(e?.revokedAt),
-      updatedAt:date(e?.updatedAt),
-    }:null,
+    entitlement:adminGrant(data?.entitlement),
+  };
+}
+
+function adminGrant(e){
+  if(!e||typeof e!=='object')return null;
+  return{
+    active:e?.active===true,
+    status:token(e?.status,24),
+    scope:['call','message','all'].includes(String(e?.scope||''))?String(e.scope):'',
+    startsAt:date(e?.startsAt),
+    expiresAt:date(e?.expiresAt),
+    note:safeText(e?.note,300),
+    grantedAt:date(e?.grantedAt),
+    revokedAt:date(e?.revokedAt),
+    updatedAt:date(e?.updatedAt),
   };
 }
 
