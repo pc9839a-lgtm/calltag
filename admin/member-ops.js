@@ -79,7 +79,7 @@
         cell(entitlementLabel(item, subscriptions)),
         pill(usageStatus(item, subscriptions)),
         pill(verificationLabel(subscriptions)),
-        actionButton('보기', () => openMember(item.ownerId)),
+        actionButton(item?.adminEntitlement?.active ? '이용권 관리' : '이용권 지급', () => openMember(item.ownerId)),
       );
       rowsEl.append(tr);
     }
