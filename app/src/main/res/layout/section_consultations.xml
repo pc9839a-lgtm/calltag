@@ -44,7 +44,7 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
-        <LinearLayout
+        <kr.pagero.calltag.CollapsibleConsultationLayout
             android:id="@+id/consultationSummary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
