@@ -4,10 +4,13 @@ import android.app.AlertDialog;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /** Applies CallTag's dark card language to framework dialogs that otherwise inherit OEM styling. */
@@ -69,6 +72,58 @@ public final class CallTagDialogStyler {
             delete.setBackground(rounded(delete, Color.parseColor("#D9515D"),
                     Color.parseColor("#E46973")));
             delete.setMinWidth(dp(delete, 96));
+        }
+    }
+
+    /**
+     * 고객 삭제처럼 선택지가 두 개뿐인 확인창은 버튼을 과하게 늘리지 않는다.
+     * 44dp 터치 높이는 유지하면서 버튼 폭은 내용에 맞추고 12dp 간격을 둔다.
+     */
+    public static void applyDangerCompact(AlertDialog dialog) {
+        apply(dialog);
+        if (dialog == null || !dialog.isShowing()) return;
+
+        Button cancel = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+        Button delete = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        styleCompactDangerButton(cancel, false, true);
+        styleCompactDangerButton(delete, true, false);
+
+        View parent = cancel != null ? (View) cancel.getParent()
+                : delete != null ? (View) delete.getParent() : null;
+        if (parent instanceof LinearLayout) {
+            LinearLayout actions = (LinearLayout) parent;
+            actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+            actions.setPadding(dp(actions, 16), dp(actions, 8),
+                    dp(actions, 16), dp(actions, 12));
+        }
+    }
+
+    private static void styleCompactDangerButton(Button button, boolean destructive,
+                                                  boolean addRightGap) {
+        if (button == null) return;
+        button.setAllCaps(false);
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        button.setTextSize(14f);
+        button.setTextColor(destructive
+                ? Color.WHITE : button.getContext().getColor(R.color.text_primary));
+        button.setBackground(rounded(button,
+                destructive ? Color.parseColor("#D9515D") : Color.parseColor("#282B31"),
+                destructive ? Color.parseColor("#E46973") : Color.parseColor("#3B3F47")));
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setMinHeight(dp(button, 44));
+        button.setMinimumHeight(dp(button, 44));
+        button.setPadding(dp(button, 18), dp(button, 4), dp(button, 18), dp(button, 4));
+
+        ViewGroup.LayoutParams raw = button.getLayoutParams();
+        if (raw instanceof LinearLayout.LayoutParams) {
+            LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) raw;
+            params.width = ViewGroup.LayoutParams.WRAP_CONTENT;
+            params.height = dp(button, 44);
+            params.weight = 0f;
+            params.leftMargin = addRightGap ? 0 : dp(button, 6);
+            params.rightMargin = addRightGap ? dp(button, 6) : 0;
+            button.setLayoutParams(params);
         }
     }
 
