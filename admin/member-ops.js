@@ -23,7 +23,8 @@
     pagero_pro_monthly: '페이지로 프로',
     pagero_domain_monthly: 'SSL',
   };
-  const channels = { google_play: 'Google Play', play: 'Google Play', web: '웹 결제' };
+  const channels = { google_play: 'Google Play', play: 'Google Play', web: '웹 결제', admin: '관리자 지급' };
+  const entitlementScopes = { all: '전체 이용권', call: '통화관리', message: '문자자동화' };
   const state = { page: 1, totalPages: 1, query: '', loading: false };
 
   searchButton.addEventListener('click', () => runSearch());
@@ -85,9 +86,10 @@
   }
 
   async function openMember(ownerId) {
-    const [memberResult, paymentResult] = await Promise.all([
+    const [memberResult, paymentResult, entitlementResult] = await Promise.all([
       fetchJson(`/admin/api/member?ownerId=${encodeURIComponent(ownerId)}`),
       fetchJson(`/admin/api/member-payments?ownerId=${encodeURIComponent(ownerId)}`),
+      fetchJson(`/admin/api/entitlement?ownerId=${encodeURIComponent(ownerId)}`),
     ]);
     if (!memberResult.ok) return;
     const data = memberResult.data || {};
@@ -96,6 +98,7 @@
     detailId.textContent = shortId(member.ownerId);
     detailBody.replaceChildren(
       section('계정', [['이메일', member.email || '-'], ['전화번호', member.phone || '-'], ['가입일', dateTime(member.createdAt)], ['수정일', dateTime(member.updatedAt)]]),
+      entitlementSection(member.ownerId, entitlementResult.ok ? entitlementResult.data : null),
       section('체험', data.trial ? [['시작', dateTime(data.trial.startedAt)], ['종료', dateTime(data.trial.endsAt)], ['추천 보너스', `${number(data.trial.referralBonusDays)}일`]] : [['상태', '없음']]),
       section('추천', [['추천 인원', `${number(data.referral?.referredCount)}명`], ['추천받음', data.referral?.wasReferred ? '예' : '아니오']]),
       section('파트너', [['적립 건수', `${number(data.partner?.commissionCount)}건`], ['적립 대기', `${money(data.partner?.pendingAmountKrw)}원`], ['확정', `${money(data.partner?.confirmedAmountKrw)}원`]]),
@@ -105,6 +108,102 @@
     if (backdrop) backdrop.hidden = false;
     if (drawer) drawer.hidden = false;
     document.body.classList.add('drawer-open');
+  }
+
+  function entitlementSection(ownerId, data) {
+    const sectionEl = document.createElement('section');
+    sectionEl.className = 'section admin-entitlement';
+    sectionEl.append(heading('관리자 이용권'));
+    const entitlement = data?.entitlement || null;
+    if (entitlement?.active) {
+      sectionEl.append(
+        detailRow('상태', '사용중'),
+        detailRow('범위', entitlementScopes[entitlement.scope] || entitlement.scope || '-'),
+        detailRow('만료', dateTime(entitlement.expiresAt)),
+        detailRow('구분', '관리자 지급 · 결제 아님'),
+      );
+      if (entitlement.note) sectionEl.append(detailRow('사유', entitlement.note));
+    } else if (entitlement) {
+      sectionEl.append(
+        detailRow('상태', entitlement.status === 'revoked' ? '회수됨' : '만료'),
+        detailRow('이전 범위', entitlementScopes[entitlement.scope] || entitlement.scope || '-'),
+        detailRow('종료', dateTime(entitlement.expiresAt)),
+      );
+    } else {
+      sectionEl.append(detailRow('상태', '지급 내역 없음'));
+    }
+
+    const controls = document.createElement('div');
+    controls.className = 'entitlement-controls';
+    const scopeSelect = document.createElement('select');
+    [['all', '전체 이용권'], ['call', '통화관리'], ['message', '문자자동화']].forEach(([value, label]) => {
+      const option = document.createElement('option'); option.value = value; option.textContent = label; scopeSelect.append(option);
+    });
+    if (entitlement?.scope && entitlementScopes[entitlement.scope]) scopeSelect.value = entitlement.scope;
+    const daysSelect = document.createElement('select');
+    [[7, '7일'], [30, '30일'], [90, '90일'], [365, '365일']].forEach(([value, label]) => {
+      const option = document.createElement('option'); option.value = String(value); option.textContent = label; daysSelect.append(option);
+    });
+    daysSelect.value = '30';
+    const noteInput = document.createElement('input');
+    noteInput.type = 'text';
+    noteInput.maxLength = 300;
+    noteInput.placeholder = '지급 사유 (선택)';
+    const grantButton = document.createElement('button');
+    grantButton.type = 'button';
+    grantButton.className = 'row-action entitlement-primary';
+    grantButton.textContent = entitlement?.active ? '이용권 연장' : '이용권 지급';
+    grantButton.addEventListener('click', async () => {
+      await runEntitlementAction(grantButton, {
+        ownerId,
+        action: 'grant',
+        scope: scopeSelect.value,
+        durationDays: Number(daysSelect.value),
+        note: noteInput.value,
+      });
+    });
+    controls.append(scopeSelect, daysSelect, noteInput, grantButton);
+
+    if (entitlement?.active) {
+      const revokeButton = document.createElement('button');
+      revokeButton.type = 'button';
+      revokeButton.className = 'row-action entitlement-revoke';
+      revokeButton.textContent = '이용권 회수';
+      revokeButton.addEventListener('click', async () => {
+        if (!window.confirm('이 회원의 관리자 이용권을 회수하시겠습니까? 유료 구독이나 남은 무료체험은 유지됩니다.')) return;
+        await runEntitlementAction(revokeButton, { ownerId, action: 'revoke' });
+      });
+      controls.append(revokeButton);
+    }
+    sectionEl.append(controls);
+    const note = document.createElement('small');
+    note.className = 'payment-note';
+    note.textContent = '관리자 이용권은 결제·매출·파트너 정산에 포함되지 않습니다.';
+    sectionEl.append(note);
+    return sectionEl;
+  }
+
+  async function runEntitlementAction(button, payload) {
+    const oldText = button.textContent;
+    button.disabled = true;
+    button.textContent = '처리중';
+    try {
+      const response = await fetch('/admin/api/entitlement', {
+        method: 'POST',
+        cache: 'no-store',
+        credentials: 'same-origin',
+        headers: { accept: 'application/json', 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data?.ok === false) throw new Error(data?.error || '이용권 처리를 완료하지 못했습니다.');
+      await openMember(payload.ownerId);
+      setTimeout(() => loadMembers(state.page), 80);
+    } catch (error) {
+      window.alert(String(error?.message || '이용권 처리를 완료하지 못했습니다.'));
+      button.disabled = false;
+      button.textContent = oldText;
+    }
   }
 
   function subscriptionSection(items) {
