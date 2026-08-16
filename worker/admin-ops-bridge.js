@@ -4,9 +4,11 @@ const PREFIX='/admin/api/';
 export async function handleAdminOpsBridge(request){
   const url=new URL(request.url);
   const route=url.pathname;
-  if(![`${PREFIX}members`,`${PREFIX}member-payments`,`${PREFIX}play-finance-monthly`].includes(route))return null;
+  if(![`${PREFIX}members`,`${PREFIX}member-payments`,`${PREFIX}play-finance-monthly`,`${PREFIX}entitlement`].includes(route))return null;
   const assertion=String(request.headers.get('CF-Access-Jwt-Assertion')||'').trim();
   if(!assertion)return json({ok:false,error:'운영 데이터 접근이 잠겨 있습니다.',code:'CALLTAG_ADMIN_ACCESS_REQUIRED'},401);
+
+  if(route===`${PREFIX}entitlement`)return handleEntitlement(request,url,assertion);
   if(request.method!=='GET')return json({ok:false,error:'Method not allowed.',code:'METHOD_NOT_ALLOWED'},405,{allow:'GET'});
 
   if(route===`${PREFIX}members`){
@@ -25,11 +27,52 @@ export async function handleAdminOpsBridge(request){
   return proxy(assertion,path,sanitizePlayFinanceMonthly);
 }
 
+async function handleEntitlement(request,url,assertion){
+  if(request.method==='GET'){
+    const ownerId=validOwner(url.searchParams.get('ownerId'));
+    if(!ownerId)return json({ok:false,error:'회원 식별자가 올바르지 않습니다.',code:'CALLTAG_ADMIN_MEMBER_ID_INVALID'},400);
+    return proxy(assertion,`/api/call/admin/entitlement?ownerId=${encodeURIComponent(ownerId)}`,sanitizeEntitlement);
+  }
+  if(request.method!=='POST')return json({ok:false,error:'Method not allowed.',code:'METHOD_NOT_ALLOWED'},405,{allow:'GET, POST'});
+  const raw=await request.text().catch(()=> '');
+  if(!raw||raw.length>4096)return json({ok:false,error:'요청 데이터가 올바르지 않습니다.',code:'CALLTAG_ADMIN_BODY_INVALID'},400);
+  let body={};try{body=JSON.parse(raw)}catch{return json({ok:false,error:'요청 데이터가 올바르지 않습니다.',code:'CALLTAG_ADMIN_BODY_INVALID'},400)}
+  const ownerId=validOwner(body?.ownerId);
+  const action=String(body?.action||'').trim().toLowerCase();
+  if(!ownerId||!['grant','revoke'].includes(action))return json({ok:false,error:'요청 데이터가 올바르지 않습니다.',code:'CALLTAG_ADMIN_BODY_INVALID'},400);
+  const safeBody={ownerId,action};
+  if(action==='grant'){
+    const scope=String(body?.scope||'').trim().toLowerCase();
+    const durationDays=Math.trunc(Number(body?.durationDays||0));
+    if(!['call','message','all'].includes(scope)||!Number.isFinite(durationDays)||durationDays<1||durationDays>3660){
+      return json({ok:false,error:'이용권 범위 또는 기간이 올바르지 않습니다.',code:'CALLTAG_ADMIN_ENTITLEMENT_INVALID'},400);
+    }
+    safeBody.scope=scope;
+    safeBody.durationDays=durationDays;
+    safeBody.note=safeText(body?.note,300);
+  }
+  return proxyWrite(assertion,'/api/call/admin/entitlement',safeBody,sanitizeEntitlement);
+}
+
 async function proxy(assertion,path,sanitize){
   try{
     const response=await fetch(`${API_BASE}${path}`,{
       method:'GET',
       headers:{accept:'application/json','cf-access-jwt-assertion':assertion,'x-calllink-client':'calltag-admin-ops-bridge'},
+      redirect:'manual',
+    });
+    const data=await safeJson(response);
+    if(!response.ok||data?.ok===false)return json(sanitizeError(data),normalizeStatus(response.status));
+    return json(sanitize(data),200);
+  }catch{return json({ok:false,error:'관리자 API에 연결하지 못했습니다.',code:'ADMIN_UPSTREAM_UNAVAILABLE'},502)}
+}
+
+async function proxyWrite(assertion,path,body,sanitize){
+  try{
+    const response=await fetch(`${API_BASE}${path}`,{
+      method:'POST',
+      headers:{accept:'application/json','content-type':'application/json','cf-access-jwt-assertion':assertion,'x-calllink-client':'calltag-admin-ops-bridge'},
+      body:JSON.stringify(body),
       redirect:'manual',
     });
     const data=await safeJson(response);
@@ -84,6 +127,25 @@ function sanitizePlayFinanceMonthly(data){
       transactionCount:num(r?.transactionCount),syncedAt:date(r?.syncedAt),basis:token(r?.basis,80),finalBankPayout:r?.finalBankPayout===true,
     }:null,
     generatedAt:date(data?.generatedAt),
+  };
+}
+
+function sanitizeEntitlement(data){
+  const e=data?.entitlement||null;
+  return{
+    ok:true,
+    ownerId:owner(data?.ownerId),
+    entitlement:e?{
+      active:e?.active===true,
+      status:token(e?.status,24),
+      scope:['call','message','all'].includes(String(e?.scope||''))?String(e.scope):'',
+      startsAt:date(e?.startsAt),
+      expiresAt:date(e?.expiresAt),
+      note:safeText(e?.note,300),
+      grantedAt:date(e?.grantedAt),
+      revokedAt:date(e?.revokedAt),
+      updatedAt:date(e?.updatedAt),
+    }:null,
   };
 }
 
