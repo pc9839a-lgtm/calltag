@@ -283,8 +283,19 @@
   function entitlementLabel(item, subscriptions) {
     const active = subscriptions.filter(isCurrentSubscription);
     const codes = [...new Set(active.map((x) => x.productCode).filter(Boolean))];
-    if (codes.includes('all_monthly')) return codes.length > 1 ? '통합권 · 중복구독 확인' : '통합권';
     const labels = codes.map((code) => products[code] || code);
+    const admin = item?.adminEntitlement;
+    if (admin?.active) {
+      const adminLabel = admin.scope === 'all'
+        ? '관리자 전체'
+        : admin.scope === 'call'
+          ? '관리자 통화'
+          : admin.scope === 'message'
+            ? '관리자 문자'
+            : '관리자 이용권';
+      return labels.length ? `${labels.join(' + ')} · ${adminLabel}` : adminLabel;
+    }
+    if (codes.includes('all_monthly')) return codes.length > 1 ? '통합권 · 중복구독 확인' : '통합권';
     if (labels.length) return labels.join(' + ');
     if (isTrial(item.trialEndsAt)) return '무료체험';
     return '-';
@@ -292,6 +303,7 @@
 
   function usageStatus(item, subscriptions) {
     const active = subscriptions.filter(isCurrentSubscription);
+    if (item?.adminEntitlement?.active) return '활성 · 관리자';
     if (active.some((x) => x.status === 'suspended')) return '정지';
     if (active.some((x) => x.status === 'pending')) return '확인필요';
     if (active.some((x) => x.status === 'cancelled')) return '취소예정';
