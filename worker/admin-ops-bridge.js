@@ -31,7 +31,7 @@ async function handleEntitlement(request,url,assertion){
   if(request.method==='GET'){
     const ownerId=validOwner(url.searchParams.get('ownerId'));
     if(!ownerId)return json({ok:false,error:'회원 식별자가 올바르지 않습니다.',code:'CALLTAG_ADMIN_MEMBER_ID_INVALID'},400);
-    return proxy(assertion,`/api/call/admin/entitlement?ownerId=${encodeURIComponent(ownerId)}`,sanitizeEntitlement);
+    return proxy(assertion,`/api/call/admin/manual-entitlement?ownerId=${encodeURIComponent(ownerId)}`,sanitizeEntitlement);
   }
   if(request.method!=='POST')return json({ok:false,error:'Method not allowed.',code:'METHOD_NOT_ALLOWED'},405,{allow:'GET, POST'});
   const raw=await request.text().catch(()=> '');
@@ -51,7 +51,7 @@ async function handleEntitlement(request,url,assertion){
     safeBody.durationDays=durationDays;
     safeBody.note=safeText(body?.note,300);
   }
-  return proxyWrite(assertion,'/api/call/admin/entitlement',safeBody,sanitizeEntitlement);
+  return proxyWrite(assertion,'/api/call/admin/manual-entitlement',safeBody,sanitizeEntitlement);
 }
 
 async function proxy(assertion,path,sanitize){
