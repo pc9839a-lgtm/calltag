@@ -45,6 +45,10 @@ public final class CallTagDialogStyler {
         styleButton(dialog.getButton(AlertDialog.BUTTON_NEGATIVE), false);
         styleButton(dialog.getButton(AlertDialog.BUTTON_NEUTRAL), false);
 
+        if (isDeleteConfirmation(dialog)) {
+            applyCompactDangerActions(dialog);
+        }
+
         if (dialog.getListView() != null) {
             dialog.getListView().setBackgroundColor(dialog.getContext().getColor(R.color.surface_soft));
             dialog.getListView().setDividerHeight(dp(dialog, 4));
@@ -76,13 +80,24 @@ public final class CallTagDialogStyler {
     }
 
     /**
-     * 고객 삭제처럼 선택지가 두 개뿐인 확인창은 버튼을 과하게 늘리지 않는다.
-     * 44dp 터치 높이는 유지하면서 버튼 폭은 내용에 맞추고 12dp 간격을 둔다.
+     * 삭제 확인창은 버튼을 내용 크기에 맞춰 작게 유지하고 버튼 사이 여백을 분명히 둔다.
      */
     public static void applyDangerCompact(AlertDialog dialog) {
         apply(dialog);
         if (dialog == null || !dialog.isShowing()) return;
+        applyCompactDangerActions(dialog);
+    }
 
+    private static boolean isDeleteConfirmation(AlertDialog dialog) {
+        if (dialog == null || !dialog.isShowing()) return false;
+        Button cancel = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
+        Button delete = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        return cancel != null && delete != null
+                && "취소".contentEquals(cancel.getText())
+                && "삭제".contentEquals(delete.getText());
+    }
+
+    private static void applyCompactDangerActions(AlertDialog dialog) {
         Button cancel = dialog.getButton(AlertDialog.BUTTON_NEGATIVE);
         Button delete = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
         styleCompactDangerButton(cancel, false, true);
@@ -93,8 +108,8 @@ public final class CallTagDialogStyler {
         if (parent instanceof LinearLayout) {
             LinearLayout actions = (LinearLayout) parent;
             actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-            actions.setPadding(dp(actions, 16), dp(actions, 8),
-                    dp(actions, 16), dp(actions, 12));
+            actions.setPadding(dp(actions, 16), dp(actions, 6),
+                    dp(actions, 16), dp(actions, 10));
         }
     }
 
@@ -103,7 +118,7 @@ public final class CallTagDialogStyler {
         if (button == null) return;
         button.setAllCaps(false);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setTextSize(14f);
+        button.setTextSize(13f);
         button.setTextColor(destructive
                 ? Color.WHITE : button.getContext().getColor(R.color.text_primary));
         button.setBackground(rounded(button,
@@ -111,18 +126,18 @@ public final class CallTagDialogStyler {
                 destructive ? Color.parseColor("#E46973") : Color.parseColor("#3B3F47")));
         button.setMinWidth(0);
         button.setMinimumWidth(0);
-        button.setMinHeight(dp(button, 44));
-        button.setMinimumHeight(dp(button, 44));
-        button.setPadding(dp(button, 18), dp(button, 4), dp(button, 18), dp(button, 4));
+        button.setMinHeight(dp(button, 40));
+        button.setMinimumHeight(dp(button, 40));
+        button.setPadding(dp(button, 14), dp(button, 2), dp(button, 14), dp(button, 2));
 
         ViewGroup.LayoutParams raw = button.getLayoutParams();
         if (raw instanceof LinearLayout.LayoutParams) {
             LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) raw;
             params.width = ViewGroup.LayoutParams.WRAP_CONTENT;
-            params.height = dp(button, 44);
+            params.height = dp(button, 40);
             params.weight = 0f;
-            params.leftMargin = addRightGap ? 0 : dp(button, 6);
-            params.rightMargin = addRightGap ? dp(button, 6) : 0;
+            params.leftMargin = addRightGap ? 0 : dp(button, 8);
+            params.rightMargin = addRightGap ? dp(button, 8) : 0;
             button.setLayoutParams(params);
         }
     }
