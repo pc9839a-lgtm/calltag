@@ -17,6 +17,20 @@ public final class CallMonitorRecoveryScheduler {
 
     private CallMonitorRecoveryScheduler() {}
 
+    /**
+     * Reconciles the durable recovery job from the user's monitor preference. This is safe to call
+     * on every process start and does not start or restart CallMonitorService.
+     */
+    public static void reconcile(Context context) {
+        if (context == null) return;
+        Context app = context.getApplicationContext();
+        if (!SettingsStore.isMonitorEnabled(app)) {
+            cancel(app);
+            return;
+        }
+        ensureScheduled(app);
+    }
+
     public static void ensureScheduled(Context context) {
         if (context == null) return;
         PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(
@@ -25,7 +39,7 @@ public final class CallMonitorRecoveryScheduler {
         WorkManager.getInstance(context.getApplicationContext())
                 .enqueueUniquePeriodicWork(
                         PERIODIC_NAME,
-                        ExistingPeriodicWorkPolicy.KEEP,
+                        ExistingPeriodicWorkPolicy.UPDATE,
                         request);
     }
 
