@@ -3,7 +3,6 @@ package kr.pagero.calltag;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
@@ -28,13 +27,6 @@ import java.util.Map;
 /** 더보기 > 이용권. Play 상품조회와 서버 이용권 확인은 서로 기다리지 않는다. */
 public final class BillingEntitlementActivity extends Activity
         implements PlayBillingManager.Listener {
-    private static final int BLUE = Color.rgb(67, 137, 255);
-    private static final int TEXT = Color.rgb(244, 245, 247);
-    private static final int SUBTEXT = Color.rgb(168, 173, 181);
-    private static final int MUTED = Color.rgb(116, 122, 132);
-    private static final int SURFACE = Color.rgb(28, 30, 34);
-    private static final int BACKGROUND = Color.rgb(16, 17, 19);
-    private static final int BORDER = Color.rgb(41, 44, 49);
     private static final long PLAY_LOAD_TIMEOUT_MS = 6000L;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -83,7 +75,7 @@ public final class BillingEntitlementActivity extends Activity
     private View buildScreen() {
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
-        scroll.setBackgroundColor(BACKGROUND);
+        scroll.setBackgroundColor(getColor(R.color.background));
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -100,7 +92,7 @@ public final class BillingEntitlementActivity extends Activity
         back.setOnClickListener(v -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(46), dp(46)));
 
-        TextView title = text("이용권", 21f, TEXT, true);
+        TextView title = text("이용권", 21f, R.color.text_primary, true);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, dp(46), 1f);
         titleParams.leftMargin = dp(8);
         title.setGravity(Gravity.CENTER_VERTICAL);
@@ -115,9 +107,9 @@ public final class BillingEntitlementActivity extends Activity
         root.addView(header, full());
 
         LinearLayout statusCard = card();
-        stateTitle = text("이용권 확인 중", 20f, TEXT, true);
-        stateDetail = text("잠시만 기다려주세요.", 14f, SUBTEXT, false);
-        stateMeta = text("", 13f, MUTED, false);
+        stateTitle = text("이용권 확인 중", 20f, R.color.text_primary, true);
+        stateDetail = text("잠시만 기다려주세요.", 14f, R.color.text_secondary, false);
+        stateMeta = text("", 13f, R.color.text_muted, false);
         statusCard.addView(stateTitle, full());
         statusCard.addView(stateDetail, top(9));
         statusCard.addView(stateMeta, top(7));
@@ -157,18 +149,18 @@ public final class BillingEntitlementActivity extends Activity
         root.addView(manageButton, fixedTop(50, 8));
 
         LinearLayout pagero = card();
-        pagero.addView(text("페이지로 이용권", 15f, TEXT, true), full());
+        pagero.addView(text("페이지로 이용권", 15f, R.color.text_primary, true), full());
         pagero.addView(text(
                 "페이지로에서 이용 중인 통합권은 웹에서 관리할 수 있습니다.",
                 13.5f,
-                SUBTEXT,
+                R.color.text_secondary,
                 false), top(7));
         root.addView(pagero, top(20));
 
         root.addView(text(
                 "신규 가입은 7일 무료이며 추천인 코드 입력 시 7일이 추가됩니다. 무료 이용이 끝나도 자동 결제되지 않습니다.",
                 13f,
-                MUTED,
+                R.color.text_muted,
                 false), top(16));
         return scroll;
     }
@@ -405,8 +397,18 @@ public final class BillingEntitlementActivity extends Activity
     public void onServerVerified() {
         runOnUiThread(() -> {
             render();
-            Toast.makeText(this, "결제 확인 완료", Toast.LENGTH_SHORT).show();
+            FeatureEntitlementStore.Snapshot value = FeatureEntitlementStore.snapshot(this);
+            Toast.makeText(this, verifiedMessage(value), Toast.LENGTH_SHORT).show();
         });
+    }
+
+    private String verifiedMessage(FeatureEntitlementStore.Snapshot value) {
+        if (value.phoneSubscribed && value.messageSubscribed) {
+            return "전화관리 · 문자자동화 이용 중";
+        }
+        if (value.phoneSubscribed) return "전화관리 결제 적용 완료 · 이용 중";
+        if (value.messageSubscribed) return "문자자동화 결제 적용 완료 · 이용 중";
+        return "구매 내역 확인 완료";
     }
 
     private TextView productButton(String label, String productId) {
@@ -451,9 +453,9 @@ public final class BillingEntitlementActivity extends Activity
 
     private LinearLayout productCard(String name, String price, String detail) {
         LinearLayout value = card();
-        value.addView(text(name, 17f, TEXT, true), full());
-        value.addView(text(price, 23f, BLUE, true), top(8));
-        value.addView(text(detail, 13.5f, SUBTEXT, false), top(6));
+        value.addView(text(name, 17f, R.color.text_primary, true), full());
+        value.addView(text(price, 23f, R.color.primary, true), top(8));
+        value.addView(text(detail, 13.5f, R.color.text_secondary, false), top(6));
         return value;
     }
 
@@ -461,19 +463,22 @@ public final class BillingEntitlementActivity extends Activity
         LinearLayout value = new LinearLayout(this);
         value.setOrientation(LinearLayout.VERTICAL);
         value.setPadding(dp(16), dp(15), dp(16), dp(15));
-        value.setBackground(round(SURFACE, BORDER, 16));
+        value.setBackground(round(
+                getColor(R.color.surface),
+                getColor(R.color.border),
+                16));
         return value;
     }
 
     private TextView sectionTitle(String value) {
-        return text(value, 15f, TEXT, true);
+        return text(value, 15f, R.color.text_primary, true);
     }
 
-    private TextView text(String value, float size, int color, boolean bold) {
+    private TextView text(String value, float size, int colorRes, boolean bold) {
         TextView view = new TextView(this);
         view.setText(value);
         view.setTextSize(size);
-        view.setTextColor(color);
+        view.setTextColor(getColor(colorRes));
         view.setIncludeFontPadding(false);
         view.setLineSpacing(0f, 1.18f);
         if (bold) view.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -481,11 +486,13 @@ public final class BillingEntitlementActivity extends Activity
     }
 
     private TextView button(String value, boolean primary) {
-        TextView view = text(value, 14f, primary ? Color.WHITE : TEXT, true);
+        TextView view = text(value, 14f,
+                primary ? android.R.color.white : R.color.text_primary,
+                true);
         view.setGravity(Gravity.CENTER);
-        view.setBackground(round(primary ? BLUE : SURFACE,
-                primary ? BLUE : BORDER,
-                14));
+        int fill = getColor(primary ? R.color.primary : R.color.surface);
+        int stroke = getColor(primary ? R.color.primary : R.color.border);
+        view.setBackground(round(fill, stroke, 14));
         view.setClickable(true);
         view.setFocusable(true);
         return view;
