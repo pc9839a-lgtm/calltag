@@ -10,6 +10,11 @@
     <color name="button_primary_disabled">#AAB7C7</color>
     <color name="button_primary_text">#173456</color>
 
+    <color name="secondary_button_surface">#25282E</color>
+    <color name="secondary_button_pressed">#30343B</color>
+    <color name="secondary_button_disabled">#1D2024</color>
+    <color name="secondary_button_border">#343940</color>
+
     <color name="surface">#1C1E22</color>
     <color name="surface_soft">#16181B</color>
     <color name="background">#101113</color>
