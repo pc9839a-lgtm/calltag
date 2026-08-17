@@ -3,6 +3,8 @@ package kr.pagero.calltag;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.os.Handler;
+import android.os.Looper;
 
 import androidx.annotation.NonNull;
 import androidx.work.Worker;
@@ -16,6 +18,7 @@ public final class CallMonitorRecoveryWorker extends Worker {
     private static final long MATCH_TOLERANCE_MS = 20_000L;
     private static final long GRACE_MS = 5L * 60L * 1000L;
     private static final int LIMIT = 40;
+    private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
     public CallMonitorRecoveryWorker(@NonNull Context appContext,
                                      @NonNull WorkerParameters workerParams) {
@@ -32,7 +35,6 @@ public final class CallMonitorRecoveryWorker extends Worker {
         }
 
         try {
-            PostCallRecoveryStore.recoverLatest(context, false);
             long now = System.currentTimeMillis();
             long cursor = SettingsStore.callRecoveryCursorAt(context);
             if (cursor <= 0L) {
@@ -46,6 +48,10 @@ public final class CallMonitorRecoveryWorker extends Worker {
                 CallRecoveryProcessor.resolveOnce(context, record, "periodic_watchdog");
             }
             SettingsStore.advanceCallRecoveryCursor(context, Math.max(0L, now - GRACE_MS));
+
+            // Deliver only the newest armed review after all rows have been reconciled. Running
+            // this on main lets an already-authorized compact overlay be used before notification.
+            MAIN.post(() -> PostCallRecoveryStore.recoverLatest(context, false));
             CrashTelemetryStore.record(context, "call_watchdog", "reconciled",
                     "rows=" + recent.size());
             return Result.success();
