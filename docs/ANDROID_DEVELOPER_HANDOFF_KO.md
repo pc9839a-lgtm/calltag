@@ -1,7 +1,7 @@
 # 콜태그 Android 개발자 인수인계
 
-기준 버전: **0.44.41**  
-versionCode: **2026081701**  
+기준 버전: **0.44.42**  
+versionCode: **2026081702**  
 기준일: **2026-08-17**  
 저장소: `pc9839a-lgtm/calltag`  
 정본 브랜치: `agent/calltag-v04422-billing-live`  
@@ -13,17 +13,20 @@ compileSdk / targetSdk: **36 / 36**
 
 ## 1. 현재 릴리스
 
-- 앱 버전: `0.44.41`
-- versionCode: `2026081701`
-- 최신 브랜치 HEAD: `c0bd8e9b10848bb8e4adbf1b30ded05b863d358e`
-- 0.44.41 UI 기능 반영 커밋: `32239441e117d6e4f857931c0a5efd342bf7ee2a`
-- 테마 컴파일 수정 커밋: `c0bd8e9b10848bb8e4adbf1b30ded05b863d358e`
-- 통화 종료 팝업 전달 안정화: `90fe040d933540aa9c8e809036bd9d225b8ea086`
-- 재부팅/업데이트 후 통화감지 권한 판정 수정: `2f92dfa0f3ba48f8a364c86bcce94c21c1b95ed6`
-- Compile Check run `32000865080`: 성공
-- Current Signed Release run `32000865038`: 성공
+- 앱 버전: `0.44.42`
+- versionCode: `2026081702`
+- 최신 릴리스 HEAD: `c4b3eec0b093f52b04f71bfda2468a89fdbc3876`
+- 15분 CallLog 복구 안전망 최종 보강 HEAD: `b66aced0be9e4129cd8ce3aceb51b2f52f54e1ca`
+- 통화 종료 후 앱 자동 실행 제거: `d18be7c566809b0d238714a4b6d03fc0fa661f95`
+- 화이트 테마 Light parent 분리: `eebcfca4b21250ec30b93511b462360abd272395`
+- periodic missed-call recovery worker 최초 반영: `65b169e71ae2536cd5035e35f6d09f7f50198598`
+- recovery popup 최신 1건 전달 보강: `f971dfad85bb407b22236ef39f4f672705d73aac`
+- Compile Check run `32037972747`: 성공
+- Current Signed Release run `32038904833`: 성공
 - signed AAB/APK 생성 및 기존 Play 업로드 인증서 검증: 성공
-- signed release artifact: `9278382448`
+- signed release artifact: `9291546414`
+- AAB: `CallTag-v0.44.42-code2026081702.aab`
+- AAB SHA-256: `f6b2b7cba9d606fbcd85ac9bf9ab77ad6685c8e9e6b26e3b848fde3b36f5f9a5`
 
 ### Play 업로드 키
 
@@ -68,42 +71,67 @@ OAuth 역할을 절대 혼동하지 않는다.
 - 실제 `RINGING/OFFHOOK`을 관찰한 뒤의 `IDLE`에서만 통화 종료 처리를 한다.
 - `CallerOverlayCallStateWatcher`가 `TelecomManager.isInCall()`로 실제 통화 lifecycle을 보조 감시한다.
 
-## 4. 통화 종료 후 작은 팝업
+## 4. 통화 종료 후 작은 팝업 — 0.44.42 기준
 
 핵심 파일:
 
 - `CallMonitorService.java`
 - `PostCallActivity.java`
 - `PostCallActivityLauncher.java`
-- `PostCallDeliveryGuard.java`
+- `PostCallOverlayManager.java`
+- `CallPopupNotificationManager.java`
 - `PostCallRecoveryStore.java`
-- `PostCallLaunchReceipt.java`
 - `CallProcessingLedger.java`
+- `CallRecoveryProcessor.java`
+- `CallMonitorRecoveryWorker.java`
+- `CallMonitorRecoveryScheduler.java`
 
 제품 원칙:
 
-- 통화 종료 후 전체화면이 아니라 **작은 팝업 1개**가 기본이다.
-- 큰 전체화면 + 작은 팝업을 동시에 띄우지 않는다.
+- 통화 종료 후 **앱 화면을 자동으로 열지 않는다.**
+- 기본 전달은 **작은 오버레이 팝업 1개**다.
+- 전체화면 + 작은 팝업을 동시에 띄우지 않는다.
 - 팝업 핵심 입력은 고객명/메모 중심으로 유지한다.
+- `PostCallActivity`는 자동 실행용이 아니라 사용자가 fallback 알림을 직접 눌렀을 때 등 명시적 액션에서만 열 수 있다.
 
 현재 전달 구조:
 
 1. Telephony call state → 실시간 1차 트리거
 2. CallLog `ContentObserver` → 종료 누락 2차 복구 트리거
-3. Activity 실행 후 실제 화면 노출 여부를 `PostCallLaunchReceipt`로 확인
-4. 첫 Activity가 실제 노출되지 않으면 2.4초 후 `retryOnce()`로 1회 재실행
-5. 재실행 후 2.2초 뒤에도 실제 노출되지 않았을 때만 고우선 알림 fallback
-6. 알림 권한/채널이 사용할 수 없으면 전달 완료로 오인하지 않고 `PostCallRecoveryStore`에 미전달 상태 유지
-7. `CallProcessingLedger`로 같은 CallLog row의 중복 처리를 방지
+3. 처리할 CallLog row를 `CallProcessingLedger`로 중복 검사
+4. 고객/할 일/자동문자/후처리를 한 번만 수행
+5. `PostCallActivityLauncher`는 자동 Activity 실행을 하지 않고 fallback 전달로 넘김
+6. `CallPopupNotificationManager.showPostCall()`가 먼저 `PostCallOverlayManager`의 작은 오버레이를 시도
+7. 오버레이가 불가능하거나 실패했을 때만 고우선 알림 fallback
+8. 오버레이/알림 모두 불가능하면 `PostCallRecoveryStore`에 미전달 상태를 유지
 
-### 재부팅/앱 업데이트 복구
+### 프로세스/OEM 종료 복구 안전망
 
-`BootReceiver`에서 통화감지를 다시 켤 수 있는 필수 권한은 아래 두 개만 판단한다.
+0.44.42부터 foreground monitor가 OEM/메모리 정리로 죽어 실시간 상태를 놓쳐도 독립 복구선이 유지된다.
+
+- `CallMonitorRecoveryWorker`: WorkManager 15분 periodic 작업
+- lookback: 최근 12시간
+- recovery cursor + 5분 grace window 유지
+- 최대 최근 CallLog 40건 단위 재검사
+- `CallProcessingLedger`로 이미 처리한 CallLog ID는 재처리하지 않음
+- 누락 row만 `CallRecoveryProcessor.resolveOnce()`로 기존 고객/할 일/자동문자 로직 재사용
+- Worker 종료 후 미전달 review가 있으면 최신 1건을 작은 오버레이/알림 경로로 재시도
+- 앱 프로세스 시작 시 `CallMonitorRecoveryScheduler.ensureScheduled()`로 periodic work 재확인
+- 재부팅/앱 업데이트 시 periodic work를 재등록하고 즉시 1회 recovery work도 enqueue
+- foreground service 시작이 OEM 정책으로 막혀도 통화감지 설정을 임의로 OFF 처리하지 않아 WorkManager 안전망을 보존
+
+중요 제한:
+
+- 사용자가 Android 설정에서 앱을 명시적으로 **강제 종료(Force stop)** 한 경우는 OS 정책상 WorkManager/Receiver 실행 자체가 제한될 수 있다. 사용자가 앱을 다시 실행하기 전까지 앱이 스스로 강제종료 상태를 해제할 수는 없다.
+
+### 재부팅/앱 업데이트 권한 기준
+
+통화감지에 필요한 핵심 권한은 아래 두 개다.
 
 - `READ_PHONE_STATE`
 - `READ_CALL_LOG`
 
-`POST_NOTIFICATIONS`가 꺼져 있다는 이유로 재부팅/앱 업데이트 후 통화감지 자체를 OFF 처리하지 않는다. 알림 권한은 fallback 표시 가능 여부에만 사용한다.
+`POST_NOTIFICATIONS`가 꺼져 있다는 이유만으로 통화감지 자체를 OFF 처리하지 않는다. 알림 권한은 fallback 표시 가능 여부에만 사용한다.
 
 ### 남은 실기기 QA
 
@@ -112,10 +140,11 @@ OAuth 역할을 절대 혼동하지 않는다.
 - 화면 잠금
 - 장시간 미사용 후 첫 통화
 - 부재중/거절/짧은 통화
-- 연속 통화에서 중복 팝업 여부
-- 삼성/픽셀/기타 OEM별 종료 후 실제 팝업 노출률
-- 알림 권한 OFF 상태에서 recovery queue 재시도 확인
-- 재부팅/앱 업데이트 직후 첫 통화 확인
+- 연속 통화에서 중복 팝업/중복 자동문자 여부
+- 삼성/픽셀/기타 OEM별 작은 오버레이 실제 노출률
+- 오버레이 권한 OFF + 알림 권한 ON/OFF 조합
+- foreground service가 OEM에 의해 죽은 뒤 15분 recovery 확인
+- 재부팅/앱 업데이트 직후 immediate recovery 확인
 
 ## 5. 고객 화면 UX
 
@@ -129,7 +158,7 @@ OAuth 역할을 절대 혼동하지 않는다.
 - 고객수정/상세에서 연락처 저장 기능을 제공한다.
 - Android 연락처 INSERT 화면에 고객명/전화번호를 채워 연다.
 
-## 6. 일정 시간 선택 — 0.44.41
+## 6. 일정 시간 선택 — 0.44.41+
 
 핵심 파일: `TaskTimeChoiceDialog.java`
 
@@ -143,7 +172,7 @@ OAuth 역할을 절대 혼동하지 않는다.
 - 현재 시각을 5분 단위로 보정해 초기값으로 사용
 - 블랙/화이트 테마 공통 색상 리소스를 사용
 
-## 7. 캘린더 접기/펼치기 — 0.44.41
+## 7. 캘린더 접기/펼치기 — 0.44.41+
 
 핵심 파일: `CollapsibleConsultationLayout.java`
 
@@ -155,7 +184,7 @@ OAuth 역할을 절대 혼동하지 않는다.
 - 사용자의 마지막 펼침/접힘 상태를 `SharedPreferences`에 저장
 - 화면이 다시 그려져도 상태 유지
 
-## 8. 앱 블랙/화이트 테마 — 0.44.41
+## 8. 앱 블랙/화이트 테마 — 0.44.42 기준
 
 핵심 파일:
 
@@ -163,6 +192,8 @@ OAuth 역할을 절대 혼동하지 않는다.
 - `MoreSettingsHubView.java`
 - `res/values/colors.xml`
 - `res/values-night/colors.xml`
+- `res/values/themes.xml`
+- `res/values-night/themes.xml`
 
 진입 경로:
 
@@ -174,8 +205,14 @@ OAuth 역할을 절대 혼동하지 않는다.
 - 기본값: `블랙`
 - 선택값을 기기에 저장
 - Android 12 이상은 `UiModeManager.setApplicationNightMode()` 사용
-- 상태바/내비게이션바도 선택 테마에 맞춰 적용
+- 화이트 모드는 Light Material parent, 블랙 모드는 `values-night`의 Dark parent를 사용
+- 상태바/내비게이션바 아이콘 대비도 테마별 적용
 - 화면별 하드코딩 색상을 늘리지 말고 공통 color resource를 우선 사용
+
+현재 상태:
+
+- 화이트 모드가 다크 Material parent를 공유하던 구조는 수정 완료.
+- 전 화면의 실제 색상/다이얼로그/입력창/카드 대비는 **실기기 회귀 QA가 아직 필요**하다.
 
 ## 9. 문자 기능
 
@@ -257,7 +294,8 @@ Google Play RTDN(Pub/Sub) 기반 구독 lifecycle 동기화는 아직 완료되�
 - 업로드 키 SHA-256 고정 검증
 - signed release AAB/APK 생성
 - debug compile-check APK 생성
-- 0.44.41 compile check와 signed release 모두 성공
+- 0.44.42 signed release AAB/APK 빌드 및 인증서 검증 성공
+- 릴리스 업로드 전에는 반드시 직전 Play versionCode보다 큰 값으로 증가시킨다.
 
 과거 버전 전용 workflow의 contract check 실패는 현재 버전 compile 실패로 해석하지 않는다. 현재 릴리스 판단은 `CallTag 0.44.25 Compile Check`, `CallTag Current Signed Release`, `Build CallTag Play Internal`의 실제 최신 HEAD 결과를 우선한다.
 
@@ -266,8 +304,11 @@ Google Play RTDN(Pub/Sub) 기반 구독 lifecycle 동기화는 아직 완료되�
 - `all_monthly`를 임의로 추가하지 않는다.
 - Google Android OAuth Client ID를 `requestIdToken()` server client ID로 넣지 않는다.
 - Play 업로드 키를 새로 생성/교체하지 않는다.
+- 통화 종료 후 앱 Activity를 자동으로 앞으로 띄우지 않는다.
 - 통화 종료 팝업을 전체화면으로 되돌리지 않는다.
 - 통화 종료 시 전체화면과 작은 팝업을 동시에 띄우지 않는다.
+- Worker에서 이미 처리한 CallLog를 다시 자동문자/고객처리하지 않는다.
+- foreground service 시작 실패만으로 사용자 통화감지 설정을 OFF 처리해 recovery worker까지 죽이지 않는다.
 - 고객목록의 상태/문자 버튼을 아이콘만으로 바꾸지 않는다.
 - 페이지로 문의 내용을 일부 필드만 남기고 버리지 않는다.
 - 사용자에게 서비스계정 private key, keystore, 비밀번호를 요구하지 않는다.
@@ -276,12 +317,13 @@ Google Play RTDN(Pub/Sub) 기반 구독 lifecycle 동기화는 아직 완료되�
 
 ## 14. 현재 우선순위
 
-1. 0.44.41 통화 종료 팝업 OEM별 반복 실기기 QA
-2. 0.44.41 블랙/화이트 테마 전 화면 깨짐/가독성 QA
-3. 시간 휠 입력값 저장 및 수정 플로우 QA
-4. 캘린더 접힘 상태/일정 추가/날짜 변경 회귀 QA
-5. 결제 화면 실제 계정별 속도/국가 오류 QA
-6. 페이지로 문의 자동문자 실사용 QA
-7. 고객목록/삭제/연락처 저장 UI 최종 확인
+1. 0.44.42 작은 통화 종료 오버레이 OEM별 반복 실기기 QA
+2. 15분 WorkManager 복구: 서비스 종료 → 누락 CallLog 재처리 실기기 QA
+3. 0.44.42 블랙/화이트 테마 전 화면 깨짐/가독성 QA
+4. 권한 없음 UX를 시스템 권한 허용 흐름으로 전체 통일
+5. 시간 휠 입력값 저장 및 수정 플로우 QA
+6. 캘린더 접힘 상태/일정 추가/날짜 변경 회귀 QA
+7. 결제 화면 실제 계정별 속도/국가 오류 QA
 8. Google Play RTDN 구현
-9. Play 내부테스트 안정화 후 프로덕션 준비
+9. 페이지로 문의 전체 내용/자동문자 실사용 QA
+10. Play 내부테스트 안정화 후 프로덕션 준비
