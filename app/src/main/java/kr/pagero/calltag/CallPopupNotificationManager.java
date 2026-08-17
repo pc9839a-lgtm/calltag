@@ -161,10 +161,21 @@ public final class CallPopupNotificationManager {
         }
     }
 
-    /** Posts a fallback notification when Android blocks the direct post-call activity launch. */
+    /**
+     * Fallback delivery for the compact post-call UI. OEMs often block a background Activity even
+     * after accepting its PendingIntent, so prefer an already-authorized application overlay. Only
+     * when the overlay is unavailable or fails do we fall through to the high-priority notification.
+     */
     public static boolean showPostCall(Context context, CallRecord record, Customer customer,
                                        Intent reviewIntent, String memo) {
         if (record == null || reviewIntent == null) return false;
+
+        if (PostCallOverlayManager.show(context, record, customer, reviewIntent, memo)) {
+            CrashTelemetryStore.record(context, "post_call_delivery",
+                    "overlay_fallback", "call=" + record.id);
+            return true;
+        }
+
         if (!isPopupReady(context, POST_CALL_CHANNEL_ID)) {
             CrashTelemetryStore.record(context, "post_call_notification",
                     "unavailable", "call=" + record.id);
