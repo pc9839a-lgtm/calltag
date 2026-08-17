@@ -79,7 +79,7 @@ public final class MessageTemplateLibraryActivity extends Activity {
 
         LinearLayout tools = new LinearLayout(this);
         tools.setGravity(Gravity.CENTER_VERTICAL);
-        tools.setPadding(dp(16), 0, dp(16), dp(10));
+        tools.setPadding(dp(16), 0, dp(16), dp(12));
         searchInput = new EditText(this);
         searchInput.setHint("템플릿 검색");
         searchInput.setSingleLine(true);
@@ -108,7 +108,7 @@ public final class MessageTemplateLibraryActivity extends Activity {
         scroll.setFillViewport(true);
         listContainer = new LinearLayout(this);
         listContainer.setOrientation(LinearLayout.VERTICAL);
-        listContainer.setPadding(dp(16), 0, dp(16), dp(32));
+        listContainer.setPadding(dp(16), dp(4), dp(16), dp(40));
         scroll.addView(listContainer, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT));
@@ -136,14 +136,14 @@ public final class MessageTemplateLibraryActivity extends Activity {
         }
 
         for (MessageTemplateStore.Template template : templates) {
-            listContainer.addView(templateCard(template), topMargin(7));
+            listContainer.addView(templateCard(template), topMargin(14));
         }
     }
 
     private View templateCard(MessageTemplateStore.Template template) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(15), dp(13), dp(15), dp(13));
+        card.setPadding(dp(17), dp(16), dp(17), dp(16));
         card.setBackgroundResource(selectMode
                 ? R.drawable.bg_clickable_row : R.drawable.bg_card);
 
@@ -163,11 +163,18 @@ public final class MessageTemplateLibraryActivity extends Activity {
             top.addView(badge("이미지"), imageBadge);
         }
         if (selectMode) {
-            TextView arrow = title("›", 23f);
+            Button edit = button("수정", false);
+            edit.setTextColor(getColor(R.color.primary));
+            edit.setOnClickListener(v -> openEditor(template));
+            LinearLayout.LayoutParams editParams = new LinearLayout.LayoutParams(dp(58), dp(34));
+            editParams.leftMargin = dp(8);
+            top.addView(edit, editParams);
+
+            TextView arrow = title("›", 22f);
             arrow.setTextColor(getColor(R.color.text_muted));
             arrow.setGravity(Gravity.CENTER);
-            LinearLayout.LayoutParams arrowParams = new LinearLayout.LayoutParams(dp(28), dp(36));
-            arrowParams.leftMargin = dp(4);
+            LinearLayout.LayoutParams arrowParams = new LinearLayout.LayoutParams(dp(20), dp(34));
+            arrowParams.leftMargin = dp(3);
             top.addView(arrow, arrowParams);
         }
         card.addView(top, matchWrap());
@@ -179,7 +186,7 @@ public final class MessageTemplateLibraryActivity extends Activity {
         preview.setTextSize(13f);
         preview.setMaxLines(2);
         preview.setEllipsize(TextUtils.TruncateAt.END);
-        preview.setLineSpacing(0f, 1.15f);
+        preview.setLineSpacing(0f, 1.2f);
         previewRow.addView(preview, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
@@ -192,7 +199,7 @@ public final class MessageTemplateLibraryActivity extends Activity {
             imageParams.leftMargin = dp(10);
             previewRow.addView(image, imageParams);
         }
-        card.addView(previewRow, topMargin(7));
+        card.addView(previewRow, topMargin(10));
 
         if (selectMode) {
             card.setClickable(true);
@@ -207,9 +214,9 @@ public final class MessageTemplateLibraryActivity extends Activity {
             Button manage = button("관리", false);
             manage.setOnClickListener(v -> showManageDialog(template));
             LinearLayout.LayoutParams manageParams = new LinearLayout.LayoutParams(0, dp(44), 1f);
-            manageParams.leftMargin = dp(7);
+            manageParams.leftMargin = dp(9);
             actions.addView(manage, manageParams);
-            card.addView(actions, topMargin(11));
+            card.addView(actions, topMargin(13));
         }
         return card;
     }
