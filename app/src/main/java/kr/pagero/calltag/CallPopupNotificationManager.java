@@ -165,7 +165,11 @@ public final class CallPopupNotificationManager {
     public static boolean showPostCall(Context context, CallRecord record, Customer customer,
                                        Intent reviewIntent, String memo) {
         if (record == null || reviewIntent == null) return false;
-        ensureChannels(context);
+        if (!isPopupReady(context, POST_CALL_CHANNEL_ID)) {
+            CrashTelemetryStore.record(context, "post_call_notification",
+                    "unavailable", "call=" + record.id);
+            return false;
+        }
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         if (manager == null) return false;
 
