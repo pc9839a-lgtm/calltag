@@ -29,6 +29,8 @@ public final class CallTagApplication extends Application implements Application
     @Override
     public void onCreate() {
         super.onCreate();
+        // Default is black. User-selected white/black is applied before any Activity inflates UI.
+        CallTagThemeManager.applyApplicationMode(this);
         CrashTelemetryStore.install(this);
         registerActivityLifecycleCallbacks(this);
         MessageAutomationStore.ensureDefaults(this);
@@ -75,6 +77,7 @@ public final class CallTagApplication extends Application implements Application
     @Override
     public void onActivityResumed(Activity activity) {
         SystemBarInsetsInstaller.install(activity);
+        CallTagThemeManager.applyActivityAppearance(activity);
         if (activity instanceof PostCallActivity) {
             CrashTelemetryStore.record(activity, "post_call", "visible", "");
             PostCallLaunchReceipt.markVisible(activity);
@@ -203,6 +206,7 @@ public final class CallTagApplication extends Application implements Application
     @Override
     public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
         SystemBarInsetsInstaller.install(activity);
+        CallTagThemeManager.applyActivityAppearance(activity);
         if (activity instanceof PostCallActivity) {
             PostCallLaunchReceipt.markVisible(activity);
             PostCallPopupWindowInstaller.install(activity);

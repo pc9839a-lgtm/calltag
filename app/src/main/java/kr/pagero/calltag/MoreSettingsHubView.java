@@ -71,6 +71,9 @@ public final class MoreSettingsHubView extends LinearLayout {
                 v -> start(PartnerStatusActivity.class));
 
         Section app = section("앱 관리");
+        app.addValueMenu("테마", CallTagThemeManager.currentLabel(getContext()),
+                "화면 블랙 화이트 다크 라이트 색상",
+                v -> CallTagThemeManager.showChooser(getContext()));
         app.addMenu("데이터 관리", "동기화 데이터 보호 복구 백업 복원 기기 변경",
                 v -> start(SettingsGroupActivity.intent(getContext(), SettingsGroupActivity.GROUP_DATA)));
         app.addMenu("앱 정보", "버전 서비스 이용약관 개인정보처리방침 고객센터 문의",
@@ -126,6 +129,10 @@ public final class MoreSettingsHubView extends LinearLayout {
         }
 
         void addMenu(String title, String keywords, View.OnClickListener listener) {
+            addValueMenu(title, null, keywords, listener);
+        }
+
+        void addValueMenu(String title, String value, String keywords, View.OnClickListener listener) {
             LinearLayout row = new LinearLayout(getContext());
             row.setOrientation(HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
@@ -143,6 +150,19 @@ public final class MoreSettingsHubView extends LinearLayout {
             titleView.setIncludeFontPadding(false);
             row.addView(titleView, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
 
+            if (value != null && !value.trim().isEmpty()) {
+                TextView valueView = new TextView(getContext());
+                valueView.setText(value.trim());
+                valueView.setTextSize(14f);
+                valueView.setTextColor(getContext().getColor(R.color.primary));
+                valueView.setIncludeFontPadding(false);
+                valueView.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+                LinearLayout.LayoutParams valueParams = new LayoutParams(
+                        LayoutParams.WRAP_CONTENT, dp(52));
+                valueParams.rightMargin = dp(6);
+                row.addView(valueView, valueParams);
+            }
+
             TextView arrow = new TextView(getContext());
             arrow.setText("›");
             arrow.setTextSize(24f);
@@ -151,7 +171,8 @@ public final class MoreSettingsHubView extends LinearLayout {
             row.addView(arrow, new LayoutParams(dp(30), dp(52)));
 
             MenuItem item = new MenuItem(row,
-                    (title + " " + keywords).toLowerCase(Locale.KOREA));
+                    (title + " " + (value == null ? "" : value) + " " + keywords)
+                            .toLowerCase(Locale.KOREA));
             items.add(item);
             menuItems.add(item);
 

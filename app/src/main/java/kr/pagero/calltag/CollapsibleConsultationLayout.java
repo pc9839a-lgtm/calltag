@@ -3,17 +3,18 @@ package kr.pagero.calltag;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 /**
- * Keeps the monthly calendar collapsible without changing the date-specific schedule list below it.
- * MainActivity rebuilds consultationSummary on refresh, so this container intercepts only the first
- * dynamic child (the month card) and keeps the user's expanded/collapsed preference across refreshes.
+ * 월간 캘린더 본문만 접고, 선택 날짜/일정 추가/일정 목록은 그대로 유지한다.
+ * MainActivity가 consultationSummary를 다시 그려도 사용자가 마지막으로 선택한 상태를 보존한다.
  */
 public final class CollapsibleConsultationLayout extends LinearLayout {
     private static final String PREFS = "calltag_calendar_ui";
@@ -69,52 +70,70 @@ public final class CollapsibleConsultationLayout extends LinearLayout {
         wrapper.setOrientation(VERTICAL);
 
         LinearLayout toggleRow = new LinearLayout(getContext());
+        toggleRow.setOrientation(HORIZONTAL);
         toggleRow.setGravity(Gravity.CENTER_VERTICAL);
-        toggleRow.setPadding(dp(2), 0, dp(2), 0);
+        toggleRow.setPadding(dp(14), 0, dp(12), 0);
+        toggleRow.setBackgroundResource(R.drawable.bg_clickable_card);
+        toggleRow.setClickable(true);
+        toggleRow.setFocusable(true);
+
+        ImageView icon = new ImageView(getContext());
+        icon.setImageResource(R.drawable.ic_nav_consultations);
+        icon.setColorFilter(getContext().getColor(R.color.text_secondary));
+        icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(22), dp(22));
+        iconParams.rightMargin = dp(10);
+        toggleRow.addView(icon, iconParams);
 
         TextView label = new TextView(getContext());
         label.setText("월간 캘린더");
-        label.setTextSize(13f);
-        label.setTextColor(getContext().getColor(R.color.text_muted));
+        label.setTextSize(15f);
+        label.setTextColor(getContext().getColor(R.color.text_primary));
         label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         label.setIncludeFontPadding(false);
         toggleRow.addView(label, new LinearLayout.LayoutParams(
                 0, LayoutParams.WRAP_CONTENT, 1f));
 
         TextView toggle = new TextView(getContext());
-        toggle.setTextSize(13f);
-        toggle.setTextColor(getContext().getColor(R.color.primary));
+        toggle.setTextSize(20f);
+        toggle.setTextColor(getContext().getColor(R.color.text_secondary));
         toggle.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         toggle.setGravity(Gravity.CENTER);
         toggle.setIncludeFontPadding(false);
-        toggle.setBackgroundResource(R.drawable.bg_secondary_button);
-        toggle.setClickable(true);
-        toggle.setFocusable(true);
-        toggleRow.addView(toggle, new LinearLayout.LayoutParams(dp(82), dp(38)));
+        toggle.setBackground(roundButton());
+        toggle.setClickable(false);
+        toggle.setFocusable(false);
+        toggleRow.addView(toggle, new LinearLayout.LayoutParams(dp(36), dp(36)));
 
         wrapper.addView(toggleRow, new LinearLayout.LayoutParams(
-                LayoutParams.MATCH_PARENT, dp(44)));
+                LayoutParams.MATCH_PARENT, dp(60)));
 
         LinearLayout.LayoutParams monthParams = new LinearLayout.LayoutParams(
                 LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
-        monthParams.topMargin = dp(6);
+        monthParams.topMargin = dp(8);
         wrapper.addView(monthCard, monthParams);
 
         Runnable render = () -> {
             monthCard.setVisibility(expanded ? View.VISIBLE : View.GONE);
-            toggle.setText(expanded ? "접기 ︿" : "펼치기 ﹀");
-            toggle.setContentDescription(expanded ? "월간 캘린더 접기" : "월간 캘린더 펼치기");
+            toggle.setText(expanded ? "⌃" : "⌄");
+            toggleRow.setContentDescription(expanded
+                    ? "월간 캘린더 접기" : "월간 캘린더 펼치기");
         };
-        toggle.setOnClickListener(v -> {
+        toggleRow.setOnClickListener(v -> {
             expanded = !expanded;
             prefs(getContext()).edit().putBoolean(KEY_EXPANDED, expanded).apply();
             render.run();
         });
-        toggleRow.setOnClickListener(v -> toggle.performClick());
-        toggleRow.setClickable(true);
-        toggleRow.setFocusable(true);
         render.run();
         return wrapper;
+    }
+
+    private GradientDrawable roundButton() {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(getContext().getColor(R.color.surface));
+        drawable.setCornerRadius(dp(18));
+        drawable.setStroke(dp(1), getContext().getColor(R.color.border));
+        return drawable;
     }
 
     private SharedPreferences prefs(Context context) {
