@@ -53,6 +53,30 @@ public final class SetupRequirements {
                 == PackageManager.PERMISSION_GRANTED;
     }
 
+    /**
+     * Permissions required for the phone CRM itself. SMS and notifications are intentionally not
+     * included: refusing either optional permission must not disable call detection/customer CRM.
+     */
+    public static boolean hasCoreRuntimePermissions(Context context) {
+        return hasContacts(context)
+                && hasPhoneState(context)
+                && hasPhoneNumbers(context)
+                && hasCallLog(context);
+    }
+
+    /** Backward-compatible alias used by existing setup gates. */
+    public static boolean hasRequiredRuntimePermissions(Context context) {
+        return hasCoreRuntimePermissions(context);
+    }
+
+    public static boolean messagePermissionReady(Context context) {
+        return hasSms(context);
+    }
+
+    public static boolean popupNotificationReady(Context context) {
+        return hasNotifications(context);
+    }
+
     public static boolean isScreeningRoleAvailable(Context context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false;
         RoleManager manager = (RoleManager) context.getSystemService(Context.ROLE_SERVICE);
@@ -110,21 +134,10 @@ public final class SetupRequirements {
                 context, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
     }
 
-    /** Base phone CRM readiness. Contact write is migration-only and never part of the gate. */
+    /** Base phone CRM readiness. Optional SMS/notification access never disables this gate. */
     public static boolean baseReady(Context context) {
         return Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                && hasRequiredRuntimePermissions(context);
-    }
-
-    public static boolean hasRequiredRuntimePermissions(Context context) {
-        if (!hasContacts(context)
-                || !hasPhoneState(context)
-                || !hasPhoneNumbers(context)
-                || !hasCallLog(context)
-                || !hasNotifications(context)) {
-            return false;
-        }
-        return !FeatureEntitlementStore.hasMessageAccess(context) || hasSms(context);
+                && hasCoreRuntimePermissions(context);
     }
 
     public static boolean initialFlowCompleted(Context context) {
@@ -157,7 +170,7 @@ public final class SetupRequirements {
 
     public static boolean isReady(Context context) {
         return initialFlowCompleted(context)
-                && hasRequiredRuntimePermissions(context);
+                && hasCoreRuntimePermissions(context);
     }
 
     public static Intent requiredSetupIntent(Context context) {
