@@ -1,7 +1,7 @@
 # 콜태그 개발 로드맵
 
 기준일: **2026-08-17**  
-현재 버전: **0.44.41 / versionCode 2026081701**
+현재 버전: **0.44.42 / versionCode 2026081702**
 
 ## 완료된 핵심
 
@@ -18,14 +18,23 @@
 - [x] 통계
 - [x] 더보기 설정 검색/섹션 구조
 - [x] 블랙/화이트 앱 테마 선택
+- [x] 화이트 모드 Light Material parent 분리
 - [x] 통화 감지 foreground service
 - [x] 수신 등록고객 정보 표시
 - [x] 통화 종료 작은 팝업
+- [x] 통화 종료 후 앱 Activity 자동 실행 제거
+- [x] 작은 post-call overlay 우선 전달
+- [x] overlay 실패 시 알림 fallback
 - [x] CallLog 기반 종료 누락 복구
 - [x] 중복 통화 처리 ledger
-- [x] 종료 팝업 실제 노출 확인 후 1회 재시도
-- [x] 알림 fallback 불가 시 미전달 recovery queue 유지
+- [x] 알림/오버레이 fallback 불가 시 미전달 recovery queue 유지
 - [x] 재부팅/앱 업데이트 후 알림 권한 때문에 통화감지가 꺼지던 문제 수정
+- [x] WorkManager 15분 주기 독립 CallLog 복구
+- [x] 최근 12시간 + recovery cursor + 5분 grace 재검사
+- [x] Worker에서 기존 처리 ledger 재사용하여 중복 후처리 방지
+- [x] 앱 시작 시 recovery worker 스케줄 재확인
+- [x] 재부팅/앱 업데이트 시 immediate recovery enqueue
+- [x] foreground service 시작 실패 시 monitor 설정을 임의 OFF하지 않도록 보강
 - [x] 고객선택후 문자
 - [x] 통화후 자동문자
 - [x] 페이지로 문의접수문자
@@ -39,26 +48,30 @@
 - [x] 계정 전환 시 entitlement 관련 cache 정리
 - [x] 기존 Play 업로드 키 검증 CI
 - [x] API 36 대응
-- [x] 0.44.41 debug compile 성공
-- [x] 0.44.41 signed AAB/APK 빌드 및 인증서 검증 성공
+- [x] 0.44.42 signed AAB/APK 빌드 및 인증서 검증 성공
 
 ## 최우선 실기기 QA
 
-- [ ] 0.44.41 통화 종료 팝업 연속 20회 이상 반복 테스트
+- [ ] 0.44.42 통화 종료 작은 오버레이 연속 20회 이상 반복 테스트
+- [ ] 통화 종료 후 앱 화면이 자동으로 앞으로 뜨지 않는지 확인
 - [ ] 앱 백그라운드 상태 통화 테스트
 - [ ] 화면 잠금 상태 통화 테스트
 - [ ] 장시간 미사용 후 첫 통화 테스트
 - [ ] 부재중/거절/1~3초 짧은 통화 테스트
 - [ ] 연속 통화 중복 팝업 여부 확인
-- [ ] 삼성/픽셀/기타 OEM별 팝업 실제 노출률 비교
-- [ ] 알림 권한 OFF 상태에서 recovery queue 재시도 확인
-- [ ] 재부팅 후 첫 통화 감지 확인
-- [ ] 앱 업데이트 직후 첫 통화 감지 확인
+- [ ] 연속 통화 중복 자동문자 여부 확인
+- [ ] 삼성/픽셀/기타 OEM별 작은 오버레이 실제 노출률 비교
+- [ ] 오버레이 권한 OFF + 알림 ON 상태 fallback 확인
+- [ ] 오버레이 권한 OFF + 알림 OFF 상태 recovery queue 유지 확인
+- [ ] foreground service가 OEM/메모리 정리로 죽은 뒤 15분 WorkManager가 누락 CallLog를 복구하는지 확인
+- [ ] 재부팅 후 immediate recovery + 첫 통화 감지 확인
+- [ ] 앱 업데이트 직후 immediate recovery + 첫 통화 감지 확인
 
-## 0.44.41 UI 회귀 QA
+## 0.44.42 UI 회귀 QA
 
 - [ ] 블랙 테마 전체 화면 텍스트/카드/다이얼로그 가독성 확인
 - [ ] 화이트 테마 전체 화면 텍스트/카드/다이얼로그 가독성 확인
+- [ ] 화이트 테마 입력창/스위치/하단탭/상단바/다이얼로그에 다크 잔재가 없는지 확인
 - [ ] 테마 변경 후 현재 화면/다음 화면 색상 불일치 여부 확인
 - [ ] 시간 휠 오전/오후 12시 변환 확인
 - [ ] 시간 휠 55분 → 다음 시간 보정 확인
@@ -67,15 +80,29 @@
 - [ ] 캘린더 접힘 상태가 화면 재진입 후 유지되는지 확인
 - [ ] 캘린더 월 변경/일정 추가 후 접힘 wrapper가 중복 생성되지 않는지 확인
 
-## 통화 안정화 남은 패치
+## 통화 안정화 남은 패치/QA
 
-- [ ] `CallPopupNotificationManager.showPostCall()` 내부에서도 `isPopupReady()`를 직접 검사하도록 방어 중복 적용 검토
+- [x] `CallPopupNotificationManager.showPostCall()`에서 overlay 우선 + 알림 준비상태 검사
+- [x] 강제 앱 Activity 자동실행 경로 제거
+- [x] 15분 주기 WorkManager 독립 복구
+- [x] 앱 시작/재부팅/업데이트 시 worker 재등록
+- [x] service start 실패 시 recovery worker가 같이 죽는 경로 차단
 - [ ] 제조사별 배터리 최적화/백그라운드 제한 안내 UX 정리
-- [ ] 강제종료/프로세스 kill 뒤 첫 통화 복구 시나리오 강화
+- [ ] Android 명시적 Force stop 이후 사용자가 앱을 재실행했을 때 recovery 재초기화 QA
 - [ ] 듀얼 SIM 실기기 QA 및 필요 시 SIM 정보 구분
 - [ ] 통화중 다른 전화 수신 QA
-- [ ] 최근 통화 대량 데이터에서 CallLog observer/ledger 성능 확인
-- [ ] 내부 진단 화면에서 최근 통화의 trigger → resolve → popup → retry → fallback 단계 확인 기능 검토
+- [ ] 최근 통화 대량 데이터에서 CallLog observer/ledger/worker 성능 확인
+- [ ] 내부 진단 화면에서 최근 통화의 trigger → resolve → overlay → notification → recovery 단계 확인 기능 검토
+
+## 권한 UX 남은 작업
+
+- [ ] 권한 부족 시 `권한이 없습니다`만 표시하는 화면 전수조사
+- [ ] 전화 상태 권한 요청/설정 이동 통일
+- [ ] 통화기록 권한 요청/설정 이동 통일
+- [ ] 알림 권한 요청/채널 설정 이동 통일
+- [ ] 오버레이 권한 요청/설정 이동 통일
+- [ ] 연락처 저장 관련 권한/시스템 화면 안내 통일
+- [ ] 권한 거부 후 다시 기능을 눌렀을 때 즉시 복구 액션 제공
 
 ## 결제 남은 작업
 
@@ -134,14 +161,13 @@
 - [ ] 예약·후속문자 1/3/7일 및 직접 지정 QA
 - [ ] 중복 발송 방지 1/7/30일/영구 옵션 QA
 - [ ] 업무시간 외 발송 제한 QA
-- [ ] 권한이 없을 때 단순 오류문 대신 시스템 권한 허용 흐름으로 연결되는지 전체 점검
 
 ## 성능/운영 후속
 
 - [ ] 정산/파트너 데이터 로딩 속도 API 병목 확인
 - [ ] 고객 수천 건 환경 목록/검색 성능 확인
 - [ ] 최근 통화 수천 건 환경 조회 성능 확인
-- [ ] WorkManager 동기화 중복 작업 여부 확인
+- [ ] WorkManager 동기화/CallLog recovery 중복 작업 여부 확인
 - [ ] CrashTelemetry의 통화 팝업 누락 원인을 관리자/진단 화면에서 볼 수 있게 할지 결정
 
 ## 출시 전 필수
@@ -155,6 +181,15 @@
 - [ ] Play 데이터 보안 설문과 실제 수집 데이터 일치 확인
 - [ ] 스토어 스크린샷/아이콘/설명 최종 검토
 - [ ] 프로덕션 배포 직전 versionCode 증가 및 signed AAB 재생성
+
+## 현재 0.44.42 릴리스 기록
+
+- release HEAD: `c4b3eec0b093f52b04f71bfda2468a89fdbc3876`
+- recovery safety-net HEAD: `b66aced0be9e4129cd8ce3aceb51b2f52f54e1ca`
+- Current Signed Release run: `32038904833`
+- artifact: `9291546414`
+- AAB: `CallTag-v0.44.42-code2026081702.aab`
+- AAB SHA-256: `f6b2b7cba9d606fbcd85ac9bf9ab77ad6685c8e9e6b26e3b848fde3b36f5f9a5`
 
 ## 문서 운영 원칙
 
