@@ -86,13 +86,6 @@ public final class CallerIdSetupActivity extends Activity {
             missing.add(Manifest.permission.READ_PHONE_NUMBERS);
         }
         if (!SetupRequirements.hasCallLog(this)) missing.add(Manifest.permission.READ_CALL_LOG);
-        if (FeatureEntitlementStore.hasMessageAccess(this) && !SetupRequirements.hasSms(this)) {
-            missing.add(Manifest.permission.SEND_SMS);
-        }
-        if (!SetupRequirements.hasNotifications(this)
-                && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            missing.add(Manifest.permission.POST_NOTIFICATIONS);
-        }
         return missing;
     }
 
@@ -181,7 +174,7 @@ public final class CallerIdSetupActivity extends Activity {
             return;
         }
 
-        boolean coreReady = SetupRequirements.hasRequiredRuntimePermissions(this);
+        boolean coreReady = SetupRequirements.hasCoreRuntimePermissions(this);
         if (!coreReady) {
             status.setText("설정을 완료하면 수신 고객정보와 통화 후 고객관리 기능을 사용할 수 있습니다.");
             action.setText("필수 권한 허용하고 시작");
