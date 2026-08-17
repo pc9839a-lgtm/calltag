@@ -1,5 +1,6 @@
 package kr.pagero.calltag;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
@@ -9,6 +10,7 @@ import android.content.Intent;
 public final class FeatureAccessGate {
     public static final String MESSAGE = "message";
     public static final String PHONE = "phone";
+    private static final int REQUEST_SMS_PERMISSION = 8711;
 
     private FeatureAccessGate() {}
 
@@ -18,13 +20,7 @@ public final class FeatureAccessGate {
             return;
         }
         if (MESSAGE.equals(feature) && !SetupRequirements.hasSms(context)) {
-            if (context instanceof Activity) {
-                context.startActivity(FeaturePermissionActivity.intent(
-                        (Activity) context, FeaturePermissionActivity.KIND_SMS, destination));
-            } else {
-                context.startActivity(new Intent(context, destination)
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-            }
+            requestSmsPermission(context);
             return;
         }
         if (PHONE.equals(feature) && !SetupRequirements.hasCoreRuntimePermissions(context)) {
@@ -42,10 +38,7 @@ public final class FeatureAccessGate {
             return false;
         }
         if (MESSAGE.equals(feature) && !SetupRequirements.hasSms(context)) {
-            if (context instanceof Activity) {
-                context.startActivity(FeaturePermissionActivity.intent(
-                        (Activity) context, FeaturePermissionActivity.KIND_SMS, null));
-            }
+            requestSmsPermission(context);
             return false;
         }
         if (PHONE.equals(feature) && !SetupRequirements.hasCoreRuntimePermissions(context)) {
@@ -61,6 +54,19 @@ public final class FeatureAccessGate {
         if (MESSAGE.equals(feature)) return FeatureEntitlementStore.hasMessageAccess(context);
         if (PHONE.equals(feature)) return FeatureEntitlementStore.hasPhoneAccess(context);
         return true;
+    }
+
+    private static void requestSmsPermission(Context context) {
+        if (context instanceof Activity) {
+            ((Activity) context).requestPermissions(
+                    new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS_PERMISSION);
+            return;
+        }
+        // Background/non-Activity callers cannot present a runtime permission dialog. Route to the
+        // normal foreground setup instead of silently pretending the feature is usable.
+        Intent setup = SetupRequirements.requiredSetupIntent(context)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        context.startActivity(setup);
     }
 
     public static void showPlanRequired(Context context, String feature) {
