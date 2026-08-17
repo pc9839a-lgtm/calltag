@@ -33,6 +33,15 @@ public final class BootReceiver extends BroadcastReceiver {
                 CallTagSyncWorkScheduler.enqueueImmediate(
                         app,
                         packageReplaced ? "package_replaced" : "boot");
+
+                // Local CallLog recovery is independent of whether Android lets the foreground
+                // monitor service restart right now. Reconcile the 15-minute worker first and run
+                // one immediate pass after reboot/update to close any gap while the process was off.
+                CallMonitorRecoveryScheduler.reconcile(app);
+                if (SettingsStore.isMonitorEnabled(app)) {
+                    CallMonitorRecoveryScheduler.enqueueImmediate(app);
+                }
+
                 startMonitorIfAllowed(app);
             } finally {
                 pendingResult.finish();
@@ -43,7 +52,10 @@ public final class BootReceiver extends BroadcastReceiver {
     private void startMonitorIfAllowed(Context context) {
         if (!SettingsStore.isMonitorEnabled(context)) return;
         if (!AuthSessionStore.hasSession(context) || !hasRequiredPermissions(context)) {
-            SettingsStore.setMonitorEnabled(context, false);
+            // Keep the user's monitor preference and the WorkManager safety net intact. The worker
+            // itself no-ops safely until session/permissions are available again.
+            CrashTelemetryStore.record(context, "call_watchdog", "service_start_deferred",
+                    "missing_session_or_permission");
             return;
         }
 
@@ -55,8 +67,13 @@ public final class BootReceiver extends BroadcastReceiver {
             } else {
                 context.startService(service);
             }
-        } catch (RuntimeException ignored) {
-            SettingsStore.setMonitorEnabled(context, false);
+        } catch (RuntimeException error) {
+            // OEM/background restrictions may reject the foreground-service start. Do not turn off
+            // monitoring here: the independent periodic CallLog worker remains the recovery path.
+            CallMonitorRecoveryScheduler.ensureScheduled(context);
+            CallMonitorRecoveryScheduler.enqueueImmediate(context);
+            CrashTelemetryStore.record(context, "call_watchdog", "service_start_blocked",
+                    error.getClass().getSimpleName());
         }
     }
 
