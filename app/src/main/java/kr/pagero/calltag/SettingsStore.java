@@ -35,6 +35,16 @@ public final class SettingsStore {
 
     public static void setMonitorEnabled(Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_MONITOR_ENABLED, enabled).apply();
+        try {
+            if (enabled) {
+                CallMonitorRecoveryScheduler.ensureScheduled(context);
+            } else {
+                CallMonitorRecoveryScheduler.cancel(context);
+            }
+        } catch (RuntimeException error) {
+            CrashTelemetryStore.record(context, "call_watchdog", "schedule_failed",
+                    error.getClass().getSimpleName());
+        }
     }
 
     public static boolean isCallerInfoDisplayEnabled(Context context) {
