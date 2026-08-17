@@ -32,6 +32,11 @@ public final class CallTagSyncWorkScheduler {
 
     public static void reconcile(Context context) {
         Context app = context.getApplicationContext();
+
+        // CallTagApplication invokes this on every process start. Reconcile the local CallLog
+        // safety net here as well so it remains scheduled independently of cloud-sync eligibility.
+        CallMonitorRecoveryScheduler.reconcile(app);
+
         WorkManager manager = WorkManager.getInstance(app);
         if (!eligible(app)) {
             manager.cancelAllWorkByTag(TAG);
