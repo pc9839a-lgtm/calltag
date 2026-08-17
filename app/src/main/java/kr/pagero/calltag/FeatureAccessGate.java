@@ -1,5 +1,6 @@
 package kr.pagero.calltag;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
@@ -12,17 +13,48 @@ public final class FeatureAccessGate {
     private FeatureAccessGate() {}
 
     public static void open(Context context, Class<?> destination, String feature) {
-        if (allowed(context, feature)) {
-            context.startActivity(new Intent(context, destination));
+        if (!allowed(context, feature)) {
+            showPlanRequired(context, feature);
             return;
         }
-        showPlanRequired(context, feature);
+        if (MESSAGE.equals(feature) && !SetupRequirements.hasSms(context)) {
+            if (context instanceof Activity) {
+                context.startActivity(FeaturePermissionActivity.intent(
+                        (Activity) context, FeaturePermissionActivity.KIND_SMS, destination));
+            } else {
+                context.startActivity(new Intent(context, destination)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            }
+            return;
+        }
+        if (PHONE.equals(feature) && !SetupRequirements.hasCoreRuntimePermissions(context)) {
+            Intent setup = SetupRequirements.requiredSetupIntent(context);
+            if (!(context instanceof Activity)) setup.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(setup);
+            return;
+        }
+        context.startActivity(new Intent(context, destination));
     }
 
     public static boolean require(Context context, String feature) {
-        if (allowed(context, feature)) return true;
-        showPlanRequired(context, feature);
-        return false;
+        if (!allowed(context, feature)) {
+            showPlanRequired(context, feature);
+            return false;
+        }
+        if (MESSAGE.equals(feature) && !SetupRequirements.hasSms(context)) {
+            if (context instanceof Activity) {
+                context.startActivity(FeaturePermissionActivity.intent(
+                        (Activity) context, FeaturePermissionActivity.KIND_SMS, null));
+            }
+            return false;
+        }
+        if (PHONE.equals(feature) && !SetupRequirements.hasCoreRuntimePermissions(context)) {
+            Intent setup = SetupRequirements.requiredSetupIntent(context);
+            if (!(context instanceof Activity)) setup.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(setup);
+            return false;
+        }
+        return true;
     }
 
     public static boolean allowed(Context context, String feature) {
