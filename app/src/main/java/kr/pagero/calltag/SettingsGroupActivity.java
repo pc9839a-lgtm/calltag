@@ -62,8 +62,8 @@ public final class SettingsGroupActivity extends Activity {
         if (GROUP_MESSAGE.equals(group)) {
             addRow(card, "통화 후 자동문자", v -> FeatureAccessGate.open(
                     this, MessageAutomationSettingsActivity.class, FeatureAccessGate.MESSAGE));
-            addRow(card, "페이지로 문의 자동문자", v -> startActivity(
-                    new Intent(this, PageroLeadMessageSettingsActivity.class)));
+            addRow(card, "페이지로 문의 자동문자", v -> FeatureAccessGate.open(
+                    this, PageroLeadMessageSettingsActivity.class, FeatureAccessGate.MESSAGE));
             addRow(card, "문자 문구·이미지", v -> startActivity(
                     new Intent(this, MessageTemplateLibraryActivity.class)));
             addRow(card, "그룹·단체문자", v -> FeatureAccessGate.open(
