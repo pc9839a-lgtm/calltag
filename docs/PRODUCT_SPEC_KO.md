@@ -1,7 +1,7 @@
 # 콜태그 제품 정의
 
 기준일: **2026-08-17**  
-현재 Android 버전: **0.44.41 / versionCode 2026081701**  
+현재 Android 버전: **0.44.42 / versionCode 2026081702**  
 저장소: `pc9839a-lgtm/calltag`  
 정본 브랜치: `agent/calltag-v04422-billing-live`  
 패키지명: `kr.pagero.calltag`
@@ -102,16 +102,30 @@ UX 기준:
 
 ## 7. 통화 종료 팝업
 
-- 통화 종료 후 **작은 팝업 1개**가 기본.
+0.44.42 기준 제품 원칙:
+
+- 통화 종료 후 **앱 화면을 자동으로 열지 않는다.**
+- **작은 오버레이 팝업 1개**가 기본이다.
 - 전체화면 종료 화면으로 되돌리지 않는다.
 - 전체화면과 작은 팝업을 동시에 띄우지 않는다.
+- 오버레이가 불가능하거나 표시 실패했을 때만 고우선 알림 fallback을 사용한다.
+- 사용자가 fallback 알림을 직접 눌렀을 때만 `PostCallActivity` 같은 상세 화면으로 진입할 수 있다.
+
+통화 처리 안정화:
+
 - Telephony 상태 이벤트를 1차 트리거로 사용.
 - CallLog 변경을 2차 복구 트리거로 사용.
 - 상태 콜백 일부 누락 시에도 CallLog가 생기면 후속처리를 재시도.
-- `CallProcessingLedger`로 동일 통화 중복처리를 막는다.
-- 첫 Activity 요청이 실제로 보이지 않으면 한 번 재시도한 뒤 알림 fallback을 사용한다.
-- 알림 권한/채널이 막혀 있으면 전달 완료로 처리하지 않고 recovery queue를 유지한다.
-- 재부팅/앱 업데이트 후 알림 권한이 없다는 이유만으로 통화 감지를 끄지 않는다.
+- `CallProcessingLedger`로 동일 CallLog ID 중복처리를 막는다.
+- foreground service가 OEM/메모리 정리로 죽어도 WorkManager가 15분 주기로 최근 CallLog를 재검사한다.
+- Worker는 최근 12시간 범위와 recovery cursor/5분 grace를 사용한다.
+- 누락 CallLog만 기존 고객/할 일/자동문자 처리 파이프라인으로 재처리한다.
+- 앱 시작/재부팅/앱 업데이트 시 recovery worker 스케줄을 재확인한다.
+- 재부팅/앱 업데이트 시 즉시 1회 recovery도 요청한다.
+- 오버레이/알림을 모두 표시할 수 없으면 전달 완료로 처리하지 않고 recovery queue를 유지한다.
+- foreground service 시작 실패만으로 사용자 통화감지 설정을 OFF 처리하지 않는다.
+
+Android의 명시적 `강제 종료(Force stop)` 상태는 OS 정책상 앱이 스스로 해제할 수 없으며 사용자가 앱을 다시 실행해야 한다.
 
 ## 8. 일정·시간 선택
 
@@ -129,7 +143,7 @@ UX 기준:
 
 하단 내비게이션의 `캘린더`는 월간 달력 + 선택 날짜의 일정 관리 구조를 유지한다.
 
-0.44.41 UX 기준:
+0.44.41+ UX 기준:
 
 - 큰 별도 `접기` 버튼을 두지 않는다.
 - `월간 캘린더` 한 줄 헤더와 작은 화살표로 접기/펼치기.
@@ -152,9 +166,12 @@ UX 기준:
 
 - 기본값은 블랙.
 - 선택 테마는 앱 전체에 적용한다.
-- 상태바와 시스템 내비게이션바도 테마와 일치시킨다.
+- 화이트는 Light Material parent, 블랙은 Dark Material parent로 분리한다.
+- 상태바와 시스템 내비게이션바 및 아이콘 대비도 테마와 일치시킨다.
 - 개별 화면에서 임의의 흰색/검은색을 반복 하드코딩하지 않고 공통 color resource를 사용한다.
 - 새 화면/다이얼로그를 추가할 때 블랙/화이트 양쪽 가독성을 함께 확인한다.
+
+현재 화이트 모드의 기본 parent 분리는 완료했지만 전 화면의 실제 가독성/카드/다이얼로그/입력창은 실기기 회귀 QA가 남아 있다.
 
 ## 11. 더보기
 
@@ -219,9 +236,13 @@ RTDN 기반 renewal/cancel/expiry/grace/hold/resume/refund 자동 lifecycle 동�
 - minSdk 26
 - compileSdk 36
 - targetSdk 36
-- 현재 버전 `0.44.41 / 2026081701`
+- 현재 버전 `0.44.42 / 2026081702`
 - Google Play 업로드 키는 기존 키만 사용
 - 서명키가 없다고 CI에서 새 키를 생성하지 않음
 - AAB 업로드 전 versionCode 증가 필수
 - Google 로그인, 통화 수신/종료, 결제, 페이지로 연동은 실제 단말 QA와 CI 성공을 구분해서 기록한다.
-- 0.44.41 Compile Check 및 signed release AAB/APK 빌드/인증서 검증 성공.
+- 0.44.42 signed AAB/APK 빌드 및 기존 Play 업로드 인증서 검증 성공.
+- Current Signed Release run: `32038904833`
+- signed artifact: `9291546414`
+- AAB: `CallTag-v0.44.42-code2026081702.aab`
+- AAB SHA-256: `f6b2b7cba9d606fbcd85ac9bf9ab77ad6685c8e9e6b26e3b848fde3b36f5f9a5`
