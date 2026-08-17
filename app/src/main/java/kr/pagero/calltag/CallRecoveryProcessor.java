@@ -2,13 +2,9 @@ package kr.pagero.calltag;
 
 import android.content.Context;
 import android.content.Intent;
-import android.os.Handler;
-import android.os.Looper;
 
 /** Processes a CallLog row discovered after the live monitor missed it or the process was killed. */
 public final class CallRecoveryProcessor {
-    private static final Handler MAIN = new Handler(Looper.getMainLooper());
-
     private CallRecoveryProcessor() {}
 
     public static boolean resolveOnce(Context context, CallRecord record, String source) {
@@ -70,31 +66,9 @@ public final class CallRecoveryProcessor {
 
             if (phoneAccess) {
                 long pendingCallId = deferred ? record.id : -1L;
-                Intent review = new Intent(context, PostCallActivity.class)
-                        .putExtra(PostCallActivity.EXTRA_PENDING_CALL_ID, pendingCallId)
-                        .putExtra(PostCallActivity.EXTRA_CALL_LOG_ID, record.id)
-                        .putExtra(PostCallActivity.EXTRA_PHONE, record.phone)
-                        .putExtra(PostCallActivity.EXTRA_CACHED_NAME, record.cachedName)
-                        .putExtra(PostCallActivity.EXTRA_CALL_TYPE, record.type)
-                        .putExtra(PostCallActivity.EXTRA_STARTED_AT, record.startedAt)
-                        .putExtra(PostCallActivity.EXTRA_ENDED_AT,
-                                Math.max(record.endedAt(), System.currentTimeMillis()))
-                        .putExtra(PostCallActivity.EXTRA_DURATION_SEC,
-                                Math.max(0L, record.durationSec))
-                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                                | Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS
-                                | Intent.FLAG_ACTIVITY_NO_USER_ACTION);
+                // Delivery happens once after the Worker has finished reconciling rows. Arming here
+                // also survives another process death between the DB update and popup delivery.
                 PostCallRecoveryStore.arm(context, record, pendingCallId);
-                String memo = customer == null
-                        ? "" : CustomerInsightResolver.latestMemo(db, customer);
-                // Recovery can originate from a Worker while the app is backgrounded. Do not try
-                // to force an Activity from that state. The compact overlay is used when already
-                // authorized; otherwise the notification fallback remains available.
-                MAIN.post(() -> {
-                    boolean delivered = CallPopupNotificationManager.showPostCall(
-                            context, record, customer, review, memo);
-                    if (delivered) PostCallRecoveryStore.markDelivered(context, record.id);
-                });
             }
         } finally {
             if (pendingStore != null) pendingStore.close();
