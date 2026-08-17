@@ -8,8 +8,8 @@ import android.os.Looper;
 /**
  * Verifies that the compact post-call popup was actually visible.
  * Some OEM phone apps keep the call UI in front for a few seconds after IDLE, so an accepted
- * PendingIntent is not treated as delivery. Retry the popup once after the phone UI has had time
- * to settle, then fall back to a notification only when that channel can really be shown.
+ * PendingIntent is not treated as delivery. Retry the Activity once, then route through the
+ * compact overlay fallback and finally the high-priority notification when available.
  */
 public final class PostCallDeliveryGuard {
     private static final long VERIFY_DELAY_MS = 2_400L;
@@ -58,24 +58,21 @@ public final class PostCallDeliveryGuard {
                 PostCallActivity.EXTRA_DURATION_SEC, 0L));
         if (callId < 0L || phone.isEmpty()) return;
 
-        if (!CallPopupNotificationManager.isPopupReady(
-                context, CallPopupNotificationManager.POST_CALL_CHANNEL_ID)) {
-            CrashTelemetryStore.record(context, "post_call_delivery",
-                    "fallback_notification_unavailable", "call=" + callId);
-            // Do not mark this review delivered. PostCallRecoveryStore keeps it so the next
-            // foreground/service recovery can try again instead of silently losing the memo UI.
-            return;
-        }
-
         CallRecord record = new CallRecord(callId, phone, cachedName, type, startedAt, durationSec);
         CallTagDbHelper db = new CallTagDbHelper(context);
         try {
             Customer customer = db.findByPhone(phone);
             String memo = customer == null
                     ? "" : CustomerInsightResolver.latestMemo(db, customer);
-            boolean posted = CallPopupNotificationManager.showPostCall(
+            boolean delivered = CallPopupNotificationManager.showPostCall(
                     context, record, customer, review, memo);
-            if (posted) PostCallRecoveryStore.markDelivered(context, callId);
+            if (delivered) {
+                PostCallRecoveryStore.markDelivered(context, callId);
+            } else {
+                CrashTelemetryStore.record(context, "post_call_delivery",
+                        "all_fallbacks_unavailable", "call=" + callId);
+                // Keep the review armed. Foreground/service recovery can retry it later.
+            }
         } finally {
             db.close();
         }
