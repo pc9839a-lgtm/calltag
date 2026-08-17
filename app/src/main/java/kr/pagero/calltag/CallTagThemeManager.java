@@ -40,10 +40,8 @@ public final class CallTagThemeManager {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             UiModeManager manager = context.getSystemService(UiModeManager.class);
             if (manager != null) {
-                int target = black ? UiModeManager.MODE_NIGHT_YES : UiModeManager.MODE_NIGHT_NO;
-                if (manager.getApplicationNightMode() != target) {
-                    manager.setApplicationNightMode(target);
-                }
+                manager.setApplicationNightMode(
+                        black ? UiModeManager.MODE_NIGHT_YES : UiModeManager.MODE_NIGHT_NO);
             }
             return;
         }
