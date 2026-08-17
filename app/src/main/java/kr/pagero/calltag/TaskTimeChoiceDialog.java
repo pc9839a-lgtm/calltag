@@ -33,11 +33,10 @@ public final class TaskTimeChoiceDialog {
     public static void show(Context context, int initialHourOfDay, int initialMinute,
                             String actionLabel, Listener listener) {
         int hour24 = Math.max(0, Math.min(23, initialHourOfDay));
-        int minute = ((Math.max(0, Math.min(59, initialMinute)) + 2) / 5) * 5;
-        if (minute >= 60) {
-            minute = 0;
-            hour24 = (hour24 + 1) % 24;
-        }
+        int rawMinute = Math.max(0, Math.min(59, initialMinute));
+        // The picker only returns a time, not a date. Never round 58/59 to the next hour because
+        // 23:59 -> 00:00 would silently move an edited task to the beginning of the same date.
+        int minute = Math.min(55, ((rawMinute + 2) / 5) * 5);
 
         State state = new State();
         state.pm = hour24 >= 12;
@@ -80,6 +79,7 @@ public final class TaskTimeChoiceDialog {
         hourPicker.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         hourPicker.setFormatter(value -> String.format(Locale.KOREA, "%02d", value));
         hourPicker.setBackgroundColor(Color.TRANSPARENT);
+        hourPicker.setContentDescription("시 선택");
 
         NumberPicker minutePicker = new NumberPicker(context);
         minutePicker.setMinValue(0);
@@ -92,6 +92,7 @@ public final class TaskTimeChoiceDialog {
         minutePicker.setWrapSelectorWheel(true);
         minutePicker.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         minutePicker.setBackgroundColor(Color.TRANSPARENT);
+        minutePicker.setContentDescription("분 선택");
 
         LinearLayout wheelRow = new LinearLayout(context);
         wheelRow.setOrientation(LinearLayout.HORIZONTAL);
