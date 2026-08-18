@@ -34,6 +34,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Publish run handle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TITLE="[BUILD RUN] CallTag ${CALLTAG_VERSION_NAME} code${CALLTAG_VERSION_CODE}"
+          BODY=$(printf 'Run ID: `%s`\nRun URL: https://github.com/%s/actions/runs/%s\nCommit: `%s`\n' "$GITHUB_RUN_ID" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$GITHUB_SHA")
+          EXISTING="$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi
+
       - name: Verify release version and Firebase config
         shell: bash
         run: |
