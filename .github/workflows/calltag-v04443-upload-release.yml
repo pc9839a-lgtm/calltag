@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   signed-release:
@@ -157,4 +158,23 @@ jobs:
               --title "CallTag ${CALLTAG_VERSION_NAME} Play Upload" \
               --notes "Google Play Console upload용 signed AAB. versionCode ${CALLTAG_VERSION_CODE}." \
               --prerelease
+          fi
+
+      - name: Create build completion receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE="CallTag-v${CALLTAG_VERSION_NAME}-code${CALLTAG_VERSION_CODE}.aab"
+          SHA="$(cut -d' ' -f1 "$RUNNER_TEMP/CallTag-v${CALLTAG_VERSION_NAME}-code${CALLTAG_VERSION_CODE}.sha256.txt")"
+          RELEASE_URL="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${RELEASE_TAG}"
+          ASSET_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/${FILE}"
+          TITLE="[BUILD READY] CallTag ${CALLTAG_VERSION_NAME} code${CALLTAG_VERSION_CODE}"
+          BODY=$(printf 'Signed Google Play AAB build completed.\n\n- File: `%s`\n- SHA256: `%s`\n- Release: %s\n- Direct asset: %s\n- Commit: `%s`\n' "$FILE" "$SHA" "$RELEASE_URL" "$ASSET_URL" "$GITHUB_SHA")
+          EXISTING="$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')"
+          if [ -n "$EXISTING" ]; then
+            gh issue edit "$EXISTING" --body "$BODY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
           fi
