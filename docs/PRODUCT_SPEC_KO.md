@@ -1,7 +1,7 @@
 # 콜태그 제품 정의
 
-기준일: **2026-08-17**  
-현재 Android 버전: **0.44.42 / versionCode 2026081702**  
+기준일: **2026-08-18**  
+현재 Android 버전: **0.44.43 / versionCode 2026081801**  
 저장소: `pc9839a-lgtm/calltag`  
 정본 브랜치: `agent/calltag-v04422-billing-live`  
 패키지명: `kr.pagero.calltag`
@@ -49,16 +49,16 @@ Google Play Android 구독 상품은 현재 2개만 사용한다.
 
 페이지로 웹 서비스는 Android Play 상품과 별도로 관리한다.
 
-**현재 `all_monthly` 통합권은 만들지 않는다.** 과거 문서의 6,000원 Play 통합권 정의는 폐기한다.
+**현재 `all_monthly` 통합권은 만들지 않는다.**
 
 ## 3. 계정·로그인
 
 - 이메일 계정과 Google 로그인을 지원한다.
 - Google 로그인은 2026-08-14 실제 단말 성공 확인.
-- Android OAuth Client와 Web/Backend OAuth Client의 역할을 분리한다.
+- Android OAuth Client와 Web/Backend OAuth Client 역할을 분리한다.
 - Android Client를 ID Token server client ID로 사용하지 않는다.
 - 계정별 서버 세션을 기준으로 페이지로와 연결한다.
-- 계정 전환 시 이전 사용자의 entitlement/referral/pagero 상태 cache를 재사용하지 않는다.
+- 계정 전환 시 이전 사용자의 entitlement/referral/pagero cache를 재사용하지 않는다.
 
 ## 4. 홈
 
@@ -89,67 +89,65 @@ UX 기준:
 - `상태 변경`, `문자 보내기`는 텍스트 버튼.
 - 삭제만 작은 휴지통 아이콘.
 - 삭제는 별도 화면으로 이동하지 않고 현재 화면 확인 팝업에서 처리.
-- 취소는 회색, 삭제는 빨간 위험 액션.
-- 고객수정/상세에서 연락처 저장 가능.
+- 고객 상세/수정에서 연락처 저장 가능.
+
+### 고객 출처 표기
+
+0.44.43 기준:
+
+- 페이지로 출처 배지는 **실제 `customer.source`가 페이지로 계열일 때만** 표시한다.
+- 허용 출처: `페이지로`, `pagero`, `pagero_lead`, `pagero:*`, `페이지로:*`.
+- 일반 고객은 출처 배지를 표시하지 않는다.
+- memo 내용에 `pagero`가 포함됐다는 이유만으로 페이지로 유입으로 판정하지 않는다.
+- 출처 badge 컴포넌트는 전달받은 label을 그대로 사용하며 빈 label은 표시하지 않는다.
 
 ## 6. 통화 전 고객정보
 
 - `ROLE_CALL_SCREENING` 사용.
-- 등록 고객 수신 시 고객명과 최근 메모를 표시.
+- 등록 고객 수신 시 고객명과 최근 메모 표시.
 - 오버레이 표시 실패 시 알림 fallback.
-- 실제 통화 lifecycle은 `TelecomManager.isInCall()` 감시로 보조.
-- 초기 `IDLE` 이벤트가 수신정보를 조기 종료하지 않도록 방어.
+- 실제 통화 lifecycle은 `TelecomManager.isInCall()`로 보조 감시.
 
 ## 7. 통화 종료 팝업
 
-0.44.42 기준 제품 원칙:
+현재 제품 원칙:
 
 - 통화 종료 후 **앱 화면을 자동으로 열지 않는다.**
-- **작은 오버레이 팝업 1개**가 기본이다.
+- **작은 오버레이 팝업 1개**가 기본.
 - 전체화면 종료 화면으로 되돌리지 않는다.
-- 전체화면과 작은 팝업을 동시에 띄우지 않는다.
-- 오버레이가 불가능하거나 표시 실패했을 때만 고우선 알림 fallback을 사용한다.
-- 사용자가 fallback 알림을 직접 눌렀을 때만 `PostCallActivity` 같은 상세 화면으로 진입할 수 있다.
+- 전체화면과 작은 팝업 동시 노출 금지.
+- 오버레이가 불가능하거나 실패했을 때만 고우선 알림 fallback.
+- 사용자가 fallback 알림을 직접 눌렀을 때만 상세 Activity로 진입할 수 있다.
 
 통화 처리 안정화:
 
-- Telephony 상태 이벤트를 1차 트리거로 사용.
-- CallLog 변경을 2차 복구 트리거로 사용.
-- 상태 콜백 일부 누락 시에도 CallLog가 생기면 후속처리를 재시도.
-- `CallProcessingLedger`로 동일 CallLog ID 중복처리를 막는다.
-- foreground service가 OEM/메모리 정리로 죽어도 WorkManager가 15분 주기로 최근 CallLog를 재검사한다.
-- Worker는 최근 12시간 범위와 recovery cursor/5분 grace를 사용한다.
-- 누락 CallLog만 기존 고객/할 일/자동문자 처리 파이프라인으로 재처리한다.
-- 앱 시작/재부팅/앱 업데이트 시 recovery worker 스케줄을 재확인한다.
-- 재부팅/앱 업데이트 시 즉시 1회 recovery도 요청한다.
-- 오버레이/알림을 모두 표시할 수 없으면 전달 완료로 처리하지 않고 recovery queue를 유지한다.
-- foreground service 시작 실패만으로 사용자 통화감지 설정을 OFF 처리하지 않는다.
+- Telephony state 1차 트리거.
+- CallLog 변경 2차 복구 트리거.
+- `CallProcessingLedger`로 동일 CallLog 중복처리 방지.
+- foreground service가 OEM/메모리 정리로 죽어도 WorkManager가 15분 주기로 최근 CallLog 재검사.
+- 최근 12시간 + recovery cursor + 5분 grace 사용.
+- 누락 CallLog만 기존 고객/할 일/자동문자 처리 파이프라인으로 재처리.
+- 앱 시작/재부팅/업데이트 시 worker 스케줄 재확인.
+- 재부팅/업데이트 시 즉시 1회 recovery도 요청.
+- 오버레이/알림 모두 불가하면 recovery queue 유지.
 
-Android의 명시적 `강제 종료(Force stop)` 상태는 OS 정책상 앱이 스스로 해제할 수 없으며 사용자가 앱을 다시 실행해야 한다.
+Android의 명시적 Force stop은 OS 정책상 앱이 스스로 해제할 수 없다.
 
 ## 8. 일정·시간 선택
 
-0.44.41부터 할 일/일정 시간 선택은 전용 휠 UI를 기준으로 한다.
-
-- 오전/오후 선택
-- 시 휠: 1~12
-- 분 휠: 5분 단위
-- 현재 선택 시간 즉시 표시
-- `취소` / `이 시간으로 등록`
-
-시간을 직접 숫자 입력하게 하는 UI보다 빠른 선택을 우선한다.
+- 오전/오후 선택.
+- 시 휠 1~12.
+- 분 휠 5분 단위.
+- 현재 선택 시간 즉시 표시.
+- `취소` / `이 시간으로 등록`.
 
 ## 9. 캘린더
-
-하단 내비게이션의 `캘린더`는 월간 달력 + 선택 날짜의 일정 관리 구조를 유지한다.
-
-0.44.41+ UX 기준:
 
 - 큰 별도 `접기` 버튼을 두지 않는다.
 - `월간 캘린더` 한 줄 헤더와 작은 화살표로 접기/펼치기.
 - 접을 때 월간 달력 본문만 숨긴다.
 - 선택 날짜, 일정 추가, 일정 목록은 유지한다.
-- 마지막 접힘/펼침 상태를 저장한다.
+- 마지막 접힘 상태 저장.
 
 ## 10. 앱 테마
 
@@ -157,21 +155,25 @@ Android의 명시적 `강제 종료(Force stop)` 상태는 OS 정책상 앱이 �
 
 `더보기 → 앱 관리 → 테마`
 
-선택 가능한 테마:
+선택값:
 
 - 블랙
 - 화이트
 
 정책:
 
-- 기본값은 블랙.
-- 선택 테마는 앱 전체에 적용한다.
-- 화이트는 Light Material parent, 블랙은 Dark Material parent로 분리한다.
-- 상태바와 시스템 내비게이션바 및 아이콘 대비도 테마와 일치시킨다.
-- 개별 화면에서 임의의 흰색/검은색을 반복 하드코딩하지 않고 공통 color resource를 사용한다.
-- 새 화면/다이얼로그를 추가할 때 블랙/화이트 양쪽 가독성을 함께 확인한다.
+- 기본값 블랙.
+- 선택 테마는 앱 전체 적용.
+- 화이트는 Light Material parent, 블랙은 Dark Material parent.
+- 상태바/시스템 내비게이션바 아이콘 대비도 테마와 맞춘다.
+- 개별 화면에 임의의 흰색/검은색을 반복 하드코딩하지 않고 공통 color resource 사용.
 
-현재 화이트 모드의 기본 parent 분리는 완료했지만 전 화면의 실제 가독성/카드/다이얼로그/입력창은 실기기 회귀 QA가 남아 있다.
+0.44.43 수정:
+
+- 화이트에서 `전체 상태`, `전체 기간`, `상태 변경`, 뒤로가기 등 secondary button이 검은 박스로 남던 문제 수정.
+- `bg_secondary_button.xml`의 다크 하드코딩을 테마별 resource 기반으로 전환.
+
+아직 전 화면 실기기 회귀 QA는 남아 있다.
 
 ## 11. 더보기
 
@@ -182,7 +184,7 @@ Android의 명시적 `강제 종료(Force stop)` 상태는 OS 정책상 앱이 �
 - 서비스: 페이지로 / 파트너 코드 / 파트너 현황
 - 앱 관리: 테마 / 데이터 관리 / 앱 정보
 
-상단 설정 검색을 제공한다.
+상단 설정 검색 제공.
 
 ## 12. 문자
 
@@ -198,30 +200,37 @@ Android의 명시적 `강제 종료(Force stop)` 상태는 OS 정책상 앱이 �
 - 그룹·단체문자
 - 발송 내역
 
-페이지로 문의접수문자 화면은 장문 설명을 제거하고 설정값 위주로 구성한다.
+### 템플릿 선택 UX
+
+0.44.43 기준:
+
+- 템플릿 카드에 `수정` 버튼 직접 노출.
+- 카드 본문 탭은 템플릿 선택.
+- 수정 버튼은 해당 템플릿 편집 화면 진입.
+- 카드 간격 확대.
+- 편집 후 목록 즉시 갱신이 제품 기대 동작.
 
 ## 13. 페이지로 연동
 
 - 같은 계정 owner 기준 자동 연결.
-- webhook URL이나 secret을 일반 사용자에게 입력시키지 않는다.
-- 문의 데이터의 answers/values/pageTitle/site/campaign/source/email/content 및 동적 필드를 가능한 한 보존한다.
-- 문의 전체 내용을 고객 메모에 반영한다.
-- 문의 eventId로 중복 수신/발송을 방지한다.
-- 페이지로 자동문자 기본값은 OFF.
+- webhook URL/secret을 일반 사용자에게 입력시키지 않는다.
+- 문의 데이터의 `answers`, `values`, `pageTitle`, `site`, `campaign`, `source`, `email`, `content` 및 동적 필드를 가능한 한 보존한다.
+- 문의 전체 내용을 고객 memo에 반영한다.
+- 문의 eventId로 중복 수신/발송 방지.
+- 페이지로 자동문자 기본값 OFF.
 
 상세: `PAGERO_CUSTOMER_INTEGRATION_KO.md`
 
 ## 14. 결제 UX
 
 - Play Billing 상품조회와 서버 entitlement 조회를 병렬/독립 수행.
-- 서버 응답 때문에 BillingClient 연결을 막지 않는다.
 - ProductDetails 수신 즉시 결제 버튼 활성화.
 - 무한 `결제 준비 중` 금지.
 - 오류/타임아웃은 `다시 시도` 제공.
 - purchase token 서버 검증 유지.
 - 다른 CALLTAG 계정의 purchase token을 현재 계정 소유로 재귀속하지 않는다.
 
-RTDN 기반 renewal/cancel/expiry/grace/hold/resume/refund 자동 lifecycle 동기화는 아직 완료되지 않았다.
+RTDN 기반 renewal/cancel/expiry/grace/hold/resume/refund lifecycle 자동 동기화는 아직 미완료.
 
 ## 15. 하단 내비게이션
 
@@ -236,13 +245,12 @@ RTDN 기반 renewal/cancel/expiry/grace/hold/resume/refund 자동 lifecycle 동�
 - minSdk 26
 - compileSdk 36
 - targetSdk 36
-- 현재 버전 `0.44.42 / 2026081702`
-- Google Play 업로드 키는 기존 키만 사용
-- 서명키가 없다고 CI에서 새 키를 생성하지 않음
-- AAB 업로드 전 versionCode 증가 필수
-- Google 로그인, 통화 수신/종료, 결제, 페이지로 연동은 실제 단말 QA와 CI 성공을 구분해서 기록한다.
-- 0.44.42 signed AAB/APK 빌드 및 기존 Play 업로드 인증서 검증 성공.
-- Current Signed Release run: `32038904833`
-- signed artifact: `9291546414`
-- AAB: `CallTag-v0.44.42-code2026081702.aab`
-- AAB SHA-256: `f6b2b7cba9d606fbcd85ac9bf9ab77ad6685c8e9e6b26e3b848fde3b36f5f9a5`
+- 현재 버전 `0.44.43 / 2026081801`
+- Google Play 업로드 키는 기존 키만 사용.
+- 서명키가 없다고 CI에서 새 키 생성 금지.
+- AAB 업로드 전 versionCode 증가 필수.
+- 실제 단말 QA와 CI 성공을 구분해서 기록.
+- 0.44.43 signed AAB 빌드 및 기존 Play 업로드 인증서 검증 성공.
+- Signed Release run: `32106739436`
+- AAB: `CallTag-v0.44.43-code2026081801.aab`
+- AAB SHA-256: `6bbffb0ec122eb4a161b51391dbfc18677cc4698c56088d0b561da6ffa52c680`
