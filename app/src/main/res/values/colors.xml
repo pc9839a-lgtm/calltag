@@ -5,6 +5,7 @@
     <color name="primary_soft">#EAF2FF</color>
     <color name="primary_muted">#5E8FD5</color>
     <color name="accent">#4389FF</color>
+    <color name="primary_button_disabled_surface">#66778C</color>
     <color name="button_primary_surface">#EAF2FD</color>
     <color name="button_primary_pressed">#DCE9FA</color>
     <color name="button_primary_disabled">#AAB7C7</color>
