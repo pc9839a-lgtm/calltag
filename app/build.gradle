@@ -26,6 +26,7 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
+        // Play upload release 2026-08-18
         versionCode 2026081801
         versionName '0.44.43'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
