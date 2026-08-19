@@ -6,6 +6,7 @@ import android.graphics.PixelFormat;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
+import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
@@ -16,12 +17,17 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
- * OEM/background-activity fallback for the post-call memo UI.
- * This is still a compact popup: it never opens a full-screen screen and is only used when
- * SYSTEM_ALERT_WINDOW is already allowed by the user.
+ * Compact post-call memo overlay. It never launches the app Activity automatically and requires
+ * SYSTEM_ALERT_WINDOW to have been explicitly granted by the user.
  */
 public final class PostCallOverlayManager {
+    private static final long MAIN_THREAD_DELIVERY_TIMEOUT_MS = 2_000L;
+
     private static WindowManager windowManager;
     private static View overlayView;
     private static long showingCallId = -1L;
@@ -33,27 +39,57 @@ public final class PostCallOverlayManager {
     }
 
     /**
-     * All current post-call delivery callers invoke this on the main thread. If a future caller is
-     * off-main, fail closed so the notification fallback remains available instead of falsely
-     * reporting delivery before WindowManager.addView actually succeeds.
+     * WindowManager.addView must run on the main thread. Live call delivery already arrives there,
+     * but WorkManager recovery can run on a worker thread; synchronously marshal that case to main
+     * so a recovered call can still show the same compact popup instead of silently degrading.
      */
     public static boolean show(Context context, CallRecord record, Customer customer,
                                Intent reviewIntent, String memo) {
         if (context == null || record == null || reviewIntent == null || !canShow(context)) {
             return false;
         }
-        if (Looper.myLooper() != Looper.getMainLooper()) return false;
+        Context app = context.getApplicationContext();
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return showCheckedOnMain(app, record, customer, reviewIntent, memo);
+        }
+
+        AtomicBoolean shown = new AtomicBoolean(false);
+        CountDownLatch latch = new CountDownLatch(1);
+        new Handler(Looper.getMainLooper()).post(() -> {
+            try {
+                shown.set(showCheckedOnMain(app, record, customer, reviewIntent, memo));
+            } finally {
+                latch.countDown();
+            }
+        });
+        try {
+            if (!latch.await(MAIN_THREAD_DELIVERY_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                CrashTelemetryStore.record(app, "post_call_overlay", "main_dispatch_timeout",
+                        deviceLabel() + ",call=" + record.id);
+                return false;
+            }
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            CrashTelemetryStore.record(app, "post_call_overlay", "main_dispatch_interrupted",
+                    deviceLabel() + ",call=" + record.id);
+            return false;
+        }
+        return shown.get();
+    }
+
+    private static boolean showCheckedOnMain(Context context, CallRecord record, Customer customer,
+                                             Intent reviewIntent, String memo) {
         if (showingCallId == record.id && overlayView != null && overlayView.isAttachedToWindow()) {
             return true;
         }
-        return showOnMain(context.getApplicationContext(), record, customer, reviewIntent, memo);
+        return showOnMain(context, record, customer, reviewIntent, memo);
     }
 
     public static void hide(Context context) {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             hideOnMain();
         } else if (context != null) {
-            new android.os.Handler(Looper.getMainLooper()).post(PostCallOverlayManager::hideOnMain);
+            new Handler(Looper.getMainLooper()).post(PostCallOverlayManager::hideOnMain);
         }
     }
 
