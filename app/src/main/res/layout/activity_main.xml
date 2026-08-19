@@ -51,7 +51,7 @@
         android:id="@+id/bottomNavigation"
         android:layout_width="match_parent"
         android:layout_height="72dp"
-        android:background="@color/surface_soft"
+        android:background="@color/surface"
         android:gravity="center"
         android:orientation="horizontal"
         android:paddingLeft="2dp"
