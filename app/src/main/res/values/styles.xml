@@ -7,7 +7,7 @@
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
         <item name="android:statusBarColor">@color/background</item>
-        <item name="android:navigationBarColor">@color/surface_soft</item>
+        <item name="android:navigationBarColor">@color/surface</item>
         <item name="android:colorAccent">@color/accent</item>
         <item name="android:windowBackground">@color/background</item>
         <item name="android:windowNoTitle">true</item>
@@ -30,6 +30,9 @@
         <item name="android:textSize">0sp</item>
         <item name="android:switchMinWidth">48dp</item>
         <item name="android:switchPadding">0dp</item>
+        <item name="android:thumbTint">@color/switch_thumb_tint</item>
+        <item name="android:trackTint">@color/switch_track_tint</item>
+        <item name="android:splitTrack">false</item>
     </style>
 
     <style name="Theme.CallTag.CallerInfo" parent="android:style/Theme.Material.Light.NoActionBar">
@@ -65,7 +68,7 @@
         <item name="android:fontFamily">sans-serif</item>
         <item name="android:buttonStyle">@style/Widget.CallTag.Button</item>
         <item name="android:windowBackground">@drawable/bg_dialog_panel</item>
-        <item name="android:colorBackground">@color/surface_soft</item>
+        <item name="android:colorBackground">@color/surface</item>
         <item name="android:colorAccent">@color/primary</item>
         <item name="android:colorControlNormal">@color/text_secondary</item>
         <item name="android:colorControlActivated">@color/primary</item>
@@ -76,14 +79,14 @@
         <item name="android:listPreferredItemHeightSmall">56dp</item>
         <item name="android:listViewStyle">@style/Widget.CallTag.DialogList</item>
         <item name="android:backgroundDimEnabled">true</item>
-        <item name="android:backgroundDimAmount">0.38</item>
+        <item name="android:backgroundDimAmount">0.28</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
     </style>
 
     <style name="Theme.CallTag.PickerDialog" parent="@style/Theme.CallTag.Dialog">
         <item name="android:windowBackground">@drawable/bg_dialog_panel</item>
-        <item name="android:colorBackground">@color/surface_soft</item>
+        <item name="android:colorBackground">@color/surface</item>
         <item name="android:colorAccent">@color/primary</item>
         <item name="android:colorControlNormal">@color/text_secondary</item>
         <item name="android:colorControlActivated">@color/primary</item>
