@@ -60,7 +60,7 @@ public final class CallTagThemeManager {
         Window window = activity.getWindow();
         if (window == null) return;
         window.setStatusBarColor(activity.getColor(R.color.background));
-        window.setNavigationBarColor(activity.getColor(R.color.surface_soft));
+        window.setNavigationBarColor(activity.getColor(R.color.surface));
 
         View decor = window.getDecorView();
         int flags = decor.getSystemUiVisibility();
