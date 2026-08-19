@@ -96,6 +96,19 @@ public final class AuthGateActivity extends Activity {
             finish();
             return;
         }
+
+        // 0.44.44+: the post-call Activity no longer auto-opens. Phone-CRM users therefore need
+        // SYSTEM_ALERT_WINDOW once so the compact editable overlay can actually be delivered.
+        // Route existing installs through the same explicit setup screen instead of silently
+        // falling back to no visible UI when both overlay and notifications are unavailable.
+        if (FeatureEntitlementStore.hasPhoneAccess(this) && !SetupRequirements.hasOverlay(this)) {
+            startActivity(new Intent(this, CallerIdSetupActivity.class)
+                    .putExtra(CallerIdSetupActivity.EXTRA_REQUIRED_SETUP, true)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            finish();
+            return;
+        }
+
         Class<?> destination = EntitlementNoticeActivity.shouldOpen(this)
                 ? EntitlementNoticeActivity.class : MainActivity.class;
         startActivity(new Intent(this, destination)
