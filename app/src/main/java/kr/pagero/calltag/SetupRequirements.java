@@ -129,9 +129,11 @@ public final class SetupRequirements {
         return CallerOverlayManager.canShow(context);
     }
 
+    /** Compact overlay is preferred; a ready high-priority notification is the fallback. */
     public static boolean hasPostCallPopup(Context context) {
-        return CallPopupNotificationManager.isPopupReady(
-                context, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
+        return hasOverlay(context)
+                || CallPopupNotificationManager.isPopupReady(
+                        context, CallPopupNotificationManager.POST_CALL_CHANNEL_ID);
     }
 
     /** Base phone CRM readiness. Optional SMS/notification access never disables this gate. */
@@ -183,7 +185,11 @@ public final class SetupRequirements {
             SettingsStore.setMonitorEnabled(context, false);
             return;
         }
+
+        // Keep the user's monitor intent enabled even if an OEM temporarily blocks the foreground
+        // service. The independent WorkManager safety net can still reconcile durable CallLog rows.
         SettingsStore.setMonitorEnabled(context, true);
+        CallMonitorRecoveryScheduler.ensureScheduled(context);
         Intent service = new Intent(context, CallMonitorService.class)
                 .setAction(CallMonitorService.ACTION_START);
         try {
@@ -192,8 +198,9 @@ public final class SetupRequirements {
             } else {
                 context.startService(service);
             }
-        } catch (RuntimeException ignored) {
-            SettingsStore.setMonitorEnabled(context, false);
+        } catch (RuntimeException error) {
+            CrashTelemetryStore.record(context, "call_monitor", "start_failed_recovery_kept",
+                    error.getClass().getSimpleName());
         }
     }
 
