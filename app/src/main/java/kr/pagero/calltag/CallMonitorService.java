@@ -72,11 +72,10 @@ public final class CallMonitorService extends Service {
         createChannels();
         MessageAutomationStore.ensureDefaults(this);
         if (!canMonitor()) {
-            SettingsStore.setMonitorEnabled(this, false);
             stopSelf();
             return;
         }
-        startForegroundSafely();
+        if (!startForegroundSafely()) return;
         registerCallListener();
         registerCallLogObserver();
         scheduleStartupRecovery();
@@ -90,11 +89,11 @@ public final class CallMonitorService extends Service {
             return START_NOT_STICKY;
         }
         if (!canMonitor()) {
-            SettingsStore.setMonitorEnabled(this, false);
             stopSelf();
             return START_NOT_STICKY;
         }
         SettingsStore.setMonitorEnabled(this, true);
+        CallMonitorRecoveryScheduler.ensureScheduled(this);
         if (!listenerRegistered) registerCallListener();
         if (!observerRegistered) registerCallLogObserver();
         scheduleStartupRecovery();
@@ -143,8 +142,6 @@ public final class CallMonitorService extends Service {
         for (CallRecord record : recent) {
             if (record == null || record.id <= 0L) continue;
 
-            // The immediately previous build stored only one receipt. Import it into the new
-            // bounded ledger on first code80 reconciliation so an upgrade never duplicates it.
             if (record.id == legacyLastId && !CallProcessingLedger.wasResolved(this, record.id)) {
                 CallProcessingLedger.markResolved(this, record.id);
                 SettingsStore.advanceCallRecoveryCursor(this, recoveryPoint(record));
@@ -153,11 +150,10 @@ public final class CallMonitorService extends Service {
             resolveRecordOnce(record, "restart_recovery");
         }
 
-        // Keep a grace window for OEMs that publish CallLog rows late after the IDLE callback.
         SettingsStore.advanceCallRecoveryCursor(this, Math.max(0L, now - RECOVERY_GRACE_MS));
     }
 
-    private void startForegroundSafely() {
+    private boolean startForegroundSafely() {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 startForeground(MONITOR_NOTIFICATION_ID, monitorNotification(),
@@ -165,9 +161,15 @@ public final class CallMonitorService extends Service {
             } else {
                 startForeground(MONITOR_NOTIFICATION_ID, monitorNotification());
             }
-        } catch (RuntimeException e) {
-            SettingsStore.setMonitorEnabled(this, false);
+            return true;
+        } catch (RuntimeException error) {
+            // Do not clear monitorEnabled here. The 15-minute WorkManager safety net must remain
+            // active so a temporary OEM/background restriction cannot permanently disable CRM.
+            CrashTelemetryStore.record(this, "call_monitor", "foreground_failed_recovery_kept",
+                    error.getClass().getSimpleName());
+            CallMonitorRecoveryScheduler.ensureScheduled(this);
             stopSelf();
+            return false;
         }
     }
 
@@ -186,8 +188,7 @@ public final class CallMonitorService extends Service {
         if (listenerRegistered || !canMonitor()) return;
         telephonyManager = (TelephonyManager) getSystemService(TELEPHONY_SERVICE);
         if (telephonyManager == null) {
-            SettingsStore.setMonitorEnabled(this, false);
-            stopSelf();
+            CrashTelemetryStore.record(this, "call_monitor", "telephony_unavailable", "");
             return;
         }
 
@@ -205,9 +206,12 @@ public final class CallMonitorService extends Service {
                 telephonyManager.listen(legacyListener, PhoneStateListener.LISTEN_CALL_STATE);
             }
             listenerRegistered = true;
-        } catch (RuntimeException e) {
-            SettingsStore.setMonitorEnabled(this, false);
-            stopSelf();
+        } catch (RuntimeException error) {
+            // Keep the service/CallLog observer and periodic recovery alive even if the live
+            // Telephony callback is blocked by an OEM for this process lifetime.
+            listenerRegistered = false;
+            CrashTelemetryStore.record(this, "call_monitor", "listener_failed_recovery_kept",
+                    error.getClass().getSimpleName());
         }
     }
 
@@ -217,8 +221,10 @@ public final class CallMonitorService extends Service {
             getContentResolver().registerContentObserver(
                     CallLog.Calls.CONTENT_URI, true, callLogObserver);
             observerRegistered = true;
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException error) {
             observerRegistered = false;
+            CrashTelemetryStore.record(this, "call_monitor", "observer_failed",
+                    error.getClass().getSimpleName());
         }
     }
 
@@ -231,8 +237,6 @@ public final class CallMonitorService extends Service {
         }
 
         if (state == TelephonyManager.CALL_STATE_IDLE) {
-            // registerTelephonyCallback/listen can immediately deliver a stale IDLE state. Never
-            // let that callback tear down a fresh CallScreeningService overlay.
             if (!sawCall) {
                 scheduleCallLogRecovery("idle_without_live_state");
                 return;
@@ -259,7 +263,6 @@ public final class CallMonitorService extends Service {
         handler.postDelayed(() -> {
             if (!lookupRunning || generation != lookupGeneration) return;
             if (!canMonitor()) {
-                SettingsStore.setMonitorEnabled(this, false);
                 resetLookupState(generation);
                 stopSelf();
                 return;
