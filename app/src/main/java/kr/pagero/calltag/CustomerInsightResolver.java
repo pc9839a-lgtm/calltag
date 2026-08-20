@@ -9,7 +9,11 @@ public final class CustomerInsightResolver {
         if (db == null || customer == null) return "";
         List<InteractionRecord> records = db.listInteractionsForCustomer(customer.id);
         for (InteractionRecord record : records) {
-            if (record == null || record.note == null) continue;
+            if (record == null) continue;
+            if ("MEMO_EDIT".equals(record.type)) {
+                return compact(record.note == null ? "" : record.note.trim());
+            }
+            if (record.note == null) continue;
             String note = record.note.trim();
             if (note.isEmpty()) continue;
             if (record.type != null && record.type.endsWith("_CALL")) return compact(note);
