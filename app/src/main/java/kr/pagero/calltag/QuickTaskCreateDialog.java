@@ -14,22 +14,24 @@ public final class QuickTaskCreateDialog {
     public static void show(Activity activity, Customer customer, Runnable onSaved) {
         if (activity == null || activity.isFinishing() || customer == null) return;
 
-        CallTagDbHelper db = new CallTagDbHelper(activity);
-        TaskTypeStore types = new TaskTypeStore(activity);
-        List<ActionChoiceDialog.Option> options = new ArrayList<>();
+        List<TaskTypeOption> availableTypes;
+        TaskTypeStore store = new TaskTypeStore(activity);
         try {
-            for (TaskTypeOption type : types.list()) {
-                options.add(new ActionChoiceDialog.Option(
-                        type.code,
-                        type.name,
-                        "이 종류로 할 일 등록",
-                        type.color));
-            }
+            availableTypes = new ArrayList<>(store.list());
         } catch (RuntimeException error) {
             Toast.makeText(activity, "일정 종류를 불러오지 못했습니다.", Toast.LENGTH_SHORT).show();
-            types.close();
-            db.close();
             return;
+        } finally {
+            store.close();
+        }
+
+        List<ActionChoiceDialog.Option> options = new ArrayList<>();
+        for (TaskTypeOption type : availableTypes) {
+            options.add(new ActionChoiceDialog.Option(
+                    type.code,
+                    type.name,
+                    "이 종류로 할 일 등록",
+                    type.color));
         }
 
         ActionChoiceDialog.show(activity,
@@ -37,7 +39,11 @@ public final class QuickTaskCreateDialog {
                 customer.displayName,
                 options,
                 option -> {
-                    TaskTypeOption selected = types.find(option.key);
+                    TaskTypeOption selected = findType(availableTypes, option.key);
+                    if (selected == null) {
+                        Toast.makeText(activity, "일정 종류를 다시 선택해주세요.", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
                     Calendar initial = Calendar.getInstance();
                     TaskDateChoiceDialog.show(activity, initial, "이 날짜로 등록",
                             (year, month, dayOfMonth) -> {
@@ -50,42 +56,50 @@ public final class QuickTaskCreateDialog {
                                         initial.get(Calendar.HOUR_OF_DAY),
                                         initial.get(Calendar.MINUTE),
                                         "이 시간으로 등록",
-                                        (hourOfDay, minute) -> {
-                                            due.set(Calendar.HOUR_OF_DAY, hourOfDay);
-                                            due.set(Calendar.MINUTE, minute);
-                                            due.set(Calendar.SECOND, 0);
-                                            due.set(Calendar.MILLISECOND, 0);
-                                            try {
-                                                db.insertFollowUpTask(
-                                                        customer.id,
-                                                        0L,
-                                                        selected.code,
-                                                        selected.name,
-                                                        due.getTimeInMillis());
-                                                long now = System.currentTimeMillis();
-                                                db.insertInteraction(
-                                                        customer.id,
-                                                        "SCHEDULE_CREATE",
-                                                        now,
-                                                        now,
-                                                        0L,
-                                                        "SCHEDULED",
-                                                        selected.name);
-                                                HomeTaskRefreshStore.mark(activity);
-                                                Toast.makeText(activity,
-                                                        "할 일을 등록했습니다.",
-                                                        Toast.LENGTH_SHORT).show();
-                                                if (onSaved != null) onSaved.run();
-                                            } catch (RuntimeException error) {
-                                                Toast.makeText(activity,
-                                                        "할 일을 저장하지 못했습니다.",
-                                                        Toast.LENGTH_SHORT).show();
-                                            } finally {
-                                                types.close();
-                                                db.close();
-                                            }
-                                        });
+                                        (hourOfDay, minute) -> save(
+                                                activity, customer, selected, due,
+                                                hourOfDay, minute, onSaved));
                             });
                 });
+    }
+
+    private static void save(Activity activity, Customer customer, TaskTypeOption selected,
+                             Calendar due, int hourOfDay, int minute, Runnable onSaved) {
+        due.set(Calendar.HOUR_OF_DAY, hourOfDay);
+        due.set(Calendar.MINUTE, minute);
+        due.set(Calendar.SECOND, 0);
+        due.set(Calendar.MILLISECOND, 0);
+        CallTagDbHelper db = new CallTagDbHelper(activity);
+        try {
+            db.insertFollowUpTask(
+                    customer.id,
+                    0L,
+                    selected.code,
+                    selected.name,
+                    due.getTimeInMillis());
+            long now = System.currentTimeMillis();
+            db.insertInteraction(
+                    customer.id,
+                    "SCHEDULE_CREATE",
+                    now,
+                    now,
+                    0L,
+                    "SCHEDULED",
+                    selected.name);
+            HomeTaskRefreshStore.mark(activity);
+            Toast.makeText(activity, "할 일을 등록했습니다.", Toast.LENGTH_SHORT).show();
+            if (onSaved != null) onSaved.run();
+        } catch (RuntimeException error) {
+            Toast.makeText(activity, "할 일을 저장하지 못했습니다.", Toast.LENGTH_SHORT).show();
+        } finally {
+            db.close();
+        }
+    }
+
+    private static TaskTypeOption findType(List<TaskTypeOption> types, String code) {
+        for (TaskTypeOption type : types) {
+            if (type != null && type.code.equals(code)) return type;
+        }
+        return null;
     }
 }
