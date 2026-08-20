@@ -21,10 +21,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Compact post-call memo overlay. It never launches the app Activity automatically and requires
- * SYSTEM_ALERT_WINDOW to have been explicitly granted by the user.
- */
+/** Compact post-call customer memo editor. Never launches the CallTag Activity automatically. */
 public final class PostCallOverlayManager {
     private static final long MAIN_THREAD_DELIVERY_TIMEOUT_MS = 2_000L;
 
@@ -38,11 +35,6 @@ public final class PostCallOverlayManager {
         return context != null && CallerOverlayManager.canShow(context);
     }
 
-    /**
-     * WindowManager.addView must run on the main thread. Live call delivery already arrives there,
-     * but WorkManager recovery can run on a worker thread; synchronously marshal that case to main
-     * so a recovered call can still show the same compact popup instead of silently degrading.
-     */
     public static boolean show(Context context, CallRecord record, Customer customer,
                                Intent reviewIntent, String memo) {
         if (context == null || record == null || reviewIntent == null || !canShow(context)) {
@@ -154,7 +146,7 @@ public final class PostCallOverlayManager {
 
         LinearLayout header = new LinearLayout(context);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        TextView title = text(context, "콜태그 · 통화 종료", 13f,
+        TextView title = text(context, "통화 메모", 14f,
                 context.getColor(R.color.primary), true);
         header.addView(title, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -165,10 +157,11 @@ public final class PostCallOverlayManager {
 
         EditText nameInput = new EditText(context);
         nameInput.setSingleLine(true);
-        nameInput.setTextSize(19f);
+        nameInput.setTextSize(18f);
         nameInput.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         nameInput.setTextColor(context.getColor(R.color.text_primary));
         nameInput.setHintTextColor(context.getColor(R.color.text_muted));
+        nameInput.setHint("고객명");
         nameInput.setBackgroundResource(R.drawable.bg_input);
         nameInput.setPadding(dp(context, 12), 0, dp(context, 12), 0);
         String initialName = customer == null
@@ -183,15 +176,6 @@ public final class PostCallOverlayManager {
         nameParams.topMargin = dp(context, 10);
         card.addView(nameInput, nameParams);
 
-        TextView phone = text(context,
-                safe(record.phone) + " · " + CallDisposition.label(record),
-                12.5f, context.getColor(R.color.text_secondary), false);
-        LinearLayout.LayoutParams phoneParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        phoneParams.topMargin = dp(context, 7);
-        card.addView(phone, phoneParams);
-
         EditText memoInput = new EditText(context);
         memoInput.setMinLines(2);
         memoInput.setMaxLines(4);
@@ -199,14 +183,14 @@ public final class PostCallOverlayManager {
         memoInput.setTextSize(15f);
         memoInput.setTextColor(context.getColor(R.color.text_primary));
         memoInput.setHintTextColor(context.getColor(R.color.text_muted));
-        memoInput.setHint("메모를 입력하세요");
+        memoInput.setHint("고객 메모를 입력하세요");
         memoInput.setBackgroundResource(R.drawable.bg_input);
         memoInput.setPadding(dp(context, 12), dp(context, 10), dp(context, 12), dp(context, 10));
         String initialMemo = customer == null ? "" : safe(memo);
         memoInput.setText(initialMemo);
         memoInput.setSelection(memoInput.length());
         LinearLayout.LayoutParams memoParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(context, 92));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(context, 104));
         memoParams.topMargin = dp(context, 10);
         card.addView(memoInput, memoParams);
 
