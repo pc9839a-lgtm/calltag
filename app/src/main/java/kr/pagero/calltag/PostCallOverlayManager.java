@@ -37,10 +37,14 @@ public final class PostCallOverlayManager {
 
     public static boolean show(Context context, CallRecord record, Customer customer,
                                Intent reviewIntent, String memo) {
-        if (context == null || record == null || reviewIntent == null || !canShow(context)) {
-            return false;
-        }
+        if (context == null || record == null || reviewIntent == null) return false;
         Context app = context.getApplicationContext();
+        if (PostCallExclusionStore.contains(app, record.phone)) {
+            PostCallRecoveryStore.markDelivered(app, record.id);
+            CrashTelemetryStore.record(app, "post_call_overlay", "excluded", "call=" + record.id);
+            return true;
+        }
+        if (!canShow(app)) return false;
         if (Looper.myLooper() == Looper.getMainLooper()) {
             return showCheckedOnMain(app, record, customer, reviewIntent, memo);
         }
