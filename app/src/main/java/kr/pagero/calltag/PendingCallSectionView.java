@@ -1,8 +1,10 @@
 package kr.pagero.calltag;
 
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Typeface;
@@ -118,7 +120,10 @@ public final class PendingCallSectionView extends LinearLayout {
         LinearLayout card = new LinearLayout(getContext());
         card.setOrientation(VERTICAL);
         card.setPadding(dp(18), dp(16), dp(18), dp(16));
-        card.setBackgroundResource(R.drawable.bg_card);
+        card.setBackgroundResource(R.drawable.bg_clickable_card);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setOnClickListener(v -> openCustomerEditor(call));
 
         Customer customer = db.findByPhone(call.phone);
         String title = customer != null ? customer.displayName
@@ -175,27 +180,44 @@ public final class PendingCallSectionView extends LinearLayout {
         return card;
     }
 
+    private void openCustomerEditor(PendingCallRecord call) {
+        Activity activity = hostActivity();
+        if (activity == null) {
+            Toast.makeText(getContext(), "고객 수정창을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        QuickCustomerEditDialog.show(activity, call, this::refresh);
+    }
+
     private void openTask(PendingCallRecord call) {
+        Activity activity = hostActivity();
+        if (activity == null) {
+            Toast.makeText(getContext(), "할 일 등록창을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         CallTagDbHelper db = new CallTagDbHelper(getContext());
         try {
             Customer customer = db.findByPhone(call.phone);
-            long customerId;
             if (customer == null) {
                 String name = call.cachedName == null ? "" : call.cachedName.trim();
-                if (name.isEmpty()) {
-                    String normalized = PhoneNumberNormalizer.normalize(call.phone);
-                    String suffix = normalized.length() >= 4
-                            ? normalized.substring(normalized.length() - 4) : normalized;
-                    name = suffix.isEmpty() ? "새 고객" : "고객 " + suffix;
-                }
-                customerId = db.insertCustomer(name, call.phone, db.firstStage(), "");
-            } else {
-                customerId = customer.id;
+                if (name.isEmpty()) name = defaultCustomerName(call.phone);
+                long customerId = db.insertCustomer(name, call.phone, db.firstStage(), "");
+                customer = db.findCustomerById(customerId);
             }
-            getContext().startActivity(new Intent(getContext(), HomeTaskEditorActivity.class)
-                    .putExtra(HomeTaskEditorActivity.EXTRA_CUSTOMER_ID, customerId));
+            if (customer == null) {
+                Toast.makeText(getContext(), "고객 정보를 만들지 못했습니다.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Customer selectedCustomer = customer;
+            QuickTaskCreateDialog.show(activity, selectedCustomer, () -> {
+                try (PendingCallStore store = new PendingCallStore(getContext())) {
+                    store.markHandled(call.callLogId);
+                } catch (RuntimeException ignored) {}
+                refresh();
+            });
         } catch (RuntimeException error) {
-            Toast.makeText(getContext(), "할 일 등록 화면을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), "할 일 등록창을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
         } finally {
             db.close();
         }
@@ -229,6 +251,24 @@ public final class PendingCallSectionView extends LinearLayout {
         } catch (RuntimeException error) {
             Toast.makeText(getContext(), "전화 앱을 열 수 없습니다.", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private Activity hostActivity() {
+        Context current = getContext();
+        while (current instanceof ContextWrapper) {
+            if (current instanceof Activity) return (Activity) current;
+            Context base = ((ContextWrapper) current).getBaseContext();
+            if (base == current) break;
+            current = base;
+        }
+        return current instanceof Activity ? (Activity) current : null;
+    }
+
+    private String defaultCustomerName(String phone) {
+        String normalized = PhoneNumberNormalizer.normalize(phone);
+        String suffix = normalized.length() >= 4
+                ? normalized.substring(normalized.length() - 4) : normalized;
+        return suffix.isEmpty() ? "새 고객" : "고객 " + suffix;
     }
 
     private String typeLabel(PendingCallRecord call) {
