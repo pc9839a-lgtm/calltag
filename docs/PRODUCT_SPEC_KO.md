@@ -1,7 +1,7 @@
 # 콜태그 제품 정의
 
-기준일: **2026-08-18**  
-현재 Android 버전: **0.44.43 / versionCode 2026081801**  
+기준일: **2026-08-23**  
+현재 Android 버전: **0.44.45 / versionCode 2026082101**  
 저장소: `pc9839a-lgtm/calltag`  
 정본 브랜치: `agent/calltag-v04422-billing-live`  
 패키지명: `kr.pagero.calltag`
@@ -36,6 +36,16 @@
 → 전화·문자·일정 후속관리
 ```
 
+장기 제품 방향은 페이지로 전용 연동에 한정하지 않고 다음으로 확장한다.
+
+```text
+외부 광고/폼/홈페이지
+→ CallTag Lead Intake
+→ 고객/문의 생성
+→ 실시간 알림
+→ 전화·메모·할 일·문자 후속관리
+```
+
 콜태그는 기본 전화앱 자체를 교체하지 않는다.
 
 ## 2. 현재 상품
@@ -50,6 +60,8 @@ Google Play Android 구독 상품은 현재 2개만 사용한다.
 페이지로 웹 서비스는 Android Play 상품과 별도로 관리한다.
 
 **현재 `all_monthly` 통합권은 만들지 않는다.**
+
+외부 Lead API/Connector 과금은 아직 확정하지 않는다.
 
 ## 3. 계정·로그인
 
@@ -101,6 +113,8 @@ UX 기준:
 - memo 내용에 `pagero`가 포함됐다는 이유만으로 페이지로 유입으로 판정하지 않는다.
 - 출처 badge 컴포넌트는 전달받은 label을 그대로 사용하며 빈 label은 표시하지 않는다.
 
+외부 Lead Intake 구현 시 `customer.source` 단일 필드 덮어쓰기 방식에서 벗어나 `first source`, `last source`, 문의별 source snapshot을 분리한다.
+
 ## 6. 통화 전 고객정보
 
 - `ROLE_CALL_SCREENING` 사용.
@@ -116,6 +130,7 @@ UX 기준:
 - **작은 오버레이 팝업 1개**가 기본.
 - 전체화면 종료 화면으로 되돌리지 않는다.
 - 전체화면과 작은 팝업 동시 노출 금지.
+- 기본 편집 대상은 **고객명 + 고객 메모**.
 - 오버레이가 불가능하거나 실패했을 때만 고우선 알림 fallback.
 - 사용자가 fallback 알림을 직접 눌렀을 때만 상세 Activity로 진입할 수 있다.
 
@@ -168,10 +183,10 @@ Android의 명시적 Force stop은 OS 정책상 앱이 스스로 해제할 수 �
 - 상태바/시스템 내비게이션바 아이콘 대비도 테마와 맞춘다.
 - 개별 화면에 임의의 흰색/검은색을 반복 하드코딩하지 않고 공통 color resource 사용.
 
-0.44.43 수정:
+최근 수정:
 
-- 화이트에서 `전체 상태`, `전체 기간`, `상태 변경`, 뒤로가기 등 secondary button이 검은 박스로 남던 문제 수정.
-- `bg_secondary_button.xml`의 다크 하드코딩을 테마별 resource 기반으로 전환.
+- 화이트에서 secondary button이 검은 박스로 남던 문제를 공통 resource 기반으로 전환.
+- 홈 Switch tint와 카드/행 surface border를 테마 리소스에 맞춤.
 
 아직 전 화면 실기기 회귀 QA는 남아 있다.
 
@@ -185,6 +200,8 @@ Android의 명시적 Force stop은 OS 정책상 앱이 스스로 해제할 수 �
 - 앱 관리: 테마 / 데이터 관리 / 앱 정보
 
 상단 설정 검색 제공.
+
+향후 외부 Lead Intake 구현 시 `서비스` 영역에 `외부 연동` 또는 `CallTag Connect` 진입점을 추가한다.
 
 ## 12. 문자
 
@@ -219,6 +236,8 @@ Android의 명시적 Force stop은 OS 정책상 앱이 스스로 해제할 수 �
 - 문의 eventId로 중복 수신/발송 방지.
 - 페이지로 자동문자 기본값 OFF.
 
+장기적으로 페이지로 문의도 외부 Lead Intake와 같은 canonical lead pipeline을 사용한다. 다만 사용자는 페이지로 연결 시 별도 API/Webhook 설정을 하지 않는 현재 장점을 유지한다.
+
 상세: `PAGERO_CUSTOMER_INTEGRATION_KO.md`
 
 ## 14. 결제 UX
@@ -245,12 +264,50 @@ RTDN 기반 renewal/cancel/expiry/grace/hold/resume/refund lifecycle 자동 동�
 - minSdk 26
 - compileSdk 36
 - targetSdk 36
-- 현재 버전 `0.44.43 / 2026081801`
+- 현재 버전 `0.44.45 / 2026082101`
 - Google Play 업로드 키는 기존 키만 사용.
 - 서명키가 없다고 CI에서 새 키 생성 금지.
 - AAB 업로드 전 versionCode 증가 필수.
 - 실제 단말 QA와 CI 성공을 구분해서 기록.
-- 0.44.43 signed AAB 빌드 및 기존 Play 업로드 인증서 검증 성공.
-- Signed Release run: `32106739436`
-- AAB: `CallTag-v0.44.43-code2026081801.aab`
-- AAB SHA-256: `6bbffb0ec122eb4a161b51391dbfc18677cc4698c56088d0b561da6ffa52c680`
+- 0.44.45 signed AAB 빌드 성공.
+- Signed Release run: `32488755570`
+
+## 17. CallTag Connect / 외부 Lead Intake — 기획 확정, 구현 전
+
+콜태그의 다음 플랫폼 확장 방향은 특정 랜딩 서비스에 종속되지 않는 범용 외부 입력 수집 계층이다.
+
+지원 전략:
+
+```text
+Native Connector
++ Universal Webhook
++ Direct REST API
++ Zapier/Make/n8n Bridge
++ Redirect Bridge
+```
+
+우선 Native Connector 후보:
+
+- Meta Lead Ads
+- Google Forms
+- 페이지로
+- 국내 주요 입력폼/웹빌더
+
+핵심 정책:
+
+- 외부 입력은 Android 앱이 아니라 서버가 먼저 수신·저장한다.
+- Push/FCM은 데이터 전달의 정본이 아니라 알림 수단이다.
+- provider별 제각각인 payload는 canonical Lead Event로 정규화한다.
+- 이름/전화번호 외 임의 질문은 동적 inquiry fields로 보존한다.
+- 같은 전화번호 재문의는 고객 중복 생성 대신 신규 문의 이벤트로 기록한다.
+- provider event id / external id / Idempotency-Key로 중복 수신을 차단한다.
+- API key/endpoint가 owner에 귀속되며 request body의 ownerId를 신뢰하지 않는다.
+- Meta 등 실시간 provider는 `문의 → 서버 저장 → FCM → 전화`까지 최대한 즉시 연결한다.
+- Google Forms처럼 연결 방식이 다른 provider는 전용 adapter 또는 Apps Script/Sheets bridge를 제공한다.
+- 아임웹의 `제출 완료 후 URL 이동`은 제출 trigger로만 취급하고, 실제 이름/전화번호가 전달된다고 가정하지 않는다.
+- 이름/전화번호를 URL query string에 실어 보내는 방식을 공식 연동 방식으로 사용하지 않는다.
+- 페이지로는 가장 간단하게 연결되는 공식 입력원으로 유지한다.
+
+상세 구현 명세:
+
+`EXTERNAL_LEAD_INTAKE_API_SPEC_KO.md`
