@@ -1,6 +1,6 @@
 # CallTag 문서 인덱스
 
-기준일: **2026-08-14**
+기준일: **2026-08-23**
 
 ## 정본 문서
 
@@ -9,9 +9,10 @@
 | 1 | `ANDROID_DEVELOPER_HANDOFF_KO.md` | 현재 Android 구현 상태·최신 버전·주의사항 |
 | 2 | `PRODUCT_SPEC_KO.md` | 현재 제품 정책·UX·상품 범위 |
 | 3 | `GOOGLE_PLAY_BILLING_SETUP_KO.md` | Google Play 결제·상품·서버 검증 |
-| 4 | `PAGERO_CUSTOMER_INTEGRATION_KO.md` | 페이지로 문의 → 콜태그 연동 |
-| 5 | `MESSAGE_AUTOMATION_SPEC_KO.md` | 문자 자동화 상세 |
-| 6 | `ROADMAP_KO.md` | 남은 작업과 QA |
+| 4 | `EXTERNAL_LEAD_INTAKE_API_SPEC_KO.md` | 외부 입력 API·범용 Webhook·Meta/Google Forms/아임웹 등 Lead Intake 플랫폼 명세 |
+| 5 | `PAGERO_CUSTOMER_INTEGRATION_KO.md` | 페이지로 문의 → 콜태그 연동 |
+| 6 | `MESSAGE_AUTOMATION_SPEC_KO.md` | 문자 자동화 상세 |
+| 7 | `ROADMAP_KO.md` | 남은 작업과 QA |
 
 충돌 시 실제 코드와 `app/build.gradle`이 최우선이다.
 
@@ -36,7 +37,8 @@
 2. 일회성 `HOTFIX`, `NEXT_AI_HANDOFF`, 날짜별 `CURRENT_RELEASE_STATUS` 문서를 새로 쌓지 않는다.
 3. 최신 변경은 `ANDROID_DEVELOPER_HANDOFF_KO.md`에 반영한다.
 4. 제품 정책 변경은 `PRODUCT_SPEC_KO.md`에 반영한다.
-5. 결제 변경은 `GOOGLE_PLAY_BILLING_SETUP_KO.md`에 반영한다.
-6. 페이지로 연동 변경은 `PAGERO_CUSTOMER_INTEGRATION_KO.md`에 반영한다.
-7. 구현 완료/남은 작업은 `ROADMAP_KO.md`에 반영한다.
-8. 비밀번호, 서비스계정 private key, keystore 파일 내용 등 비밀정보는 문서에 기록하지 않는다.
+5. 외부 입력 API·Connector·Webhook 정책은 `EXTERNAL_LEAD_INTAKE_API_SPEC_KO.md`에 반영한다.
+6. 결제 변경은 `GOOGLE_PLAY_BILLING_SETUP_KO.md`에 반영한다.
+7. 페이지로 전용 연동 변경은 `PAGERO_CUSTOMER_INTEGRATION_KO.md`에 반영한다.
+8. 구현 완료/남은 작업은 `ROADMAP_KO.md`에 반영한다.
+9. 비밀번호, 서비스계정 private key, keystore 파일 내용 등 비밀정보는 문서에 기록하지 않는다.
