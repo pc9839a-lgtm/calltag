@@ -1,7 +1,7 @@
 # 콜태그 개발 로드맵
 
-기준일: **2026-08-18**  
-현재 버전: **0.44.43 / versionCode 2026081801**
+기준일: **2026-08-23**  
+현재 버전: **0.44.45 / versionCode 2026082101**
 
 ## 완료된 핵심
 
@@ -11,6 +11,8 @@
 - [x] 고객 삭제 현재 화면 팝업
 - [x] 고객 연락처 저장
 - [x] 오늘 할 일 / 확인할 통화
+- [x] 확인할 통화 카드 탭 고객정보/메모 수정 팝업
+- [x] 확인할 통화 `할 일 등록` 현재 화면 팝업 처리
 - [x] 캘린더 / 일정
 - [x] 일정 시간 선택 휠 UI
 - [x] 월간 캘린더 본문 접기/펼치기
@@ -23,6 +25,7 @@
 - [x] 통화 감지 foreground service
 - [x] 수신 등록고객 정보 표시
 - [x] 통화 종료 작은 오버레이
+- [x] 통화 종료 팝업 고객명 + 메모 즉시 수정
 - [x] 통화 종료 후 앱 Activity 자동 실행 제거
 - [x] overlay 실패 시 알림 fallback
 - [x] CallLog 기반 종료 누락 복구
@@ -51,7 +54,7 @@
 - [x] 계정 전환 시 entitlement 관련 cache 정리
 - [x] 기존 Play 업로드 키 검증 CI
 - [x] API 36 대응
-- [x] 0.44.43 signed AAB 빌드 및 인증서 검증 성공
+- [x] 0.44.45 signed AAB 빌드 성공
 
 ## P0 — 다음 패치 순서
 
@@ -68,7 +71,8 @@
 
 ### 2. 통화 종료 작은 팝업 실기기 확정
 
-- [ ] 0.44.43에서 통화 종료 후 앱 화면이 앞으로 열리지 않는지 20회 이상 반복
+- [ ] 0.44.45에서 통화 종료 후 앱 화면이 앞으로 열리지 않는지 20회 이상 반복
+- [ ] 고객명 + 메모 입력/수정/저장 확인
 - [ ] 앱 전면 상태 수신/발신
 - [ ] 앱 백그라운드 상태 수신/발신
 - [ ] 화면 잠금 상태
@@ -80,7 +84,15 @@
 - [ ] overlay 권한 OFF + 알림 ON fallback
 - [ ] overlay 권한 OFF + 알림 OFF recovery queue 유지
 
-### 3. WorkManager recovery 실기기 검증
+### 3. 홈 확인할 통화 실기기 확정
+
+- [ ] 카드 빈 영역 탭 → 고객명/상태/메모 수정 팝업
+- [ ] `할 일 등록` → 별도 Activity 이동 없이 팝업 처리
+- [ ] 할 일 저장 후 카드/오늘 할 일 즉시 갱신
+- [ ] 다시 전화/삭제 액션 충돌 없음
+- [ ] 기존 고객과 미등록 번호 모두 정상 처리
+
+### 4. WorkManager recovery 실기기 검증
 
 - [ ] foreground service 종료 후 15분 내 누락 CallLog 복구
 - [ ] 재부팅 후 immediate recovery + 첫 통화 감지
@@ -88,7 +100,7 @@
 - [ ] Force stop 후 사용자가 앱 재실행했을 때 worker 재초기화
 - [ ] recovery 과정에서 고객/할 일/자동문자 중복 생성이 없는지 확인
 
-### 4. 권한 UX 전체 통일
+### 5. 권한 UX 전체 통일
 
 - [ ] `권한이 없습니다`만 표시하는 화면 전수조사
 - [ ] 전화 상태 권한 요청/설정 이동 통일
@@ -98,7 +110,7 @@
 - [ ] 연락처 저장 관련 시스템 화면 안내 통일
 - [ ] 권한 거부 후 기능 재탭 시 즉시 허용/설정 액션 제공
 
-### 5. 결제 이용 상태/실계정 QA
+### 6. 결제 이용 상태/실계정 QA
 
 현재 Play 상품:
 
@@ -112,7 +124,7 @@
 - [ ] 결제 취소 후 앱 표시 확인
 - [ ] 국가/결제프로필/테스트트랙별 `ITEM_UNAVAILABLE` 재현 확인
 
-### 6. Google Play RTDN / 구독 lifecycle
+### 7. Google Play RTDN / 구독 lifecycle
 
 - [ ] Pub/Sub topic 구성
 - [ ] Google Play notification publisher 권한 설정
@@ -126,7 +138,106 @@
 - [ ] 이벤트 수신 후 Developer API 재검증
 - [ ] entitlement 자동 갱신
 
-## P1 — 기능별 회귀/완성도
+## P1 — 외부 Lead Intake / CallTag Connect
+
+상세 명세: `EXTERNAL_LEAD_INTAKE_API_SPEC_KO.md`
+
+### Phase 0. 기존 페이지로 구조 일반화
+
+- [ ] PageRo 문의를 canonical Lead Event로 변환하는 adapter
+- [ ] 범용 lead queue/data model
+- [ ] Customer와 Inquiry Event 분리
+- [ ] first source / last source / 문의별 source snapshot
+- [ ] 재문의 고객 중복생성 방지 공통화
+
+### Phase 1. Universal Lead API
+
+- [ ] `POST /api/calltag/v1/leads`
+- [ ] API Key 발급/회전/revoke
+- [ ] `Idempotency-Key`
+- [ ] owner scope 강제
+- [ ] validation/error contract
+- [ ] 개인정보 마스킹 로그
+
+### Phase 2. Generic Webhook + Field Mapper
+
+- [ ] 연결별 Webhook endpoint 발급
+- [ ] 임의 JSON raw payload 저장
+- [ ] 최근 테스트 payload 보기
+- [ ] 이름/전화번호/이메일 alias 자동탐지
+- [ ] 중첩 JSON field mapping
+- [ ] 수동 매핑 수정
+- [ ] mapping version 관리
+- [ ] 테스트 Lead 생성
+
+### Phase 3. Android 실시간 Lead Inbox
+
+- [ ] 신규 문의 FCM
+- [ ] 앱 종료/잠금 상태 수신
+- [ ] 서버 pull + ACK
+- [ ] 신규/기존 고객 매칭
+- [ ] 문의 질문/답변 전체 표시
+- [ ] 알림에서 `전화하기`
+- [ ] 통화 종료 고객명+메모 팝업과 자연스럽게 연결
+- [ ] Push 누락 후 재동기화 복구
+
+### Phase 4. Meta Lead Ads Native Connector
+
+- [ ] Meta OAuth/App 권한 설계
+- [ ] 페이지 선택
+- [ ] Lead Form 선택
+- [ ] webhook subscription
+- [ ] provider event signature 검증
+- [ ] lead detail fetch
+- [ ] campaign/adset/ad/form attribution
+- [ ] 실제 광고계정 E2E
+- [ ] 신규 Meta Lead → 휴대폰 즉시알림 측정
+
+### Phase 5. Google Forms Native Connector
+
+- [ ] Google OAuth scope
+- [ ] Form 선택
+- [ ] response notification/watch
+- [ ] watch 자동 갱신
+- [ ] 신규 response fetch
+- [ ] 질문/답변 mapping
+- [ ] Apps Script + Sheets bridge 가이드
+
+### Phase 6. Automation Bridge / 기타 폼
+
+- [ ] Zapier
+- [ ] Make
+- [ ] n8n
+- [ ] WordPress
+- [ ] Typeform
+- [ ] Tally
+- [ ] Webflow/Jotform
+- [ ] 자체 홈페이지 REST/Webhook 가이드
+
+### Phase 7. 아임웹
+
+- [ ] 입력폼 submit webhook/API 공개 범위 공식 확인
+- [ ] 입력폼 response 접근 scope 확인
+- [ ] OAuth/API Key 연동 가능성 확인
+- [ ] 필요 시 앱스토어/제휴 절차
+- [ ] `제출 완료 후 URL 이동` Redirect Bridge 구현 가능성
+- [ ] Redirect에 개인정보 query 직접 전달 금지
+- [ ] opaque submission id 기반 server-to-server fetch 가능 여부 확인
+
+### Phase 8. Automation / Outbound
+
+- [ ] 신규 문의 → 접수 자동문자
+- [ ] 신규 문의 → 자동 할 일
+- [ ] Lead Response Time
+- [ ] 미처리 SLA 재알림
+- [ ] outbound webhook
+- [ ] `lead.created`
+- [ ] `customer.stage_changed`
+- [ ] `call.completed`
+- [ ] `task.completed`
+- [ ] 광고 conversion feedback adapter 검토
+
+## P1 — 기존 기능별 회귀/완성도
 
 ### 고객/CRM
 
@@ -179,6 +290,7 @@
 - [ ] WorkManager 동기화/recovery 중복 작업 여부
 - [ ] 정산/파트너 데이터 로딩 속도 API 병목
 - [ ] 내부 진단 화면에서 `trigger → resolve → overlay → notification → recovery` 단계 확인 기능 검토
+- [ ] Lead Intake 운영 진단 `receive → verify → map → dedupe → persist → fcm → ack`
 
 ## 출시 전 필수
 
@@ -192,20 +304,19 @@
 - [ ] 스토어 스크린샷/아이콘/설명 최종 검토
 - [ ] 프로덕션 직전 versionCode 증가 + signed AAB 재생성
 
-## 현재 0.44.43 릴리스 기록
+## 현재 0.44.45 릴리스 기록
 
-- UI fixes HEAD: `b27568283c29d48b400da35e9b7153e4d39bb60c`
-- release version bump: `5415f44693c30ad75b3f26eb11b6c55a536571d8`
-- signed build commit: `32044e79867b1dbcdffb20107281655967a68cd1`
-- Signed Release run: `32106739436`
-- AAB: `CallTag-v0.44.43-code2026081801.aab`
-- AAB SHA-256: `6bbffb0ec122eb4a161b51391dbfc18677cc4698c56088d0b561da6ffa52c680`
-- temporary release workflow는 빌드 후 제거함.
+- versionName: `0.44.45`
+- versionCode: `2026082101`
+- signed build commit: `6458c6be90c8a963c228ccf6e984311069c91e28`
+- Signed Release run: `32488755570`
+- AAB: `CallTag-v0.44.45-code2026082101.aab`
 
 ## 문서 운영 원칙
 
 - 최신 구현 현황: `ANDROID_DEVELOPER_HANDOFF_KO.md`
 - 제품 정책: `PRODUCT_SPEC_KO.md`
+- 외부 Lead Intake/API: `EXTERNAL_LEAD_INTAKE_API_SPEC_KO.md`
 - 결제: `GOOGLE_PLAY_BILLING_SETUP_KO.md`
 - 페이지로 연동: `PAGERO_CUSTOMER_INTEGRATION_KO.md`
 - 버전별 `V0xxx_*`, `HOTFIX`, 날짜별 인수인계 문서를 새로 쌓지 않는다.
