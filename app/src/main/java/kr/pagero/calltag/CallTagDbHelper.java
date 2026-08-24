@@ -384,7 +384,7 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
         values.put("primary_phone", phone.trim());
         values.put("normalized_phone", normalized);
         values.put("relation_status", normalizeLegacyStatus(status));
-        values.put("source", "");
+        values.put("source", source == null ? "" : source.trim());
         values.put("first_contact_at", now);
         values.put("last_contact_at", now);
         values.put("created_at", now);
@@ -653,7 +653,7 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
                 cursor.getString(cursor.getColumnIndexOrThrow("primary_phone")),
                 cursor.getString(cursor.getColumnIndexOrThrow("normalized_phone")),
                 cursor.getString(cursor.getColumnIndexOrThrow("relation_status")),
-                "",
+                cursor.getString(cursor.getColumnIndexOrThrow("source")),
                 cursor.getString(cursor.getColumnIndexOrThrow("memo")),
                 cursor.getLong(cursor.getColumnIndexOrThrow("first_contact_at")),
                 cursor.getLong(cursor.getColumnIndexOrThrow("last_contact_at")),
