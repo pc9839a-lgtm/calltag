@@ -50,8 +50,11 @@ public final class UniversalLeadApiClient {
 
     public static Page list(String session, long after, int limit) throws Exception {
         int safeLimit = Math.max(1, Math.min(100, limit));
+        // PageRo는 기존 전용 queue/SMS 자동화 경로가 계속 담당한다. canonical dual-write된
+        // 같은 PageRo 문의를 Universal 경로에서 다시 import하지 않도록 서버 단계에서 제외한다.
         String path = "/api/calltag/v1/leads?after=" + Math.max(0L, after)
-                + "&limit=" + safeLimit;
+                + "&limit=" + safeLimit
+                + "&excludeSourceType=pagero";
         JSONObject response = requestWithFallback("GET", path, null, session);
         JSONArray values = response.optJSONArray("leads");
         List<UniversalLead> leads = new ArrayList<>();
