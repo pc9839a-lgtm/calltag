@@ -11,6 +11,7 @@ on:
     branches:
       - main
       - agent/calltag-foundation
+      - agent/calltag-v04422-billing-live
 
 permissions:
   contents: read
