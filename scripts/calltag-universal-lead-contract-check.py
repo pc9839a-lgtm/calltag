@@ -25,6 +25,11 @@ sync = read("UniversalLeadSyncManager.java")
 pagero_sync = read("PageroLeadSyncManager.java")
 fcm = read("CallTagMessagingService.java")
 resolver = read("CustomerSourceResolver.java")
+application = read("CallTagApplication.java")
+external_ui = read("ExternalLeadIntegrationActivity.java")
+menu_installer = read("ExternalLeadMenuInstaller.java")
+manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
 
 # Customer source must be first-class local CRM data. This protects both PageRo and generic leads.
 require(
@@ -77,7 +82,27 @@ require(
 # Resolver fallback is retained for old on-device rows/builds, but normal reads now carry source directly.
 require(resolver, 'storedSource(context, customer.id)', "legacy source fallback missing")
 
+# Visible Android external-integration UI must be reachable from More without changing MainActivity core logic.
+require(menu_installer, 'R.id.moreMenuList', "More menu installer target missing")
+require(menu_installer, '"외부 문의 연동"', "visible More menu label missing")
+require(menu_installer, 'ExternalLeadIntegrationActivity.class', "More menu must open external lead screen")
+require(application, 'ExternalLeadMenuInstaller.install((MainActivity) activity);', "application must install More entry")
+require(application, 'ExternalLeadMenuInstaller.uninstall((MainActivity) activity);', "application must clean up More entry")
+require(manifest, 'android:name=".ExternalLeadIntegrationActivity"', "external lead activity missing from manifest")
+
+for channel in ["PageRo", "Meta Lead Ads", "Google Forms", "Generic Webhook", "Direct API"]:
+    require(external_ui, f'"{channel}"', f"channel card missing: {channel}")
+require(external_ui, 'UniversalLeadSyncManager.requestSync(this, true)', "manual lead refresh must call real sync manager")
+require(external_ui, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "sync result feedback must use real broadcast")
+require(external_ui, 'AuthSessionStore.hasSession(this)', "external lead UI must respect login session")
+require(external_ui, 'https://calltag.pagero.kr/connect', "external setup must use HTTPS CallTag Connect")
+forbid(external_ui, 'WebView', "external settings must open trusted browser instead of embedding secrets in a WebView")
+
+# This is a real Play update, not a re-upload of the previous 0.44.45 bundle.
+require(gradle, 'versionCode 2026082601', "Play versionCode must be bumped")
+require(gradle, "versionName '0.44.46'", "Play versionName must be bumped")
+
 print(
     "CallTag universal lead contract OK: source persistence/hydration, PageRo exclusion, "
-    "generic FCM pull/ACK, E2E customer isolation and legacy compatibility"
+    "generic FCM pull/ACK, E2E customer isolation, visible external-integration UI and release bump"
 )
