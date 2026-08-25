@@ -10,6 +10,8 @@ import java.util.Locale;
 
 /** CallTag Universal Lead API에서 내려오는 정규화된 문의 1건. */
 public final class UniversalLead {
+    private static final String E2E_TEST_SOURCE_TYPE = "calltag_e2e_test";
+
     public final long id;
     public final String eventId;
     public final String externalId;
@@ -116,6 +118,10 @@ public final class UniversalLead {
                 fields,
                 value.optLong("submittedAt", System.currentTimeMillis()),
                 metadata.toString());
+    }
+
+    public boolean isE2eTest() {
+        return E2E_TEST_SOURCE_TYPE.equalsIgnoreCase(sourceType);
     }
 
     public String sourceLabel() {

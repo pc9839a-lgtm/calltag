@@ -171,6 +171,7 @@ public final class UniversalLeadSyncManager {
         Customer existing = db.findByPhone(lead.phone);
         boolean created = false;
         long customerId;
+        boolean e2eTest = lead.isE2eTest();
         String sourceLabel = sanitizeSourceLabel(lead.sourceLabel());
         if (existing == null) {
             try {
@@ -191,14 +192,19 @@ public final class UniversalLeadSyncManager {
 
         long now = System.currentTimeMillis();
         long contactAt = Math.min(now, Math.max(1L, lead.submittedAt));
-        String mergedMemo = mergeMemo(current.memo, lead.memoLine());
-        ContentValues values = new ContentValues();
-        values.put("source", sourceLabel);
-        values.put("memo", mergedMemo);
-        values.put("last_contact_at", Math.max(current.lastContactAt, contactAt));
-        values.put("updated_at", now);
         SQLiteDatabase database = db.getWritableDatabase();
-        database.update("customers", values, "id=?", new String[]{String.valueOf(customerId)});
+
+        // E2E 테스트가 기존 실제 고객 번호와 겹쳐도 실제 고객의 출처/메모/최근접촉을 덮지 않는다.
+        // 새 테스트 고객은 테스트 데이터임을 식별할 수 있도록 일반 import와 동일하게 초기화한다.
+        if (!e2eTest || created) {
+            String mergedMemo = mergeMemo(current.memo, lead.memoLine());
+            ContentValues values = new ContentValues();
+            values.put("source", sourceLabel);
+            values.put("memo", mergedMemo);
+            values.put("last_contact_at", Math.max(current.lastContactAt, contactAt));
+            values.put("updated_at", now);
+            database.update("customers", values, "id=?", new String[]{String.valueOf(customerId)});
+        }
 
         db.insertInteraction(
                 customerId,
@@ -206,7 +212,7 @@ public final class UniversalLeadSyncManager {
                 contactAt,
                 contactAt,
                 0L,
-                "CALLTAG_LEAD",
+                e2eTest ? "CALLTAG_E2E_TEST" : "CALLTAG_LEAD",
                 lead.interactionNote());
         return new ImportResult(customerId, created);
     }
