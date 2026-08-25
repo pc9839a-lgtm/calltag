@@ -66,6 +66,7 @@
         <activity android:name=".PageroConnectionCompactActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PageroUseGuideActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PageroLeadNotificationActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".ExternalLeadIntegrationActivity" android:exported="false" android:screenOrientation="portrait" />
 
         <activity android:name=".CallerInfoActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:noHistory="true" android:screenOrientation="portrait" android:showWhenLocked="true" android:theme="@style/Theme.CallTag.CallerInfo" android:turnScreenOn="true" />
         <activity android:name=".CallerIdSetupActivity" android:exported="false" android:screenOrientation="portrait" />
