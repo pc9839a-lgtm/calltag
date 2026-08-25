@@ -101,6 +101,7 @@ public final class CallTagApplication extends Application implements Application
         if (activity instanceof MainActivity) {
             MainExitGuard.install(activity);
             MainActivityCardInteractionFix.install((MainActivity) activity);
+            ExternalLeadMenuInstaller.install((MainActivity) activity);
             if (AuthSessionStore.hasSession(activity)) {
                 EntitlementRefreshManager.request(activity, false);
                 PageroAccountConnectionManager.refresh(activity, false);
@@ -157,6 +158,7 @@ public final class CallTagApplication extends Application implements Application
         }
         if (activity instanceof MainActivity) {
             MainActivityCardInteractionFix.install((MainActivity) activity);
+            ExternalLeadMenuInstaller.install((MainActivity) activity);
         }
         if (startedActivities == 1) {
             handler.removeCallbacks(periodicForegroundWork);
@@ -180,6 +182,7 @@ public final class CallTagApplication extends Application implements Application
 
     private boolean isProtectedActivity(Activity activity) {
         return activity instanceof MainActivity
+                || activity instanceof ExternalLeadIntegrationActivity
                 || activity instanceof CustomerAddActivity
                 || activity instanceof CustomerDetailActivity
                 || activity instanceof CustomerQuickEditActivity
@@ -217,6 +220,7 @@ public final class CallTagApplication extends Application implements Application
         }
         if (activity instanceof MainActivity) {
             MainActivityCardInteractionFix.install((MainActivity) activity);
+            ExternalLeadMenuInstaller.install((MainActivity) activity);
         }
     }
 
@@ -229,6 +233,7 @@ public final class CallTagApplication extends Application implements Application
         SystemBarInsetsInstaller.uninstall(activity);
         if (activity instanceof MainActivity) {
             MainActivityCardInteractionFix.uninstall((MainActivity) activity);
+            ExternalLeadMenuInstaller.uninstall((MainActivity) activity);
         }
     }
 }
