@@ -26,9 +26,9 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // Play internal real Direct API -> CRM -> ACK E2E build 2026-08-26
-        versionCode 2026082605
-        versionName '0.44.50'
+        // Play internal simplified external integrations UX + reliable Meta browser launch 2026-08-26
+        versionCode 2026082606
+        versionName '0.44.51'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
@@ -86,6 +86,7 @@ gradle.taskGraph.whenReady { graph ->
 
 dependencies {
     implementation 'androidx.core:core:1.15.0'
+    implementation 'androidx.browser:browser:1.8.0'
     implementation 'androidx.work:work-runtime:2.11.2'
     implementation 'androidx.credentials:credentials:1.6.0'
     implementation 'androidx.credentials:credentials-play-services-auth:1.6.0'
