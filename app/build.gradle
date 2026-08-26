@@ -26,9 +26,9 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // Play internal native external-integration management 2026-08-26
-        versionCode 2026082603
-        versionName '0.44.48'
+        // Play internal CRM external-source visibility/filter build 2026-08-26
+        versionCode 2026082604
+        versionName '0.44.49'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
