@@ -27,13 +27,14 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * 실제 production Direct API → D1 → FCM best-effort → signed pull → local CRM → ACK 흐름을
- * 현재 로그인 계정/기기에서 검증한다. 테스트용 API Key는 메모리에만 두고 즉시 폐기한다.
+ * production Direct API → D1 → FCM(best effort) → signed pull → local CRM → ACK를
+ * 현재 로그인 계정/기기에서 실제로 검증한다.
  */
 public final class ExternalLeadE2eActivity extends Activity {
     private static final String BASE_URL = "https://pagero.kr";
@@ -53,6 +54,9 @@ public final class ExternalLeadE2eActivity extends Activity {
     private Button runButton;
     private volatile boolean waitingForImport;
     private volatile boolean fallbackTriggered;
+    private volatile boolean tempKeyRevoked;
+    private volatile boolean syncSuccessObserved;
+    private volatile String observedSyncMessage = "";
     private volatile String activePhone = "";
     private volatile String activeEventId = "";
     private boolean receiverRegistered;
@@ -62,26 +66,31 @@ public final class ExternalLeadE2eActivity extends Activity {
         public void onReceive(Context context, Intent intent) {
             if (!waitingForImport || intent == null) return;
             boolean success = intent.getBooleanExtra(UniversalLeadSyncManager.EXTRA_SUCCESS, false);
-            String message = intent.getStringExtra(UniversalLeadSyncManager.EXTRA_MESSAGE);
-            String errorCode = intent.getStringExtra(UniversalLeadSyncManager.EXTRA_ERROR_CODE);
+            String message = safe(intent.getStringExtra(UniversalLeadSyncManager.EXTRA_MESSAGE));
+            String errorCode = safe(intent.getStringExtra(UniversalLeadSyncManager.EXTRA_ERROR_CODE));
             boolean imported = hasTestCustomer();
 
             if (success && imported) {
-                waitingForImport = false;
-                mainHandler.removeCallbacksAndMessages(null);
-                String route = fallbackTriggered ? "안전 pull" : "실시간 동기화";
-                showSuccess(route, message == null ? "" : message);
+                // FCM이 API 응답/Key 폐기보다 빨리 도착할 수 있다. Key 폐기 확인 전에는 성공 처리하지 않는다.
+                syncSuccessObserved = true;
+                observedSyncMessage = message;
+                if (!tempKeyRevoked) {
+                    setStatus("CRM 저장 완료 · 임시 Key 폐기 확인 중",
+                            "실시간 문의 수신은 완료됐습니다. 테스트용 API Key 폐기를 확인합니다.");
+                    return;
+                }
+                completeObservedSync();
                 return;
             }
 
             if (!success && imported) {
-                // CRM 저장 뒤 ACK가 실패했을 수 있다. receipt 기반 재동기화로 중복 import 없이 ACK를 재시도한다.
-                setStatus("CRM 저장 완료 · ACK 재확인 중", safe(message));
+                // CRM 저장 뒤 ACK가 실패했을 수 있다. receipt 기반 재동기화는 중복 import 없이 ACK만 재시도한다.
                 fallbackTriggered = true;
+                setStatus("CRM 저장 완료 · ACK 재확인 중", message + codeSuffix(errorCode));
                 UniversalLeadSyncManager.requestSync(thisContext(), true);
                 scheduleFinalTimeout();
             } else if (!success && fallbackTriggered) {
-                setStatus("동기화 실패", safe(message) + codeSuffix(errorCode));
+                setStatus("동기화 실패", message + codeSuffix(errorCode));
                 finishProbe(false);
             }
         }
@@ -114,10 +123,9 @@ public final class ExternalLeadE2eActivity extends Activity {
         root.addView(title);
 
         TextView description = text(
-                "현재 로그인 계정으로 production Direct API 문의 1건을 실제 생성하고, 앱 CRM 저장과 ACK까지 확인합니다. " +
-                        "테스트용 API Key는 발급 직후 메모리에서만 사용하고 즉시 폐기합니다.",
-                14f,
-                R.color.text_secondary);
+                "현재 로그인 계정으로 production Direct API 문의 1건을 실제 생성하고, 앱 CRM 저장과 서버 ACK까지 확인합니다. " +
+                        "테스트용 API Key는 메모리에만 두고 즉시 폐기합니다.",
+                14f, R.color.text_secondary);
         LinearLayout.LayoutParams descriptionParams = wrap();
         descriptionParams.topMargin = dp(12);
         root.addView(description, descriptionParams);
@@ -150,11 +158,10 @@ public final class ExternalLeadE2eActivity extends Activity {
         root.addView(runButton, buttonParams);
 
         TextView flow = text(
-                "검증 순서\n1. 임시 Direct API Key 발급\n2. 실제 production 문의 접수\n" +
+                "검증 순서\n1. 임시 Direct API Key 발급\n2. production 문의 실제 접수\n" +
                         "3. 임시 Key 즉시 폐기\n4. FCM 실시간 수신 대기\n" +
                         "5. 필요 시 signed pull 안전 동기화\n6. CRM 저장 + 서버 ACK 확인",
-                13f,
-                R.color.text_secondary);
+                13f, R.color.text_secondary);
         flow.setLineSpacing(0f, 1.22f);
         LinearLayout.LayoutParams flowParams = wrap();
         flowParams.topMargin = dp(22);
@@ -162,8 +169,7 @@ public final class ExternalLeadE2eActivity extends Activity {
 
         TextView note = text(
                 "테스트 고객은 099로 시작하는 비실사용 테스트 번호와 ‘CallTag Direct API 테스트’ 이름으로 CRM에 1건 남습니다.",
-                12f,
-                R.color.text_muted);
+                12f, R.color.text_muted);
         note.setGravity(Gravity.START);
         LinearLayout.LayoutParams noteParams = wrap();
         noteParams.topMargin = dp(16);
@@ -173,11 +179,13 @@ public final class ExternalLeadE2eActivity extends Activity {
 
     private void renderReadyState() {
         if (!AuthSessionStore.hasSession(this)) {
-            setStatus("로그인 필요", "외부 문의 수신 테스트는 현재 로그인된 CallTag 계정으로만 실행됩니다.");
+            setStatus("로그인 필요", "현재 로그인된 CallTag 계정으로만 실제 수신 테스트를 실행할 수 있습니다.");
             runButton.setText("로그인 화면 열기");
             runButton.setOnClickListener(v -> startActivity(new Intent(this, LoginActivity.class)));
             return;
         }
+        runButton.setText("실제 테스트 시작");
+        runButton.setOnClickListener(v -> startProbe());
         setStatus("실제 수신 테스트 준비 완료", "버튼을 누르면 production에 테스트 문의 1건을 생성합니다.");
     }
 
@@ -191,11 +199,13 @@ public final class ExternalLeadE2eActivity extends Activity {
 
         waitingForImport = true;
         fallbackTriggered = false;
+        tempKeyRevoked = false;
+        syncSuccessObserved = false;
+        observedSyncMessage = "";
         activePhone = testPhone();
         activeEventId = "android-e2e-" + UUID.randomUUID();
         runButton.setEnabled(false);
         setStatus("1/6 · 임시 API Key 발급 중", "production 서버와 현재 로그인 세션을 확인하고 있습니다.");
-
         executor.execute(() -> runProductionProbe(session, activePhone, activeEventId));
     }
 
@@ -207,12 +217,8 @@ public final class ExternalLeadE2eActivity extends Activity {
         try {
             JSONObject created = postJson(
                     "/api/calltag/v1/keys",
-                    new JSONObject()
-                            .put("action", "create")
-                            .put("name", "Android actual receive test"),
-                    "X-Inlet-Session",
-                    session,
-                    "");
+                    new JSONObject().put("action", "create").put("name", "Android actual receive test"),
+                    "X-Inlet-Session", session, "");
             JSONObject key = created.optJSONObject("key");
             if (key == null) throw new IllegalStateException("임시 API Key 응답이 없습니다.");
             keyId = key.optString("id", "").trim();
@@ -240,8 +246,7 @@ public final class ExternalLeadE2eActivity extends Activity {
             JSONObject response = postJson(
                     "/api/calltag/v1/leads",
                     lead,
-                    "Authorization",
-                    "Bearer " + apiKey,
+                    "Authorization", "Bearer " + apiKey,
                     eventId);
             accepted = response.optBoolean("ok", false);
             serverResult = response.optString("result", "");
@@ -252,15 +257,17 @@ public final class ExternalLeadE2eActivity extends Activity {
         } catch (Exception error) {
             postFailure("서버 접수 실패", message(error));
         } finally {
-            // 원문 key는 이 메서드의 로컬 변수에서만 존재한다. 화면/Preferences/DB에 저장하지 않는다.
+            // 원문 Key는 로컬 변수에만 존재하며 화면/SharedPreferences/SQLite에 저장하지 않는다.
             if (!keyId.isEmpty()) {
                 boolean revoked = revokeWithRetry(session, keyId);
                 if (!revoked) {
                     postFailure("임시 API Key 폐기 실패",
-                            "문의 접수 테스트용 Key를 자동 폐기하지 못했습니다. 외부 문의 연동의 Direct API에서 활성 Key를 확인해주세요.");
+                            "테스트용 Key를 자동 폐기하지 못했습니다. 외부 문의 연동의 Direct API에서 활성 Key를 확인해주세요.");
                     apiKey = "";
                     return;
                 }
+                tempKeyRevoked = true;
+                if (syncSuccessObserved) mainHandler.post(this::completeObservedSync);
             }
             apiKey = "";
         }
@@ -269,7 +276,12 @@ public final class ExternalLeadE2eActivity extends Activity {
         final String resultText = serverResult;
         mainHandler.post(() -> {
             if (!waitingForImport) return;
-            setStatus("3/6 · 서버 접수 완료", "결과 " + safe(resultText) + " · 임시 API Key 폐기 완료");
+            if (syncSuccessObserved && tempKeyRevoked) {
+                completeObservedSync();
+                return;
+            }
+            setStatus("3/6 · 서버 접수 완료",
+                    "결과 " + safe(resultText) + " · 임시 API Key 폐기 완료 · FCM 실시간 수신 대기");
             mainHandler.postDelayed(this::fallbackPullIfNeeded, REALTIME_WAIT_MS);
         });
     }
@@ -280,12 +292,12 @@ public final class ExternalLeadE2eActivity extends Activity {
                 postJson(
                         "/api/calltag/v1/keys",
                         new JSONObject().put("action", "revoke").put("keyId", keyId),
-                        "X-Inlet-Session",
-                        session,
-                        "");
+                        "X-Inlet-Session", session, "");
                 return true;
             } catch (Exception ignored) {
-                try { Thread.sleep(350L); } catch (InterruptedException interrupted) {
+                try {
+                    Thread.sleep(350L);
+                } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
                     return false;
                 }
@@ -294,14 +306,18 @@ public final class ExternalLeadE2eActivity extends Activity {
         return false;
     }
 
+    private void completeObservedSync() {
+        if (!waitingForImport || !tempKeyRevoked || !syncSuccessObserved || !hasTestCustomer()) return;
+        String route = fallbackTriggered ? "안전 pull" : "FCM 실시간 동기화";
+        showSuccess(route, observedSyncMessage);
+    }
+
     private void fallbackPullIfNeeded() {
         if (!waitingForImport) return;
+        fallbackTriggered = true;
         if (hasTestCustomer()) {
-            // 아주 드물게 브로드캐스트를 놓쳤을 경우 서버 ACK를 확정하기 위해 한 번 더 pull한다.
-            fallbackTriggered = true;
-            setStatus("5/6 · CRM 확인 · ACK 재확인", "테스트 고객이 저장됐습니다. 서버 ACK 상태를 한 번 더 확인합니다.");
+            setStatus("5/6 · CRM 확인 · ACK 재확인", "테스트 고객이 저장됐습니다. 서버 ACK를 한 번 더 확인합니다.");
         } else {
-            fallbackTriggered = true;
             setStatus("4/6 · FCM 대기 완료 · 안전 pull", "실시간 신호가 없거나 늦어 signed pull로 동일 문의를 확인합니다.");
         }
         UniversalLeadSyncManager.requestSync(this, true);
@@ -309,18 +325,21 @@ public final class ExternalLeadE2eActivity extends Activity {
     }
 
     private void scheduleFinalTimeout() {
-        mainHandler.postDelayed(() -> {
-            if (!waitingForImport) return;
-            if (hasTestCustomer()) {
-                setStatus("CRM 저장 확인 · ACK 응답 대기 초과",
-                        "고객은 저장됐지만 동기화 성공 응답을 확인하지 못했습니다. 지금 문의 확인을 다시 실행해 ACK를 재시도할 수 있습니다.");
-            } else {
-                setStatus("수신 테스트 실패",
-                        "production 접수 후 CRM에 테스트 고객이 생성되지 않았습니다. 로그인/서버 연결/동기화 상태를 확인해주세요.");
-            }
-            finishProbe(false);
-        }, FALLBACK_RESULT_WAIT_MS);
+        mainHandler.removeCallbacks(finalTimeoutRunnable);
+        mainHandler.postDelayed(finalTimeoutRunnable, FALLBACK_RESULT_WAIT_MS);
     }
+
+    private final Runnable finalTimeoutRunnable = () -> {
+        if (!waitingForImport) return;
+        if (hasTestCustomer()) {
+            setStatus("CRM 저장 확인 · ACK 응답 대기 초과",
+                    "고객은 저장됐지만 동기화 성공 응답을 확인하지 못했습니다. 다시 시도하면 receipt 기반으로 ACK를 재확인합니다.");
+        } else {
+            setStatus("수신 테스트 실패",
+                    "production 접수 후 CRM에 테스트 고객이 생성되지 않았습니다. 로그인/서버 연결/동기화 상태를 확인해주세요.");
+        }
+        finishProbe(false);
+    };
 
     private JSONObject postJson(
             String path,
@@ -348,8 +367,7 @@ public final class ExternalLeadE2eActivity extends Activity {
             int code = connection.getResponseCode();
             String responseBody = readBody(code >= 200 && code < 300
                     ? connection.getInputStream() : connection.getErrorStream());
-            JSONObject response = responseBody.trim().isEmpty()
-                    ? new JSONObject() : new JSONObject(responseBody);
+            JSONObject response = responseBody.trim().isEmpty() ? new JSONObject() : new JSONObject(responseBody);
             if (code < 200 || code >= 300 || !response.optBoolean("ok", false)) {
                 String error = response.optString("error", "HTTP " + code);
                 throw new IllegalStateException(error + " (" + code + ")");
@@ -363,12 +381,9 @@ public final class ExternalLeadE2eActivity extends Activity {
     private static String readBody(InputStream stream) throws Exception {
         if (stream == null) return "";
         StringBuilder value = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
             String line;
-            while ((line = reader.readLine()) != null && value.length() < 262_144) {
-                value.append(line);
-            }
+            while ((line = reader.readLine()) != null && value.length() < 262_144) value.append(line);
         }
         return value.toString();
     }
@@ -384,20 +399,21 @@ public final class ExternalLeadE2eActivity extends Activity {
     }
 
     private String testPhone() {
-        int value = random.nextInt(100_000_000);
-        return "099" + String.format(java.util.Locale.US, "%08d", value);
+        return "099" + String.format(Locale.US, "%08d", random.nextInt(100_000_000));
     }
 
     private void showSuccess(String route, String syncMessage) {
         setStatus("6/6 · 실제 수신 테스트 성공",
                 "Direct API → production D1 → " + route + " → CRM 저장 → ACK 완료\n" +
                         "테스트 번호: " + activePhone +
-                        (syncMessage.isEmpty() ? "" : "\n" + syncMessage));
+                        (safe(syncMessage).isEmpty() ? "" : "\n" + safe(syncMessage)));
         finishProbe(true);
     }
 
     private void postUi(String status, String detail) {
-        mainHandler.post(() -> setStatus(status, detail));
+        mainHandler.post(() -> {
+            if (waitingForImport) setStatus(status, detail);
+        });
     }
 
     private void postFailure(String status, String detail) {
@@ -410,7 +426,7 @@ public final class ExternalLeadE2eActivity extends Activity {
 
     private void finishProbe(boolean success) {
         waitingForImport = false;
-        mainHandler.removeCallbacksAndMessages(null);
+        mainHandler.removeCallbacks(finalTimeoutRunnable);
         runButton.setEnabled(true);
         runButton.setText(success ? "테스트 다시 실행" : "다시 시도");
     }
@@ -429,15 +445,13 @@ public final class ExternalLeadE2eActivity extends Activity {
     }
 
     private static String message(Throwable error) {
-        if (error == null || error.getMessage() == null || error.getMessage().trim().isEmpty()) {
-            return "외부 문의 테스트 중 오류가 발생했습니다.";
-        }
-        return error.getMessage().trim();
+        String value = error == null ? "" : safe(error.getMessage());
+        return value.isEmpty() ? "외부 문의 테스트 중 오류가 발생했습니다." : value;
     }
 
     private static String codeSuffix(String code) {
-        String safe = safe(code);
-        return safe.isEmpty() ? "" : " (" + safe + ")";
+        String value = safe(code);
+        return value.isEmpty() ? "" : " (" + value + ")";
     }
 
     private TextView text(String value, float size, int colorRes) {
@@ -463,7 +477,9 @@ public final class ExternalLeadE2eActivity extends Activity {
         waitingForImport = false;
         mainHandler.removeCallbacksAndMessages(null);
         if (receiverRegistered) {
-            try { unregisterReceiver(syncReceiver); } catch (Exception ignored) {}
+            try {
+                unregisterReceiver(syncReceiver);
+            } catch (Exception ignored) {}
             receiverRegistered = false;
         }
         executor.shutdownNow();
