@@ -369,7 +369,7 @@ public final class CustomerListView extends LinearLayout {
         dialog.show();
     }
 
-    private void deleteCustomer(LinearLayout card, long customerId, String customerName) {
+    private void deleteCustomer(LinearLayout card, long customerId) {
         CallTagDbHelper db = new CallTagDbHelper(getContext());
         int removed;
         try {
