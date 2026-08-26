@@ -65,6 +65,8 @@ public final class MoreSettingsHubView extends LinearLayout {
         Section service = section("서비스");
         service.addMenu("외부 문의 연동", "외부 문의 자동수신 메타 리드 광고 구글 폼 웹훅 API 연동",
                 v -> start(ExternalLeadIntegrationActivity.class));
+        service.addMenu("외부 문의 수신 테스트", "Direct API 실제 수신 production FCM pull CRM ACK 테스트",
+                v -> start(ExternalLeadE2eActivity.class));
         service.addMenu("페이지로", "페이지로 연결 연동 문의 고객 자동등록",
                 v -> start(PageroConnectionCompactActivity.class));
         service.addMenu("파트너 코드", "추천코드 친구 초대 코드 복사 공유",
