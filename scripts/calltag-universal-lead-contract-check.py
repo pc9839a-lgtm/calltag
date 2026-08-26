@@ -28,6 +28,8 @@ resolver = read("CustomerSourceResolver.java")
 application = read("CallTagApplication.java")
 external_ui = read("ExternalLeadIntegrationActivity.java")
 menu_installer = read("ExternalLeadMenuInstaller.java")
+more_hub = read("MoreSettingsHubView.java")
+section_more = (ROOT / "app/src/main/res/layout/section_more.xml").read_text(encoding="utf-8")
 manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
 gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
 
@@ -82,12 +84,17 @@ require(
 # Resolver fallback is retained for old on-device rows/builds, but normal reads now carry source directly.
 require(resolver, 'storedSource(context, customer.id)', "legacy source fallback missing")
 
-# Visible Android external-integration UI must be reachable from More without changing MainActivity core logic.
-require(menu_installer, 'R.id.moreMenuList', "More menu installer target missing")
-require(menu_installer, '"외부 문의 연동"', "visible More menu label missing")
-require(menu_installer, 'ExternalLeadIntegrationActivity.class', "More menu must open external lead screen")
-require(application, 'ExternalLeadMenuInstaller.install((MainActivity) activity);', "application must install More entry")
-require(application, 'ExternalLeadMenuInstaller.uninstall((MainActivity) activity);', "application must clean up More entry")
+# The actual visible More screen is MoreSettingsHubView. moreMenuList is a hidden 1dp legacy fallback,
+# so a label only in ExternalLeadMenuInstaller is NOT sufficient proof that users can see it.
+require(section_more, 'kr.pagero.calltag.MoreSettingsHubView', "visible More settings hub missing")
+require(more_hub, 'Section service = section("서비스")', "visible service section missing")
+require(more_hub, 'service.addMenu("외부 문의 연동"', "external lead entry missing from visible More service section")
+require(more_hub, 'ExternalLeadIntegrationActivity.class', "visible More entry must open external lead screen")
+require(more_hub, '외부 문의 자동수신', "external lead entry must be searchable in settings")
+
+# Keep the legacy installer harmless as a fallback for old layout paths, but do not rely on it as visibility proof.
+require(menu_installer, '"외부 문의 연동"', "legacy More fallback label missing")
+require(application, 'ExternalLeadMenuInstaller.install((MainActivity) activity);', "legacy More fallback installer missing")
 require(manifest, 'android:name=".ExternalLeadIntegrationActivity"', "external lead activity missing from manifest")
 
 for channel in ["PageRo", "Meta Lead Ads", "Google Forms", "Generic Webhook", "Direct API"]:
@@ -98,11 +105,11 @@ require(external_ui, 'AuthSessionStore.hasSession(this)', "external lead UI must
 require(external_ui, 'https://calltag.pagero.kr/connect', "external setup must use HTTPS CallTag Connect")
 forbid(external_ui, 'WebView', "external settings must open trusted browser instead of embedding secrets in a WebView")
 
-# This is a real Play update, not a re-upload of the previous 0.44.45 bundle.
-require(gradle, 'versionCode 2026082601', "Play versionCode must be bumped")
-require(gradle, "versionName '0.44.46'", "Play versionName must be bumped")
+# 0.44.46 was already built before the visible-hub bug was found; this fix must be a new Play update.
+require(gradle, 'versionCode 2026082602', "Play versionCode must be bumped after visible More fix")
+require(gradle, "versionName '0.44.47'", "Play versionName must be bumped after visible More fix")
 
 print(
     "CallTag universal lead contract OK: source persistence/hydration, PageRo exclusion, "
-    "generic FCM pull/ACK, E2E customer isolation, visible external-integration UI and release bump"
+    "generic FCM pull/ACK, E2E customer isolation, visible More hub external-integration entry and release bump"
 )
