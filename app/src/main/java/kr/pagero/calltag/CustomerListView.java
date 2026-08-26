@@ -16,8 +16,18 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-/** 고객 카드에는 상태변경/문자보내기는 텍스트, 삭제만 작은 아이콘으로 노출한다. */
+/** 고객 카드에 유입 출처 배지와 외부 문의 전용 필터를 함께 제공한다. */
 public final class CustomerListView extends LinearLayout {
+    private static final String TAG_FILTER_ROW = "customer_source_filter_row";
+    private static final String TAG_FILTER_EMPTY = "customer_source_filter_empty";
+    private static final String TAG_EXTERNAL_CARD = "customer_external_card";
+    private static final String TAG_LOCAL_CARD = "customer_local_card";
+
+    private boolean externalOnly;
+    private Button allSourceButton;
+    private Button externalSourceButton;
+    private TextView externalEmpty;
+
     public CustomerListView(Context context) { super(context); }
     public CustomerListView(Context context, AttributeSet attrs) { super(context, attrs); }
     public CustomerListView(Context context, AttributeSet attrs, int defStyleAttr) {
@@ -25,9 +35,118 @@ public final class CustomerListView extends LinearLayout {
     }
 
     @Override
+    public void removeAllViews() {
+        super.removeAllViews();
+        allSourceButton = null;
+        externalSourceButton = null;
+        externalEmpty = null;
+    }
+
+    @Override
     public void addView(View child, ViewGroup.LayoutParams params) {
+        ensureSourceFilter();
         styleChild(child, params);
         super.addView(child, params);
+        applySourceFilter();
+    }
+
+    private void ensureSourceFilter() {
+        if (allSourceButton != null && allSourceButton.getParent() == this) return;
+
+        LinearLayout row = new LinearLayout(getContext());
+        row.setTag(TAG_FILTER_ROW);
+        row.setOrientation(HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, 0, 0, dp(8));
+
+        TextView label = new TextView(getContext());
+        label.setText("유입");
+        label.setTextSize(12f);
+        label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        label.setTextColor(getContext().getColor(R.color.text_secondary));
+        row.addView(label, new LinearLayout.LayoutParams(0, dp(36), 1f));
+
+        allSourceButton = filterButton("전체");
+        allSourceButton.setOnClickListener(v -> setExternalOnly(false));
+        row.addView(allSourceButton, new LinearLayout.LayoutParams(dp(72), dp(36)));
+
+        externalSourceButton = filterButton("외부 문의");
+        externalSourceButton.setOnClickListener(v -> setExternalOnly(true));
+        LinearLayout.LayoutParams externalParams = new LinearLayout.LayoutParams(dp(92), dp(36));
+        externalParams.leftMargin = dp(6);
+        row.addView(externalSourceButton, externalParams);
+
+        super.addView(row, new LinearLayout.LayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+
+        externalEmpty = new TextView(getContext());
+        externalEmpty.setTag(TAG_FILTER_EMPTY);
+        externalEmpty.setText("외부 문의로 들어온 고객이 없습니다.");
+        externalEmpty.setTextSize(13f);
+        externalEmpty.setTextColor(getContext().getColor(R.color.text_secondary));
+        externalEmpty.setGravity(Gravity.CENTER);
+        externalEmpty.setPadding(dp(14), dp(20), dp(14), dp(20));
+        externalEmpty.setBackgroundResource(R.drawable.bg_card);
+        externalEmpty.setVisibility(GONE);
+        LinearLayout.LayoutParams emptyParams = new LinearLayout.LayoutParams(
+                LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        emptyParams.bottomMargin = dp(8);
+        super.addView(externalEmpty, emptyParams);
+        styleSourceButtons();
+    }
+
+    private Button filterButton(String label) {
+        Button button = new Button(getContext());
+        button.setText(label);
+        button.setAllCaps(false);
+        button.setTextSize(12f);
+        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        button.setMinWidth(0);
+        button.setMinimumWidth(0);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setPadding(dp(8), 0, dp(8), 0);
+        return button;
+    }
+
+    private void setExternalOnly(boolean enabled) {
+        if (externalOnly == enabled) return;
+        externalOnly = enabled;
+        styleSourceButtons();
+        applySourceFilter();
+    }
+
+    private void styleSourceButtons() {
+        if (allSourceButton == null || externalSourceButton == null) return;
+        styleFilterButton(allSourceButton, !externalOnly);
+        styleFilterButton(externalSourceButton, externalOnly);
+    }
+
+    private void styleFilterButton(Button button, boolean selected) {
+        button.setBackgroundResource(selected
+                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
+        button.setTextColor(getContext().getColor(selected
+                ? android.R.color.white : R.color.text_primary));
+    }
+
+    private void applySourceFilter() {
+        if (externalEmpty == null) return;
+        int externalCards = 0;
+        boolean hasParentEmptyState = false;
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            Object tag = child.getTag();
+            if (TAG_EXTERNAL_CARD.equals(tag)) {
+                externalCards++;
+                child.setVisibility(VISIBLE);
+            } else if (TAG_LOCAL_CARD.equals(tag)) {
+                child.setVisibility(externalOnly ? GONE : VISIBLE);
+            } else if (child instanceof TextView && child != externalEmpty) {
+                hasParentEmptyState = true;
+            }
+        }
+        externalEmpty.setVisibility(externalOnly && externalCards == 0 && !hasParentEmptyState
+                ? VISIBLE : GONE);
     }
 
     private void styleChild(View child, ViewGroup.LayoutParams params) {
@@ -92,6 +211,9 @@ public final class CustomerListView extends LinearLayout {
         final String customerName = customer.displayName;
         final String customerPhone = phone;
         final boolean pagero = CustomerSourceResolver.isPagero(customer);
+        final String sourceLabel = CustomerSourceResolver.label(getContext(), customer);
+        final boolean external = CustomerSourceResolver.isExternal(getContext(), customer);
+        card.setTag(external ? TAG_EXTERNAL_CARD : TAG_LOCAL_CARD);
         card.setClickable(true);
         card.setFocusable(true);
         card.setOnClickListener(v -> openCustomer(customerId));
@@ -107,8 +229,8 @@ public final class CustomerListView extends LinearLayout {
         phoneView.setEllipsize(TextUtils.TruncateAt.END);
         phoneView.setTextSize(14f);
         contactRow.addView(phoneView, new LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
-        if (pagero) {
-            TextView source = CustomerSourceBadge.create(getContext(), "페이지로");
+        if (!sourceLabel.isEmpty()) {
+            TextView source = CustomerSourceBadge.create(getContext(), sourceLabel);
             LinearLayout.LayoutParams sourceParams = new LinearLayout.LayoutParams(
                     LayoutParams.WRAP_CONTENT, dp(26));
             sourceParams.leftMargin = dp(8);
@@ -247,7 +369,7 @@ public final class CustomerListView extends LinearLayout {
         dialog.show();
     }
 
-    private void deleteCustomer(LinearLayout card, long customerId) {
+    private void deleteCustomer(LinearLayout card, long customerId, String customerName) {
         CallTagDbHelper db = new CallTagDbHelper(getContext());
         int removed;
         try {
@@ -261,6 +383,7 @@ public final class CustomerListView extends LinearLayout {
         }
         if (removed > 0) {
             if (card.getParent() == this) removeView(card);
+            applySourceFilter();
             Toast.makeText(getContext(), "고객을 삭제했습니다.", Toast.LENGTH_SHORT).show();
         } else {
             Toast.makeText(getContext(), "이미 삭제된 고객입니다.", Toast.LENGTH_SHORT).show();
