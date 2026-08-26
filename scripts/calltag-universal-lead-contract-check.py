@@ -30,6 +30,7 @@ source_detail = read("CustomerSourceDetailView.java")
 application = read("CallTagApplication.java")
 external_ui = read("ExternalLeadIntegrationActivity.java")
 external_api = read("ExternalLeadIntegrationApiClient.java")
+external_e2e = read("ExternalLeadE2eActivity.java")
 menu_installer = read("ExternalLeadMenuInstaller.java")
 more_hub = read("MoreSettingsHubView.java")
 section_more = (ROOT / "app/src/main/res/layout/section_more.xml").read_text(encoding="utf-8")
@@ -99,6 +100,8 @@ require(more_hub, 'Section service = section("서비스")', "visible service sec
 require(more_hub, 'service.addMenu("외부 문의 연동"', "external lead entry missing from visible More service section")
 require(more_hub, 'ExternalLeadIntegrationActivity.class', "visible More entry must open external lead screen")
 require(more_hub, '외부 문의 자동수신', "external lead entry must be searchable in settings")
+require(more_hub, 'service.addMenu("외부 문의 수신 테스트"', "real receive test entry missing from visible More service section")
+require(more_hub, 'ExternalLeadE2eActivity.class', "real receive test entry must open the production E2E screen")
 require(menu_installer, '"외부 문의 연동"', "legacy More fallback label missing")
 require(application, 'ExternalLeadMenuInstaller.install((MainActivity) activity);', "legacy More fallback installer missing")
 
@@ -141,11 +144,22 @@ require(external_ui, 'UniversalLeadSyncManager.requestSync(this, true)', "manual
 require(external_ui, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "sync result feedback must use real broadcast")
 require(external_ui, 'AuthSessionStore.hasSession(this)', "external lead UI must respect login session")
 
-# CRM source visibility is a new Play update after the native integration-management build.
-require(gradle, 'versionCode 2026082604', "Play versionCode must be bumped for CRM source visibility")
-require(gradle, "versionName '0.44.49'", "Play versionName must be bumped for CRM source visibility")
+# Real-device production Direct API E2E must use a temporary key, canonical intake, real sync and no persisted secret.
+require(manifest, 'android:name=".ExternalLeadE2eActivity" android:exported="false"', "production E2E activity must be private")
+require(external_e2e, '"/api/calltag/v1/keys"', "production E2E must create/revoke a temporary API key")
+require(external_e2e, '"/api/calltag/v1/leads"', "production E2E must hit canonical Direct API intake")
+require(external_e2e, '.put("type", "direct_api")', "production E2E source must be Direct API")
+require(external_e2e, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "production E2E must observe the real sync result")
+require(external_e2e, 'UniversalLeadSyncManager.requestSync(this, true)', "production E2E must retain signed-pull fallback")
+require(external_e2e, 'db.findByPhone(phone) != null', "production E2E must verify the test customer reached local CRM")
+require(external_e2e, '.put("action", "revoke").put("keyId", keyId)', "temporary E2E API key must be revoked")
+forbid(external_e2e, 'SharedPreferences', "temporary E2E API key must never be persisted")
+
+# Production real-receive verification is the Play update after CRM source visibility.
+require(gradle, 'versionCode 2026082605', "Play versionCode must be bumped for real receive E2E")
+require(gradle, "versionName '0.44.50'", "Play versionName must be bumped for real receive E2E")
 
 print(
     "CallTag universal lead contract OK: PII-free pull/ACK, E2E isolation, native integration management, "
-    "external inquiry source badges/filter/detail history and 0.44.49 release bump"
+    "CRM source UX, real production Direct API receive test and 0.44.50 release bump"
 )
