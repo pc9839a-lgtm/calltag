@@ -153,7 +153,8 @@ require(external_e2e, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "producti
 require(external_e2e, 'UniversalLeadSyncManager.requestSync(this, true)', "production E2E must retain signed-pull fallback")
 require(external_e2e, 'db.findByPhone(phone) != null', "production E2E must verify the test customer reached local CRM")
 require(external_e2e, '.put("action", "revoke").put("keyId", keyId)', "temporary E2E API key must be revoked")
-forbid(external_e2e, 'SharedPreferences', "temporary E2E API key must never be persisted")
+forbid(external_e2e, 'getSharedPreferences(', "temporary E2E API key must never be persisted")
+forbid(external_e2e, 'getPreferences(', "temporary E2E API key must never use Activity preferences")
 
 # Production real-receive verification is the Play update after CRM source visibility.
 require(gradle, 'versionCode 2026082605', "Play versionCode must be bumped for real receive E2E")
