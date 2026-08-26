@@ -54,8 +54,11 @@ public final class CustomerSourceDetailView extends LinearLayout {
         }
 
         Customer customer;
-        try (CallTagDbHelper db = new CallTagDbHelper(context)) {
+        CallTagDbHelper db = new CallTagDbHelper(context);
+        try {
             customer = db.findCustomerById(customerId);
+        } finally {
+            db.close();
         }
         String raw = CustomerSourceResolver.rawSource(context, customer);
         String label = CustomerSourceResolver.label(context, customer);
@@ -73,8 +76,7 @@ public final class CustomerSourceDetailView extends LinearLayout {
         copy.addView(title, new LinearLayout.LayoutParams(
                 LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
-        String originalLine = label.equals(raw) ? "외부 문의로 접수됨" : "원본 · " + compact(raw);
-        TextView original = text(originalLine, 12f, R.color.text_secondary, false);
+        TextView original = text("원본 · " + compact(raw), 12f, R.color.text_secondary, false);
         LinearLayout.LayoutParams originalParams = new LinearLayout.LayoutParams(
                 LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
         originalParams.topMargin = dp(4);
