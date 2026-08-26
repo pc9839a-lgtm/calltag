@@ -25,12 +25,15 @@ sync = read("UniversalLeadSyncManager.java")
 pagero_sync = read("PageroLeadSyncManager.java")
 fcm = read("CallTagMessagingService.java")
 resolver = read("CustomerSourceResolver.java")
+customer_list = read("CustomerListView.java")
+source_detail = read("CustomerSourceDetailView.java")
 application = read("CallTagApplication.java")
 external_ui = read("ExternalLeadIntegrationActivity.java")
 external_api = read("ExternalLeadIntegrationApiClient.java")
 menu_installer = read("ExternalLeadMenuInstaller.java")
 more_hub = read("MoreSettingsHubView.java")
 section_more = (ROOT / "app/src/main/res/layout/section_more.xml").read_text(encoding="utf-8")
+detail_layout = (ROOT / "app/src/main/res/layout/activity_customer_detail.xml").read_text(encoding="utf-8")
 manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
 gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
 
@@ -76,6 +79,19 @@ require(sync, 'e2eTest ? "CALLTAG_E2E_TEST" : "CALLTAG_LEAD"', "E2E interaction 
 
 # Resolver fallback is retained for old on-device rows/builds, but normal reads now carry source directly.
 require(resolver, 'storedSource(context, customer.id)', "legacy source fallback missing")
+
+# CRM must make the originating channel visible and filterable after import.
+for label in ["Meta 광고", "Google Forms", "Webhook", "Direct API", "페이지로"]:
+    require(resolver, f'"{label}"', f"normalized CRM source label missing: {label}")
+require(resolver, 'public static boolean isExternal(Context context, Customer customer)', "external-source classifier missing")
+require(customer_list, 'filterButton("외부 문의")', "external inquiry customer filter missing")
+require(customer_list, 'CustomerSourceBadge.create(getContext(), sourceLabel)', "customer source badge must be generic")
+require(customer_list, 'TAG_EXTERNAL_CARD', "external customer cards must be distinguishable")
+require(detail_layout, 'kr.pagero.calltag.CustomerSourceDetailView', "customer detail source summary missing")
+require(source_detail, '"유입 채널"', "customer detail channel heading missing")
+require(source_detail, '"원본 · " + compact(raw)', "customer detail must show original server source")
+require(lead, 'new StringBuilder("유입 채널: ").append(sourceLabel())', "interaction history must retain inquiry channel")
+require(lead, 'out.append("\\n접수: ").append(submittedLabel());', "interaction history must retain inquiry receipt time")
 
 # The actual visible More screen is MoreSettingsHubView. moreMenuList is a hidden legacy fallback.
 require(section_more, 'kr.pagero.calltag.MoreSettingsHubView', "visible More settings hub missing")
@@ -125,11 +141,11 @@ require(external_ui, 'UniversalLeadSyncManager.requestSync(this, true)', "manual
 require(external_ui, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "sync result feedback must use real broadcast")
 require(external_ui, 'AuthSessionStore.hasSession(this)', "external lead UI must respect login session")
 
-# 0.44.47 still routed configuration through web; native Connect management must be a new Play build.
-require(gradle, 'versionCode 2026082603', "Play versionCode must be bumped for native external integration")
-require(gradle, "versionName '0.44.48'", "Play versionName must be bumped for native external integration")
+# CRM source visibility is a new Play update after the native integration-management build.
+require(gradle, 'versionCode 2026082604', "Play versionCode must be bumped for CRM source visibility")
+require(gradle, "versionName '0.44.49'", "Play versionName must be bumped for CRM source visibility")
 
 print(
-    "CallTag universal lead contract OK: PII-free pull/ACK, E2E isolation, visible More entry, "
-    "native PageRo/Meta/Google Forms/Webhook/Direct API management, fixed Meta return and 0.44.48 release bump"
+    "CallTag universal lead contract OK: PII-free pull/ACK, E2E isolation, native integration management, "
+    "external inquiry source badges/filter/detail history and 0.44.49 release bump"
 )
