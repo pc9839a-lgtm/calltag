@@ -12,7 +12,7 @@ import java.net.URLEncoder;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-/** Signed CallTag Connect API client used by the native Android integration hub. */
+/** Signed CallTag integration API client used by the native Android integration hub. */
 public final class ExternalLeadIntegrationApiClient {
     private static final String[] BASE_URLS = {
             "https://pagero.kr",
@@ -83,31 +83,6 @@ public final class ExternalLeadIntegrationApiClient {
                 .put("connectionId", clean(connectionId))
                 .put("mapping", mapping == null ? new JSONObject() : mapping);
         return requestWithFallback("PATCH", "/api/calltag/v1/connections", body, session);
-    }
-
-    public static JSONObject listApiKeys(String session) throws Exception {
-        return requestWithFallback("GET", "/api/calltag/v1/keys", null, session);
-    }
-
-    public static JSONObject createApiKey(String session, String name) throws Exception {
-        JSONObject body = new JSONObject()
-                .put("action", "create")
-                .put("name", clean(name));
-        return requestWithFallback("POST", "/api/calltag/v1/keys", body, session);
-    }
-
-    public static JSONObject rotateApiKey(String session, String keyId) throws Exception {
-        JSONObject body = new JSONObject()
-                .put("action", "rotate")
-                .put("keyId", clean(keyId));
-        return requestWithFallback("POST", "/api/calltag/v1/keys", body, session);
-    }
-
-    public static JSONObject revokeApiKey(String session, String keyId) throws Exception {
-        JSONObject body = new JSONObject()
-                .put("action", "revoke")
-                .put("keyId", clean(keyId));
-        return requestWithFallback("POST", "/api/calltag/v1/keys", body, session);
     }
 
     public static JSONObject listMetaConnections(String session) throws Exception {
