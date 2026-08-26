@@ -152,17 +152,15 @@ public final class UniversalLead {
     }
 
     public String interactionNote() {
-        StringBuilder out = new StringBuilder();
+        StringBuilder out = new StringBuilder("유입 채널: ").append(sourceLabel());
         for (InquiryField field : inquiryFields) {
             if (field.value.isEmpty()) continue;
-            if (out.length() > 0) out.append('\n');
-            out.append(field.label).append(": ").append(field.value);
+            out.append('\n').append(field.label).append(": ").append(field.value);
         }
         if (!inquiryContent.isEmpty()) {
-            if (out.length() > 0) out.append("\n\n");
-            out.append("문의내용: ").append(inquiryContent);
+            out.append("\n\n문의내용: ").append(inquiryContent);
         }
-        if (out.length() == 0) out.append(sourceLabel()).append(" 문의 접수");
+        out.append("\n접수: ").append(submittedLabel());
         return out.toString();
     }
 
