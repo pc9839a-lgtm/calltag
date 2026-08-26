@@ -26,9 +26,9 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // Play internal visible external-integration UI candidate 2026-08-26
-        versionCode 2026082601
-        versionName '0.44.46'
+        // Play internal visible More hub external-integration fix 2026-08-26
+        versionCode 2026082602
+        versionName '0.44.47'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
