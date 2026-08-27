@@ -120,6 +120,16 @@ public final class UniversalLeadSyncManager {
         String session = AuthSessionStore.session(context);
         if (session.isEmpty()) throw new IllegalStateException("콜태그 로그인이 필요합니다.");
 
+        // Google Forms is provider-pulled. Refresh it before reading the canonical lead queue.
+        // A provider outage must never block Meta/Webhook/PageRo lead delivery.
+        try {
+            ExternalLeadIntegrationApiClient.syncGoogleForms(session);
+        } catch (ExternalLeadIntegrationApiClient.ApiException error) {
+            Log.w(TAG, "Google Forms pre-sync skipped: " + error.code);
+        } catch (Exception error) {
+            Log.w(TAG, "Google Forms pre-sync failed: " + error.getClass().getSimpleName());
+        }
+
         SyncResult result = new SyncResult();
         long after = 0L;
         try (CallTagDbHelper db = new CallTagDbHelper(context);
@@ -136,7 +146,6 @@ public final class UniversalLeadSyncManager {
                     }
                     try {
                         ImportResult imported = importLead(db, lead);
-                        // CRM 저장 성공을 먼저 기록한다. ACK 재시도 중에도 같은 eventId를 다시 import하지 않는다.
                         receipts.markImported(lead.eventId, lead.id, imported.customerId);
                         acknowledged.add(lead.id);
                         result.record(imported);
@@ -194,8 +203,6 @@ public final class UniversalLeadSyncManager {
         long contactAt = Math.min(now, Math.max(1L, lead.submittedAt));
         SQLiteDatabase database = db.getWritableDatabase();
 
-        // E2E 테스트가 기존 실제 고객 번호와 겹쳐도 실제 고객의 출처/메모/최근접촉을 덮지 않는다.
-        // 새 테스트 고객은 테스트 데이터임을 식별할 수 있도록 일반 import와 동일하게 초기화한다.
         if (!e2eTest || created) {
             String mergedMemo = mergeMemo(current.memo, lead.memoLine());
             ContentValues values = new ContentValues();
