@@ -73,6 +73,12 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="calltag" android:host="external-lead" android:path="/meta" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="calltag" android:host="external-lead" android:path="/google-forms" />
+            </intent-filter>
         </activity>
 
         <activity android:name=".CallerInfoActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:noHistory="true" android:screenOrientation="portrait" android:showWhenLocked="true" android:theme="@style/Theme.CallTag.CallerInfo" android:turnScreenOn="true" />
