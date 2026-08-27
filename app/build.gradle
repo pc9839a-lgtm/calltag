@@ -26,9 +26,9 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // Direct Google OAuth -> form picker -> Forms API integration 2026-08-27
-        versionCode 2026082702
-        versionName '0.44.53'
+        // Meta OAuth -> lead-form picker + direct Google Forms integration 2026-08-27
+        versionCode 2026082703
+        versionName '0.44.54'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
