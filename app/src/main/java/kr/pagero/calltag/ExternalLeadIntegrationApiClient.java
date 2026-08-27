@@ -22,6 +22,8 @@ public final class ExternalLeadIntegrationApiClient {
     };
     public static final String META_ANDROID_RETURN_PATH =
             "/api/calltag/v1/meta/oauth/android-return";
+    public static final String GOOGLE_FORMS_ANDROID_RETURN_PATH =
+            "/api/calltag/v1/google-forms/oauth/android-return";
 
     public static final class ApiException extends Exception {
         public final int status;
@@ -113,6 +115,51 @@ public final class ExternalLeadIntegrationApiClient {
         return requestWithFallback("POST", "/api/calltag/v1/meta/oauth/complete", body, session);
     }
 
+    public static JSONObject startGoogleFormsOauth(String session) throws Exception {
+        JSONObject body = new JSONObject().put("returnPath", GOOGLE_FORMS_ANDROID_RETURN_PATH);
+        return requestWithFallback("POST", "/api/calltag/v1/google-forms/oauth/start", body, session);
+    }
+
+    public static JSONObject googleFormsOauthSession(String session, String oauthId) throws Exception {
+        String encoded = URLEncoder.encode(clean(oauthId), StandardCharsets.UTF_8.toString());
+        return requestWithFallback(
+                "GET",
+                "/api/calltag/v1/google-forms/oauth/session?id=" + encoded,
+                null,
+                session);
+    }
+
+    public static JSONObject listGoogleForms(String session, String oauthId) throws Exception {
+        String encoded = URLEncoder.encode(clean(oauthId), StandardCharsets.UTF_8.toString());
+        return requestWithFallback(
+                "GET",
+                "/api/calltag/v1/google-forms/forms?oauthId=" + encoded,
+                null,
+                session);
+    }
+
+    public static JSONObject connectGoogleForm(String session, String oauthId, String formId) throws Exception {
+        JSONObject body = new JSONObject()
+                .put("oauthId", clean(oauthId))
+                .put("formId", clean(formId));
+        return requestWithFallback("POST", "/api/calltag/v1/google-forms/connect", body, session);
+    }
+
+    public static JSONObject listGoogleFormsConnections(String session) throws Exception {
+        return requestWithFallback("GET", "/api/calltag/v1/google-forms/connections", null, session);
+    }
+
+    public static JSONObject revokeGoogleFormsConnection(String session, String connectionId) throws Exception {
+        JSONObject body = new JSONObject()
+                .put("action", "revoke")
+                .put("connectionId", clean(connectionId));
+        return requestWithFallback("PATCH", "/api/calltag/v1/google-forms/connections", body, session);
+    }
+
+    public static JSONObject syncGoogleForms(String session) throws Exception {
+        return requestWithFallback("POST", "/api/calltag/v1/google-forms/sync", new JSONObject(), session);
+    }
+
     private static JSONObject requestWithFallback(
             String method,
             String path,
@@ -158,7 +205,7 @@ public final class ExternalLeadIntegrationApiClient {
         try {
             connection.setRequestMethod(method);
             connection.setConnectTimeout(10_000);
-            connection.setReadTimeout(15_000);
+            connection.setReadTimeout(20_000);
             connection.setRequestProperty("Accept", "application/json");
             connection.setRequestProperty("X-Inlet-Session", session.trim());
             connection.setRequestProperty("X-Pagero-Product", "calltag");
