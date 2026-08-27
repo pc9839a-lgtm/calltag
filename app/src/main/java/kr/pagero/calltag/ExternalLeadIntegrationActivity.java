@@ -16,7 +16,6 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -28,7 +27,6 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -45,16 +43,8 @@ public final class ExternalLeadIntegrationActivity extends Activity {
     private LinearLayout channelList;
     private JSONArray webhookConnections = new JSONArray();
     private JSONArray metaConnections = new JSONArray();
+    private JSONArray googleFormsConnections = new JSONArray();
     private String transientSecret = "";
-
-    // Google Forms guided flow state. Nothing secret is persisted.
-    private boolean googleFlow;
-    private int googleStep = 1;
-    private String googleFormId = "";
-    private String googleConnectionId = "";
-    private String googleScript = "";
-    private JSONObject googleConnection;
-    private TextView googleStatus;
 
     private final BroadcastReceiver syncReceiver = new BroadcastReceiver() {
         @Override
@@ -79,7 +69,7 @@ public final class ExternalLeadIntegrationActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setTitle("외부 문의 연동");
-        setContentView(buildMainContent());
+        setContentView(buildContent());
         refreshLocalStatus();
         handleDeepLink(getIntent());
     }
@@ -107,7 +97,7 @@ public final class ExternalLeadIntegrationActivity extends Activity {
     protected void onResume() {
         super.onResume();
         refreshLocalStatus();
-        if (!googleFlow) refreshRemoteStatus();
+        refreshRemoteStatus();
     }
 
     @Override
@@ -122,26 +112,14 @@ public final class ExternalLeadIntegrationActivity extends Activity {
     @Override
     protected void onDestroy() {
         transientSecret = "";
-        googleScript = "";
         io.shutdownNow();
         super.onDestroy();
     }
 
-    @Override
-    public void onBackPressed() {
-        if (googleFlow) {
-            closeGoogleFlow();
-            return;
-        }
-        super.onBackPressed();
-    }
-
-    private View buildMainContent() {
-        googleFlow = false;
+    private View buildContent() {
         ScrollView scroll = baseScroll();
         LinearLayout body = bodyContainer();
         scroll.addView(body, matchWrapScroll());
-
         body.addView(header("외부 문의 연동", v -> finish()), matchWrap());
 
         LinearLayout receiver = card();
@@ -169,61 +147,33 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         if (channelList == null) return;
         channelList.removeAllViews();
 
-        addChannelCard(
-                "PageRo",
-                "연결 관리",
-                true,
-                "관리",
-                v -> startActivity(new Intent(this, PageroConnectionCompactActivity.class)),
-                null,
-                null);
+        addChannelCard("PageRo", "연결 관리", true, "관리",
+                v -> startActivity(new Intent(this, PageroConnectionCompactActivity.class)), null, null);
 
         int metaCount = activeMetaCount();
-        addChannelCard(
-                "Meta Lead Ads",
-                metaCount > 0 ? metaCount + "개 연결" : "미연결",
-                metaCount > 0,
-                metaCount > 0 ? "추가 연결" : "연결",
-                v -> startMetaOauth((Button) v),
-                metaCount > 0 ? "연결 목록" : null,
-                metaCount > 0 ? v -> showMetaConnections() : null);
+        addChannelCard("Meta Lead Ads", metaCount > 0 ? metaCount + "개 연결" : "미연결", metaCount > 0,
+                metaCount > 0 ? "추가 연결" : "연결", v -> startMetaOauth((Button) v),
+                metaCount > 0 ? "연결 목록" : null, metaCount > 0 ? v -> showMetaConnections() : null);
 
-        JSONObject google = latestWebhookConnection(GOOGLE_FORMS_SOURCE, true);
-        boolean googleReady = google != null && google.optBoolean("mappingReady", false);
-        addChannelCard(
-                "Google Forms",
-                google == null ? "미연결" : (googleReady ? "연결됨" : "설정 필요"),
-                googleReady,
-                googleReady ? "관리" : "연결",
-                v -> openGoogleFlow(googleReady ? 4 : 1, google),
-                googleReady ? "새로 연결" : null,
-                googleReady ? v -> openGoogleFlow(1, null) : null);
+        int googleCount = activeGoogleFormsCount();
+        addChannelCard("Google Forms", googleCount > 0 ? googleCount + "개 연결" : "미연결", googleCount > 0,
+                googleCount > 0 ? "추가 연결" : "연결", v -> startGoogleFormsOauth((Button) v),
+                googleCount > 0 ? "관리" : null, googleCount > 0 ? v -> showGoogleFormsConnections() : null);
 
-        int webhookCount = activeCount(webhookConnections, GOOGLE_FORMS_SOURCE, false);
-        JSONObject webhook = latestWebhookConnection(GOOGLE_FORMS_SOURCE, false);
-        addChannelCard(
-                "Webhook",
-                webhookCount > 0 ? webhookCount + "개 연결" : "미연결",
-                webhookCount > 0,
-                "Webhook 만들기",
-                v -> createGenericWebhook((Button) v),
-                webhookCount > 0 ? "관리" : null,
-                webhookCount > 0 ? v -> manageWebhook(webhook) : null);
+        int webhookCount = activeWebhookCount();
+        JSONObject webhook = latestGenericWebhook();
+        addChannelCard("Webhook", webhookCount > 0 ? webhookCount + "개 연결" : "미연결", webhookCount > 0,
+                "Webhook 만들기", v -> createGenericWebhook((Button) v),
+                webhookCount > 0 ? "관리" : null, webhookCount > 0 ? v -> manageWebhook(webhook) : null);
     }
 
-    private void addChannelCard(
-            String name,
-            String state,
-            boolean positive,
-            String primaryLabel,
-            View.OnClickListener primaryListener,
-            String secondaryLabel,
-            View.OnClickListener secondaryListener) {
+    private void addChannelCard(String name, String state, boolean positive, String primaryLabel,
+                                View.OnClickListener primaryListener, String secondaryLabel,
+                                View.OnClickListener secondaryListener) {
         LinearLayout item = card();
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.addView(titleText(name, 16f), new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        top.addView(titleText(name, 16f), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         top.addView(badge(state, positive));
         item.addView(top, matchWrap());
 
@@ -243,314 +193,206 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         channelList.addView(item, topMargin(10));
     }
 
-    // ------------------------- Google Forms guided flow -------------------------
-
-    private void openGoogleFlow(int step, JSONObject existing) {
-        googleFlow = true;
-        googleStep = step;
-        googleConnection = existing;
-        googleConnectionId = existing == null ? "" : existing.optString("id", "");
-        googleFormId = "";
-        googleScript = "";
-        transientSecret = "";
-        renderGoogleFlow();
+    private void refreshRemoteStatus() {
+        if (!AuthSessionStore.hasSession(this) || remoteLoading) return;
+        remoteLoading = true;
+        final String session = AuthSessionStore.session(this);
+        io.execute(() -> {
+            JSONArray webhooks = null;
+            JSONArray metas = null;
+            JSONArray google = null;
+            try { webhooks = ExternalLeadIntegrationApiClient.listWebhookConnections(session).optJSONArray("connections"); }
+            catch (Exception ignored) {}
+            try { metas = ExternalLeadIntegrationApiClient.listMetaConnections(session).optJSONArray("connections"); }
+            catch (Exception ignored) {}
+            try { google = ExternalLeadIntegrationApiClient.listGoogleFormsConnections(session).optJSONArray("connections"); }
+            catch (Exception ignored) {}
+            final JSONArray finalWebhooks = webhooks;
+            final JSONArray finalMetas = metas;
+            final JSONArray finalGoogle = google;
+            runOnUiThread(() -> {
+                remoteLoading = false;
+                if (isFinishing() || isDestroyed()) return;
+                if (finalWebhooks != null) webhookConnections = finalWebhooks;
+                if (finalMetas != null) metaConnections = finalMetas;
+                if (finalGoogle != null) googleFormsConnections = finalGoogle;
+                renderChannels();
+            });
+        });
     }
 
-    private void closeGoogleFlow() {
-        googleFlow = false;
-        googleScript = "";
-        transientSecret = "";
-        setContentView(buildMainContent());
-        refreshLocalStatus();
-        refreshRemoteStatus();
-    }
-
-    private void renderGoogleFlow() {
-        if (!googleFlow) return;
-        ScrollView scroll = baseScroll();
-        LinearLayout body = bodyContainer();
-        scroll.addView(body, matchWrapScroll());
-        body.addView(header("Google Forms", v -> closeGoogleFlow()), matchWrap());
-        body.addView(googleProgress(), topMargin(12));
-
-        if (googleStep == 1) renderGoogleStep1(body);
-        if (googleStep == 2) renderGoogleStep2(body);
-        if (googleStep == 3) renderGoogleStep3(body);
-        if (googleStep == 4) renderGoogleStep4(body);
-        setContentView(scroll);
-    }
-
-    private View googleProgress() {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        String[] labels = {"1 폼", "2 설정", "3 테스트", "4 완료"};
-        for (int i = 0; i < labels.length; i++) {
-            int step = i + 1;
-            TextView item = new TextView(this);
-            item.setText(labels[i]);
-            item.setGravity(Gravity.CENTER);
-            item.setTextSize(12f);
-            item.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-            boolean active = step == googleStep;
-            boolean done = step < googleStep;
-            item.setTextColor(getColor(active || done ? R.color.text_primary : R.color.text_muted));
-            item.setBackground(pillBackground(
-                    getColor(active ? R.color.primary_soft : R.color.surface_soft),
-                    getColor(active ? R.color.primary : R.color.border)));
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(38), 1f);
-            if (i > 0) params.leftMargin = dp(6);
-            row.addView(item, params);
-        }
-        return row;
-    }
-
-    private void renderGoogleStep1(LinearLayout body) {
-        LinearLayout box = card();
-        box.addView(titleText("Google Form 선택", 18f), matchWrap());
-        box.addView(mutedText("편집 화면 주소를 붙여넣으세요."), topMargin(7));
-
-        EditText input = new EditText(this);
-        input.setSingleLine(true);
-        input.setTextSize(14f);
-        input.setHint("docs.google.com/forms/d/.../edit");
-        input.setBackgroundResource(R.drawable.bg_input);
-        input.setPadding(dp(14), 0, dp(14), 0);
-        box.addView(input, fixedTop(52, 16));
-
-        TextView hint = mutedText("forms.gle 공유 링크가 아니라 폼 편집 화면의 주소가 필요합니다.");
-        box.addView(hint, topMargin(8));
-
-        Button next = actionButton("다음", true);
-        next.setOnClickListener(v -> {
-            String raw = input.getText() == null ? "" : input.getText().toString();
-            String id = extractGoogleFormId(raw);
-            if (id.isEmpty()) {
-                input.setError("Google Forms 편집 링크를 붙여넣어주세요.");
+    private void startGoogleFormsOauth(Button button) {
+        runApi(button, "Google 여는 중...", ExternalLeadIntegrationApiClient::startGoogleFormsOauth, result -> {
+            Uri uri = Uri.parse(result.optString("authorizationUrl", ""));
+            String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || !"accounts.google.com".equals(host)) {
+                toast("Google 인증 주소 오류");
                 return;
             }
-            googleFormId = id;
-            createGoogleConnection(next);
+            openUrl(uri);
         });
-        box.addView(next, fixedTop(50, 18));
-        body.addView(box, topMargin(20));
     }
 
-    private void createGoogleConnection(Button button) {
-        runApi(button, "준비 중...", session -> {
-            if (googleConnection != null && !googleConnection.optBoolean("mappingReady", false)) {
-                String staleId = googleConnection.optString("id", "");
-                if (!staleId.isEmpty()) {
-                    try { ExternalLeadIntegrationApiClient.revokeWebhookConnection(session, staleId); }
-                    catch (Exception ignored) {}
+    private void handleGoogleFormsDeepLink(Uri uri) {
+        String state = value(uri.getQueryParameter("googleForms"));
+        String oauthId = value(uri.getQueryParameter("googleFormsOAuth"));
+        String reason = value(uri.getQueryParameter("reason"));
+        if ("ready".equals(state) && !oauthId.isEmpty()) loadGoogleForms(oauthId);
+        else toast(reason.isEmpty() ? "Google Forms 연결 실패" : "Google Forms 연결 실패 · " + reason);
+    }
+
+    private void loadGoogleForms(String oauthId) {
+        runApi(null, "", session -> ExternalLeadIntegrationApiClient.googleFormsOauthSession(session, oauthId), result -> {
+            JSONObject oauth = result.optJSONObject("oauth");
+            if (oauth == null || !"authorized".equals(oauth.optString("status", ""))) {
+                toast("Google Forms 권한을 확인해주세요.");
+                return;
+            }
+            runApi(null, "", session -> ExternalLeadIntegrationApiClient.listGoogleForms(session, oauthId), formsResult -> {
+                JSONArray forms = formsResult.optJSONArray("forms");
+                if (forms == null || forms.length() == 0) {
+                    toast("연결 가능한 Google Form이 없습니다.");
+                    return;
                 }
-            }
-            return ExternalLeadIntegrationApiClient.createWebhookConnection(
-                    session, "Google Forms", GOOGLE_FORMS_SOURCE);
-        }, result -> {
+                showGoogleFormPicker(oauthId, forms);
+            });
+        });
+    }
+
+    private void showGoogleFormPicker(String oauthId, JSONArray forms) {
+        String[] labels = new String[forms.length()];
+        for (int i = 0; i < forms.length(); i++) {
+            JSONObject form = forms.optJSONObject(i);
+            labels[i] = form == null ? "Google Form" : form.optString("name", "Google Form");
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("연결할 Google Form 선택")
+                .setItems(labels, (dialog, which) -> {
+                    JSONObject form = forms.optJSONObject(which);
+                    if (form != null && !form.optString("id", "").isEmpty()) {
+                        connectGoogleForm(oauthId, form.optString("id"));
+                    }
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void connectGoogleForm(String oauthId, String formId) {
+        runApi(null, "", session -> ExternalLeadIntegrationApiClient.connectGoogleForm(session, oauthId, formId), result -> {
             JSONObject connection = result.optJSONObject("connection");
-            String endpoint = result.optString("endpointUrl", "");
-            if (connection == null || endpoint.isEmpty()) {
-                toast("Google Forms 연결 준비에 실패했습니다.");
+            if (connection == null || !"active".equalsIgnoreCase(connection.optString("status", ""))) {
+                toast("Google Forms 연결을 완료하지 못했습니다.");
                 return;
             }
-            googleConnection = connection;
-            googleConnectionId = connection.optString("id", "");
-            googleScript = googleFormsScript(endpoint, googleFormId);
-            transientSecret = googleScript;
-            googleStep = 2;
-            renderGoogleFlow();
+            toast("Google Forms 연결 완료");
+            refreshRemoteStatus();
+            syncGoogleFormsThenPull();
         });
     }
 
-    private void renderGoogleStep2(LinearLayout body) {
-        LinearLayout box = card();
-        box.addView(titleText("Google 설정", 18f), matchWrap());
-        box.addView(bodyText("① 코드 복사  →  ② Apps Script 열기"), topMargin(14));
-        box.addView(bodyText("붙여넣기 → 저장 → installCallTag 실행 → 권한 허용"), topMargin(8));
-
-        Button copy = actionButton("1. 코드 복사", true);
-        copy.setOnClickListener(v -> {
-            copyToClipboard("CallTag Google Forms", googleScript);
-            toast("연결 코드가 복사됐습니다.");
-        });
-        box.addView(copy, fixedTop(50, 18));
-
-        Button open = actionButton("2. Apps Script 열기", false);
-        open.setOnClickListener(v -> openUrl(Uri.parse("https://script.new")));
-        box.addView(open, fixedTop(50, 9));
-
-        Button done = actionButton("3. 설정 완료", true);
-        done.setOnClickListener(v -> {
-            googleStep = 3;
-            renderGoogleFlow();
-        });
-        box.addView(done, fixedTop(50, 9));
-        body.addView(box, topMargin(20));
-    }
-
-    private void renderGoogleStep3(LinearLayout body) {
-        LinearLayout box = card();
-        box.addView(titleText("테스트 응답", 18f), matchWrap());
-        box.addView(bodyText("전화번호가 포함된 테스트 응답 1건을 제출하세요."), topMargin(12));
-
-        Button form = actionButton("Google Form 열기", false);
-        form.setOnClickListener(v -> {
-            if (googleFormId.isEmpty()) {
-                toast("폼 주소를 다시 연결해주세요.");
-                googleStep = 1;
-                renderGoogleFlow();
-                return;
-            }
-            openUrl(Uri.parse("https://docs.google.com/forms/d/" + googleFormId + "/viewform"));
-        });
-        box.addView(form, fixedTop(50, 16));
-
-        Button check = actionButton("연결 확인", true);
-        check.setOnClickListener(v -> checkGoogleForms(check));
-        box.addView(check, fixedTop(50, 9));
-
-        googleStatus = mutedText("");
-        box.addView(googleStatus, topMargin(10));
-        body.addView(box, topMargin(20));
-    }
-
-    private void checkGoogleForms(Button button) {
-        if (googleConnectionId.isEmpty()) {
-            googleStep = 1;
-            renderGoogleFlow();
+    private void showGoogleFormsConnections() {
+        ArrayList<JSONObject> active = new ArrayList<>();
+        ArrayList<String> labels = new ArrayList<>();
+        for (int i = 0; i < googleFormsConnections.length(); i++) {
+            JSONObject item = googleFormsConnections.optJSONObject(i);
+            if (item == null || !"active".equalsIgnoreCase(item.optString("status", "active"))) continue;
+            active.add(item);
+            String title = item.optString("formTitle", "Google Form");
+            String email = item.optString("googleEmail", "");
+            labels.add(email.isEmpty() ? title : title + " · " + email);
+        }
+        if (active.isEmpty()) {
+            toast("활성 Google Forms 연결이 없습니다.");
             return;
         }
-        runApi(button, "확인 중...", session ->
-                        ExternalLeadIntegrationApiClient.webhookSamples(session, googleConnectionId),
-                result -> {
-                    JSONObject current = result.optJSONObject("connection");
-                    if (current != null) googleConnection = current;
-                    if (current != null && current.optBoolean("mappingReady", false)) {
-                        googleStep = 4;
-                        renderGoogleFlow();
-                        return;
-                    }
-                    JSONArray samples = result.optJSONArray("samples");
-                    if (samples == null || samples.length() == 0) {
-                        setGoogleStatus("아직 테스트 응답이 없습니다.");
-                        return;
-                    }
-                    JSONObject latest = samples.optJSONObject(0);
-                    JSONObject mapper = latest == null ? null : latest.optJSONObject("mapper");
-                    JSONObject draft = mapper == null ? null : mapper.optJSONObject("draftMapping");
-                    String phone = draft == null ? "" : draft.optString("phone", "").trim();
-                    if (phone.isEmpty()) {
-                        setGoogleStatus("전화번호 항목을 찾지 못했습니다. 질문 제목을 ‘전화번호’로 바꿔 다시 제출하세요.");
-                        return;
-                    }
-                    JSONObject mapping = mergeRecommendedMapping(current, draft);
-                    saveGoogleFormsMapping(button, mapping);
-                });
+        new AlertDialog.Builder(this)
+                .setTitle("Google Forms")
+                .setItems(labels.toArray(new String[0]), (dialog, which) -> confirmRevokeGoogleForm(active.get(which)))
+                .setNegativeButton("닫기", null)
+                .show();
     }
 
-    private void saveGoogleFormsMapping(Button button, JSONObject mapping) {
-        runApi(button, "연결 중...", session ->
-                        ExternalLeadIntegrationApiClient.updateWebhookMapping(
-                                session, googleConnectionId, mapping),
-                result -> {
-                    JSONObject connection = result.optJSONObject("connection");
-                    if (connection != null) googleConnection = connection;
-                    googleStep = 4;
-                    renderGoogleFlow();
-                });
+    private void confirmRevokeGoogleForm(JSONObject connection) {
+        String id = connection.optString("id", "");
+        String title = connection.optString("formTitle", "Google Form");
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage("이 폼의 새 응답 수신을 중단할까요?")
+                .setNegativeButton("취소", null)
+                .setPositiveButton("연결 해제", (dialog, which) ->
+                        runApi(null, "", session -> ExternalLeadIntegrationApiClient.revokeGoogleFormsConnection(session, id), result -> {
+                            toast("Google Forms 연결 해제됨");
+                            refreshRemoteStatus();
+                        }))
+                .show();
     }
 
-    private void renderGoogleStep4(LinearLayout body) {
-        LinearLayout box = card();
-        LinearLayout top = new LinearLayout(this);
-        top.setGravity(Gravity.CENTER_VERTICAL);
-        top.addView(titleText("Google Forms", 18f), new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        top.addView(badge("연결됨", true));
-        box.addView(top, matchWrap());
-
-        Button back = actionButton("완료", true);
-        back.setOnClickListener(v -> closeGoogleFlow());
-        box.addView(back, fixedTop(50, 20));
-        body.addView(box, topMargin(20));
+    private void syncGoogleFormsThenPull() {
+        if (!AuthSessionStore.hasSession(this)) return;
+        String session = AuthSessionStore.session(this);
+        io.execute(() -> {
+            try { ExternalLeadIntegrationApiClient.syncGoogleForms(session); }
+            catch (Exception ignored) {}
+            runOnUiThread(() -> {
+                if (!isFinishing() && !isDestroyed()) UniversalLeadSyncManager.requestSync(this, true);
+            });
+        });
     }
 
-    private String extractGoogleFormId(String raw) {
-        String text = value(raw);
-        if (text.matches("[A-Za-z0-9_-]{20,}")) return text;
-        try {
-            Uri uri = Uri.parse(text);
-            if (!"docs.google.com".equalsIgnoreCase(uri.getHost())) return "";
-            List<String> segments = uri.getPathSegments();
-            for (int i = 0; i + 1 < segments.size(); i++) {
-                if (!"d".equals(segments.get(i))) continue;
-                String candidate = value(segments.get(i + 1));
-                if ("e".equals(candidate)) return "";
-                if (candidate.matches("[A-Za-z0-9_-]{20,}")) return candidate;
-            }
-        } catch (RuntimeException ignored) {}
-        return "";
+    private void createGenericWebhook(Button button) {
+        runApi(button, "생성 중...", session -> ExternalLeadIntegrationApiClient.createWebhookConnection(
+                session, "외부 Webhook", "External Webhook"), result -> {
+            JSONObject connection = result.optJSONObject("connection");
+            if (connection != null) prependWebhookConnection(connection);
+            showOneTimeValue("Webhook URL", result.optString("endpointUrl", ""), "URL 복사");
+            renderChannels();
+        });
     }
 
-    private String googleFormsScript(String endpoint, String formId) {
-        String safeEndpoint = endpoint.replace("'", "");
-        String safeFormId = formId.replace("'", "");
-        return "const CALLTAG_WEBHOOK_URL = '" + safeEndpoint + "';\n"
-                + "const CALLTAG_FORM_ID = '" + safeFormId + "';\n\n"
-                + "function installCallTag() {\n"
-                + "  const form = FormApp.openById(CALLTAG_FORM_ID);\n"
-                + "  ScriptApp.getProjectTriggers()\n"
-                + "    .filter(t => t.getHandlerFunction() === 'sendToCallTag')\n"
-                + "    .forEach(t => ScriptApp.deleteTrigger(t));\n"
-                + "  ScriptApp.newTrigger('sendToCallTag').forForm(form).onFormSubmit().create();\n"
-                + "}\n\n"
-                + "function sendToCallTag(e) {\n"
-                + "  const form = FormApp.openById(CALLTAG_FORM_ID);\n"
-                + "  const response = e.response;\n"
-                + "  const answers = {};\n"
-                + "  response.getItemResponses().forEach(r => {\n"
-                + "    const raw = r.getResponse();\n"
-                + "    answers[r.getItem().getTitle()] = Array.isArray(raw) ? raw.join(', ') : String(raw == null ? '' : raw);\n"
-                + "  });\n"
-                + "  const responseId = response.getId() || Utilities.getUuid();\n"
-                + "  const submittedAt = response.getTimestamp();\n"
-                + "  const payload = { source: 'google_forms', form_id: CALLTAG_FORM_ID, form_title: form.getTitle(),\n"
-                + "    response_id: responseId, submitted_at: submittedAt ? submittedAt.toISOString() : new Date().toISOString(), answers };\n"
-                + "  const result = UrlFetchApp.fetch(CALLTAG_WEBHOOK_URL, { method: 'post', contentType: 'application/json',\n"
-                + "    payload: JSON.stringify(payload), headers: { 'Idempotency-Key': responseId }, muteHttpExceptions: true });\n"
-                + "  const status = result.getResponseCode();\n"
-                + "  if (status < 200 || status >= 300) throw new Error('CallTag HTTP ' + status + ': ' + result.getContentText());\n"
-                + "}\n";
+    private void manageWebhook(JSONObject connection) {
+        if (connection == null) return;
+        String id = connection.optString("id", "");
+        String[] actions = {"상태 확인", "URL 재발급", "연결 해제"};
+        new AlertDialog.Builder(this).setTitle("Webhook").setItems(actions, (dialog, which) -> {
+            if (which == 0) checkWebhook(connection);
+            if (which == 1) rotateWebhook(id);
+            if (which == 2) revokeWebhook(id);
+        }).setNegativeButton("닫기", null).show();
     }
 
-    private JSONObject mergeRecommendedMapping(JSONObject connection, JSONObject draft) {
-        JSONObject merged = new JSONObject();
-        try {
-            JSONObject current = connection == null ? null : connection.optJSONObject("mapping");
-            if (current != null) merged = new JSONObject(current.toString());
-            String[] roles = {"name", "phone", "email", "content", "externalId", "submittedAt"};
-            for (String role : roles) {
-                String existing = merged.optString(role, "").trim();
-                String recommended = draft == null ? "" : draft.optString(role, "").trim();
-                if (existing.isEmpty() && !recommended.isEmpty()) merged.put(role, recommended);
-            }
-            if (!merged.has("customFields")) merged.put("customFields", new JSONArray());
-        } catch (Exception ignored) {
-            return draft == null ? new JSONObject() : draft;
-        }
-        return merged;
+    private void checkWebhook(JSONObject connection) {
+        String id = connection.optString("id", "");
+        runApi(null, "", session -> ExternalLeadIntegrationApiClient.webhookSamples(session, id), result -> {
+            JSONObject current = result.optJSONObject("connection");
+            if (current != null) replaceWebhookConnection(current);
+            JSONArray samples = result.optJSONArray("samples");
+            boolean ready = current != null && current.optBoolean("mappingReady", false);
+            renderChannels();
+            toast("샘플 " + (samples == null ? 0 : samples.length()) + " · " + (ready ? "연결됨" : "매핑 필요"));
+        });
     }
 
-    private void setGoogleStatus(String text) {
-        if (googleStatus != null) googleStatus.setText(text == null ? "" : text);
+    private void rotateWebhook(String connectionId) {
+        runApi(null, "", session -> ExternalLeadIntegrationApiClient.rotateWebhookConnection(session, connectionId), result -> {
+            JSONObject connection = result.optJSONObject("connection");
+            if (connection != null) replaceWebhookConnection(connection);
+            showOneTimeValue("새 Webhook URL", result.optString("endpointUrl", ""), "URL 복사");
+            renderChannels();
+        });
     }
 
-    // ------------------------- Meta -------------------------
+    private void revokeWebhook(String connectionId) {
+        runApi(null, "", session -> ExternalLeadIntegrationApiClient.revokeWebhookConnection(session, connectionId), result -> {
+            JSONObject connection = result.optJSONObject("connection");
+            if (connection != null) replaceWebhookConnection(connection);
+            renderChannels();
+            toast("Webhook 연결 해제됨");
+        });
+    }
 
     private void startMetaOauth(Button button) {
         runApi(button, "Meta 여는 중...", ExternalLeadIntegrationApiClient::startMetaOauth, result -> {
-            String url = result.optString("authorizationUrl", "");
-            Uri uri = Uri.parse(url);
+            Uri uri = Uri.parse(result.optString("authorizationUrl", ""));
             String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
             if (!"https".equalsIgnoreCase(uri.getScheme())
                     || !(host.equals("facebook.com") || host.endsWith(".facebook.com"))) {
@@ -561,22 +403,12 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         });
     }
 
-    private void handleDeepLink(Intent intent) {
-        if (intent == null || intent.getData() == null) return;
-        Uri uri = intent.getData();
-        if (!"calltag".equalsIgnoreCase(uri.getScheme())
-                || !"external-lead".equalsIgnoreCase(uri.getHost())
-                || !"/meta".equals(uri.getPath())) return;
+    private void handleMetaDeepLink(Uri uri) {
         String state = value(uri.getQueryParameter("meta"));
         String oauthId = value(uri.getQueryParameter("metaOAuth"));
         String reason = value(uri.getQueryParameter("reason"));
-        intent.setData(null);
-        if ("ready".equals(state) && !oauthId.isEmpty()) {
-            googleFlow = false;
-            loadMetaOauthPages(oauthId);
-        } else {
-            toast(reason.isEmpty() ? "Meta 연결 실패" : "Meta 연결 실패 · " + reason);
-        }
+        if ("ready".equals(state) && !oauthId.isEmpty()) loadMetaOauthPages(oauthId);
+        else toast(reason.isEmpty() ? "Meta 연결 실패" : "Meta 연결 실패 · " + reason);
     }
 
     private void loadMetaOauthPages(String oauthId) {
@@ -615,20 +447,14 @@ public final class ExternalLeadIntegrationActivity extends Activity {
                         JSONObject page = pages.optJSONObject(i);
                         if (page != null && !page.optString("id", "").isEmpty()) ids.put(page.optString("id"));
                     }
-                    if (ids.length() == 0) {
-                        toast("페이지를 선택해주세요.");
-                        return;
-                    }
-                    completeMetaOauth(oauthId, ids);
-                })
-                .show();
+                    if (ids.length() == 0) toast("페이지를 선택해주세요.");
+                    else completeMetaOauth(oauthId, ids);
+                }).show();
     }
 
     private void completeMetaOauth(String oauthId, JSONArray pageIds) {
-        runApi(null, "", session -> ExternalLeadIntegrationApiClient.completeMetaOauth(
-                session, oauthId, pageIds), result -> {
-            boolean completed = result.optBoolean("completed", false);
-            toast(completed ? "Meta 연결 완료" : "일부 Meta 페이지 연결 실패");
+        runApi(null, "", session -> ExternalLeadIntegrationApiClient.completeMetaOauth(session, oauthId, pageIds), result -> {
+            toast(result.optBoolean("completed", false) ? "Meta 연결 완료" : "일부 Meta 페이지 연결 실패");
             refreshRemoteStatus();
         });
     }
@@ -640,96 +466,33 @@ public final class ExternalLeadIntegrationActivity extends Activity {
             if (item == null || !"active".equalsIgnoreCase(item.optString("status", "active"))) continue;
             rows.add(item.optString("pageName", item.optString("page_name", "Meta Page")));
         }
-        new AlertDialog.Builder(this)
-                .setTitle("Meta 연결")
-                .setItems(rows.toArray(new String[0]), null)
-                .setPositiveButton("확인", null)
-                .show();
+        new AlertDialog.Builder(this).setTitle("Meta 연결")
+                .setItems(rows.toArray(new String[0]), null).setPositiveButton("확인", null).show();
     }
 
-    // ------------------------- Webhook -------------------------
-
-    private void createGenericWebhook(Button button) {
-        runApi(button, "생성 중...", session ->
-                        ExternalLeadIntegrationApiClient.createWebhookConnection(
-                                session, "외부 Webhook", "External Webhook"),
-                result -> {
-                    JSONObject connection = result.optJSONObject("connection");
-                    if (connection != null) prependWebhookConnection(connection);
-                    showOneTimeValue("Webhook URL", result.optString("endpointUrl", ""), "URL 복사");
-                    renderChannels();
-                });
+    private void handleDeepLink(Intent intent) {
+        if (intent == null || intent.getData() == null) return;
+        Uri uri = intent.getData();
+        if (!"calltag".equalsIgnoreCase(uri.getScheme()) || !"external-lead".equalsIgnoreCase(uri.getHost())) return;
+        String path = value(uri.getPath());
+        intent.setData(null);
+        if ("/meta".equals(path)) handleMetaDeepLink(uri);
+        if ("/google-forms".equals(path)) handleGoogleFormsDeepLink(uri);
     }
 
-    private void manageWebhook(JSONObject connection) {
-        if (connection == null) return;
-        String id = connection.optString("id", "");
-        String[] actions = {"상태 확인", "URL 재발급", "연결 해제"};
-        new AlertDialog.Builder(this)
-                .setTitle("Webhook")
-                .setItems(actions, (dialog, which) -> {
-                    if (which == 0) checkWebhook(connection);
-                    if (which == 1) rotateWebhook(id);
-                    if (which == 2) revokeWebhook(id);
-                })
-                .show();
-    }
-
-    private void checkWebhook(JSONObject connection) {
-        String id = connection.optString("id", "");
-        runApi(null, "", session -> ExternalLeadIntegrationApiClient.webhookSamples(session, id), result -> {
-            JSONObject current = result.optJSONObject("connection");
-            if (current != null) replaceWebhookConnection(current);
-            JSONArray samples = result.optJSONArray("samples");
-            boolean ready = current != null && current.optBoolean("mappingReady", false);
-            renderChannels();
-            toast("샘플 " + (samples == null ? 0 : samples.length()) + " · " + (ready ? "연결됨" : "매핑 필요"));
-        });
-    }
-
-    private void rotateWebhook(String connectionId) {
-        runApi(null, "", session -> ExternalLeadIntegrationApiClient.rotateWebhookConnection(session, connectionId), result -> {
-            JSONObject connection = result.optJSONObject("connection");
-            if (connection != null) replaceWebhookConnection(connection);
-            showOneTimeValue("새 Webhook URL", result.optString("endpointUrl", ""), "URL 복사");
-            renderChannels();
-        });
-    }
-
-    private void revokeWebhook(String connectionId) {
-        runApi(null, "", session -> ExternalLeadIntegrationApiClient.revokeWebhookConnection(session, connectionId), result -> {
-            JSONObject connection = result.optJSONObject("connection");
-            if (connection != null) replaceWebhookConnection(connection);
-            renderChannels();
-            toast("Webhook 연결 해제됨");
-        });
-    }
-
-    // ------------------------- Shared -------------------------
-
-    private void refreshRemoteStatus() {
-        if (!AuthSessionStore.hasSession(this) || remoteLoading || googleFlow) return;
-        remoteLoading = true;
-        final String session = AuthSessionStore.session(this);
-        io.execute(() -> {
-            JSONArray webhooks = null;
-            JSONArray metas = null;
-            try {
-                webhooks = ExternalLeadIntegrationApiClient.listWebhookConnections(session).optJSONArray("connections");
-            } catch (Exception ignored) {}
-            try {
-                metas = ExternalLeadIntegrationApiClient.listMetaConnections(session).optJSONArray("connections");
-            } catch (Exception ignored) {}
-            final JSONArray finalWebhooks = webhooks;
-            final JSONArray finalMetas = metas;
-            runOnUiThread(() -> {
-                remoteLoading = false;
-                if (isFinishing() || isDestroyed() || googleFlow) return;
-                if (finalWebhooks != null) webhookConnections = finalWebhooks;
-                if (finalMetas != null) metaConnections = finalMetas;
-                renderChannels();
-            });
-        });
+    private void openUrl(Uri uri) {
+        if (uri == null) return;
+        try {
+            new CustomTabsIntent.Builder().setShowTitle(false).build().launchUrl(this, uri);
+            return;
+        } catch (RuntimeException ignored) {}
+        try {
+            Intent browser = new Intent(Intent.ACTION_VIEW, uri);
+            browser.addCategory(Intent.CATEGORY_BROWSABLE);
+            startActivity(browser);
+        } catch (RuntimeException error) {
+            toast("브라우저를 열 수 없습니다.");
+        }
     }
 
     private void requestLeadSync() {
@@ -740,22 +503,30 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         syncButton.setEnabled(false);
         syncButton.setText("확인 중...");
         setReceiverBadge("확인 중", false);
-        boolean started = UniversalLeadSyncManager.requestSync(this, true);
-        if (!started && !UniversalLeadSyncManager.isRunning()) {
-            finishSyncButton();
-            setReceiverBadge("확인 필요", false);
-            toast("문의 확인을 시작하지 못했습니다.");
-        }
+        String session = AuthSessionStore.session(this);
+        io.execute(() -> {
+            try { ExternalLeadIntegrationApiClient.syncGoogleForms(session); }
+            catch (Exception ignored) {}
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                boolean started = UniversalLeadSyncManager.requestSync(this, true);
+                if (!started && !UniversalLeadSyncManager.isRunning()) {
+                    finishSyncButton();
+                    setReceiverBadge("확인 필요", false);
+                    toast("문의 확인을 시작하지 못했습니다.");
+                }
+            });
+        });
     }
 
     private void finishSyncButton() {
-        if (syncButton == null) return;
-        syncButton.setEnabled(true);
-        syncButton.setText("새 문의 확인");
+        if (syncButton != null) {
+            syncButton.setEnabled(true);
+            syncButton.setText("새 문의 확인");
+        }
     }
 
     private void refreshLocalStatus() {
-        if (receiverBadge == null) return;
         boolean signedIn = AuthSessionStore.hasSession(this);
         if (!UniversalLeadSyncManager.isRunning()) setReceiverBadge(signedIn ? "정상" : "로그인 필요", signedIn);
     }
@@ -775,18 +546,14 @@ public final class ExternalLeadIntegrationActivity extends Activity {
             try {
                 JSONObject result = task.run(session);
                 runOnUiThread(() -> {
-                    if (button != null) {
-                        button.setEnabled(true);
-                        button.setText(original);
-                    }
+                    if (isFinishing() || isDestroyed()) return;
+                    if (button != null) { button.setEnabled(true); button.setText(original); }
                     success.accept(result == null ? new JSONObject() : result);
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
-                    if (button != null) {
-                        button.setEnabled(true);
-                        button.setText(original);
-                    }
+                    if (isFinishing() || isDestroyed()) return;
+                    if (button != null) { button.setEnabled(true); button.setText(original); }
                     toast(userFacingError(error));
                 });
             }
@@ -796,8 +563,9 @@ public final class ExternalLeadIntegrationActivity extends Activity {
     private String userFacingError(Exception error) {
         if (error instanceof ExternalLeadIntegrationApiClient.ApiException) {
             ExternalLeadIntegrationApiClient.ApiException api = (ExternalLeadIntegrationApiClient.ApiException) error;
-            if (api.status == 401 || api.status == 403) return "로그인을 다시 확인해주세요.";
-            if (!api.code.isEmpty()) return value(api.getMessage()) + " · " + api.code;
+            if (api.status == 401 || api.status == 403) return "로그인 또는 Google 권한을 다시 확인해주세요.";
+            if ("CALLTAG_GOOGLE_FORMS_PHONE_FIELD_NOT_FOUND".equals(api.code)) return "폼에서 전화번호 질문을 찾지 못했습니다.";
+            if (!api.code.isEmpty()) return value(api.getMessage());
         }
         String message = error == null ? "" : value(error.getMessage());
         return message.isEmpty() ? "연결에 실패했습니다." : message;
@@ -812,23 +580,30 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         return count;
     }
 
-    private int activeCount(JSONArray array, String sourceName, boolean equal) {
+    private int activeGoogleFormsCount() {
         int count = 0;
-        for (int i = 0; i < array.length(); i++) {
-            JSONObject item = array.optJSONObject(i);
-            if (item == null || !"active".equalsIgnoreCase(item.optString("status", "active"))) continue;
-            boolean same = sourceName.equals(item.optString("sourceName", "").trim());
-            if ((equal && same) || (!equal && !same)) count++;
+        for (int i = 0; i < googleFormsConnections.length(); i++) {
+            JSONObject item = googleFormsConnections.optJSONObject(i);
+            if (item != null && "active".equalsIgnoreCase(item.optString("status", "active"))) count++;
         }
         return count;
     }
 
-    private JSONObject latestWebhookConnection(String sourceName, boolean equal) {
+    private int activeWebhookCount() {
+        int count = 0;
         for (int i = 0; i < webhookConnections.length(); i++) {
             JSONObject item = webhookConnections.optJSONObject(i);
             if (item == null || !"active".equalsIgnoreCase(item.optString("status", "active"))) continue;
-            boolean same = sourceName.equals(item.optString("sourceName", "").trim());
-            if ((equal && same) || (!equal && !same)) return item;
+            if (!GOOGLE_FORMS_SOURCE.equals(item.optString("sourceName", "").trim())) count++;
+        }
+        return count;
+    }
+
+    private JSONObject latestGenericWebhook() {
+        for (int i = 0; i < webhookConnections.length(); i++) {
+            JSONObject item = webhookConnections.optJSONObject(i);
+            if (item == null || !"active".equalsIgnoreCase(item.optString("status", "active"))) continue;
+            if (!GOOGLE_FORMS_SOURCE.equals(item.optString("sourceName", "").trim())) return item;
         }
         return null;
     }
@@ -847,12 +622,8 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         boolean replaced = false;
         for (int i = 0; i < webhookConnections.length(); i++) {
             JSONObject item = webhookConnections.optJSONObject(i);
-            if (item != null && id.equals(item.optString("id", ""))) {
-                next.put(replacement);
-                replaced = true;
-            } else {
-                next.put(webhookConnections.opt(i));
-            }
+            if (item != null && id.equals(item.optString("id", ""))) { next.put(replacement); replaced = true; }
+            else next.put(webhookConnections.opt(i));
         }
         if (!replaced) next.put(replacement);
         webhookConnections = next;
@@ -868,50 +639,16 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         secret.setBackgroundResource(R.drawable.bg_input);
         ScrollView scroller = new ScrollView(this);
         scroller.setPadding(dp(20), dp(8), dp(20), 0);
-        scroller.addView(secret, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setView(scroller)
-                .setNegativeButton("닫기", null)
-                .setPositiveButton(copyLabel, null)
-                .create();
+        scroller.addView(secret, new ScrollView.LayoutParams(ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
+        AlertDialog dialog = new AlertDialog.Builder(this).setTitle(title).setView(scroller)
+                .setNegativeButton("닫기", null).setPositiveButton(copyLabel, null).create();
         dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
-            copyToClipboard(copyLabel, transientSecret);
+            ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clipboard != null) clipboard.setPrimaryClip(ClipData.newPlainText(copyLabel, transientSecret));
             toast("복사됨");
         }));
         dialog.setOnDismissListener(ignored -> transientSecret = "");
         dialog.show();
-    }
-
-    private void copyToClipboard(String label, String value) {
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-        if (clipboard != null) clipboard.setPrimaryClip(ClipData.newPlainText(label, value == null ? "" : value));
-    }
-
-    private void openUrl(Uri uri) {
-        if (uri == null) return;
-        try {
-            CustomTabsIntent tabs = new CustomTabsIntent.Builder().setShowTitle(false).build();
-            tabs.launchUrl(this, uri);
-            return;
-        } catch (RuntimeException ignored) {}
-        try {
-            Intent browser = new Intent(Intent.ACTION_VIEW, uri);
-            browser.addCategory(Intent.CATEGORY_BROWSABLE);
-            startActivity(browser);
-        } catch (RuntimeException error) {
-            toast("브라우저를 열 수 없습니다.");
-        }
-    }
-
-    private void setReceiverBadge(String label, boolean positive) {
-        if (receiverBadge == null) return;
-        receiverBadge.setText(label);
-        receiverBadge.setTextColor(getColor(positive ? R.color.success : R.color.text_secondary));
-        receiverBadge.setBackground(pillBackground(
-                getColor(positive ? R.color.success_soft : R.color.surface_soft),
-                getColor(positive ? R.color.success : R.color.border)));
     }
 
     private ScrollView baseScroll() {
@@ -928,7 +665,7 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         return body;
     }
 
-    private View header(String title, View.OnClickListener backListener) {
+    private LinearLayout header(String title, View.OnClickListener backListener) {
         LinearLayout header = new LinearLayout(this);
         header.setGravity(Gravity.CENTER_VERTICAL);
         TextView back = titleText("‹", 32f);
@@ -938,8 +675,7 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         back.setOnClickListener(backListener);
         header.addView(back, new LinearLayout.LayoutParams(dp(44), dp(48)));
         TextView titleView = titleText(title, 21f);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         titleParams.leftMargin = dp(4);
         header.addView(titleView, titleParams);
         return header;
@@ -961,10 +697,17 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         text.setGravity(Gravity.CENTER);
         text.setPadding(dp(10), dp(6), dp(10), dp(6));
         text.setTextColor(getColor(positive ? R.color.success : R.color.text_secondary));
-        text.setBackground(pillBackground(
-                getColor(positive ? R.color.success_soft : R.color.surface_soft),
+        text.setBackground(pillBackground(getColor(positive ? R.color.success_soft : R.color.surface_soft),
                 getColor(positive ? R.color.success : R.color.border)));
         return text;
+    }
+
+    private void setReceiverBadge(String label, boolean positive) {
+        if (receiverBadge == null) return;
+        receiverBadge.setText(label);
+        receiverBadge.setTextColor(getColor(positive ? R.color.success : R.color.text_secondary));
+        receiverBadge.setBackground(pillBackground(getColor(positive ? R.color.success_soft : R.color.surface_soft),
+                getColor(positive ? R.color.success : R.color.border)));
     }
 
     private GradientDrawable pillBackground(int fill, int stroke) {
@@ -1010,25 +753,12 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         return text;
     }
 
-    private TextView mutedText(String value) {
-        TextView text = new TextView(this);
-        text.setText(value);
-        text.setTextColor(getColor(R.color.text_muted));
-        text.setTextSize(12f);
-        text.setLineSpacing(0f, 1.18f);
-        return text;
+    private LinearLayout.LayoutParams matchWrap() {
+        return new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
     }
 
     private ScrollView.LayoutParams matchWrapScroll() {
-        return new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT,
-                ScrollView.LayoutParams.WRAP_CONTENT);
-    }
-
-    private LinearLayout.LayoutParams matchWrap() {
-        return new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
+        return new ScrollView.LayoutParams(ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT);
     }
 
     private LinearLayout.LayoutParams topMargin(int value) {
@@ -1038,8 +768,7 @@ public final class ExternalLeadIntegrationActivity extends Activity {
     }
 
     private LinearLayout.LayoutParams fixedTop(int height, int top) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(height));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(height));
         params.topMargin = dp(top);
         return params;
     }
@@ -1056,11 +785,6 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         return value == null ? "" : value.trim();
     }
 
-    private interface ApiTask {
-        JSONObject run(String session) throws Exception;
-    }
-
-    private interface ApiSuccess {
-        void accept(JSONObject result);
-    }
+    private interface ApiTask { JSONObject run(String session) throws Exception; }
+    private interface ApiSuccess { void accept(JSONObject result); }
 }
