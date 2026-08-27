@@ -37,28 +37,22 @@ detail_layout = (ROOT / "app/src/main/res/layout/activity_customer_detail.xml").
 manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
 gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
 
-# Customer source remains first-class CRM data.
+# Core CRM delivery contract.
 require(db, 'values.put("source", source == null ? "" : source.trim());', "insertCustomer must persist source")
 require(db, 'cursor.getString(cursor.getColumnIndexOrThrow("source"))', "readCustomer must hydrate source")
 forbid(db, 'values.put("source", "");', "insertCustomer must not discard source")
-
-# PageRo stays on its legacy path while universal pull excludes duplicate canonical copies.
 require(api, 'excludeSourceType=pagero', "universal pull must exclude PageRo canonical copies")
 require(pagero_sync, 'values.put("source", CustomerSourceResolver.PAGERO);', "PageRo source persistence missing")
-
-# Generic external lead delivery is PII-free FCM + signed pull + local receipt + ACK.
 require(fcm, '"lead_available".equals(type)', "generic FCM route missing")
 require(fcm, '"pagero_lead_available".equals(type)', "PageRo FCM route must remain")
 require(sync, 'UniversalLeadApiClient.list(session, after, PAGE_SIZE)', "generic pull missing")
 require(sync, 'receipts.markImported(lead.eventId, lead.id, imported.customerId)', "local idempotency receipt missing")
 require(sync, 'UniversalLeadApiClient.acknowledgeImported', "generic imported ACK missing")
 require(sync, 'values.put("source", sourceLabel);', "generic sync must update customer source")
-
-# Existing E2E-labelled historical leads must still be isolated if encountered.
 require(lead, 'E2E_TEST_SOURCE_TYPE = "calltag_e2e_test"', "historical E2E source classification missing")
 require(sync, 'if (!e2eTest || created) {', "historical E2E lead isolation missing")
 
-# CRM source UX remains visible and filterable.
+# CRM source UX remains visible/filterable.
 for label in ["Meta 광고", "Google Forms", "Webhook", "Direct API", "페이지로"]:
     require(resolver, f'"{label}"', f"normalized CRM source label missing: {label}")
 require(resolver, 'public static boolean isExternal(Context context, Customer customer)', "external-source classifier missing")
@@ -67,7 +61,7 @@ require(customer_list, 'CustomerSourceBadge.create(getContext(), sourceLabel)', 
 require(detail_layout, 'kr.pagero.calltag.CustomerSourceDetailView', "customer detail source summary missing")
 require(source_detail, '"유입 채널"', "customer detail channel heading missing")
 
-# Visible More screen has one production integration entry and no test entry.
+# Production More entry only; no test surface.
 require(section_more, 'kr.pagero.calltag.MoreSettingsHubView', "visible More settings hub missing")
 require(more_hub, 'service.addMenu("외부 문의 연동"', "external lead entry missing")
 require(more_hub, 'ExternalLeadIntegrationActivity.class', "external lead entry destination missing")
@@ -77,56 +71,67 @@ forbid(manifest, '.ExternalLeadE2eActivity', "test activity must not be register
 require(menu_installer, '"외부 문의 연동"', "legacy More fallback label missing")
 require(application, 'ExternalLeadMenuInstaller.install((MainActivity) activity);', "legacy More fallback installer missing")
 
-# Compact production integration hub: PageRo, Meta, Google Forms and Webhook only.
+# Compact integration UI: PageRo, Meta, Google Forms and Webhook only.
 for channel in ["PageRo", "Meta Lead Ads", "Google Forms", "Webhook"]:
     require(external_ui, f'"{channel}"', f"channel card missing: {channel}")
 forbid(external_ui, '"Direct API"', "Direct API must not be exposed in integration UI")
 forbid(external_ui, 'createDirectApiKey', "Direct API creation UI must be removed")
+forbid(external_ui, 'script.new', "Apps Script editor must not be part of Google Forms UX")
+forbid(external_ui, 'installCallTag', "Apps Script installer must be removed")
+forbid(external_ui, 'googleFormsScript', "generated Apps Script must be removed")
+forbid(external_ui, 'Google Form 선택\", 18f', "old manual form-link wizard must be removed")
 require(external_ui, 'PageroConnectionCompactActivity.class', "PageRo must stay native")
-require(external_ui, 'ExternalLeadIntegrationApiClient::startMetaOauth', "Meta must start from signed native API")
-require(external_ui, 'CustomTabsIntent', "Meta must launch in a reliable browser custom tab")
-require(external_ui, 'createWebhookConnection', "Google Forms/Webhook connection creation missing")
-require(external_ui, 'webhookSamples', "Google Forms/Webhook status check missing")
-require(external_ui, 'updateWebhookMapping', "Google Forms automatic phone mapping missing")
-require(external_ui, 'extractGoogleFormId', "Google Forms edit URL parsing missing")
-require(external_ui, 'FormApp.openById(CALLTAG_FORM_ID)', "Google Forms standalone Apps Script support missing")
-require(external_ui, 'Uri.parse("https://script.new")', "Google Apps Script editor launch missing")
+require(external_ui, 'ExternalLeadIntegrationApiClient::startMetaOauth', "Meta OAuth start missing")
+require(external_ui, 'ExternalLeadIntegrationApiClient::startGoogleFormsOauth', "Google Forms OAuth start missing")
+require(external_ui, 'showGoogleFormPicker', "Google Forms account form picker missing")
+require(external_ui, 'connectGoogleForm', "Google Forms direct connection missing")
+require(external_ui, 'showGoogleFormsConnections', "Google Forms connection management missing")
+require(external_ui, 'CustomTabsIntent', "OAuth must launch in browser custom tabs")
 require(external_ui, 'transientSecret = ""', "one-time webhook secret cleanup missing")
-for token in ["1 폼", "2 설정", "3 테스트", "4 완료", "Google Form 선택", "1. 코드 복사", "2. Apps Script 열기", "테스트 응답", "연결됨"]:
-    require(external_ui, f'"{token}"', f"guided Google Forms step missing: {token}")
-require(external_ui, '"e".equals(candidate)', "published/respondent Google Forms links must be rejected instead of misparsed")
 forbid(external_ui, 'https://calltag.pagero.kr/connect', "integration UI must not use undeployed /connect")
-forbid(external_ui, 'WebView', "integration UI must not embed provider login in WebView")
+forbid(external_ui, 'WebView', "provider OAuth must not run in WebView")
 
-# Native API client only exposes routes needed by production UI.
+# Native API routes for Google OAuth -> forms list -> direct connect -> response sync.
 require(external_api, 'X-Inlet-Session', "native integration API must be session scoped")
-require(external_api, '/api/calltag/v1/connections', "Webhook route missing")
-require(external_api, '/api/calltag/v1/meta/oauth/start', "Meta OAuth start route missing")
-require(external_api, '/api/calltag/v1/meta/oauth/session', "Meta OAuth session route missing")
-require(external_api, '/api/calltag/v1/meta/oauth/complete', "Meta OAuth completion route missing")
-require(external_api, 'META_ANDROID_RETURN_PATH', "Meta Android return path missing")
+for route in [
+    '/api/calltag/v1/connections',
+    '/api/calltag/v1/meta/oauth/start',
+    '/api/calltag/v1/meta/oauth/session',
+    '/api/calltag/v1/meta/oauth/complete',
+    '/api/calltag/v1/google-forms/oauth/start',
+    '/api/calltag/v1/google-forms/oauth/session',
+    '/api/calltag/v1/google-forms/forms',
+    '/api/calltag/v1/google-forms/connect',
+    '/api/calltag/v1/google-forms/connections',
+    '/api/calltag/v1/google-forms/sync',
+]:
+    require(external_api, route, f"integration route missing: {route}")
+require(external_api, 'GOOGLE_FORMS_ANDROID_RETURN_PATH', "Google Forms Android return path missing")
 forbid(external_api, '/api/calltag/v1/keys', "Direct API route must be removed from native integration client")
-forbid(external_api, 'SharedPreferences', "one-time external integration secrets must not be persisted")
+forbid(external_api, 'SharedPreferences', "provider credentials must not be persisted by Android client")
 
-# Meta callback remains narrowly scoped to CallTag.
-require(manifest, 'android:name=".ExternalLeadIntegrationActivity" android:exported="true"', "Meta callback activity must be exported")
-require(manifest, 'android:launchMode="singleTop"', "Meta callback must reuse integration activity")
+# Provider callbacks are narrowly scoped to this exported singleTop activity.
+require(manifest, 'android:name=".ExternalLeadIntegrationActivity" android:exported="true"', "callback activity must be exported")
+require(manifest, 'android:launchMode="singleTop"', "callback must reuse integration activity")
 require(manifest, 'android:scheme="calltag" android:host="external-lead" android:path="/meta"', "Meta callback filter missing")
-require(external_ui, '"calltag".equalsIgnoreCase(uri.getScheme())', "Meta deep-link scheme validation missing")
-require(external_ui, '"external-lead".equalsIgnoreCase(uri.getHost())', "Meta deep-link host validation missing")
-require(external_ui, '!"/meta".equals(uri.getPath())', "Meta deep-link path validation missing")
+require(manifest, 'android:scheme="calltag" android:host="external-lead" android:path="/google-forms"', "Google Forms callback filter missing")
+require(external_ui, '"calltag".equalsIgnoreCase(uri.getScheme())', "deep-link scheme validation missing")
+require(external_ui, '"external-lead".equalsIgnoreCase(uri.getHost())', "deep-link host validation missing")
+require(external_ui, '"/google-forms".equals(path)', "Google Forms callback dispatch missing")
 
-# Manual refresh remains wired to real production sync.
+# Google Forms provider pull is best-effort and canonical queue remains source of truth for Android CRM import.
+require(sync, 'ExternalLeadIntegrationApiClient.syncGoogleForms(session)', "Google Forms provider pre-sync missing")
+require(sync, 'Google Forms pre-sync skipped', "Google Forms API failure isolation missing")
 require(external_ui, 'UniversalLeadSyncManager.requestSync(this, true)', "manual lead refresh missing")
 require(external_ui, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "sync result receiver missing")
 require(external_ui, 'AuthSessionStore.hasSession(this)', "integration UI must respect login session")
 
-# Guided Google Forms production release.
-require(gradle, 'versionCode 2026082701', "Play versionCode must be bumped for guided Google Forms UX")
-require(gradle, "versionName '0.44.52'", "Play versionName must be bumped for guided Google Forms UX")
-require(gradle, "androidx.browser:browser:1.8.0", "browser dependency required for Meta custom tabs")
+# Direct Google Forms OAuth release.
+require(gradle, 'versionCode 2026082702', "Play versionCode must be bumped")
+require(gradle, "versionName '0.44.53'", "Play versionName must be bumped")
+require(gradle, "androidx.browser:browser:1.8.0", "browser dependency required for OAuth custom tabs")
 
 print(
-    "CallTag universal lead contract OK: PII-free pull/ACK, compact production integrations, "
-    "Meta custom-tab OAuth, guided Google Forms setup, no test UI, no Direct API UI, v0.44.52"
+    "CallTag universal lead contract OK: PII-free pull/ACK, Meta + Google OAuth, "
+    "Google Forms picker/API sync, no Apps Script, no test UI, no Direct API UI, v0.44.53"
 )
