@@ -67,7 +67,7 @@ require(customer_list, 'CustomerSourceBadge.create(getContext(), sourceLabel)', 
 require(detail_layout, 'kr.pagero.calltag.CustomerSourceDetailView', "customer detail source summary missing")
 require(source_detail, '"유입 채널"', "customer detail channel heading missing")
 
-# Visible More screen has one production integration entry and no E2E/test entry.
+# Visible More screen has one production integration entry and no test entry.
 require(section_more, 'kr.pagero.calltag.MoreSettingsHubView', "visible More settings hub missing")
 require(more_hub, 'service.addMenu("외부 문의 연동"', "external lead entry missing")
 require(more_hub, 'ExternalLeadIntegrationActivity.class', "external lead entry destination missing")
@@ -88,14 +88,17 @@ require(external_ui, 'CustomTabsIntent', "Meta must launch in a reliable browser
 require(external_ui, 'createWebhookConnection', "Google Forms/Webhook connection creation missing")
 require(external_ui, 'webhookSamples', "Google Forms/Webhook status check missing")
 require(external_ui, 'updateWebhookMapping', "Google Forms automatic phone mapping missing")
-require(external_ui, 'extractGoogleFormId', "Google Forms URL parsing missing")
+require(external_ui, 'extractGoogleFormId', "Google Forms edit URL parsing missing")
 require(external_ui, 'FormApp.openById(CALLTAG_FORM_ID)', "Google Forms standalone Apps Script support missing")
 require(external_ui, 'Uri.parse("https://script.new")', "Google Apps Script editor launch missing")
 require(external_ui, 'transientSecret = ""', "one-time webhook secret cleanup missing")
+for token in ["1 폼", "2 설정", "3 테스트", "4 완료", "Google Form 선택", "코드 복사", "Apps Script 열기", "테스트 응답", "연결됨"]:
+    require(external_ui, f'"{token}"', f"guided Google Forms step missing: {token}")
+require(external_ui, '"e".equals(candidate)', "published/respondent Google Forms links must be rejected instead of misparsed")
 forbid(external_ui, 'https://calltag.pagero.kr/connect', "integration UI must not use undeployed /connect")
 forbid(external_ui, 'WebView', "integration UI must not embed provider login in WebView")
 
-# Native API client only exposes the integration routes needed by the production UI.
+# Native API client only exposes routes needed by production UI.
 require(external_api, 'X-Inlet-Session', "native integration API must be session scoped")
 require(external_api, '/api/calltag/v1/connections', "Webhook route missing")
 require(external_api, '/api/calltag/v1/meta/oauth/start', "Meta OAuth start route missing")
@@ -118,12 +121,12 @@ require(external_ui, 'UniversalLeadSyncManager.requestSync(this, true)', "manual
 require(external_ui, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "sync result receiver missing")
 require(external_ui, 'AuthSessionStore.hasSession(this)', "integration UI must respect login session")
 
-# Simplified production integration UX release.
-require(gradle, 'versionCode 2026082606', "Play versionCode must be bumped for simplified integrations UX")
-require(gradle, "versionName '0.44.51'", "Play versionName must be bumped for simplified integrations UX")
+# Guided Google Forms production release.
+require(gradle, 'versionCode 2026082701', "Play versionCode must be bumped for guided Google Forms UX")
+require(gradle, "versionName '0.44.52'", "Play versionName must be bumped for guided Google Forms UX")
 require(gradle, "androidx.browser:browser:1.8.0", "browser dependency required for Meta custom tabs")
 
 print(
     "CallTag universal lead contract OK: PII-free pull/ACK, compact production integrations, "
-    "Meta custom-tab OAuth, improved Google Forms flow, no test UI, no Direct API UI, v0.44.51"
+    "Meta custom-tab OAuth, guided Google Forms setup, no test UI, no Direct API UI, v0.44.52"
 )
