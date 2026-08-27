@@ -92,7 +92,7 @@ require(external_ui, 'extractGoogleFormId', "Google Forms edit URL parsing missi
 require(external_ui, 'FormApp.openById(CALLTAG_FORM_ID)', "Google Forms standalone Apps Script support missing")
 require(external_ui, 'Uri.parse("https://script.new")', "Google Apps Script editor launch missing")
 require(external_ui, 'transientSecret = ""', "one-time webhook secret cleanup missing")
-for token in ["1 폼", "2 설정", "3 테스트", "4 완료", "Google Form 선택", "코드 복사", "Apps Script 열기", "테스트 응답", "연결됨"]:
+for token in ["1 폼", "2 설정", "3 테스트", "4 완료", "Google Form 선택", "1. 코드 복사", "2. Apps Script 열기", "테스트 응답", "연결됨"]:
     require(external_ui, f'"{token}"', f"guided Google Forms step missing: {token}")
 require(external_ui, '"e".equals(candidate)', "published/respondent Google Forms links must be rejected instead of misparsed")
 forbid(external_ui, 'https://calltag.pagero.kr/connect', "integration UI must not use undeployed /connect")
