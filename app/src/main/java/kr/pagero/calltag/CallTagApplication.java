@@ -9,22 +9,22 @@ import android.os.Looper;
 
 public final class CallTagApplication extends Application implements Application.ActivityLifecycleCallbacks {
     private static final long FOREGROUND_TICK_MS = 5_000L;
-    private static final long PAGERO_FALLBACK_SYNC_INTERVAL_MS = 30_000L;
-    private static final long PAGERO_REALTIME_SAFETY_INTERVAL_MS = 5L * 60L * 1000L;
+    private static final long LEAD_FALLBACK_SYNC_INTERVAL_MS = 30_000L;
+    private static final long LEAD_REALTIME_SAFETY_INTERVAL_MS = 5L * 60L * 1000L;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable periodicForegroundWork = new Runnable() {
         @Override
         public void run() {
             if (startedActivities <= 0) return;
-            maybeSyncPageroLeads();
+            maybeSyncLeads();
             handler.postDelayed(this, FOREGROUND_TICK_MS);
         }
     };
 
     private boolean routingToSetup;
     private int startedActivities;
-    private long lastPageroForegroundSyncAt;
+    private long lastLeadForegroundSyncAt;
 
     @Override
     public void onCreate() {
@@ -35,6 +35,7 @@ public final class CallTagApplication extends Application implements Application
         registerActivityLifecycleCallbacks(this);
         MessageAutomationStore.ensureDefaults(this);
         PageroLeadNotificationManager.ensureChannel(this);
+        UniversalLeadNotificationManager.ensureChannel(this);
         CallTagSyncWorkScheduler.reconcile(this);
 
         // Upgrade migration only: remove CallTag-owned contacts created by older builds when the
@@ -52,6 +53,7 @@ public final class CallTagApplication extends Application implements Application
             SetupRequirements.refreshScreeningRoleState(this);
             EntitlementRefreshManager.request(this, true);
             PageroLeadSyncManager.requestSync(this, true);
+            UniversalLeadSyncManager.requestSync(this, true);
             PageroAccountConnectionManager.refresh(this, false);
             CallTagPushManager.registerIfAvailable(this);
             CallTagSyncManager.request(this, false);
@@ -62,16 +64,17 @@ public final class CallTagApplication extends Application implements Application
         }
     }
 
-    private void maybeSyncPageroLeads() {
+    private void maybeSyncLeads() {
         if (!AuthSessionStore.hasSession(this)) return;
         CallTagPushStatusStore.Snapshot push = CallTagPushStatusStore.read(this);
         long interval = push.realtime
-                ? PAGERO_REALTIME_SAFETY_INTERVAL_MS
-                : PAGERO_FALLBACK_SYNC_INTERVAL_MS;
+                ? LEAD_REALTIME_SAFETY_INTERVAL_MS
+                : LEAD_FALLBACK_SYNC_INTERVAL_MS;
         long now = System.currentTimeMillis();
-        if (now - lastPageroForegroundSyncAt < interval) return;
-        lastPageroForegroundSyncAt = now;
+        if (now - lastLeadForegroundSyncAt < interval) return;
+        lastLeadForegroundSyncAt = now;
         PageroLeadSyncManager.requestSyncAndNotify(this, false);
+        UniversalLeadSyncManager.requestSyncAndNotify(this, false);
     }
 
     @Override
@@ -98,6 +101,7 @@ public final class CallTagApplication extends Application implements Application
         if (activity instanceof MainActivity) {
             MainExitGuard.install(activity);
             MainActivityCardInteractionFix.install((MainActivity) activity);
+            ExternalLeadMenuInstaller.install((MainActivity) activity);
             if (AuthSessionStore.hasSession(activity)) {
                 EntitlementRefreshManager.request(activity, false);
                 PageroAccountConnectionManager.refresh(activity, false);
@@ -135,6 +139,7 @@ public final class CallTagApplication extends Application implements Application
         if (!AuthSessionStore.hasSession(activity)) return;
 
         PageroLeadSyncManager.requestSync(activity);
+        UniversalLeadSyncManager.requestSync(activity);
         if (SetupRequirements.isReady(activity)) {
             SetupRequirements.startCallMonitoring(activity);
             return;
@@ -153,6 +158,7 @@ public final class CallTagApplication extends Application implements Application
         }
         if (activity instanceof MainActivity) {
             MainActivityCardInteractionFix.install((MainActivity) activity);
+            ExternalLeadMenuInstaller.install((MainActivity) activity);
         }
         if (startedActivities == 1) {
             handler.removeCallbacks(periodicForegroundWork);
@@ -176,6 +182,7 @@ public final class CallTagApplication extends Application implements Application
 
     private boolean isProtectedActivity(Activity activity) {
         return activity instanceof MainActivity
+                || activity instanceof ExternalLeadIntegrationActivity
                 || activity instanceof CustomerAddActivity
                 || activity instanceof CustomerDetailActivity
                 || activity instanceof CustomerQuickEditActivity
@@ -213,6 +220,7 @@ public final class CallTagApplication extends Application implements Application
         }
         if (activity instanceof MainActivity) {
             MainActivityCardInteractionFix.install((MainActivity) activity);
+            ExternalLeadMenuInstaller.install((MainActivity) activity);
         }
     }
 
@@ -225,6 +233,7 @@ public final class CallTagApplication extends Application implements Application
         SystemBarInsetsInstaller.uninstall(activity);
         if (activity instanceof MainActivity) {
             MainActivityCardInteractionFix.uninstall((MainActivity) activity);
+            ExternalLeadMenuInstaller.uninstall((MainActivity) activity);
         }
     }
 }

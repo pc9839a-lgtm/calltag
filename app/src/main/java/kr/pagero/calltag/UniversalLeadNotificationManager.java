@@ -1,0 +1,100 @@
+package kr.pagero.calltag;
+
+import android.Manifest;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
+
+import androidx.core.app.NotificationCompat;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
+
+/** 범용 외부 문의가 실제 CRM 데이터로 반영된 뒤 사용자에게 알린다. */
+public final class UniversalLeadNotificationManager {
+    private static final String CHANNEL_ID = "calltag_realtime_leads";
+    private static final int NOTIFICATION_ID = 4211;
+
+    private UniversalLeadNotificationManager() {}
+
+    public static void ensureChannel(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager == null) return;
+        NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID,
+                "콜태그 문의 알림",
+                NotificationManager.IMPORTANCE_HIGH);
+        channel.setDescription("외부 연동 문의가 콜태그 고객목록에 반영되면 알려드립니다.");
+        channel.enableVibration(true);
+        manager.createNotificationChannel(channel);
+    }
+
+    public static void showImported(
+            Context context,
+            int imported,
+            int updated,
+            long[] changedCustomerIds) {
+        int total = Math.max(0, imported) + Math.max(0, updated);
+        if (total <= 0 || !canNotify(context)) return;
+
+        ensureChannel(context);
+        NotificationManager manager = context.getSystemService(NotificationManager.class);
+        if (manager == null) return;
+
+        long[] customerIds = sanitizeCustomerIds(changedCustomerIds);
+        Intent destination = new Intent(context, PageroLeadNotificationActivity.class)
+                .putExtra(PageroLeadNotificationActivity.EXTRA_CUSTOMER_IDS, customerIds)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent pending = PendingIntent.getActivity(
+                context,
+                NOTIFICATION_ID,
+                destination,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        String text;
+        if (imported > 0 && updated > 0) {
+            text = "신규 문의 " + imported + "건과 기존 고객 문의 " + updated + "건이 반영되었습니다.";
+        } else if (imported > 0) {
+            text = "신규 문의 " + imported + "건이 고객목록에 등록되었습니다.";
+        } else {
+            text = "기존 고객 문의 " + updated + "건이 상담이력에 반영되었습니다.";
+        }
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_notify_chat)
+                .setContentTitle("콜태그 새 문의")
+                .setContentText(text)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setDefaults(Notification.DEFAULT_ALL)
+                .setNumber(total)
+                .setAutoCancel(true)
+                .setContentIntent(pending);
+        manager.notify(NOTIFICATION_ID, builder.build());
+    }
+
+    static long[] sanitizeCustomerIds(long[] rawIds) {
+        if (rawIds == null || rawIds.length == 0) return new long[0];
+        Set<Long> unique = new LinkedHashSet<>();
+        for (long id : rawIds) {
+            if (id > 0L) unique.add(id);
+        }
+        long[] result = new long[unique.size()];
+        int index = 0;
+        for (Long id : unique) result[index++] = id;
+        return result;
+    }
+
+    private static boolean canNotify(Context context) {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                || context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+}

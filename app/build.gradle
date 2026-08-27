@@ -26,9 +26,9 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // Play upload release 2026-08-21
-        versionCode 2026082101
-        versionName '0.44.45'
+        // Meta OAuth -> lead-form picker + direct Google Forms integration 2026-08-27
+        versionCode 2026082703
+        versionName '0.44.54'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
@@ -86,6 +86,7 @@ gradle.taskGraph.whenReady { graph ->
 
 dependencies {
     implementation 'androidx.core:core:1.15.0'
+    implementation 'androidx.browser:browser:1.8.0'
     implementation 'androidx.work:work-runtime:2.11.2'
     implementation 'androidx.credentials:credentials:1.6.0'
     implementation 'androidx.credentials:credentials-play-services-auth:1.6.0'

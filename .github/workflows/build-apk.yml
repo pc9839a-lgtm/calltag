@@ -11,6 +11,7 @@ on:
     branches:
       - main
       - agent/calltag-foundation
+      - agent/calltag-v04422-billing-live
 
 permissions:
   contents: read
@@ -38,6 +39,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Verify Universal Lead Android contracts
+        run: python3 scripts/calltag-universal-lead-contract-check.py
 
       - name: Verify Play release contract and resolve version
         shell: bash
