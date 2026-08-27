@@ -82,6 +82,10 @@ forbid(external_ui, 'googleFormsScript', "generated Apps Script must be removed"
 forbid(external_ui, 'Google Form 선택\", 18f', "old manual form-link wizard must be removed")
 require(external_ui, 'PageroConnectionCompactActivity.class', "PageRo must stay native")
 require(external_ui, 'ExternalLeadIntegrationApiClient::startMetaOauth', "Meta OAuth start missing")
+require(external_ui, 'loadMetaLeadForms', "Meta OAuth must continue into lead-form discovery")
+require(external_ui, 'showMetaLeadFormPicker', "Meta lead-form picker missing")
+require(external_ui, '"받을 Meta 리드폼 선택"', "Meta picker must be form-oriented, not page-oriented")
+require(external_ui, 'form.optString("formId", form.optString("id", ""))', "Meta completion must submit selected lead-form IDs")
 require(external_ui, 'ExternalLeadIntegrationApiClient::startGoogleFormsOauth', "Google Forms OAuth start missing")
 require(external_ui, 'showGoogleFormPicker', "Google Forms account form picker missing")
 require(external_ui, 'connectGoogleForm', "Google Forms direct connection missing")
@@ -126,12 +130,12 @@ require(external_ui, 'UniversalLeadSyncManager.requestSync(this, true)', "manual
 require(external_ui, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "sync result receiver missing")
 require(external_ui, 'AuthSessionStore.hasSession(this)', "integration UI must respect login session")
 
-# Direct Google Forms OAuth release.
-require(gradle, 'versionCode 2026082702', "Play versionCode must be bumped")
-require(gradle, "versionName '0.44.53'", "Play versionName must be bumped")
+# Meta lead-form picker + direct Google Forms OAuth release.
+require(gradle, 'versionCode 2026082703', "Play versionCode must be bumped")
+require(gradle, "versionName '0.44.54'", "Play versionName must be bumped")
 require(gradle, "androidx.browser:browser:1.8.0", "browser dependency required for OAuth custom tabs")
 
 print(
-    "CallTag universal lead contract OK: PII-free pull/ACK, Meta + Google OAuth, "
-    "Google Forms picker/API sync, no Apps Script, no test UI, no Direct API UI, v0.44.53"
+    "CallTag universal lead contract OK: PII-free pull/ACK, Meta lead-form picker + Google OAuth, "
+    "Google Forms picker/API sync, no Apps Script, no test UI, no Direct API UI, v0.44.54"
 )
