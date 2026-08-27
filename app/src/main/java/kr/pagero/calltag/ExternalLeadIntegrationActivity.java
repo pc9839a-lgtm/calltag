@@ -407,54 +407,57 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         String state = value(uri.getQueryParameter("meta"));
         String oauthId = value(uri.getQueryParameter("metaOAuth"));
         String reason = value(uri.getQueryParameter("reason"));
-        if ("ready".equals(state) && !oauthId.isEmpty()) loadMetaOauthPages(oauthId);
+        if ("ready".equals(state) && !oauthId.isEmpty()) loadMetaLeadForms(oauthId);
         else toast(reason.isEmpty() ? "Meta 연결 실패" : "Meta 연결 실패 · " + reason);
     }
 
-    private void loadMetaOauthPages(String oauthId) {
+    private void loadMetaLeadForms(String oauthId) {
         runApi(null, "", session -> ExternalLeadIntegrationApiClient.metaOauthSession(session, oauthId), result -> {
             JSONObject oauth = result.optJSONObject("oauth");
             if (oauth == null || !"authorized".equals(oauth.optString("status", ""))) {
                 toast("Meta 연결 상태를 확인해주세요.");
                 return;
             }
-            JSONArray pages = oauth.optJSONArray("pages");
-            if (pages == null || pages.length() == 0) {
-                toast("연결 가능한 Meta 페이지가 없습니다.");
+            JSONArray forms = oauth.optJSONArray("forms");
+            if (forms == null) forms = oauth.optJSONArray("pages");
+            if (forms == null || forms.length() == 0) {
+                toast("연결 가능한 Meta 리드폼이 없습니다.");
                 return;
             }
-            showMetaPagePicker(oauthId, pages);
+            showMetaLeadFormPicker(oauthId, forms);
         });
     }
 
-    private void showMetaPagePicker(String oauthId, JSONArray pages) {
-        int count = pages.length();
+    private void showMetaLeadFormPicker(String oauthId, JSONArray forms) {
+        int count = forms.length();
         String[] labels = new String[count];
         boolean[] checked = new boolean[count];
         for (int i = 0; i < count; i++) {
-            JSONObject page = pages.optJSONObject(i);
-            labels[i] = page == null ? "Meta Page" : page.optString("name", page.optString("id", "Meta Page"));
+            JSONObject form = forms.optJSONObject(i);
+            labels[i] = form == null ? "Meta 리드폼" : form.optString("name", form.optString("formName", "Meta 리드폼"));
             checked[i] = true;
         }
         new AlertDialog.Builder(this)
-                .setTitle("Meta 페이지 선택")
+                .setTitle("받을 Meta 리드폼 선택")
                 .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) -> checked[which] = isChecked)
                 .setNegativeButton("취소", null)
                 .setPositiveButton("연결", (dialog, which) -> {
                     JSONArray ids = new JSONArray();
                     for (int i = 0; i < count; i++) {
                         if (!checked[i]) continue;
-                        JSONObject page = pages.optJSONObject(i);
-                        if (page != null && !page.optString("id", "").isEmpty()) ids.put(page.optString("id"));
+                        JSONObject form = forms.optJSONObject(i);
+                        if (form == null) continue;
+                        String formId = form.optString("formId", form.optString("id", ""));
+                        if (!formId.isEmpty()) ids.put(formId);
                     }
-                    if (ids.length() == 0) toast("페이지를 선택해주세요.");
+                    if (ids.length() == 0) toast("리드폼을 선택해주세요.");
                     else completeMetaOauth(oauthId, ids);
                 }).show();
     }
 
-    private void completeMetaOauth(String oauthId, JSONArray pageIds) {
-        runApi(null, "", session -> ExternalLeadIntegrationApiClient.completeMetaOauth(session, oauthId, pageIds), result -> {
-            toast(result.optBoolean("completed", false) ? "Meta 연결 완료" : "일부 Meta 페이지 연결 실패");
+    private void completeMetaOauth(String oauthId, JSONArray formIds) {
+        runApi(null, "", session -> ExternalLeadIntegrationApiClient.completeMetaOauth(session, oauthId, formIds), result -> {
+            toast(result.optBoolean("completed", false) ? "Meta 연결 완료" : "일부 Meta 리드폼 연결 실패");
             refreshRemoteStatus();
         });
     }
@@ -563,8 +566,9 @@ public final class ExternalLeadIntegrationActivity extends Activity {
     private String userFacingError(Exception error) {
         if (error instanceof ExternalLeadIntegrationApiClient.ApiException) {
             ExternalLeadIntegrationApiClient.ApiException api = (ExternalLeadIntegrationApiClient.ApiException) error;
-            if (api.status == 401 || api.status == 403) return "로그인 또는 Google 권한을 다시 확인해주세요.";
+            if (api.status == 401 || api.status == 403) return "로그인 또는 연동 권한을 다시 확인해주세요.";
             if ("CALLTAG_GOOGLE_FORMS_PHONE_FIELD_NOT_FOUND".equals(api.code)) return "폼에서 전화번호 질문을 찾지 못했습니다.";
+            if ("CALLTAG_META_FORM_SELECTION_REQUIRED".equals(api.code)) return "받을 Meta 리드폼을 선택해주세요.";
             if (!api.code.isEmpty()) return value(api.getMessage());
         }
         String message = error == null ? "" : value(error.getMessage());
