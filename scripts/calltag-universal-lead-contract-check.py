@@ -65,6 +65,10 @@ require(source_detail, '"유입 채널"', "customer detail channel heading missi
 require(section_more, 'kr.pagero.calltag.MoreSettingsHubView', "visible More settings hub missing")
 require(more_hub, 'service.addMenu("외부 문의 연동"', "external lead entry missing")
 require(more_hub, 'ExternalLeadIntegrationActivity.class', "external lead entry destination missing")
+require(more_hub, 'service.addMenu("친구 초대"', "referral entry must be friend-invite only")
+forbid(more_hub, 'PartnerStatusActivity', "monetary partner status UI must not be exposed")
+forbid(more_hub, '예상 수익', "monetary referral copy must not be exposed")
+forbid(more_hub, '정산', "settlement copy must not be exposed")
 forbid(more_hub, '외부 문의 수신 테스트', "test entry must not be exposed")
 forbid(more_hub, 'ExternalLeadE2eActivity', "test activity must not be referenced")
 forbid(manifest, '.ExternalLeadE2eActivity', "test activity must not be registered")
@@ -115,6 +119,8 @@ forbid(external_api, '/api/calltag/v1/keys', "Direct API route must be removed f
 forbid(external_api, 'SharedPreferences', "provider credentials must not be persisted by Android client")
 
 # Provider callbacks are narrowly scoped to this exported singleTop activity.
+forbid(manifest, '.PartnerStatusActivity', "partner status activity must not ship in Play app")
+forbid(manifest, '.PartnerSettlementActivity', "partner settlement activity must not ship in Play app")
 require(manifest, 'android:name=".ExternalLeadIntegrationActivity" android:exported="true"', "callback activity must be exported")
 require(manifest, 'android:launchMode="singleTop"', "callback must reuse integration activity")
 require(manifest, 'android:scheme="calltag" android:host="external-lead" android:path="/meta"', "Meta callback filter missing")
@@ -131,11 +137,11 @@ require(external_ui, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "sync resu
 require(external_ui, 'AuthSessionStore.hasSession(this)', "integration UI must respect login session")
 
 # Meta lead-form picker + direct Google Forms OAuth release.
-require(gradle, 'versionCode 2026082703', "Play versionCode must be bumped")
-require(gradle, "versionName '0.44.54'", "Play versionName must be bumped")
+require(gradle, 'versionCode 2026090802', "Play versionCode must be bumped")
+require(gradle, "versionName '0.44.55'", "Play versionName must be bumped")
 require(gradle, "androidx.browser:browser:1.8.0", "browser dependency required for OAuth custom tabs")
 
 print(
     "CallTag universal lead contract OK: PII-free pull/ACK, Meta lead-form picker + Google OAuth, "
-    "Google Forms picker/API sync, no Apps Script, no test UI, no Direct API UI, v0.44.54"
+    "Google Forms picker/API sync, no Apps Script, no test UI, no Direct API UI, v0.44.55"
 )
