@@ -7,7 +7,7 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 
-/** Opens the post-call screen and verifies that Android actually displayed it. */
+/** Opens the compact post-call screen and verifies that Android actually displayed it. */
 public final class PostCallActivityLauncher {
     private static final long DUPLICATE_WINDOW_MS = 12_000L;
 
@@ -25,6 +25,15 @@ public final class PostCallActivityLauncher {
             CrashTelemetryStore.record(context, "post_call_launcher", "invalid_call_id", "");
             return false;
         }
+
+        String phone = source.getStringExtra(PostCallActivity.EXTRA_PHONE);
+        if (PostCallExclusionStore.contains(context, phone)) {
+            PostCallRecoveryStore.markDelivered(context, callId);
+            CrashTelemetryStore.record(context, "post_call_launcher", "excluded",
+                    "call=" + callId);
+            return true;
+        }
+
         if (callId == lastCallId
                 && now - lastLaunchAt < DUPLICATE_WINDOW_MS
                 && PostCallLaunchReceipt.wasVisible(context, callId)) {
@@ -86,9 +95,6 @@ public final class PostCallActivityLauncher {
             return PendingIntent.getActivity(context, requestCode, target, flags);
         }
 
-        // Android 14+ requires the PendingIntent creator as well as the sender to opt in to
-        // background Activity starts. Android 16 adds ALLOW_ALWAYS; without this creator-side
-        // option, a post-call popup request can be accepted but silently never reach onResume().
         ActivityOptions creator = ActivityOptions.makeBasic();
         if (Build.VERSION.SDK_INT >= 36) {
             creator.setPendingIntentCreatorBackgroundActivityStartMode(

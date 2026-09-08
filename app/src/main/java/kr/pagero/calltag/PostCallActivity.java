@@ -24,6 +24,7 @@ public final class PostCallActivity extends Activity {
     private EditText nameInput;
     private EditText noteInput;
     private Button saveButton;
+    private Button excludeButton;
     private String phone = "";
     private String callFingerprint = "";
     private boolean saving;
@@ -31,8 +32,6 @@ public final class PostCallActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Apply compact window geometry before setContentView so there is never a full-screen frame
-        // before the small post-call popup is measured/drawn.
         PostCallPopupWindowInstaller.install(this);
         setContentView(R.layout.activity_post_call);
         PostCallPopupWindowInstaller.install(this);
@@ -66,6 +65,7 @@ public final class PostCallActivity extends Activity {
         nameInput = findViewById(R.id.postCallName);
         noteInput = findViewById(R.id.postCallNote);
         saveButton = findViewById(R.id.postCallSaveOnly);
+        excludeButton = findViewById(R.id.postCallExclude);
     }
 
     private void bindIntent(Intent intent) {
@@ -99,6 +99,30 @@ public final class PostCallActivity extends Activity {
             if (!saving) finish();
         });
         saveButton.setOnClickListener(v -> saveMemo());
+        excludeButton.setOnClickListener(v -> excludeCurrentNumber());
+    }
+
+    private void excludeCurrentNumber() {
+        if (saving) return;
+        if (PhoneNumberNormalizer.normalize(phone).length() < 8) {
+            Toast.makeText(this, "전화번호를 확인해주세요.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String displayName = nameInput.getText().toString().trim();
+        if (displayName.isEmpty() && existingCustomer != null) {
+            displayName = safe(existingCustomer.displayName).trim();
+        }
+        try {
+            PostCallExclusionStore.add(this, displayName, phone);
+            PostCallRecoveryStore.markDelivered(this, callLogId());
+            CrashTelemetryStore.record(this, "post_call_exclusion", "popup_added",
+                    "call=" + callLogId());
+            Toast.makeText(this, "이 번호는 다음 통화부터 팝업이 뜨지 않습니다.",
+                    Toast.LENGTH_SHORT).show();
+            finish();
+        } catch (IllegalArgumentException error) {
+            Toast.makeText(this, error.getMessage(), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void saveMemo() {
@@ -167,7 +191,9 @@ public final class PostCallActivity extends Activity {
         nameInput.setEnabled(!value);
         noteInput.setEnabled(!value);
         saveButton.setEnabled(!value);
+        excludeButton.setEnabled(!value);
         saveButton.setAlpha(value ? 0.55f : 1f);
+        excludeButton.setAlpha(value ? 0.55f : 1f);
         saveButton.setText(value ? "저장 중" : "저장");
     }
 

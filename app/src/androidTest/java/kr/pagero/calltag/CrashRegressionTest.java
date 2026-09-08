@@ -155,13 +155,16 @@ public final class CrashRegressionTest {
                 assertEquals(View.GONE, activity.findViewById(R.id.postCallMeta).getVisibility());
                 assertNotNull(activity.findViewById(R.id.postCallName));
                 assertNotNull(activity.findViewById(R.id.postCallNote));
+                assertNotNull(activity.findViewById(R.id.postCallExclude));
                 assertNotNull(activity.findViewById(R.id.postCallSaveOnly));
 
                 View root = activity.findViewById(R.id.postCallRoot);
-                View save = activity.findViewById(R.id.postCallSaveOnly);
+                View actions = activity.findViewById(R.id.postCallSaveOnly).getParent() instanceof View
+                        ? (View) activity.findViewById(R.id.postCallSaveOnly).getParent() : null;
                 View scroll = activity.findViewById(R.id.postCallFieldsScroll);
-                assertTrue("fields must scroll instead of clipping save button", scroll instanceof ScrollView);
-                assertEquals("save button must stay fixed outside fields scroll", root, save.getParent());
+                assertTrue("fields must scroll instead of clipping actions", scroll instanceof ScrollView);
+                assertNotNull("action row must stay fixed outside fields scroll", actions);
+                assertEquals("action row must stay fixed outside fields scroll", root, actions.getParent());
             });
         } finally {
             scenario.close();
@@ -190,13 +193,54 @@ public final class CrashRegressionTest {
     @Test
     public void postCallLauncher_fromApplicationContext_reachesPopup() {
         long callId = System.currentTimeMillis() + 100_000L;
-        Intent intent = postCallIntent(callId, "01087012345");
+        String phone = "01087012345";
+        PostCallExclusionStore.remove(app, phone);
+        Intent intent = postCallIntent(callId, phone);
         assertTrue("background-style launcher request must be accepted",
                 PostCallActivityLauncher.launch(app, intent));
         assertResumed(PostCallActivity.class);
         assertTrue("launcher must receive a visible receipt",
                 PostCallLaunchReceipt.wasVisible(app, callId));
         finishResumed(PostCallActivity.class);
+    }
+
+    @Test
+    public void postCallExclusion_blocksAutomaticPopup() {
+        String phone = "01087012346";
+        long callId = System.currentTimeMillis() + 120_000L;
+        PostCallExclusionStore.add(app, "제외 테스트", phone);
+        try {
+            assertTrue("excluded number must be handled without opening the popup",
+                    PostCallActivityLauncher.launch(app, postCallIntent(callId, phone)));
+            SystemClock.sleep(250L);
+            Activity resumed = resumedActivity();
+            assertFalse("excluded number must not resume PostCallActivity",
+                    resumed instanceof PostCallActivity);
+        } finally {
+            PostCallExclusionStore.remove(app, phone);
+            finishResumed(PostCallActivity.class);
+        }
+    }
+
+    @Test
+    public void postCallPopup_excludeButtonPersistsNumber() {
+        String phone = "01087012347";
+        PostCallExclusionStore.remove(app, phone);
+        ActivityScenario<PostCallActivity> scenario = ActivityScenario.launch(
+                postCallIntent(System.currentTimeMillis() + 140_000L, phone));
+        try {
+            scenario.onActivity(activity -> {
+                View exclude = activity.findViewById(R.id.postCallExclude);
+                assertNotNull(exclude);
+                assertTrue(exclude.callOnClick());
+            });
+            SystemClock.sleep(150L);
+            assertTrue("one-tap exclude must persist the phone",
+                    PostCallExclusionStore.contains(app, phone));
+        } finally {
+            PostCallExclusionStore.remove(app, phone);
+            scenario.close();
+        }
     }
 
     @Test
