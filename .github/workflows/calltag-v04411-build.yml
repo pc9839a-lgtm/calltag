@@ -83,54 +83,94 @@ jobs:
             app/build/outputs/androidTest-results/connected/**
           if-no-files-found: ignore
 
-      - name: Restore verified Play upload key
+      - name: Resolve Play upload credentials
         env:
-          GH_TOKEN: ${{ github.token }}
           SECRET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
+          SECRET_UPLOAD_CREDENTIALS: ${{ secrets.CALLTAG_UPLOAD_CREDENTIALS }}
           SECRET_UPLOAD_STORE_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_STORE_PASSWORD }}
           SECRET_UPLOAD_KEY_ALIAS: ${{ secrets.CALLTAG_UPLOAD_KEY_ALIAS }}
           SECRET_UPLOAD_KEY_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_KEY_PASSWORD }}
-          ORIGINAL_UPLOAD_KEY_ARTIFACT_ID: '8922836146'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          import os
+          import sys
+
+          raw = (os.environ.get('SECRET_UPLOAD_CREDENTIALS') or '').strip()
+          values = {}
+
+          if raw:
+              try:
+                  parsed = json.loads(raw)
+                  if isinstance(parsed, dict):
+                      values.update({str(k): str(v) for k, v in parsed.items() if v is not None})
+              except json.JSONDecodeError:
+                  for line in raw.splitlines():
+                      line = line.strip()
+                      if not line or line.startswith('#') or '=' not in line:
+                          continue
+                      key, value = line.split('=', 1)
+                      values[key.strip()] = value.strip().strip('"').strip("'")
+
+          legacy = {
+              'CALLTAG_UPLOAD_STORE_PASSWORD': os.environ.get('SECRET_UPLOAD_STORE_PASSWORD', ''),
+              'CALLTAG_UPLOAD_KEY_ALIAS': os.environ.get('SECRET_UPLOAD_KEY_ALIAS', ''),
+              'CALLTAG_UPLOAD_KEY_PASSWORD': os.environ.get('SECRET_UPLOAD_KEY_PASSWORD', ''),
+          }
+          for key, value in legacy.items():
+              if value:
+                  values.setdefault(key, value)
+
+          aliases = {
+              'CALLTAG_UPLOAD_STORE_PASSWORD': (
+                  'CALLTAG_UPLOAD_STORE_PASSWORD', 'STORE_PASSWORD', 'storePassword', 'store_password',
+                  'KEYSTORE_PASSWORD', 'keystorePassword', 'keystore_password'),
+              'CALLTAG_UPLOAD_KEY_ALIAS': (
+                  'CALLTAG_UPLOAD_KEY_ALIAS', 'KEY_ALIAS', 'keyAlias', 'key_alias', 'ALIAS'),
+              'CALLTAG_UPLOAD_KEY_PASSWORD': (
+                  'CALLTAG_UPLOAD_KEY_PASSWORD', 'KEY_PASSWORD', 'keyPassword', 'key_password'),
+          }
+
+          resolved = {}
+          for target, candidates in aliases.items():
+              for candidate in candidates:
+                  value = values.get(candidate, '')
+                  if value:
+                      resolved[target] = value
+                      break
+
+          missing = [key for key in aliases if not resolved.get(key)]
+          if not os.environ.get('SECRET_UPLOAD_KEYSTORE_BASE64', '').strip():
+              missing.append('CALLTAG_UPLOAD_KEYSTORE_BASE64')
+          if missing:
+              print('::error::Stable Play upload signing is not fully configured: ' + ', '.join(missing))
+              sys.exit(1)
+
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
+              for key, value in resolved.items():
+                  env.write(f'{key}={value}\n')
+          PY
+
+      - name: Restore verified Play upload key
+        env:
+          SECRET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
           EXPECTED_UPLOAD_KEY_SHA256: 'C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7'
         shell: bash
         run: |
           set -euo pipefail
           KEYSTORE="$RUNNER_TEMP/calltag-upload.jks"
-          configured=0
-          for value in "$SECRET_UPLOAD_KEYSTORE_BASE64" "$SECRET_UPLOAD_STORE_PASSWORD" "$SECRET_UPLOAD_KEY_ALIAS" "$SECRET_UPLOAD_KEY_PASSWORD"
-          do
-            [ -n "$value" ] && configured=$((configured + 1))
-          done
-          if [ "$configured" -ne 0 ] && [ "$configured" -ne 4 ]; then
-            echo '::warning::Upload-key Secrets are only partially configured; falling back to the previously verified upload-key artifact.'
-          fi
-          if [ "$configured" -eq 4 ]; then
-            printf '%s' "$SECRET_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
-            STORE_PASSWORD="$SECRET_UPLOAD_STORE_PASSWORD"
-            KEY_ALIAS="$SECRET_UPLOAD_KEY_ALIAS"
-            KEY_PASSWORD="$SECRET_UPLOAD_KEY_PASSWORD"
-          else
-            mkdir -p "$RUNNER_TEMP/original-upload-key"
-            gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ORIGINAL_UPLOAD_KEY_ARTIFACT_ID}/zip" > "$RUNNER_TEMP/original-upload-key.zip"
-            unzip -q "$RUNNER_TEMP/original-upload-key.zip" -d "$RUNNER_TEMP/original-upload-key"
-            cp "$RUNNER_TEMP/original-upload-key/calltag-upload.jks" "$KEYSTORE"
-            CREDENTIALS="$RUNNER_TEMP/original-upload-key/CALLTAG_UPLOAD_KEY_CREDENTIALS.txt"
-            STORE_PASSWORD="$(grep '^CALLTAG_UPLOAD_STORE_PASSWORD=' "$CREDENTIALS" | cut -d= -f2-)"
-            KEY_ALIAS="$(grep '^CALLTAG_UPLOAD_KEY_ALIAS=' "$CREDENTIALS" | cut -d= -f2-)"
-            KEY_PASSWORD="$(grep '^CALLTAG_UPLOAD_KEY_PASSWORD=' "$CREDENTIALS" | cut -d= -f2-)"
-          fi
+          printf '%s' "$SECRET_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
           test -s "$KEYSTORE"
-          echo "::add-mask::$STORE_PASSWORD"
-          echo "::add-mask::$KEY_PASSWORD"
+          echo "::add-mask::$CALLTAG_UPLOAD_STORE_PASSWORD"
+          echo "::add-mask::$CALLTAG_UPLOAD_KEY_PASSWORD"
           chmod 600 "$KEYSTORE"
-          keytool -list -v -keystore "$KEYSTORE" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" \
+          keytool -list -v -keystore "$KEYSTORE" -storepass "$CALLTAG_UPLOAD_STORE_PASSWORD" -alias "$CALLTAG_UPLOAD_KEY_ALIAS" \
             | grep -E 'Alias name:|Owner:|SHA1:|SHA256:' > "$RUNNER_TEMP/upload-key-fingerprints.txt"
           grep -F "SHA256: $EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/upload-key-fingerprints.txt"
           {
             echo "CALLTAG_UPLOAD_KEYSTORE_PATH=$KEYSTORE"
-            echo "CALLTAG_UPLOAD_STORE_PASSWORD=$STORE_PASSWORD"
-            echo "CALLTAG_UPLOAD_KEY_ALIAS=$KEY_ALIAS"
-            echo "CALLTAG_UPLOAD_KEY_PASSWORD=$KEY_PASSWORD"
             echo "CALLTAG_EXPECTED_UPLOAD_KEY_SHA256=$EXPECTED_UPLOAD_KEY_SHA256"
           } >> "$GITHUB_ENV"
 
