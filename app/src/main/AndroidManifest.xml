@@ -58,7 +58,6 @@
         <activity android:name=".BillingEntitlementActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".EntitlementNoticeActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".ReferralPartnerActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".PartnerSettlementActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PageroConnectionActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PageroConnectionCompactActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PageroUseGuideActivity" android:exported="false" android:screenOrientation="portrait" />
