@@ -201,7 +201,6 @@ public final class CallTagApplication extends Application implements Application
                 || activity instanceof CampaignListActivity
                 || activity instanceof PageroConnectionActivity
                 || activity instanceof PageroUseGuideActivity
-                || activity instanceof PartnerSettlementActivity
                 || activity instanceof BillingEntitlementActivity
                 || activity instanceof ReferralPartnerActivity
                 || activity instanceof CallTagSyncStatusActivity
