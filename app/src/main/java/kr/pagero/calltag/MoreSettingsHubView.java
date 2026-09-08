@@ -85,10 +85,8 @@ public final class MoreSettingsHubView extends LinearLayout {
                 CallTagSyncStatusActivity.class);
         app.add("이용권·결제", "현재 이용권 다음 결제일 요금제 구독 무료 체험 구매 복원",
                 BillingEntitlementActivity.class);
-        app.add("친구 초대·파트너", "추천인 추천코드 친구초대 무료 혜택 수익 공유",
+        app.add("친구 초대", "추천인 추천코드 친구초대 무료체험 7일 추가",
                 ReferralPartnerActivity.class);
-        app.add("파트너 정산", "콜태그 페이지로 정산 예상 수익 확정 수익 출금",
-                PartnerSettlementActivity.class);
         app.add("페이지로 연동", "페이지로 계정 연결 문의 고객 자동 등록 연결 상태",
                 PageroConnectionCompactActivity.class);
         app.add("페이지로 서비스 안내", "페이지로 랜딩페이지 문의 수집 서비스 설명 사용 방법",
