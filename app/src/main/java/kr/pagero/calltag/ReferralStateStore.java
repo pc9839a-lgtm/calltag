@@ -5,7 +5,7 @@ import android.content.SharedPreferences;
 
 import org.json.JSONObject;
 
-/** 파트너 코드와 파트너 현황의 표시 캐시. 정산 계산은 서버가 담당한다. */
+/** 추천인 코드와 가입 추천 상태의 표시 캐시. */
 public final class ReferralStateStore {
     private static final String PREFS = "calltag_referrals";
     private static final String KEY_CODE = "my_code";
@@ -13,14 +13,8 @@ public final class ReferralStateStore {
     private static final String KEY_APPLIED = "applied";
     private static final String KEY_APPLIED_CODE = "applied_code";
     private static final String KEY_BONUS_DAYS = "bonus_days";
-    private static final String KEY_REFERRED_COUNT = "referred_count";
-    private static final String KEY_ACTIVE_PAID_COUNT = "active_paid_count";
-    private static final String KEY_ESTIMATED_REVENUE = "estimated_revenue";
-    private static final String KEY_CONFIRMED_REVENUE = "confirmed_revenue";
-    private static final String KEY_PARTNER_URL = "partner_url";
     private static final String KEY_LAST_CHECKED_AT = "last_checked_at";
     private static final String KEY_CODE_CHECKED_AT = "code_checked_at";
-    private static final String KEY_SUMMARY_CHECKED_AT = "summary_checked_at";
 
     private ReferralStateStore() {}
 
@@ -32,8 +26,10 @@ public final class ReferralStateStore {
     public static void saveMe(Context context, JSONObject response) {
         JSONObject referral = response == null ? null : response.optJSONObject("referral");
         if (referral == null) referral = response == null ? new JSONObject() : response;
+
         JSONObject mine = referral.optJSONObject("mine");
         if (mine == null) mine = referral;
+
         JSONObject applied = referral.optJSONObject("applied");
 
         String code = firstNonEmpty(
@@ -43,9 +39,11 @@ public final class ReferralStateStore {
                 mine.optString("shareUrl", ""),
                 mine.optString("link", ""),
                 referral.optString("shareUrl", ""));
+
         boolean isApplied = referral.optBoolean("applied", false);
         String appliedCode = referral.optString("appliedCode", "");
         int bonusDays = referral.optInt("bonusDays", isApplied ? 7 : 0);
+
         if (applied != null) {
             isApplied = applied.optBoolean("completed", applied.optBoolean("active", true));
             appliedCode = firstNonEmpty(appliedCode, applied.optString("code", ""));
@@ -64,25 +62,6 @@ public final class ReferralStateStore {
                 .apply();
     }
 
-    public static void saveSummary(Context context, JSONObject response) {
-        JSONObject summary = response == null ? null : response.optJSONObject("summary");
-        if (summary == null) summary = response == null ? new JSONObject() : response;
-        long now = System.currentTimeMillis();
-        prefs(context).edit()
-                .putInt(KEY_REFERRED_COUNT, firstInt(summary, "referredCount", "members"))
-                .putInt(KEY_ACTIVE_PAID_COUNT, firstInt(summary, "activePaidCount", "paidMembers"))
-                .putLong(KEY_ESTIMATED_REVENUE,
-                        firstLong(summary, "estimatedRevenueKrw", "estimatedRevenue"))
-                .putLong(KEY_CONFIRMED_REVENUE,
-                        firstLong(summary, "confirmedRevenueKrw", "confirmedRevenue"))
-                .putString(KEY_PARTNER_URL, firstNonEmpty(
-                        summary.optString("partnerCenterUrl", ""),
-                        summary.optString("partnerUrl", "")))
-                .putLong(KEY_SUMMARY_CHECKED_AT, now)
-                .putLong(KEY_LAST_CHECKED_AT, now)
-                .apply();
-    }
-
     public static Snapshot snapshot(Context context) {
         SharedPreferences value = prefs(context);
         long legacyCheckedAt = value.getLong(KEY_LAST_CHECKED_AT, 0L);
@@ -92,14 +71,8 @@ public final class ReferralStateStore {
                 value.getBoolean(KEY_APPLIED, false),
                 value.getString(KEY_APPLIED_CODE, ""),
                 value.getInt(KEY_BONUS_DAYS, 0),
-                value.getInt(KEY_REFERRED_COUNT, 0),
-                value.getInt(KEY_ACTIVE_PAID_COUNT, 0),
-                value.getLong(KEY_ESTIMATED_REVENUE, 0L),
-                value.getLong(KEY_CONFIRMED_REVENUE, 0L),
-                value.getString(KEY_PARTNER_URL, ""),
                 legacyCheckedAt,
-                value.getLong(KEY_CODE_CHECKED_AT, legacyCheckedAt),
-                value.getLong(KEY_SUMMARY_CHECKED_AT, legacyCheckedAt));
+                value.getLong(KEY_CODE_CHECKED_AT, legacyCheckedAt));
     }
 
     public static void clear(Context context) {
@@ -113,28 +86,14 @@ public final class ReferralStateStore {
         return "";
     }
 
-    private static int firstInt(JSONObject source, String first, String second) {
-        return source.has(first) ? source.optInt(first, 0) : source.optInt(second, 0);
-    }
-
-    private static long firstLong(JSONObject source, String first, String second) {
-        return source.has(first) ? source.optLong(first, 0L) : source.optLong(second, 0L);
-    }
-
     public static final class Snapshot {
         public final String code;
         public final String shareUrl;
         public final boolean applied;
         public final String appliedCode;
         public final int bonusDays;
-        public final int referredCount;
-        public final int activePaidCount;
-        public final long estimatedRevenueKrw;
-        public final long confirmedRevenueKrw;
-        public final String partnerUrl;
         public final long lastCheckedAt;
         public final long codeCheckedAt;
-        public final long summaryCheckedAt;
 
         Snapshot(
                 String code,
@@ -142,27 +101,15 @@ public final class ReferralStateStore {
                 boolean applied,
                 String appliedCode,
                 int bonusDays,
-                int referredCount,
-                int activePaidCount,
-                long estimatedRevenueKrw,
-                long confirmedRevenueKrw,
-                String partnerUrl,
                 long lastCheckedAt,
-                long codeCheckedAt,
-                long summaryCheckedAt) {
+                long codeCheckedAt) {
             this.code = safe(code);
             this.shareUrl = safe(shareUrl);
             this.applied = applied;
             this.appliedCode = safe(appliedCode);
             this.bonusDays = bonusDays;
-            this.referredCount = referredCount;
-            this.activePaidCount = activePaidCount;
-            this.estimatedRevenueKrw = estimatedRevenueKrw;
-            this.confirmedRevenueKrw = confirmedRevenueKrw;
-            this.partnerUrl = safe(partnerUrl);
             this.lastCheckedAt = lastCheckedAt;
             this.codeCheckedAt = codeCheckedAt;
-            this.summaryCheckedAt = summaryCheckedAt;
         }
 
         private static String safe(String value) {
