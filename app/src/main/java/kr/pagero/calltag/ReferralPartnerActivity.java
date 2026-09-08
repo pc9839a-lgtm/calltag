@@ -15,7 +15,7 @@ import android.widget.Toast;
 
 import org.json.JSONObject;
 
-/** 더보기 > 파트너 코드. 파트너 현황과 완전히 분리한다. */
+/** 더보기 > 친구 초대. 가입 추천 혜택만 제공하며 금전성 파트너 기능은 노출하지 않는다. */
 public final class ReferralPartnerActivity extends Activity {
     private static final long CODE_REFRESH_MS = 24L * 60L * 60L * 1000L;
 
@@ -49,24 +49,29 @@ public final class ReferralPartnerActivity extends Activity {
         back.setGravity(Gravity.CENTER);
         back.setOnClickListener(v -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(44), dp(48)));
-        TextView title = text("파트너 코드", 21f, R.color.text_primary, true);
+
+        TextView title = text("친구 초대", 21f, R.color.text_primary, true);
         header.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1f));
+
         refreshButton = secondaryButton("새로고침");
         refreshButton.setOnClickListener(v -> refresh(true));
         header.addView(refreshButton, new LinearLayout.LayoutParams(dp(88), dp(40)));
         root.addView(header);
 
         LinearLayout invite = card();
-        invite.addView(text("내 파트너 코드", 14f, R.color.text_secondary, true));
+        invite.addView(text("내 추천인 코드", 14f, R.color.text_secondary, true));
+
         codeView = text("불러오는 중…", 28f, R.color.text_primary, true);
         codeView.setLetterSpacing(0.08f);
         invite.addView(codeView, top(9));
 
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
+
         TextView copy = secondaryButton("코드 복사");
         copy.setOnClickListener(v -> copyCode());
         actions.addView(copy, new LinearLayout.LayoutParams(0, dp(48), 1f));
+
         TextView share = primaryButton("친구에게 공유");
         share.setOnClickListener(v -> shareCode());
         LinearLayout.LayoutParams shareParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
@@ -74,15 +79,28 @@ public final class ReferralPartnerActivity extends Activity {
         actions.addView(share, shareParams);
         invite.addView(actions, top(14));
 
-        TextView benefit = text(
-                "친구가 회원가입할 때 이 코드를 입력하면 무료 이용 기간이 7일 추가됩니다.",
+        TextView friendBenefit = text(
+                "친구 혜택 · 회원가입할 때 추천인 코드를 입력하면 무료체험 +7일",
                 13f, R.color.text_secondary, false);
-        benefit.setLineSpacing(0f, 1.2f);
-        invite.addView(benefit, top(12));
+        friendBenefit.setLineSpacing(0f, 1.2f);
+        invite.addView(friendBenefit, top(12));
+
+        TextView myBenefit = text(
+                "내 혜택 · 추천 가입 1명마다 무료 이용 +5일",
+                13f, R.color.text_secondary, true);
+        myBenefit.setLineSpacing(0f, 1.2f);
+        invite.addView(myBenefit, top(8));
+
+        TextView unlimited = text(
+                "추천 횟수 제한 없이 평생 계속 적용됩니다.",
+                13f, R.color.text_secondary, false);
+        unlimited.setLineSpacing(0f, 1.2f);
+        invite.addView(unlimited, top(8));
+
         root.addView(invite, top(14));
 
         TextView signupOnly = text(
-                "코드는 회원가입할 때 1회 입력할 수 있습니다.",
+                "추천인 코드는 회원가입할 때 1회만 입력할 수 있습니다.",
                 13f, R.color.text_secondary, false);
         signupOnly.setBackgroundResource(R.drawable.bg_preview);
         signupOnly.setPadding(dp(14), dp(12), dp(14), dp(12));
@@ -105,28 +123,34 @@ public final class ReferralPartnerActivity extends Activity {
             if (notify) Toast.makeText(this, "로그인 정보를 다시 확인해주세요.", Toast.LENGTH_LONG).show();
             return;
         }
+
         working = true;
         if (notify) setManualRefreshState(true);
+
         new Thread(() -> {
             boolean success = false;
             try {
                 JSONObject me = AuthApiClient.referralMe(session);
                 ReferralStateStore.saveMe(this, me);
                 success = true;
-            } catch (Exception ignored) {}
+            } catch (Exception ignored) {
+            }
+
             boolean loaded = success;
             runOnUiThread(() -> {
                 working = false;
                 if (notify) setManualRefreshState(false);
                 render();
                 if (notify) {
-                    Toast.makeText(this,
-                            loaded ? "파트너 코드를 새로 확인했습니다."
-                                    : "파트너 코드를 확인하지 못했습니다.",
-                            loaded ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
+                    Toast.makeText(
+                            this,
+                            loaded ? "추천인 코드를 새로 확인했습니다."
+                                    : "추천인 코드를 확인하지 못했습니다.",
+                            loaded ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG
+                    ).show();
                 }
             });
-        }, "calltag-partner-code-refresh").start();
+        }, "calltag-referral-code-refresh").start();
     }
 
     private void render() {
@@ -137,31 +161,38 @@ public final class ReferralPartnerActivity extends Activity {
     private void copyCode() {
         String code = ReferralStateStore.snapshot(this).code;
         if (code.isEmpty()) {
-            Toast.makeText(this, "파트너 코드를 불러오는 중입니다.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "추천인 코드를 불러오는 중입니다.", Toast.LENGTH_SHORT).show();
             refreshIfNeeded();
             return;
         }
-        ClipboardManager clipboard = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+
+        ClipboardManager clipboard =
+                (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         if (clipboard != null) {
-            clipboard.setPrimaryClip(ClipData.newPlainText("콜태그 파트너 코드", code));
-            Toast.makeText(this, "파트너 코드를 복사했습니다.", Toast.LENGTH_SHORT).show();
+            clipboard.setPrimaryClip(ClipData.newPlainText("콜태그 추천인 코드", code));
+            Toast.makeText(this, "추천인 코드를 복사했습니다.", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void shareCode() {
         ReferralStateStore.Snapshot value = ReferralStateStore.snapshot(this);
         if (value.code.isEmpty()) {
-            Toast.makeText(this, "파트너 코드를 불러오는 중입니다.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "추천인 코드를 불러오는 중입니다.", Toast.LENGTH_SHORT).show();
             refreshIfNeeded();
             return;
         }
+
         StringBuilder message = new StringBuilder()
-                .append("콜태그 가입할 때 아래 파트너 코드를 입력하면 무료 이용 기간이 7일 추가돼요.\n")
-                .append("파트너 코드: ").append(value.code);
+                .append("콜태그 가입할 때 아래 추천인 코드를 입력하면 무료체험이 7일 추가돼요.\n")
+                .append("추천인 코드: ").append(value.code);
         if (!value.shareUrl.isEmpty()) message.append("\n").append(value.shareUrl);
-        startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND)
-                .setType("text/plain")
-                .putExtra(Intent.EXTRA_TEXT, message.toString()), "친구에게 공유"));
+
+        startActivity(Intent.createChooser(
+                new Intent(Intent.ACTION_SEND)
+                        .setType("text/plain")
+                        .putExtra(Intent.EXTRA_TEXT, message.toString()),
+                "친구에게 공유"
+        ));
     }
 
     private void setManualRefreshState(boolean value) {
