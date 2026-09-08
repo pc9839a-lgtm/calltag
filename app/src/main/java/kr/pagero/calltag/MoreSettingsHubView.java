@@ -67,10 +67,8 @@ public final class MoreSettingsHubView extends LinearLayout {
                 v -> start(ExternalLeadIntegrationActivity.class));
         service.addMenu("페이지로", "페이지로 연결 연동 문의 고객 자동등록",
                 v -> start(PageroConnectionCompactActivity.class));
-        service.addMenu("파트너 코드", "추천코드 친구 초대 코드 복사 공유",
+        service.addMenu("친구 초대", "추천인 추천코드 친구 초대 무료체험 7일 추천 가입 5일",
                 v -> start(ReferralPartnerActivity.class));
-        service.addMenu("파트너 현황", "추천 회원 유료 회원 예상 수익 확정 수익 정산",
-                v -> start(PartnerStatusActivity.class));
 
         Section app = section("앱 관리");
         app.addValueMenu("테마", CallTagThemeManager.currentLabel(getContext()),
