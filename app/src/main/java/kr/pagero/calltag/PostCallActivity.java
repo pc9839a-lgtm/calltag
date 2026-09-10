@@ -18,6 +18,7 @@ public final class PostCallActivity extends Activity {
     public static final String EXTRA_STARTED_AT = "started_at";
     public static final String EXTRA_ENDED_AT = "ended_at";
     public static final String EXTRA_DURATION_SEC = "duration_sec";
+    public static final String EXTRA_USER_INITIATED = "post_call_user_initiated";
 
     private CallTagDbHelper db;
     private Customer existingCustomer;
@@ -32,6 +33,12 @@ public final class PostCallActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (!isUserInitiated(getIntent())) {
+            CrashTelemetryStore.record(this, "post_call", "blocked_automatic_activity",
+                    "call=" + getIntent().getLongExtra(EXTRA_CALL_LOG_ID, -1L));
+            finish();
+            return;
+        }
         PostCallPopupWindowInstaller.install(this);
         setContentView(R.layout.activity_post_call);
         PostCallPopupWindowInstaller.install(this);
@@ -44,6 +51,10 @@ public final class PostCallActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (!isUserInitiated(getIntent())) {
+            finish();
+            return;
+        }
         PostCallLaunchReceipt.markVisible(this);
         PostCallRecoveryStore.markDelivered(this, callLogId());
         PostCallPopupWindowInstaller.install(this);
@@ -52,6 +63,12 @@ public final class PostCallActivity extends Activity {
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        if (!isUserInitiated(intent)) {
+            CrashTelemetryStore.record(this, "post_call", "blocked_automatic_new_intent",
+                    "call=" + (intent == null ? -1L : intent.getLongExtra(EXTRA_CALL_LOG_ID, -1L)));
+            finish();
+            return;
+        }
         setIntent(intent);
         bindIntent(intent);
         PostCallLaunchReceipt.markVisible(this);
@@ -59,6 +76,10 @@ public final class PostCallActivity extends Activity {
         PostCallPopupWindowInstaller.install(this);
         CrashTelemetryStore.record(this, "post_call", "new_intent_visible",
                 "call=" + callLogId());
+    }
+
+    private boolean isUserInitiated(Intent intent) {
+        return intent != null && intent.getBooleanExtra(EXTRA_USER_INITIATED, false);
     }
 
     private void bindViews() {
