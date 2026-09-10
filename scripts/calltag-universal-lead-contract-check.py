@@ -32,6 +32,9 @@ external_ui = read("ExternalLeadIntegrationActivity.java")
 external_api = read("ExternalLeadIntegrationApiClient.java")
 menu_installer = read("ExternalLeadMenuInstaller.java")
 more_hub = read("MoreSettingsHubView.java")
+post_call_activity = read("PostCallActivity.java")
+post_call_launcher = read("PostCallActivityLauncher.java")
+post_call_recovery = read("PostCallRecoveryStore.java")
 section_more = (ROOT / "app/src/main/res/layout/section_more.xml").read_text(encoding="utf-8")
 detail_layout = (ROOT / "app/src/main/res/layout/activity_customer_detail.xml").read_text(encoding="utf-8")
 manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
@@ -74,6 +77,14 @@ forbid(more_hub, 'ExternalLeadE2eActivity', "test activity must not be reference
 forbid(manifest, '.ExternalLeadE2eActivity', "test activity must not be registered")
 require(menu_installer, '"외부 문의 연동"', "legacy More fallback label missing")
 require(application, 'ExternalLeadMenuInstaller.install((MainActivity) activity);', "legacy More fallback installer missing")
+
+# Post-call UX must stay passive unless the user explicitly taps a notification/action.
+require(post_call_activity, 'EXTRA_USER_INITIATED = "post_call_user_initiated"', "post-call explicit-user gate missing")
+require(post_call_activity, 'blocked_automatic_activity', "automatic post-call destination guard missing")
+require(post_call_launcher, 'target.putExtra(PostCallActivity.EXTRA_USER_INITIATED, true);', "notification tap must mark user initiation")
+forbid(post_call_launcher, 'context.startActivity(', "post-call launcher must never foreground the app")
+forbid(post_call_recovery, 'PostCallActivityLauncher.launch(context, review)', "post-call recovery must never retry an Activity")
+require(post_call_recovery, 'CallPopupNotificationManager.showPostCall(', "post-call recovery must use passive overlay/notification delivery")
 
 # Compact integration UI: PageRo, Meta, Google Forms and Webhook only.
 for channel in ["PageRo", "Meta Lead Ads", "Google Forms", "Webhook"]:
@@ -136,12 +147,12 @@ require(external_ui, 'UniversalLeadSyncManager.requestSync(this, true)', "manual
 require(external_ui, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "sync result receiver missing")
 require(external_ui, 'AuthSessionStore.hasSession(this)', "integration UI must respect login session")
 
-# Meta lead-form picker + direct Google Forms OAuth release.
-require(gradle, 'versionCode 2026090802', "Play versionCode must be bumped")
-require(gradle, "versionName '0.44.55'", "Play versionName must be bumped")
+# External integration + post-call hotfix release.
+require(gradle, 'versionCode 2026091001', "Play versionCode must be bumped")
+require(gradle, "versionName '0.44.56'", "Play versionName must be bumped")
 require(gradle, "androidx.browser:browser:1.8.0", "browser dependency required for OAuth custom tabs")
 
 print(
     "CallTag universal lead contract OK: PII-free pull/ACK, Meta lead-form picker + Google OAuth, "
-    "Google Forms picker/API sync, no Apps Script, no test UI, no Direct API UI, v0.44.55"
+    "Google Forms picker/API sync, passive post-call delivery, no monetary partner UI, v0.44.56"
 )
