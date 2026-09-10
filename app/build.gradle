@@ -26,9 +26,9 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // External integrations + Play policy cleanup + unlimited referral-day program 2026-09-08
-        versionCode 2026090802
-        versionName '0.44.55'
+        // External integrations + referral abuse guard + post-call foreground block 2026-09-10
+        versionCode 2026091001
+        versionName '0.44.56'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
