@@ -40,23 +40,19 @@ public final class PostCallActivityLauncher {
             return true;
         }
 
-        // Deliberately return false so the caller uses the compact overlay/notification path.
-        // Do not arm PostCallLaunchReceipt and do not schedule an Activity visibility retry.
         CrashTelemetryStore.record(context, "post_call_launcher", "auto_activity_disabled",
                 "call=" + callId + ",source=" + sourceLabel);
         return false;
     }
 
-    /**
-     * Builds the Activity target used only after an explicit user action (for example, tapping a
-     * fallback notification). It is never started automatically by this class.
-     */
+    /** Build an Activity target only after an explicit notification/user tap. */
     public static Intent prepareTarget(Intent source) {
         Intent target = new Intent(source);
         int flags = target.getFlags();
         flags &= ~Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS;
         flags &= ~Intent.FLAG_ACTIVITY_NO_USER_ACTION;
         target.setFlags(flags);
+        target.putExtra(PostCallActivity.EXTRA_USER_INITIATED, true);
         target.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
                 | Intent.FLAG_ACTIVITY_CLEAR_TOP
                 | Intent.FLAG_ACTIVITY_SINGLE_TOP);
