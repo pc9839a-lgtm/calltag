@@ -9,8 +9,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Persists post-call reviews until Android has actually shown the popup or a fallback notification.
- * This survives process death and foreground-service restarts.
+ * Persists post-call reviews until Android has shown the compact overlay or fallback notification.
+ * Recovery must never bring the CallTag task to the foreground automatically.
  */
 public final class PostCallRecoveryStore {
     private static final String PREFS = "calltag_post_call_recovery";
@@ -89,20 +89,14 @@ public final class PostCallRecoveryStore {
     }
 
     /**
-     * Re-delivers the newest undelivered review. In foreground we prefer the compact popup;
-     * from a background/service context we leave a high-priority notification instead.
+     * Re-deliver only through overlay/notification. preferActivity is retained for source
+     * compatibility but intentionally ignored so recovery can never foreground the app.
      */
     public static synchronized boolean recoverLatest(Context context, boolean preferActivity) {
         PendingReview pending = newestValid(context);
         if (pending == null) return false;
 
         Intent review = pending.reviewIntent(context);
-        if (preferActivity && PostCallActivityLauncher.launch(context, review)) {
-            CrashTelemetryStore.record(context, "post_call_recovery", "activity_retry",
-                    "call=" + pending.record.id);
-            return true;
-        }
-
         CallTagDbHelper db = new CallTagDbHelper(context);
         try {
             Customer customer = db.findByPhone(pending.record.phone);
@@ -112,7 +106,7 @@ public final class PostCallRecoveryStore {
                     context, pending.record, customer, review, memo);
             if (posted) {
                 markDelivered(context, pending.record.id);
-                CrashTelemetryStore.record(context, "post_call_recovery", "notification_retry",
+                CrashTelemetryStore.record(context, "post_call_recovery", "passive_retry",
                         "call=" + pending.record.id);
             }
             return posted;
