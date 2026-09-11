@@ -20,6 +20,7 @@ public final class ExternalLeadMenuInstaller {
 
     public static void install(MainActivity activity) {
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
+        ExternalLeadSyncWorkScheduler.reconcile(activity);
         LinearLayout menu = activity.findViewById(R.id.moreMenuList);
         if (menu == null) return;
         ensureRow(activity, menu);
