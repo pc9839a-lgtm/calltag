@@ -87,6 +87,17 @@ public final class ExternalLeadIntegrationApiClient {
         return requestWithFallback("PATCH", "/api/calltag/v1/connections", body, session);
     }
 
+    public static JSONObject replayWebhookSample(
+            String session,
+            String connectionId,
+            long rawEventId) throws Exception {
+        JSONObject body = new JSONObject()
+                .put("action", "replay_raw")
+                .put("connectionId", clean(connectionId))
+                .put("rawEventId", rawEventId);
+        return requestWithFallback("PATCH", "/api/calltag/v1/connections", body, session);
+    }
+
     public static JSONObject listMetaConnections(String session) throws Exception {
         return requestWithFallback("GET", "/api/calltag/v1/meta/connections", null, session);
     }
