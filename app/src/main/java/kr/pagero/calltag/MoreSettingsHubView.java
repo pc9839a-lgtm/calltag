@@ -65,6 +65,8 @@ public final class MoreSettingsHubView extends LinearLayout {
         Section service = section("서비스");
         service.addMenu("외부 문의 연동", "외부 문의 자동수신 메타 리드 광고 구글 폼 웹훅 연동",
                 v -> start(ExternalLeadIntegrationActivity.class));
+        service.addMenu("Webhook 필드 매핑", "외부폼 웹훅 샘플 전화번호 이름 이메일 문의내용 필드 연결",
+                v -> start(WebhookMappingActivity.class));
         service.addMenu("Direct API", "외부 DB 서버 API Key 키 문의 직접 연동 자동수신",
                 v -> start(DirectApiIntegrationActivity.class));
         service.addMenu("페이지로", "페이지로 연결 연동 문의 고객 자동등록",
@@ -99,10 +101,12 @@ public final class MoreSettingsHubView extends LinearLayout {
     }
 
     private void start(Class<?> destination) {
+        ExternalLeadSyncWorkScheduler.reconcile(getContext());
         getContext().startActivity(new Intent(getContext(), destination));
     }
 
     private void start(Intent intent) {
+        ExternalLeadSyncWorkScheduler.reconcile(getContext());
         getContext().startActivity(intent);
     }
 

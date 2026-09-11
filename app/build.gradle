@@ -26,9 +26,9 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // Play policy alignment + Direct API external DB completion 2026-09-11
-        versionCode 2026091101
-        versionName '0.44.57'
+        // External input forms: webhook mapping + background Google Forms sync 2026-09-11
+        versionCode 2026091102
+        versionName '0.44.58'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'

@@ -7,5 +7,9 @@
             android:name=".DirectApiIntegrationActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
+        <activity
+            android:name=".WebhookMappingActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
     </application>
 </manifest>

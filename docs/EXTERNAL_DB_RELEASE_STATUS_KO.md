@@ -1,6 +1,6 @@
-# CallTag 외부 DB·문의 연동 출시 상태
+# CallTag 외부 입력폼·문의 연동 출시 상태
 
-기준: **0.44.57 / versionCode 2026091101**  
+기준: **0.44.58 / versionCode 2026091102**  
 기준일: **2026-09-11**
 
 ## 지원 경로
@@ -15,10 +15,19 @@
 
 - `더보기 → 서비스 → 외부 문의 연동`
   - PageRo 연결 관리
-  - Meta OAuth → 리드폼 선택 → 연결
-  - Google OAuth → Form 선택 → 연결
+  - Meta OAuth → 실제 Lead Form 목록 조회 → 받을 리드폼 선택 → 연결
+  - Google OAuth → 실제 Google Form 목록 조회 → Form 선택 → 연결
   - Webhook 생성/상태확인/URL 교체/해제
   - 새 문의 수동 확인 및 Universal Lead pull/ACK
+- `더보기 → 서비스 → Webhook 필드 매핑`
+  - 실제 수신 샘플 분석
+  - 전화번호 필드 필수 선택
+  - 이름/이메일/문의내용 선택 또는 건너뛰기
+  - 서버 mapping 저장 후 이후 문의 Canonical Lead 변환
+- Google Forms/Universal Lead 자동수신 안전망
+  - 앱 foreground에서는 기존 Universal Lead sync가 Google Forms를 먼저 동기화
+  - 앱 background에서는 WorkManager가 15분 주기로 Universal Lead sync 실행
+  - Google Forms provider 장애가 Meta/Webhook/Direct API 문의 수신을 막지 않음
 - `더보기 → 서비스 → Direct API`
   - API Key 목록
   - 신규 Key 발급
@@ -47,9 +56,13 @@ Content-Type: application/json
 - `GET /api/calltag/v1/connections/{id}/samples`
 - `GET/POST /api/calltag/v1/keys`
 - `GET/POST /api/calltag/v1/leads`
-- Meta OAuth/connection routes
-- Google Forms OAuth/forms/connect/sync routes
+- Meta OAuth/connection/webhook routes
+- Meta Lead Form 선택 필터
+- Google Forms OAuth/forms/connect/connections/sync routes
+- Generic Webhook mapper + mapping version 저장
 - Universal Lead Android pull + ACK
+
+Meta는 선택된 Lead Form 이벤트만 허용한다. Google Forms는 refresh token을 암호화 저장하고 Responses API를 통해 증분 동기화한다. Generic Webhook은 샘플 payload의 JSON Pointer 후보를 분석해 앱에서 필드 매핑을 확정한다.
 
 Direct API POST는 API Key로 owner를 결정하며 body의 owner id를 권한 근거로 사용하지 않는다. 중복 요청은 idempotency key/external id 기준으로 처리한다. 저장 성공 후 FCM `lead_available`는 best-effort pull trigger로만 사용하며 FCM 실패가 저장된 Lead를 rollback하지 않는다.
 
@@ -68,8 +81,8 @@ Direct API POST는 API Key로 owner를 결정하며 body의 owner id를 권한 �
 코드/계약이 아니라 실제 공급자 계정 또는 외부 시스템이 필요한 검증만 남는다.
 
 - 실제 Meta Lead Ads 테스트 리드 1건 → Android CRM 도착
-- 실제 Google Form 응답 1건 → Android CRM 도착
-- 운영 Webhook 샘플 POST 1건 → 매핑/CRM 도착
+- 실제 Google Form 응답 1건 → 백그라운드/foreground 동기화 후 Android CRM 도착
+- 운영 Webhook 샘플 POST 1건 → 필드 매핑 저장 → 두 번째 문의 CRM 도착
 - 운영 Direct API Key 발급 → 외부 POST 1건 → Android CRM 도착
 - PageRo 실제 문의 1건 → 기존 PageRo 경로 중복 없이 도착
 
