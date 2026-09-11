@@ -160,6 +160,31 @@ public final class ExternalLeadIntegrationApiClient {
         return requestWithFallback("POST", "/api/calltag/v1/google-forms/sync", new JSONObject(), session);
     }
 
+    public static JSONObject listApiKeys(String session) throws Exception {
+        return requestWithFallback("GET", "/api/calltag/v1/keys", null, session);
+    }
+
+    public static JSONObject createApiKey(String session, String name) throws Exception {
+        JSONObject body = new JSONObject()
+                .put("action", "create")
+                .put("name", clean(name));
+        return requestWithFallback("POST", "/api/calltag/v1/keys", body, session);
+    }
+
+    public static JSONObject rotateApiKey(String session, String keyId) throws Exception {
+        JSONObject body = new JSONObject()
+                .put("action", "rotate")
+                .put("keyId", clean(keyId));
+        return requestWithFallback("POST", "/api/calltag/v1/keys", body, session);
+    }
+
+    public static JSONObject revokeApiKey(String session, String keyId) throws Exception {
+        JSONObject body = new JSONObject()
+                .put("action", "revoke")
+                .put("keyId", clean(keyId));
+        return requestWithFallback("POST", "/api/calltag/v1/keys", body, session);
+    }
+
     private static JSONObject requestWithFallback(
             String method,
             String path,

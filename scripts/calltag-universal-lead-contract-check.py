@@ -30,6 +30,7 @@ source_detail = read("CustomerSourceDetailView.java")
 application = read("CallTagApplication.java")
 external_ui = read("ExternalLeadIntegrationActivity.java")
 external_api = read("ExternalLeadIntegrationApiClient.java")
+direct_api_ui = read("DirectApiIntegrationActivity.java")
 menu_installer = read("ExternalLeadMenuInstaller.java")
 more_hub = read("MoreSettingsHubView.java")
 post_call_activity = read("PostCallActivity.java")
@@ -38,6 +39,7 @@ post_call_recovery = read("PostCallRecoveryStore.java")
 section_more = (ROOT / "app/src/main/res/layout/section_more.xml").read_text(encoding="utf-8")
 detail_layout = (ROOT / "app/src/main/res/layout/activity_customer_detail.xml").read_text(encoding="utf-8")
 manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+release_manifest = (ROOT / "app/src/release/AndroidManifest.xml").read_text(encoding="utf-8")
 gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
 
 # Core CRM delivery contract.
@@ -68,6 +70,8 @@ require(source_detail, '"유입 채널"', "customer detail channel heading missi
 require(section_more, 'kr.pagero.calltag.MoreSettingsHubView', "visible More settings hub missing")
 require(more_hub, 'service.addMenu("외부 문의 연동"', "external lead entry missing")
 require(more_hub, 'ExternalLeadIntegrationActivity.class', "external lead entry destination missing")
+require(more_hub, 'service.addMenu("Direct API"', "Direct API entry missing")
+require(more_hub, 'DirectApiIntegrationActivity.class', "Direct API destination missing")
 require(more_hub, 'service.addMenu("친구 초대"', "referral entry must be friend-invite only")
 forbid(more_hub, 'PartnerStatusActivity', "monetary partner status UI must not be exposed")
 forbid(more_hub, '예상 수익', "monetary referral copy must not be exposed")
@@ -86,11 +90,9 @@ forbid(post_call_launcher, 'context.startActivity(', "post-call launcher must ne
 forbid(post_call_recovery, 'PostCallActivityLauncher.launch(context, review)', "post-call recovery must never retry an Activity")
 require(post_call_recovery, 'CallPopupNotificationManager.showPostCall(', "post-call recovery must use passive overlay/notification delivery")
 
-# Compact integration UI: PageRo, Meta, Google Forms and Webhook only.
+# Compact provider integration UI: PageRo, Meta, Google Forms and Webhook.
 for channel in ["PageRo", "Meta Lead Ads", "Google Forms", "Webhook"]:
     require(external_ui, f'"{channel}"', f"channel card missing: {channel}")
-forbid(external_ui, '"Direct API"', "Direct API must not be exposed in integration UI")
-forbid(external_ui, 'createDirectApiKey', "Direct API creation UI must be removed")
 forbid(external_ui, 'script.new', "Apps Script editor must not be part of Google Forms UX")
 forbid(external_ui, 'installCallTag', "Apps Script installer must be removed")
 forbid(external_ui, 'googleFormsScript', "generated Apps Script must be removed")
@@ -110,10 +112,22 @@ require(external_ui, 'transientSecret = ""', "one-time webhook secret cleanup mi
 forbid(external_ui, 'https://calltag.pagero.kr/connect', "integration UI must not use undeployed /connect")
 forbid(external_ui, 'WebView', "provider OAuth must not run in WebView")
 
-# Native API routes for Google OAuth -> forms list -> direct connect -> response sync.
+# Direct API external DB integration is managed natively and raw keys are one-time only.
+require(direct_api_ui, '"Direct API"', "Direct API screen title missing")
+require(direct_api_ui, 'ExternalLeadIntegrationApiClient.listApiKeys', "Direct API list missing")
+require(direct_api_ui, 'ExternalLeadIntegrationApiClient.createApiKey', "Direct API create missing")
+require(direct_api_ui, 'ExternalLeadIntegrationApiClient.rotateApiKey', "Direct API rotate missing")
+require(direct_api_ui, 'ExternalLeadIntegrationApiClient.revokeApiKey', "Direct API revoke missing")
+require(direct_api_ui, 'transientSecret = ""', "Direct API one-time secret cleanup missing")
+require(direct_api_ui, 'POST https://pagero.kr/api/calltag/v1/leads', "Direct API endpoint guidance missing")
+forbid(direct_api_ui, 'SharedPreferences', "Direct API raw key must not persist locally")
+require(release_manifest, '.DirectApiIntegrationActivity', "Direct API release activity registration missing")
+
+# Native API routes for provider OAuth and Direct API key management.
 require(external_api, 'X-Inlet-Session', "native integration API must be session scoped")
 for route in [
     '/api/calltag/v1/connections',
+    '/api/calltag/v1/keys',
     '/api/calltag/v1/meta/oauth/start',
     '/api/calltag/v1/meta/oauth/session',
     '/api/calltag/v1/meta/oauth/complete',
@@ -126,7 +140,8 @@ for route in [
 ]:
     require(external_api, route, f"integration route missing: {route}")
 require(external_api, 'GOOGLE_FORMS_ANDROID_RETURN_PATH', "Google Forms Android return path missing")
-forbid(external_api, '/api/calltag/v1/keys', "Direct API route must be removed from native integration client")
+for method in ['listApiKeys', 'createApiKey', 'rotateApiKey', 'revokeApiKey']:
+    require(external_api, method, f"Direct API client method missing: {method}")
 forbid(external_api, 'SharedPreferences', "provider credentials must not be persisted by Android client")
 
 # Provider callbacks are narrowly scoped to this exported singleTop activity.
@@ -147,12 +162,12 @@ require(external_ui, 'UniversalLeadSyncManager.requestSync(this, true)', "manual
 require(external_ui, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "sync result receiver missing")
 require(external_ui, 'AuthSessionStore.hasSession(this)', "integration UI must respect login session")
 
-# External integration + post-call hotfix release.
-require(gradle, 'versionCode 2026091001', "Play versionCode must be bumped")
-require(gradle, "versionName '0.44.56'", "Play versionName must be bumped")
+# Play policy + external DB release.
+require(gradle, 'versionCode 2026091101', "Play versionCode must be 2026091101")
+require(gradle, "versionName '0.44.57'", "Play versionName must be 0.44.57")
 require(gradle, "androidx.browser:browser:1.8.0", "browser dependency required for OAuth custom tabs")
 
 print(
-    "CallTag universal lead contract OK: PII-free pull/ACK, Meta lead-form picker + Google OAuth, "
-    "Google Forms picker/API sync, passive post-call delivery, no monetary partner UI, v0.44.56"
+    "CallTag universal lead contract OK: PII-free pull/ACK, Meta + Google Forms + Webhook + Direct API, "
+    "passive post-call delivery, no monetary partner UI, v0.44.57"
 )

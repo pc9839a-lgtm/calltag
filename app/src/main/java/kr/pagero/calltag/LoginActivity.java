@@ -158,7 +158,7 @@ public final class LoginActivity extends Activity {
         int insertAt = privacyIndex > 0 ? privacyIndex - 1 : Math.max(0, form.getChildCount() - 4);
 
         TextView benefit = new TextView(this);
-        benefit.setText("추천인 코드 입력 시 무료 7일 추가");
+        benefit.setText("추천인 코드 입력 시 무료 5일 추가");
         benefit.setTextSize(12f);
         benefit.setTextColor(getColor(R.color.primary));
         benefit.setGravity(Gravity.CENTER_VERTICAL);
