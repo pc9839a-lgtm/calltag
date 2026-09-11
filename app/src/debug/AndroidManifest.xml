@@ -2,5 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
         android:icon="@mipmap/ic_launcher_calltag"
-        android:roundIcon="@mipmap/ic_launcher_calltag_round" />
+        android:roundIcon="@mipmap/ic_launcher_calltag_round">
+        <activity
+            android:name=".DirectApiIntegrationActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+    </application>
 </manifest>
