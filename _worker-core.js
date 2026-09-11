@@ -117,7 +117,7 @@ export default {
       if(request.method==='HEAD')return new Response(null,{status:bundled.status,headers:bundled.headers});
       return bundled;
     }
-    const legacyLegal=url.pathname.match(/^\/(terms|privacy|refund|support)(?:\.html)?$/);
+    const legacyLegal=url.pathname.match(/^\/(terms|privacy|refund|support|account-deletion)(?:\.html)?$/);
     if(url.pathname==='/index.html')return Response.redirect(new URL('/',url).toString(),301);
     if(legacyLegal)return Response.redirect(new URL(`/${legacyLegal[1]}/`,url).toString(),301);
     const response=await env.ASSETS.fetch(request);
@@ -129,7 +129,7 @@ export default {
       return response;
     }
     const headers=new Headers(response.headers);['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));headers.set('content-type','text/html; charset=UTF-8');headers.set('cache-control','no-cache, no-store, must-revalidate');headers.set('x-calltag-worker',WORKER_VERSION);
-    const isLegal=/^\/(terms|privacy|refund|support)(?:\.html)?(?:\/|$)/.test(url.pathname);if(isLegal)return new Response(await response.text(),{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
+    const isLegal=/^\/(terms|privacy|refund|support|account-deletion)(?:\.html)?(?:\/|$)/.test(url.pathname);if(isLegal)return new Response(await response.text(),{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
     const isSettlement=/^\/web\/settlement(?:\.html)?\/?$/.test(url.pathname);
     const securityScript=isSettlement?`<script src="${PARTNER_SECURITY_SRC}"></script>`:'';
     let body=await response.text();body=stripSeo(body).replace(/<title>[\s\S]*?<\/title>/i,`<title>${SEO_TITLE}</title>`).replace('</head>',`${SEO_HEAD}</head>`).replace('</body>',`${securityScript}<script src="${RUNTIME_SRC}"></script></body>`);return new Response(body,{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
