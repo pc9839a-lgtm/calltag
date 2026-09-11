@@ -33,6 +33,9 @@ public final class CallTagSyncWorkScheduler {
     public static void reconcile(Context context) {
         Context app = context.getApplicationContext();
 
+        // External input forms must keep syncing even when optional cloud backup/sync is disabled.
+        ExternalLeadAutoSyncScheduler.reconcile(app);
+
         // CallTagApplication invokes this on every process start. Reconcile the local CallLog
         // safety net here as well so it remains scheduled independently of cloud-sync eligibility.
         CallMonitorRecoveryScheduler.reconcile(app);
@@ -96,6 +99,7 @@ public final class CallTagSyncWorkScheduler {
 
     public static void cancel(Context context) {
         Context app = context.getApplicationContext();
+        ExternalLeadAutoSyncScheduler.cancel(app);
         WorkManager.getInstance(app).cancelAllWorkByTag(TAG);
         prefs(app).edit().remove(KEY_ACCOUNT).apply();
     }
