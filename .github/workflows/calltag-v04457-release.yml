@@ -43,7 +43,7 @@ jobs:
           # External DB / Direct API must stay in the release build.
           grep -F 'DirectApiIntegrationActivity' app/src/release/AndroidManifest.xml
           grep -F 'v -> start(DirectApiIntegrationActivity.class)' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
-          grep -F '/api/calltag/v1/api-keys' app/src/main/java/kr/pagero/calltag/ExternalLeadIntegrationApiClient.java
+          grep -F '/api/calltag/v1/keys' app/src/main/java/kr/pagero/calltag/ExternalLeadIntegrationApiClient.java
 
           # Referral policy: every recommendation-related bonus is +5 days; +7 copy must never ship.
           grep -F '추천인 코드 입력 시 무료 5일 추가' app/src/main/java/kr/pagero/calltag/LoginActivity.java
