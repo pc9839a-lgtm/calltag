@@ -80,7 +80,7 @@ public final class ReferralPartnerActivity extends Activity {
         invite.addView(actions, top(14));
 
         TextView friendBenefit = text(
-                "친구 혜택 · 회원가입할 때 추천인 코드를 입력하면 무료체험 +7일",
+                "친구 혜택 · 회원가입할 때 추천인 코드를 입력하면 무료체험 +5일",
                 13f, R.color.text_secondary, false);
         friendBenefit.setLineSpacing(0f, 1.2f);
         invite.addView(friendBenefit, top(12));
@@ -183,7 +183,7 @@ public final class ReferralPartnerActivity extends Activity {
         }
 
         StringBuilder message = new StringBuilder()
-                .append("콜태그 가입할 때 아래 추천인 코드를 입력하면 무료체험이 7일 추가돼요.\n")
+                .append("콜태그 가입할 때 아래 추천인 코드를 입력하면 무료체험이 5일 추가돼요.\n")
                 .append("추천인 코드: ").append(value.code);
         if (!value.shareUrl.isEmpty()) message.append("\n").append(value.shareUrl);
 

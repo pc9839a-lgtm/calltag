@@ -158,7 +158,7 @@ public final class BillingEntitlementActivity extends Activity
         root.addView(pagero, top(20));
 
         root.addView(text(
-                "신규 가입은 7일 무료이며 추천인 코드 입력 시 7일이 추가됩니다. 무료 이용이 끝나도 자동 결제되지 않습니다.",
+                "신규 가입은 7일 무료이며 추천인 코드 입력 시 5일이 추가됩니다. 무료 이용이 끝나도 자동 결제되지 않습니다.",
                 13f,
                 R.color.text_muted,
                 false), top(16));
