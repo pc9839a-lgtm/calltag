@@ -14,8 +14,8 @@ import android.widget.Toast;
 
 /** 더보기 > 앱 정보. 법적 문서, 버전, 고객센터만 모은다. */
 public final class AppInfoActivity extends Activity {
-    private static final String TERMS_URL = "https://call.pagero.kr/terms/";
-    private static final String PRIVACY_URL = "https://call.pagero.kr/privacy/";
+    private static final String TERMS_URL = "https://calltag.pagero.kr/terms/";
+    private static final String PRIVACY_URL = "https://calltag.pagero.kr/privacy/";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
