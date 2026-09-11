@@ -1,13 +1,13 @@
-name: CallTag 0.44.57 Play policy and external DB release
+name: CallTag 0.44.58 external input forms release
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - release/calltag-v04457-play-policy-external-final
+      - release/calltag-v04458-external-input-final
   pull_request:
     branches:
-      - main
+      - release/calltag-v04457-play-policy-external-final
 
 permissions:
   contents: read
@@ -32,18 +32,24 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/calltag-universal-lead-contract-check.py
-          grep -F 'versionCode 2026091101' app/build.gradle
-          grep -F "versionName '0.44.57'" app/build.gradle
+          grep -F 'versionCode 2026091102' app/build.gradle
+          grep -F "versionName '0.44.58'" app/build.gradle
           grep -F 'android.permission.READ_CALL_LOG' app/src/main/AndroidManifest.xml
           grep -F 'android.permission.SEND_SMS' app/src/main/AndroidManifest.xml
           grep -F 'android.permission.FOREGROUND_SERVICE_SPECIAL_USE' app/src/main/AndroidManifest.xml
           grep -F 'android:foregroundServiceType="specialUse"' app/src/main/AndroidManifest.xml
           grep -F 'User-enabled phone CRM and SMS automation' app/src/main/AndroidManifest.xml
 
-          # External DB / Direct API must stay in the release build.
+          # External input integrations must remain in the release build.
           grep -F 'DirectApiIntegrationActivity' app/src/release/AndroidManifest.xml
+          grep -F 'WebhookMappingActivity' app/src/release/AndroidManifest.xml
           grep -F 'v -> start(DirectApiIntegrationActivity.class)' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
+          grep -F 'v -> start(WebhookMappingActivity.class)' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
           grep -F '/api/calltag/v1/keys' app/src/main/java/kr/pagero/calltag/ExternalLeadIntegrationApiClient.java
+          grep -F 'updateWebhookMapping' app/src/main/java/kr/pagero/calltag/WebhookMappingActivity.java
+          grep -F 'ExternalLeadSyncWorker.class' app/src/main/java/kr/pagero/calltag/ExternalLeadSyncWorkScheduler.java
+          grep -F 'ExternalLeadSyncWorkScheduler.reconcile(activity)' app/src/main/java/kr/pagero/calltag/ExternalLeadMenuInstaller.java
+          grep -F 'ExternalLeadIntegrationApiClient.syncGoogleForms(session)' app/src/main/java/kr/pagero/calltag/UniversalLeadSyncManager.java
 
           # Referral policy: every recommendation-related bonus is +5 days; +7 copy must never ship.
           grep -F '추천인 코드 입력 시 무료 5일 추가' app/src/main/java/kr/pagero/calltag/LoginActivity.java
@@ -196,21 +202,21 @@ jobs:
           test -s "$AAB"
           test -s "$APK"
           jarsigner -verify -certs "$AAB"
-          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/CALLTAG_V04457_AAB_CERTIFICATE.txt"
-          grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/CALLTAG_V04457_AAB_CERTIFICATE.txt"
-          OUT="$RUNNER_TEMP/calltag-v0.44.57"
+          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/CALLTAG_V04458_AAB_CERTIFICATE.txt"
+          grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/CALLTAG_V04458_AAB_CERTIFICATE.txt"
+          OUT="$RUNNER_TEMP/calltag-v0.44.58"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.44.57-code2026091101.aab"
-          cp "$APK" "$OUT/CallTag-v0.44.57-code2026091101-debug.apk"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V04457_AAB_SHA256.txt"
-          sha256sum "$APK" > "$OUT/CALLTAG_V04457_DEBUG_APK_SHA256.txt"
+          cp "$AAB" "$OUT/CallTag-v0.44.58-code2026091102.aab"
+          cp "$APK" "$OUT/CallTag-v0.44.58-code2026091102-debug.apk"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04458_AAB_SHA256.txt"
+          sha256sum "$APK" > "$OUT/CALLTAG_V04458_DEBUG_APK_SHA256.txt"
           cp "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt" "$OUT/"
-          cp "$RUNNER_TEMP/CALLTAG_V04457_AAB_CERTIFICATE.txt" "$OUT/"
+          cp "$RUNNER_TEMP/CALLTAG_V04458_AAB_CERTIFICATE.txt" "$OUT/"
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.57-play-release
-          path: ${{ runner.temp }}/calltag-v0.44.57
+          name: calltag-v0.44.58-play-release
+          path: ${{ runner.temp }}/calltag-v0.44.58
           retention-days: 90
           if-no-files-found: error
