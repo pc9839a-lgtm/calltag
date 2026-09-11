@@ -15,9 +15,11 @@ import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -70,6 +72,7 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         super.onCreate(savedInstanceState);
         setTitle("외부 문의 연동");
         setContentView(buildContent());
+        ExternalLeadAutoSyncScheduler.reconcile(this);
         refreshLocalStatus();
         handleDeepLink(getIntent());
     }
@@ -284,7 +287,8 @@ public final class ExternalLeadIntegrationActivity extends Activity {
                 toast("Google Forms 연결을 완료하지 못했습니다.");
                 return;
             }
-            toast("Google Forms 연결 완료");
+            ExternalLeadAutoSyncScheduler.reconcile(this);
+            toast("Google Forms 연결 완료 · 자동 수신 켜짐");
             refreshRemoteStatus();
             syncGoogleFormsThenPull();
         });
@@ -352,11 +356,12 @@ public final class ExternalLeadIntegrationActivity extends Activity {
     private void manageWebhook(JSONObject connection) {
         if (connection == null) return;
         String id = connection.optString("id", "");
-        String[] actions = {"상태 확인", "URL 재발급", "연결 해제"};
+        String[] actions = {"상태 확인", "필드 매핑", "URL 재발급", "연결 해제"};
         new AlertDialog.Builder(this).setTitle("Webhook").setItems(actions, (dialog, which) -> {
             if (which == 0) checkWebhook(connection);
-            if (which == 1) rotateWebhook(id);
-            if (which == 2) revokeWebhook(id);
+            if (which == 1) openWebhookMapping(id);
+            if (which == 2) rotateWebhook(id);
+            if (which == 3) revokeWebhook(id);
         }).setNegativeButton("닫기", null).show();
     }
 
@@ -366,9 +371,164 @@ public final class ExternalLeadIntegrationActivity extends Activity {
             JSONObject current = result.optJSONObject("connection");
             if (current != null) replaceWebhookConnection(current);
             JSONArray samples = result.optJSONArray("samples");
+            int count = samples == null ? 0 : samples.length();
             boolean ready = current != null && current.optBoolean("mappingReady", false);
             renderChannels();
-            toast("샘플 " + (samples == null ? 0 : samples.length()) + " · " + (ready ? "연결됨" : "매핑 필요"));
+            if (count == 0) {
+                toast("먼저 Webhook URL로 테스트 문의 1건을 보내주세요.");
+                return;
+            }
+            if (!ready) {
+                showWebhookMappingDialog(id, current, samples.optJSONObject(0));
+                return;
+            }
+            toast("샘플 " + count + " · 연결됨");
+        });
+    }
+
+    private void openWebhookMapping(String connectionId) {
+        runApi(null, "", session -> ExternalLeadIntegrationApiClient.webhookSamples(session, connectionId), result -> {
+            JSONObject current = result.optJSONObject("connection");
+            if (current != null) replaceWebhookConnection(current);
+            JSONArray samples = result.optJSONArray("samples");
+            if (samples == null || samples.length() == 0) {
+                toast("매핑할 샘플이 없습니다. 테스트 문의를 먼저 보내주세요.");
+                return;
+            }
+            showWebhookMappingDialog(connectionId, current, samples.optJSONObject(0));
+        });
+    }
+
+    private void showWebhookMappingDialog(String connectionId, JSONObject connection, JSONObject sample) {
+        if (sample == null) {
+            toast("Webhook 샘플을 읽지 못했습니다.");
+            return;
+        }
+        JSONObject mapper = sample.optJSONObject("mapper");
+        JSONArray fields = mapper == null ? null : mapper.optJSONArray("fields");
+        if (fields == null || fields.length() == 0) {
+            toast("샘플에서 매핑 가능한 필드를 찾지 못했습니다.");
+            return;
+        }
+
+        JSONObject currentMapping = connection == null ? null : connection.optJSONObject("mapping");
+        JSONObject draft = mapper.optJSONObject("draftMapping");
+        JSONObject initial = connection != null && connection.optBoolean("mappingReady", false)
+                ? currentMapping : draft;
+        if (initial == null) initial = new JSONObject();
+
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(20), dp(8), dp(20), 0);
+
+        TextView guide = bodyText("샘플 값을 기준으로 콜태그 고객 필드를 연결합니다. 전화번호는 필수입니다.");
+        panel.addView(guide, matchWrap());
+
+        Spinner name = mappingSpinner(panel, "이름", fields, initial.optString("name", ""), true);
+        Spinner phone = mappingSpinner(panel, "전화번호 *", fields, initial.optString("phone", ""), false);
+        Spinner email = mappingSpinner(panel, "이메일", fields, initial.optString("email", ""), true);
+        Spinner content = mappingSpinner(panel, "문의내용", fields, initial.optString("content", ""), true);
+
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(panel, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT));
+
+        JSONObject finalInitial = initial;
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Webhook 필드 매핑")
+                .setView(scroll)
+                .setNegativeButton("취소", null)
+                .setPositiveButton("저장", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    String phonePath = selectedMappingPath(phone, fields, false);
+                    if (phonePath.isEmpty()) {
+                        toast("전화번호 필드를 선택해주세요.");
+                        return;
+                    }
+                    JSONObject mapping = new JSONObject();
+                    try {
+                        putMapping(mapping, "name", selectedMappingPath(name, fields, true));
+                        putMapping(mapping, "phone", phonePath);
+                        putMapping(mapping, "email", selectedMappingPath(email, fields, true));
+                        putMapping(mapping, "content", selectedMappingPath(content, fields, true));
+                        putMapping(mapping, "externalId", finalInitial.optString("externalId", ""));
+                        putMapping(mapping, "submittedAt", finalInitial.optString("submittedAt", ""));
+                        mapping.put("customFields", new JSONArray());
+                    } catch (Exception error) {
+                        toast("필드 매핑을 만들지 못했습니다.");
+                        return;
+                    }
+                    dialog.dismiss();
+                    saveWebhookMapping(connectionId, mapping, sample.optLong("id", 0L));
+                }));
+        dialog.show();
+    }
+
+    private Spinner mappingSpinner(
+            LinearLayout parent,
+            String label,
+            JSONArray fields,
+            String initialPath,
+            boolean allowNone) {
+        TextView labelView = titleText(label, 13f);
+        parent.addView(labelView, topMargin(16));
+
+        ArrayList<String> labels = new ArrayList<>();
+        if (allowNone) labels.add("선택 안 함");
+        int initialIndex = allowNone ? 0 : -1;
+        for (int i = 0; i < fields.length(); i++) {
+            JSONObject field = fields.optJSONObject(i);
+            String pointer = field == null ? "" : field.optString("pointer", "");
+            String preview = field == null ? "" : field.optString("preview", "");
+            String row = pointer + (preview.isEmpty() ? "" : "  ·  " + preview);
+            labels.add(row);
+            if (!pointer.isEmpty() && pointer.equals(initialPath)) initialIndex = labels.size() - 1;
+        }
+        if (initialIndex < 0) initialIndex = 0;
+
+        Spinner spinner = new Spinner(this);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this,
+                android.R.layout.simple_spinner_item,
+                labels);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinner.setAdapter(adapter);
+        spinner.setSelection(initialIndex);
+        parent.addView(spinner, topMargin(6));
+        return spinner;
+    }
+
+    private String selectedMappingPath(Spinner spinner, JSONArray fields, boolean allowNone) {
+        int selected = spinner.getSelectedItemPosition();
+        if (allowNone) {
+            if (selected <= 0) return "";
+            selected -= 1;
+        }
+        JSONObject field = fields.optJSONObject(selected);
+        return field == null ? "" : field.optString("pointer", "");
+    }
+
+    private void putMapping(JSONObject mapping, String key, String value) throws Exception {
+        String clean = value(value);
+        if (!clean.isEmpty()) mapping.put(key, clean);
+    }
+
+    private void saveWebhookMapping(String connectionId, JSONObject mapping, long rawEventId) {
+        runApi(null, "", session -> {
+            JSONObject updated = ExternalLeadIntegrationApiClient.updateWebhookMapping(session, connectionId, mapping);
+            if (rawEventId > 0L) {
+                ExternalLeadIntegrationApiClient.replayWebhookSample(session, connectionId, rawEventId);
+            }
+            return updated;
+        }, result -> {
+            JSONObject connection = result.optJSONObject("connection");
+            if (connection != null) replaceWebhookConnection(connection);
+            renderChannels();
+            toast("Webhook 필드 매핑 완료");
+            UniversalLeadSyncManager.requestSync(this, true);
         });
     }
 
@@ -569,6 +729,7 @@ public final class ExternalLeadIntegrationActivity extends Activity {
             if (api.status == 401 || api.status == 403) return "로그인 또는 연동 권한을 다시 확인해주세요.";
             if ("CALLTAG_GOOGLE_FORMS_PHONE_FIELD_NOT_FOUND".equals(api.code)) return "폼에서 전화번호 질문을 찾지 못했습니다.";
             if ("CALLTAG_META_FORM_SELECTION_REQUIRED".equals(api.code)) return "받을 Meta 리드폼을 선택해주세요.";
+            if ("CALLTAG_WEBHOOK_MAPPING_PHONE_REQUIRED".equals(api.code)) return "Webhook 전화번호 필드를 선택해주세요.";
             if (!api.code.isEmpty()) return value(api.getMessage());
         }
         String message = error == null ? "" : value(error.getMessage());
