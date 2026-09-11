@@ -31,6 +31,9 @@ application = read("CallTagApplication.java")
 external_ui = read("ExternalLeadIntegrationActivity.java")
 external_api = read("ExternalLeadIntegrationApiClient.java")
 direct_api_ui = read("DirectApiIntegrationActivity.java")
+webhook_mapping_ui = read("WebhookMappingActivity.java")
+external_sync_worker = read("ExternalLeadSyncWorker.java")
+external_sync_scheduler = read("ExternalLeadSyncWorkScheduler.java")
 menu_installer = read("ExternalLeadMenuInstaller.java")
 more_hub = read("MoreSettingsHubView.java")
 post_call_activity = read("PostCallActivity.java")
@@ -70,6 +73,8 @@ require(source_detail, '"유입 채널"', "customer detail channel heading missi
 require(section_more, 'kr.pagero.calltag.MoreSettingsHubView', "visible More settings hub missing")
 require(more_hub, 'service.addMenu("외부 문의 연동"', "external lead entry missing")
 require(more_hub, 'ExternalLeadIntegrationActivity.class', "external lead entry destination missing")
+require(more_hub, 'service.addMenu("Webhook 필드 매핑"', "webhook field mapping entry missing")
+require(more_hub, 'WebhookMappingActivity.class', "webhook mapping destination missing")
 require(more_hub, 'service.addMenu("Direct API"', "Direct API entry missing")
 require(more_hub, 'DirectApiIntegrationActivity.class', "Direct API destination missing")
 require(more_hub, 'service.addMenu("친구 초대"', "referral entry must be friend-invite only")
@@ -80,6 +85,7 @@ forbid(more_hub, '외부 문의 수신 테스트', "test entry must not be expos
 forbid(more_hub, 'ExternalLeadE2eActivity', "test activity must not be referenced")
 forbid(manifest, '.ExternalLeadE2eActivity', "test activity must not be registered")
 require(menu_installer, '"외부 문의 연동"', "legacy More fallback label missing")
+require(menu_installer, 'ExternalLeadSyncWorkScheduler.reconcile(activity)', "background external lead scheduler missing")
 require(application, 'ExternalLeadMenuInstaller.install((MainActivity) activity);', "legacy More fallback installer missing")
 
 # Post-call UX must stay passive unless the user explicitly taps a notification/action.
@@ -96,7 +102,6 @@ for channel in ["PageRo", "Meta Lead Ads", "Google Forms", "Webhook"]:
 forbid(external_ui, 'script.new', "Apps Script editor must not be part of Google Forms UX")
 forbid(external_ui, 'installCallTag', "Apps Script installer must be removed")
 forbid(external_ui, 'googleFormsScript', "generated Apps Script must be removed")
-forbid(external_ui, 'Google Form 선택\", 18f', "old manual form-link wizard must be removed")
 require(external_ui, 'PageroConnectionCompactActivity.class', "PageRo must stay native")
 require(external_ui, 'ExternalLeadIntegrationApiClient::startMetaOauth', "Meta OAuth start missing")
 require(external_ui, 'loadMetaLeadForms', "Meta OAuth must continue into lead-form discovery")
@@ -111,6 +116,15 @@ require(external_ui, 'CustomTabsIntent', "OAuth must launch in browser custom ta
 require(external_ui, 'transientSecret = ""', "one-time webhook secret cleanup missing")
 forbid(external_ui, 'https://calltag.pagero.kr/connect', "integration UI must not use undeployed /connect")
 forbid(external_ui, 'WebView', "provider OAuth must not run in WebView")
+
+# Webhook field mapping must support a required phone field and optional contact/inquiry fields.
+require(webhook_mapping_ui, '"전화번호 필드 선택"', "webhook phone mapping UI missing")
+require(webhook_mapping_ui, '"이름 필드 선택"', "webhook name mapping UI missing")
+require(webhook_mapping_ui, '"이메일 필드 선택"', "webhook email mapping UI missing")
+require(webhook_mapping_ui, '"문의내용 필드 선택"', "webhook content mapping UI missing")
+require(webhook_mapping_ui, 'ExternalLeadIntegrationApiClient.updateWebhookMapping', "webhook mapping save missing")
+require(webhook_mapping_ui, 'mapping.optString("phone", "")', "webhook required-phone guard missing")
+require(release_manifest, '.WebhookMappingActivity', "webhook mapping release activity registration missing")
 
 # Direct API external DB integration is managed natively and raw keys are one-time only.
 require(direct_api_ui, '"Direct API"', "Direct API screen title missing")
@@ -155,19 +169,22 @@ require(external_ui, '"calltag".equalsIgnoreCase(uri.getScheme())', "deep-link s
 require(external_ui, '"external-lead".equalsIgnoreCase(uri.getHost())', "deep-link host validation missing")
 require(external_ui, '"/google-forms".equals(path)', "Google Forms callback dispatch missing")
 
-# Google Forms provider pull is best-effort and canonical queue remains source of truth for Android CRM import.
+# Google Forms provider pull is best-effort; foreground + WorkManager keep it refreshed.
 require(sync, 'ExternalLeadIntegrationApiClient.syncGoogleForms(session)', "Google Forms provider pre-sync missing")
 require(sync, 'Google Forms pre-sync skipped', "Google Forms API failure isolation missing")
 require(external_ui, 'UniversalLeadSyncManager.requestSync(this, true)', "manual lead refresh missing")
 require(external_ui, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "sync result receiver missing")
 require(external_ui, 'AuthSessionStore.hasSession(this)', "integration UI must respect login session")
+require(external_sync_worker, 'UniversalLeadSyncManager.requestSync(app, true)', "background universal lead pull missing")
+require(external_sync_scheduler, 'PERIOD_MINUTES = 15L', "background provider sync interval missing")
+require(external_sync_scheduler, 'ExistingPeriodicWorkPolicy.UPDATE', "background provider periodic work missing")
 
-# Play policy + external DB release.
-require(gradle, 'versionCode 2026091101', "Play versionCode must be 2026091101")
-require(gradle, "versionName '0.44.57'", "Play versionName must be 0.44.57")
+# Play policy + external input release.
+require(gradle, 'versionCode 2026091102', "Play versionCode must be 2026091102")
+require(gradle, "versionName '0.44.58'", "Play versionName must be 0.44.58")
 require(gradle, "androidx.browser:browser:1.8.0", "browser dependency required for OAuth custom tabs")
 
 print(
-    "CallTag universal lead contract OK: PII-free pull/ACK, Meta + Google Forms + Webhook + Direct API, "
-    "passive post-call delivery, no monetary partner UI, v0.44.57"
+    "CallTag universal lead contract OK: Meta + Google Forms + Webhook mapping + Direct API, "
+    "background provider sync, passive post-call delivery, no monetary partner UI, v0.44.58"
 )
