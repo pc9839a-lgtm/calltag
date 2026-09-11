@@ -22,10 +22,6 @@ jobs:
       CALLTAG_FIREBASE_API_KEY: ${{ secrets.CALLTAG_FIREBASE_API_KEY }}
       CALLTAG_FIREBASE_PROJECT_ID: ${{ secrets.CALLTAG_FIREBASE_PROJECT_ID }}
       CALLTAG_FIREBASE_SENDER_ID: ${{ secrets.CALLTAG_FIREBASE_SENDER_ID }}
-      SECRET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
-      SECRET_UPLOAD_STORE_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_STORE_PASSWORD }}
-      SECRET_UPLOAD_KEY_ALIAS: ${{ secrets.CALLTAG_UPLOAD_KEY_ALIAS }}
-      SECRET_UPLOAD_KEY_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_KEY_PASSWORD }}
 
     steps:
       - name: Checkout
@@ -43,12 +39,45 @@ jobs:
           grep -F 'android.permission.FOREGROUND_SERVICE_SPECIAL_USE' app/src/main/AndroidManifest.xml
           grep -F 'android:foregroundServiceType="specialUse"' app/src/main/AndroidManifest.xml
           grep -F 'User-enabled phone CRM and SMS automation' app/src/main/AndroidManifest.xml
+
+          # External DB / Direct API must stay in the release build.
           grep -F 'DirectApiIntegrationActivity' app/src/release/AndroidManifest.xml
+          grep -F 'v -> start(DirectApiIntegrationActivity.class)' app/src/main/java/kr/pagero/calltag/MoreSettingsHubView.java
+          grep -F '/api/calltag/v1/api-keys' app/src/main/java/kr/pagero/calltag/ExternalLeadIntegrationApiClient.java
+
+          # Referral policy: every recommendation-related bonus is +5 days; +7 copy must never ship.
+          grep -F '추천인 코드 입력 시 무료 5일 추가' app/src/main/java/kr/pagero/calltag/LoginActivity.java
+          grep -F '추천인 코드 입력 시 5일이 추가됩니다' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
+          grep -F '무료체험 +5일' app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java
+          grep -F '추천 가입 1명마다 무료 이용 +5일' app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java
+          if grep -RInE '추천인[^\n]{0,40}(\+?7일)|무료체험[^\n]{0,20}(\+?7일)|추천인 코드 입력 시[^\n]{0,30}7일' app/src/main --include='*.java' --include='*.kt' --include='*.xml'; then
+            echo '::error::Legacy +7 referral copy remains in shipped Android sources.'
+            exit 1
+          fi
+
+          # Monetary partner UI must not return to the Play app.
+          if grep -RInE 'PartnerStatusActivity|PartnerSettlementActivity|예상 수익|확정 수익|파트너 정산' app/src/main app/src/release --include='*.java' --include='*.kt' --include='*.xml'; then
+            echo '::error::Monetary partner/settlement UI is present in shipped Android sources.'
+            exit 1
+          fi
+
+          # Call end must not auto-foreground an Activity. Fallback delivery remains notification/overlay path.
+          grep -F 'Automatic Activity launches are intentionally disabled' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
+          grep -F 'auto_activity_disabled' app/src/main/java/kr/pagero/calltag/PostCallActivityLauncher.java
+          grep -F 'CallPopupNotificationManager.showPostCall' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
+          grep -F 'POST_CALL_SETTLE_DELAY_MS = 1_800L' app/src/main/java/kr/pagero/calltag/CallMonitorService.java
+
+          # Data-safety/public policy pages and app links.
           grep -F 'https://calltag.pagero.kr/privacy/' app/src/main/java/kr/pagero/calltag/AppInfoActivity.java
           grep -F 'https://calltag.pagero.kr/terms/' app/src/main/java/kr/pagero/calltag/AppInfoActivity.java
           test -s account-deletion/index.html
           test -s privacy/index.html
           test -s terms/index.html
+          grep -F '추천 코드로 가입한 사용자: +5일' docs/PLAY_POLICY_RELEASE_CHECKLIST_KO.md
+          if grep -F '추천 코드로 가입한 사용자: +7일' docs/PLAY_POLICY_RELEASE_CHECKLIST_KO.md; then
+            echo '::error::Play checklist still documents +7 referral benefit.'
+            exit 1
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -64,31 +93,96 @@ jobs:
       - name: Assemble debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Prepare established Play upload key
+      - name: Resolve Play upload credentials
+        env:
+          SECRET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
+          SECRET_UPLOAD_CREDENTIALS: ${{ secrets.CALLTAG_UPLOAD_CREDENTIALS }}
+          SECRET_UPLOAD_STORE_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_STORE_PASSWORD }}
+          SECRET_UPLOAD_KEY_ALIAS: ${{ secrets.CALLTAG_UPLOAD_KEY_ALIAS }}
+          SECRET_UPLOAD_KEY_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_KEY_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
-          for key in SECRET_UPLOAD_KEYSTORE_BASE64 SECRET_UPLOAD_STORE_PASSWORD SECRET_UPLOAD_KEY_ALIAS SECRET_UPLOAD_KEY_PASSWORD
-          do
-            test -n "${!key:-}" || { echo "::error::${key} is not configured"; exit 1; }
-          done
+          python3 <<'PY'
+          import json
+          import os
+          import sys
+
+          raw = (os.environ.get('SECRET_UPLOAD_CREDENTIALS') or '').strip()
+          values = {}
+
+          if raw:
+              try:
+                  parsed = json.loads(raw)
+                  if isinstance(parsed, dict):
+                      values.update({str(k): str(v) for k, v in parsed.items() if v is not None})
+              except json.JSONDecodeError:
+                  for line in raw.splitlines():
+                      line = line.strip()
+                      if not line or line.startswith('#') or '=' not in line:
+                          continue
+                      key, value = line.split('=', 1)
+                      values[key.strip()] = value.strip().strip('"').strip("'")
+
+          legacy = {
+              'CALLTAG_UPLOAD_STORE_PASSWORD': os.environ.get('SECRET_UPLOAD_STORE_PASSWORD', ''),
+              'CALLTAG_UPLOAD_KEY_ALIAS': os.environ.get('SECRET_UPLOAD_KEY_ALIAS', ''),
+              'CALLTAG_UPLOAD_KEY_PASSWORD': os.environ.get('SECRET_UPLOAD_KEY_PASSWORD', ''),
+          }
+          for key, value in legacy.items():
+              if value:
+                  values.setdefault(key, value)
+
+          aliases = {
+              'CALLTAG_UPLOAD_STORE_PASSWORD': (
+                  'CALLTAG_UPLOAD_STORE_PASSWORD', 'STORE_PASSWORD', 'storePassword', 'store_password',
+                  'KEYSTORE_PASSWORD', 'keystorePassword', 'keystore_password'),
+              'CALLTAG_UPLOAD_KEY_ALIAS': (
+                  'CALLTAG_UPLOAD_KEY_ALIAS', 'KEY_ALIAS', 'keyAlias', 'key_alias', 'ALIAS'),
+              'CALLTAG_UPLOAD_KEY_PASSWORD': (
+                  'CALLTAG_UPLOAD_KEY_PASSWORD', 'KEY_PASSWORD', 'keyPassword', 'key_password'),
+          }
+
+          resolved = {}
+          for target, candidates in aliases.items():
+              for candidate in candidates:
+                  value = values.get(candidate, '')
+                  if value:
+                      resolved[target] = value
+                      break
+
+          missing = [key for key in aliases if not resolved.get(key)]
+          if not os.environ.get('SECRET_UPLOAD_KEYSTORE_BASE64', '').strip():
+              missing.append('CALLTAG_UPLOAD_KEYSTORE_BASE64')
+          if missing:
+              print('::error::Stable Play upload signing is not fully configured: ' + ', '.join(missing))
+              sys.exit(1)
+
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
+              for key, value in resolved.items():
+                  env.write(f'{key}={value}\n')
+          PY
+
+      - name: Restore verified Play upload key
+        env:
+          SECRET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
+          EXPECTED_UPLOAD_KEY_SHA256: 'C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7'
+        shell: bash
+        run: |
+          set -euo pipefail
           KEYSTORE="$RUNNER_TEMP/calltag-upload.jks"
           printf '%s' "$SECRET_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+          echo "::add-mask::$CALLTAG_UPLOAD_STORE_PASSWORD"
+          echo "::add-mask::$CALLTAG_UPLOAD_KEY_PASSWORD"
           chmod 600 "$KEYSTORE"
-          echo "::add-mask::$SECRET_UPLOAD_STORE_PASSWORD"
-          echo "::add-mask::$SECRET_UPLOAD_KEY_PASSWORD"
+          keytool -list -v -keystore "$KEYSTORE" -storepass "$CALLTAG_UPLOAD_STORE_PASSWORD" -alias "$CALLTAG_UPLOAD_KEY_ALIAS" \
+            | grep -E 'Alias name:|Owner:|SHA1:|SHA256:' > "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
+          grep -F "SHA256: $EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
           {
             echo "CALLTAG_UPLOAD_KEYSTORE_PATH=$KEYSTORE"
-            echo "CALLTAG_UPLOAD_STORE_PASSWORD=$SECRET_UPLOAD_STORE_PASSWORD"
-            echo "CALLTAG_UPLOAD_KEY_ALIAS=$SECRET_UPLOAD_KEY_ALIAS"
-            echo "CALLTAG_UPLOAD_KEY_PASSWORD=$SECRET_UPLOAD_KEY_PASSWORD"
+            echo "CALLTAG_EXPECTED_UPLOAD_KEY_SHA256=$EXPECTED_UPLOAD_KEY_SHA256"
           } >> "$GITHUB_ENV"
-          keytool -list -v -keystore "$KEYSTORE" -storepass "$SECRET_UPLOAD_STORE_PASSWORD" -alias "$SECRET_UPLOAD_KEY_ALIAS" \
-            | grep -E 'Alias name:|Owner:|SHA1:|SHA256:' > "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
-          if grep -qi 'Android Debug' "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"; then
-            echo '::error::Debug signing key detected'
-            exit 1
-          fi
 
       - name: Build signed release AAB
         run: gradle :app:bundleRelease --no-daemon --stacktrace
@@ -97,14 +191,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          AAB=app/build/outputs/bundle/release/app-release.aab
+          AAB='app/build/outputs/bundle/release/app-release.aab'
+          APK='app/build/outputs/apk/debug/app-debug.apk'
           test -s "$AAB"
+          test -s "$APK"
           jarsigner -verify -certs "$AAB"
-          mkdir -p "$RUNNER_TEMP/calltag-v0.44.57"
-          cp "$AAB" "$RUNNER_TEMP/calltag-v0.44.57/CallTag-v0.44.57-code2026091101.aab"
-          cp app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/calltag-v0.44.57/CallTag-v0.44.57-code2026091101-debug.apk"
-          sha256sum "$AAB" > "$RUNNER_TEMP/calltag-v0.44.57/CALLTAG_V04457_AAB_SHA256.txt"
-          cp "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt" "$RUNNER_TEMP/calltag-v0.44.57/"
+          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/CALLTAG_V04457_AAB_CERTIFICATE.txt"
+          grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/CALLTAG_V04457_AAB_CERTIFICATE.txt"
+          OUT="$RUNNER_TEMP/calltag-v0.44.57"
+          mkdir -p "$OUT"
+          cp "$AAB" "$OUT/CallTag-v0.44.57-code2026091101.aab"
+          cp "$APK" "$OUT/CallTag-v0.44.57-code2026091101-debug.apk"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04457_AAB_SHA256.txt"
+          sha256sum "$APK" > "$OUT/CALLTAG_V04457_DEBUG_APK_SHA256.txt"
+          cp "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt" "$OUT/"
+          cp "$RUNNER_TEMP/CALLTAG_V04457_AAB_CERTIFICATE.txt" "$OUT/"
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
