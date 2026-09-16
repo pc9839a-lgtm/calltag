@@ -5,4 +5,4 @@
 
 # Android manifest components plus Jetpack/Firebase/Billing dependencies are covered by
 # generated/consumer rules. Add only narrow reflection-specific keeps here when needed.
-# Broad `-keep class **` rules are intentionally forbidden because they defeat DEX optimization.
+# Broad catch-all keep rules are intentionally forbidden because they defeat DEX optimization.
