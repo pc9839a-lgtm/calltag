@@ -26,9 +26,9 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // External input forms: webhook mapping + background Google Forms sync 2026-09-11
-        versionCode 2026091102
-        versionName '0.44.58'
+        // Play quality: R8, edge-to-edge, adaptive layouts, bitmap downsampling 2026-09-16
+        versionCode 2026091601
+        versionName '0.44.59'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
@@ -59,8 +59,8 @@ android {
                 signingConfig signingConfigs.release
             }
             debuggable false
-            minifyEnabled false
-            shrinkResources false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
@@ -85,7 +85,7 @@ gradle.taskGraph.whenReady { graph ->
 }
 
 dependencies {
-    implementation 'androidx.core:core:1.15.0'
+    implementation 'androidx.core:core:1.17.0'
     implementation 'androidx.browser:browser:1.8.0'
     implementation 'androidx.work:work-runtime:2.11.2'
     implementation 'androidx.credentials:credentials:1.6.0'
