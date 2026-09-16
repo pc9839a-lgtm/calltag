@@ -1,0 +1,75 @@
+name: Reset CallTag landing 01-02 to live tone
+
+on:
+  push:
+    branches:
+      - feat/landing-rebuild-sections-01-02-20260916
+    paths:
+      - '.github/workflows/reset-landing-01-02-live-tone.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: feat/landing-rebuild-sections-01-02-20260916
+          fetch-depth: 0
+
+      - name: Restore exact main landing as base
+        run: |
+          git fetch origin main
+          git show origin/main:index.html > index.html
+
+      - name: Apply minimal sections 01-02 patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+
+          old='''          <h1>1명의 고객도<br><span>놓치지 않습니다.</span></h1>\n          <p>통화가 끝난 뒤 고객을 태그하면 상담 상태와 다음 할 일이 바로 정리됩니다.</p>'''
+          new='''          <h1>전화가 끝난 뒤,<br><span>고객관리는 시작됩니다.</span></h1>\n          <p>고객 · 상담 · 다음 할 일. 통화 직후 바로 남기세요.</p>\n          <div class="hero-cta-row"><a class="hero-cta-primary" href="https://pagero.kr/app" target="_blank" rel="noopener">7일 무료로 시작하기</a><a class="hero-cta-link" href="#pain">왜 필요한지 보기 ↓</a></div>'''
+          if old not in s:
+              raise SystemExit('original hero copy not found')
+          s=s.replace(old,new,1)
+
+          hero_css='''    .hero-heading>p{margin:26px auto 0;max-width:720px;color:var(--muted);font-size:clamp(17px,1.75vw,22px);line-height:1.55;letter-spacing:-.025em}\n'''
+          hero_css_new=hero_css+'''    .hero-cta-row{display:flex;justify-content:center;align-items:center;gap:14px;margin-top:28px}.hero-cta-primary{min-height:52px;display:inline-flex;align-items:center;padding:0 22px;border-radius:12px;background:var(--blue);color:#fff;font-size:14px;font-weight:900}.hero-cta-link{min-height:52px;display:inline-flex;align-items:center;padding:0 8px;color:#c8ccd5;font-size:13px;font-weight:800}\n'''
+          if hero_css not in s:
+              raise SystemExit('hero css anchor not found')
+          s=s.replace(hero_css,hero_css_new,1)
+
+          anchor='''    </section>\n\n    <section class="hero hero-web" id="web">'''
+          pain='''    </section>\n\n    <section class="section pain-inline" id="pain">\n      <div class="wrap">\n        <div class="section-head reveal"><p class="section-kicker">통화 뒤에 남는 일</p><h2 class="section-title">기억으로 관리하면<br>하나씩 놓칩니다.</h2></div>\n        <div class="fact-strip pain-facts reveal"><div class="fact"><b>누구였지?</b><span>상담 내용</span></div><div class="fact"><b>언제 다시?</b><span>재연락 일정</span></div><div class="fact"><b>보냈나?</b><span>자료 · 견적</span></div></div>\n        <p class="pain-one-line reveal">기억 말고, <strong>콜태그에 남기세요.</strong></p>\n      </div>\n    </section>\n\n    <section class="hero hero-web" id="web">'''
+          if anchor not in s:
+              raise SystemExit('hero/web boundary not found')
+          s=s.replace(anchor,pain,1)
+
+          fact_css='''.fact-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:20px;overflow:hidden;border:1px solid var(--line);border-radius:18px;background:var(--line)}'''
+          if fact_css not in s:
+              raise SystemExit('fact strip css not found')
+          s=s.replace(fact_css,fact_css+'''.pain-facts{grid-template-columns:repeat(3,1fr);margin-top:42px}.pain-inline{padding-top:112px;padding-bottom:112px}.pain-one-line{margin:28px 0 0;text-align:center;color:#d9dde5;font-size:17px;font-weight:850}.pain-one-line strong{color:var(--blue-2)}''',1)
+
+          s=s.replace('.hero h1{font-size:53px}.hero-heading>p{max-width:330px;font-size:16px}', '.hero h1{font-size:53px}.hero-heading>p{max-width:330px;font-size:16px}.hero-cta-row{display:grid;grid-template-columns:1fr;gap:4px}.hero-cta-primary,.hero-cta-link{justify-content:center}.pain-inline{padding-top:82px;padding-bottom:82px}',1)
+
+          for banned in ['3일 무료체험','3일 동안 써보고','3일 무료체험 신청','3일 무료체험 후']:
+              s=s.replace(banned,banned.replace('3일','7일'))
+
+          for token in ['전화가 끝난 뒤,','고객 · 상담 · 다음 할 일. 통화 직후 바로 남기세요.','기억 말고, <strong>콜태그에 남기세요.</strong>','7일 무료로 시작하기']:
+              if token not in s: raise SystemExit('missing '+token)
+          if 'hero-preview' in s: raise SystemExit('unexpected redesigned hero remains')
+          p.write_text(s,encoding='utf-8')
+          PY
+
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'fix(landing): keep live design for sections 01-02'
+          git push origin HEAD:feat/landing-rebuild-sections-01-02-20260916
