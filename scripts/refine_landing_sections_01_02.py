@@ -6,9 +6,8 @@ s = p.read_text(encoding='utf-8')
 
 # Replace the over-designed HERO/pain CSS with the existing CallTag visual language:
 # centered oversized type, dark surface, blue accent, minimal copy.
-css_pattern = re.compile(r'\n    \.header-cta\{.*?    \.call-flow-shell \.phone-stage\{margin-top:0\}\n', re.S)
-css_replacement = '''
-    .header-cta{min-height:40px;display:inline-flex;align-items:center;justify-content:center;padding:0 15px;border-radius:10px;background:var(--blue);color:#fff;font-size:12px;font-weight:900;white-space:nowrap;transition:.2s ease}
+css_pattern = re.compile(r'    \.header-cta\{.*?(?=    \.hero-heading,\.web-heading-copy)', re.S)
+css_replacement = '''    .header-cta{min-height:40px;display:inline-flex;align-items:center;justify-content:center;padding:0 15px;border-radius:10px;background:var(--blue);color:#fff;font-size:12px;font-weight:900;white-space:nowrap;transition:.2s ease}
     .header-cta:hover{background:#315fdc;transform:translateY(-1px)}
 
     .hero-app{padding:138px 0 94px}
@@ -33,12 +32,12 @@ css_replacement = '''
     .pain-conclusion{margin-top:24px;text-align:center;color:#d9dde5;font-size:17px;font-weight:850}
     .pain-conclusion strong{color:var(--blue-2)}
     .call-flow-shell{padding:112px 0 120px;border-bottom:1px solid var(--line)}.call-flow-shell .phone-stage{margin-top:0}
+
 '''
 if not css_pattern.search(s):
     raise SystemExit('target css block not found')
-s = css_pattern.sub('\n' + css_replacement, s, count=1)
+s = css_pattern.sub(css_replacement, s, count=1)
 
-# Replace HERO with a centered, concise version that matches the original landing tone.
 hero_pattern = re.compile(r'    <section class="hero hero-app" id="app">.*?\n    <section class="pain-section" id="pain">', re.S)
 hero_replacement = '''    <section class="hero hero-app" id="app">
       <div class="wrap">
@@ -81,8 +80,6 @@ if not pain_pattern.search(s):
     raise SystemExit('pain block not found')
 s = pain_pattern.sub(pain_replacement, s, count=1)
 
-# Tight responsive rules for the simplified sections. Leave stale removed-class rules harmless,
-# but append authoritative overrides after them.
 marker = '    @media(prefers-reduced-motion:reduce)'
 responsive = '''    @media(max-width:820px){.pain-strip{grid-template-columns:1fr 1fr}.pain-item:last-child{grid-column:1/-1}.hero-simple h1{font-size:clamp(54px,12vw,78px)}}
     @media(max-width:560px){.hero-app{padding:104px 0 66px}.hero-simple .hero-kicker{font-size:14px}.hero-simple h1{font-size:49px}.hero-simple .hero-lead{max-width:320px;margin-top:20px;font-size:16px}.hero-actions{display:grid;grid-template-columns:1fr;margin-top:25px}.hero-primary,.hero-secondary{width:100%;min-height:50px}.pain-section{padding:68px 0 72px}.pain-head h2{font-size:39px}.pain-strip{grid-template-columns:1fr;margin-top:28px}.pain-item,.pain-item:last-child{grid-column:auto;min-height:98px}.pain-item b{font-size:22px}.pain-conclusion{font-size:16px}}
@@ -91,7 +88,6 @@ if marker not in s:
     raise SystemExit('responsive marker missing')
 s = s.replace(marker, responsive + marker, 1)
 
-# Contract: old over-explained preview/cards must be gone; key concise phrases must exist.
 checks = [
     '고객 · 상담 · 다음 할 일. 통화 직후 바로 남기세요.',
     '기억 말고, <strong>콜태그에 남기세요.</strong>',
