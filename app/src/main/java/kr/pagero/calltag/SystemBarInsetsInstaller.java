@@ -18,6 +18,7 @@ import java.util.WeakHashMap;
  * to the root content view so controls remain reachable on phones, tablets and foldables.
  */
 public final class SystemBarInsetsInstaller {
+    private static final int MAX_CONTENT_WIDTH_DP = 920;
     private static final WeakHashMap<Activity, BasePadding> INSTALLED = new WeakHashMap<>();
 
     private SystemBarInsetsInstaller() {}
@@ -49,10 +50,13 @@ public final class SystemBarInsetsInstaller {
         ViewCompat.setOnApplyWindowInsetsListener(content, (view, insets) -> {
             Insets bars = insets.getInsets(
                     WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            int availableWidth = Math.max(0, view.getWidth() - bars.left - bars.right);
+            int maxContentWidth = dp(view, MAX_CONTENT_WIDTH_DP);
+            int adaptiveSide = Math.max(0, (availableWidth - maxContentWidth) / 2);
             view.setPadding(
-                    stable.left + bars.left,
+                    stable.left + bars.left + adaptiveSide,
                     stable.top + bars.top,
-                    stable.right + bars.right,
+                    stable.right + bars.right + adaptiveSide,
                     stable.bottom + bars.bottom);
             return insets;
         });
@@ -62,9 +66,9 @@ public final class SystemBarInsetsInstaller {
     private static void keepSystemBarsReadable(Activity activity, Window window) {
         WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(
                 window, window.getDecorView());
-        boolean lightIcons = !CallTagThemeManager.isBlack(activity);
-        controller.setAppearanceLightStatusBars(lightIcons);
-        controller.setAppearanceLightNavigationBars(lightIcons);
+        boolean darkIcons = !CallTagThemeManager.isBlack(activity);
+        controller.setAppearanceLightStatusBars(darkIcons);
+        controller.setAppearanceLightNavigationBars(darkIcons);
         controller.show(WindowInsetsCompat.Type.systemBars());
     }
 
@@ -84,6 +88,10 @@ public final class SystemBarInsetsInstaller {
         return activity instanceof PostCallActivity
                 || activity instanceof CallerInfoActivity
                 || activity instanceof MmsComposeActivity;
+    }
+
+    private static int dp(View view, int value) {
+        return Math.round(value * view.getResources().getDisplayMetrics().density);
     }
 
     private static final class BasePadding {
