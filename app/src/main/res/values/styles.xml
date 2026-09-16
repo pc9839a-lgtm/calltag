@@ -6,8 +6,6 @@
         <item name="android:switchStyle">@style/Widget.CallTag.Switch</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:statusBarColor">@color/background</item>
-        <item name="android:navigationBarColor">@color/surface</item>
         <item name="android:colorAccent">@color/accent</item>
         <item name="android:windowBackground">@color/background</item>
         <item name="android:windowNoTitle">true</item>
@@ -15,7 +13,6 @@
         <item name="android:alertDialogTheme">@style/Theme.CallTag.Dialog</item>
         <item name="android:datePickerDialogTheme">@style/Theme.CallTag.PickerDialog</item>
         <item name="android:timePickerDialogTheme">@style/Theme.CallTag.PickerDialog</item>
-        <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
     </style>
 
     <style name="Widget.CallTag.Button" parent="android:style/Widget.Material.Button">
@@ -43,8 +40,6 @@
         <item name="android:windowNoTitle">true</item>
         <item name="android:backgroundDimEnabled">false</item>
         <item name="android:windowDisablePreview">true</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
     </style>

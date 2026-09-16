@@ -20,6 +20,7 @@ import java.util.Locale;
 public final class MessageAttachmentStore {
     private static final String DIRECTORY = "message_images";
     private static final int MAX_DIMENSION = 1600;
+    private static final int PREVIEW_MAX_DIMENSION = 720;
     private static final int MAX_BYTES = 900 * 1024;
 
     private MessageAttachmentStore() {}
@@ -76,7 +77,7 @@ public final class MessageAttachmentStore {
 
     public static Bitmap preview(Context context, String imageRef) {
         File file = resolve(context, imageRef);
-        return file == null || !file.exists() ? null : BitmapFactory.decodeFile(file.getAbsolutePath());
+        return file == null || !file.exists() ? null : decodePreview(file);
     }
 
     public static Uri shareUri(Context context, String imageRef) {
@@ -103,6 +104,39 @@ public final class MessageAttachmentStore {
     public static void delete(Context context, String imageRef) {
         File file = resolve(context, imageRef);
         if (file != null && file.exists()) file.delete();
+    }
+
+    private static Bitmap decodePreview(File file) {
+        BitmapFactory.Options bounds = new BitmapFactory.Options();
+        bounds.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(file.getAbsolutePath(), bounds);
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null;
+
+        int sample = 1;
+        while (Math.max(bounds.outWidth / sample, bounds.outHeight / sample)
+                > PREVIEW_MAX_DIMENSION * 2) {
+            sample *= 2;
+        }
+
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inSampleSize = sample;
+        options.inPreferredConfig = Bitmap.Config.ARGB_8888;
+        Bitmap decoded = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+        if (decoded == null) return null;
+
+        int width = decoded.getWidth();
+        int height = decoded.getHeight();
+        int longest = Math.max(width, height);
+        if (longest <= PREVIEW_MAX_DIMENSION) return decoded;
+
+        float ratio = PREVIEW_MAX_DIMENSION / (float) longest;
+        Bitmap scaled = Bitmap.createScaledBitmap(
+                decoded,
+                Math.max(1, Math.round(width * ratio)),
+                Math.max(1, Math.round(height * ratio)),
+                true);
+        if (scaled != decoded) decoded.recycle();
+        return scaled;
     }
 
     private static Bitmap decodeScaled(Context context, Uri source) {

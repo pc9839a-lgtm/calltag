@@ -5,11 +5,9 @@
         android:roundIcon="@mipmap/ic_launcher_calltag_round">
         <activity
             android:name=".DirectApiIntegrationActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
+            android:exported="false" />
         <activity
             android:name=".WebhookMappingActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
+            android:exported="false" />
     </application>
 </manifest>

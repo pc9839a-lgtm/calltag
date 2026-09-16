@@ -1,26 +1,37 @@
 package kr.pagero.calltag;
 
 import android.app.Activity;
-import android.os.Build;
 import android.view.View;
 import android.view.Window;
-import android.view.WindowInsets;
-import android.view.WindowInsetsController;
+
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import java.util.WeakHashMap;
 
 /**
  * Android 15/16 edge-to-edge enforcement can place ordinary activity content below the
- * status/navigation bars. Apply one inset path and explicitly keep system-bar icons readable.
+ * status/navigation bars. Enable edge-to-edge consistently and apply system-bar/cutout insets
+ * to the root content view so controls remain reachable on phones, tablets and foldables.
  */
 public final class SystemBarInsetsInstaller {
+    private static final int MAX_CONTENT_WIDTH_DP = 920;
     private static final WeakHashMap<Activity, BasePadding> INSTALLED = new WeakHashMap<>();
 
     private SystemBarInsetsInstaller() {}
 
     public static void install(Activity activity) {
         if (activity == null || activity.isFinishing() || excluded(activity)) return;
-        keepSystemBarsReadable(activity);
+        Window window = activity.getWindow();
+        if (window == null) return;
+
+        // Backward-compatible edge-to-edge path. Android 15+ enforces this for targetSdk 35+;
+        // calling it explicitly also gives older Android versions the same inset behavior.
+        WindowCompat.enableEdgeToEdge(window);
+        keepSystemBarsReadable(activity, window);
 
         View content = activity.findViewById(android.R.id.content);
         if (content == null) return;
@@ -36,67 +47,37 @@ public final class SystemBarInsetsInstaller {
         }
         BasePadding stable = base;
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            content.setOnApplyWindowInsetsListener((view, insets) -> {
-                int top;
-                int bottom;
-                int left;
-                int right;
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    android.graphics.Insets bars = insets.getInsets(
-                            WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
-                    top = bars.top;
-                    bottom = bars.bottom;
-                    left = bars.left;
-                    right = bars.right;
-                } else {
-                    top = insets.getSystemWindowInsetTop();
-                    bottom = insets.getSystemWindowInsetBottom();
-                    left = insets.getSystemWindowInsetLeft();
-                    right = insets.getSystemWindowInsetRight();
-                }
-                view.setPadding(
-                        stable.left + left,
-                        stable.top + top,
-                        stable.right + right,
-                        stable.bottom + bottom);
-                return insets;
-            });
-            content.requestApplyInsets();
-        }
+        ViewCompat.setOnApplyWindowInsetsListener(content, (view, insets) -> {
+            Insets bars = insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            int availableWidth = Math.max(0, view.getWidth() - bars.left - bars.right);
+            int maxContentWidth = dp(view, MAX_CONTENT_WIDTH_DP);
+            int adaptiveSide = Math.max(0, (availableWidth - maxContentWidth) / 2);
+            view.setPadding(
+                    stable.left + bars.left + adaptiveSide,
+                    stable.top + bars.top,
+                    stable.right + bars.right + adaptiveSide,
+                    stable.bottom + bars.bottom);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(content);
     }
 
-    private static void keepSystemBarsReadable(Activity activity) {
-        Window window = activity.getWindow();
-        if (window == null) return;
-        window.setStatusBarColor(activity.getColor(R.color.background));
-        window.setNavigationBarColor(activity.getColor(R.color.surface_soft));
-
-        View decor = window.getDecorView();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            WindowInsetsController controller = decor.getWindowInsetsController();
-            if (controller != null) {
-                int lightMask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
-                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
-                controller.setSystemBarsAppearance(0, lightMask);
-                controller.show(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
-            }
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            int visibility = decor.getSystemUiVisibility();
-            visibility &= ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                visibility &= ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-            }
-            decor.setSystemUiVisibility(visibility);
-        }
+    private static void keepSystemBarsReadable(Activity activity, Window window) {
+        WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(
+                window, window.getDecorView());
+        boolean darkIcons = !CallTagThemeManager.isBlack(activity);
+        controller.setAppearanceLightStatusBars(darkIcons);
+        controller.setAppearanceLightNavigationBars(darkIcons);
+        controller.show(WindowInsetsCompat.Type.systemBars());
     }
 
     public static void uninstall(Activity activity) {
         if (activity == null) return;
         View content = activity.findViewById(android.R.id.content);
         BasePadding base = INSTALLED.remove(activity);
-        if (content != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            content.setOnApplyWindowInsetsListener(null);
+        if (content != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(content, null);
             if (base != null) {
                 content.setPadding(base.left, base.top, base.right, base.bottom);
             }
@@ -107,6 +88,10 @@ public final class SystemBarInsetsInstaller {
         return activity instanceof PostCallActivity
                 || activity instanceof CallerInfoActivity
                 || activity instanceof MmsComposeActivity;
+    }
+
+    private static int dp(View view, int value) {
+        return Math.round(value * view.getResources().getDisplayMetrics().density);
     }
 
     private static final class BasePadding {

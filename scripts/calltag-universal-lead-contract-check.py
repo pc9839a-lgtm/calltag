@@ -39,11 +39,18 @@ more_hub = read("MoreSettingsHubView.java")
 post_call_activity = read("PostCallActivity.java")
 post_call_launcher = read("PostCallActivityLauncher.java")
 post_call_recovery = read("PostCallRecoveryStore.java")
+theme_manager = read("CallTagThemeManager.java")
+insets_installer = read("SystemBarInsetsInstaller.java")
+attachment_store = read("MessageAttachmentStore.java")
 section_more = (ROOT / "app/src/main/res/layout/section_more.xml").read_text(encoding="utf-8")
 detail_layout = (ROOT / "app/src/main/res/layout/activity_customer_detail.xml").read_text(encoding="utf-8")
 manifest = (ROOT / "app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
 release_manifest = (ROOT / "app/src/release/AndroidManifest.xml").read_text(encoding="utf-8")
+debug_manifest = (ROOT / "app/src/debug/AndroidManifest.xml").read_text(encoding="utf-8")
+styles = (ROOT / "app/src/main/res/values/styles.xml").read_text(encoding="utf-8")
+night_styles = (ROOT / "app/src/main/res/values-night/styles.xml").read_text(encoding="utf-8")
 gradle = (ROOT / "app/build.gradle").read_text(encoding="utf-8")
+proguard = (ROOT / "app/proguard-rules.pro").read_text(encoding="utf-8")
 
 # Core CRM delivery contract.
 require(db, 'values.put("source", source == null ? "" : source.trim());', "insertCustomer must persist source")
@@ -179,12 +186,43 @@ require(external_sync_worker, 'UniversalLeadSyncManager.requestSync(app, true)',
 require(external_sync_scheduler, 'PERIOD_MINUTES = 15L', "background provider sync interval missing")
 require(external_sync_scheduler, 'ExistingPeriodicWorkPolicy.UPDATE', "background provider periodic work missing")
 
-# Play policy + external input release.
-require(gradle, 'versionCode 2026091102', "Play versionCode must be 2026091102")
-require(gradle, "versionName '0.44.58'", "Play versionName must be 0.44.58")
+# Play DEX optimization: release must run R8 shrinking/optimization/obfuscation.
+require(gradle, 'minifyEnabled true', "R8 minification must be enabled")
+require(gradle, 'shrinkResources true', "resource shrinking must be enabled")
+forbid(gradle, 'minifyEnabled false', "release must not disable R8")
+forbid(proguard, '-dontobfuscate', "R8 obfuscation must not be disabled")
+forbid(proguard, '-keep class **', "broad keep rule would defeat DEX optimization")
+
+# Android 15 edge-to-edge: no deprecated system-bar colors or opt-out flags.
+require(gradle, "androidx.core:core:1.17.0", "WindowCompat.enableEdgeToEdge requires current AndroidX Core")
+require(insets_installer, 'WindowCompat.enableEdgeToEdge(window)', "edge-to-edge enable call missing")
+require(insets_installer, 'WindowInsetsCompat.Type.displayCutout()', "display cutout inset handling missing")
+require(theme_manager, 'WindowCompat.getInsetsController(window, decor)', "system bar icon controller missing")
+for source in [theme_manager, insets_installer]:
+    forbid(source, 'setStatusBarColor(', "deprecated status bar color API must not return")
+    forbid(source, 'setNavigationBarColor(', "deprecated navigation bar color API must not return")
+for source in [styles, night_styles]:
+    forbid(source, 'android:statusBarColor', "deprecated status bar theme color must not return")
+    forbid(source, 'android:navigationBarColor', "deprecated navigation bar theme color must not return")
+    forbid(source, 'android:windowOptOutEdgeToEdgeEnforcement', "edge-to-edge opt-out must not return")
+
+# Android 16 adaptive layouts: orientation locks must not return in shipped manifests.
+require(manifest, 'android:resizeableActivity="true"', "resizable application declaration missing")
+for shipped_manifest in [manifest, release_manifest, debug_manifest]:
+    forbid(shipped_manifest, 'android:screenOrientation=', "fixed orientation must not return")
+
+# Bitmap preview must decode bounds first and use inSampleSize before allocating pixels.
+require(attachment_store, 'PREVIEW_MAX_DIMENSION', "preview target size missing")
+require(attachment_store, 'bounds.inJustDecodeBounds = true;', "preview bounds decode missing")
+require(attachment_store, 'options.inSampleSize = sample;', "preview inSampleSize missing")
+forbid(attachment_store, 'BitmapFactory.decodeFile(file.getAbsolutePath());', "full-resolution preview decode must not return")
+
+# Play quality release version.
+require(gradle, 'versionCode 2026091601', "Play versionCode must be 2026091601")
+require(gradle, "versionName '0.44.59'", "Play versionName must be 0.44.59")
 require(gradle, "androidx.browser:browser:1.8.0", "browser dependency required for OAuth custom tabs")
 
 print(
-    "CallTag universal lead contract OK: Meta + Google Forms + Webhook mapping + Direct API, "
-    "background provider sync, passive post-call delivery, no monetary partner UI, v0.44.58"
+    "CallTag contract OK: external leads + passive post-call + R8 + edge-to-edge + adaptive layouts + "
+    "bitmap downsampling, no monetary partner UI, v0.44.59"
 )
