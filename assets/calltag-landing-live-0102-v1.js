@@ -1,6 +1,6 @@
 (()=>{
-  if(document.documentElement.dataset.ctLanding0103V1)return;
-  document.documentElement.dataset.ctLanding0103V1='1';
+  if(document.documentElement.dataset.ctLanding0103V2)return;
+  document.documentElement.dataset.ctLanding0103V2='1';
 
   const APP='https://pagero.kr/app';
   const TITLE='전화가 끝난 뒤,<br><span>고객관리는 시작됩니다.</span>';
@@ -37,7 +37,7 @@
       #ct-live-pain .ct-live-pain-card:hover{transform:translateY(-7px);border-color:rgba(124,153,255,.45);background:linear-gradient(155deg,rgba(59,111,255,.13),#12151c 58%);box-shadow:0 24px 58px rgba(0,0,0,.28)}
 
       /* SECTION 03 — 통화 종료 후 10초 시연 */
-      #how.ct-live-story-v1{position:relative!important;overflow:visible!important;padding:230px 0 250px!important;background:#090a0d!important;border-top:1px solid var(--line)!important;border-bottom:1px solid var(--line)!important}
+      #how.ct-live-story-v1{position:relative!important;overflow:visible!important;padding:230px 0 190px!important;background:#090a0d!important;border-top:1px solid var(--line)!important;border-bottom:1px solid var(--line)!important}
       #how.ct-live-story-v1:before{content:"";position:absolute;width:980px;height:980px;right:-460px;top:120px;border-radius:50%;background:radial-gradient(circle,rgba(59,111,255,.14),rgba(59,111,255,0) 67%);pointer-events:none}
       #how.ct-live-story-v1 .ct-story-layout{position:relative;z-index:1;width:min(1460px,calc(100% - 96px))!important;max-width:none!important;display:grid!important;grid-template-columns:minmax(360px,.72fr) minmax(620px,1.28fr)!important;gap:110px!important;align-items:start!important}
       #how.ct-live-story-v1 .ct-story-sticky{position:sticky!important;top:132px!important;align-self:start!important;padding:0!important}
@@ -77,8 +77,10 @@
       #how.ct-live-story-v1 .ct-live-next-task span{display:block;color:#7f8896;font-size:15px;font-weight:800}
       #how.ct-live-story-v1 .ct-live-next-task b{display:block;margin-top:9px;font-size:24px;letter-spacing:-.04em}
       #how.ct-live-story-v1 .ct-live-save{min-height:68px;display:grid;place-items:center;margin-top:18px;border-radius:16px;background:#3b6fff;color:#fff;font-size:18px;font-weight:950;box-shadow:0 16px 36px rgba(59,111,255,.23)}
-      #how.ct-live-story-v1 .ct-live-story-result{min-height:270px;display:grid;place-items:center;margin-top:160px;padding:56px;border:1px solid rgba(59,111,255,.35);border-radius:32px;background:radial-gradient(circle at 50% 0,rgba(59,111,255,.16),transparent 56%),#10131a;text-align:center;font-size:clamp(44px,4.5vw,68px);font-weight:950;line-height:1;letter-spacing:-.07em}
-      #how.ct-live-story-v1 .ct-live-story-result span{color:var(--blue-2)}
+      #how.ct-live-story-v1 .ct-live-step-finish{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:26px;padding:24px 28px;border-top:1px solid rgba(255,255,255,.1);color:#dce2ef}
+      #how.ct-live-story-v1 .ct-live-step-finish strong{color:var(--blue-2);font-size:30px;line-height:1;letter-spacing:-.055em}
+      #how.ct-live-story-v1 .ct-live-step-finish span{font-size:18px;font-weight:900;letter-spacing:-.035em}
+      #how.ct-live-story-v1 .ct-live-story-result{display:none!important}
 
       @keyframes ctLiveHeroUp{from{opacity:0;transform:translateY(34px)}to{opacity:1;transform:none}}
 
@@ -93,7 +95,7 @@
         #ct-live-pain .ct-live-pain-card{min-height:138px;border-radius:20px}
         #ct-live-pain .ct-live-pain-card b{font-size:32px}
 
-        #how.ct-live-story-v1{padding:156px 0 178px!important}
+        #how.ct-live-story-v1{padding:156px 0 148px!important}
         #how.ct-live-story-v1 .ct-story-layout{width:min(100% - 40px,720px)!important;display:block!important}
         #how.ct-live-story-v1 .ct-story-sticky{position:relative!important;top:auto!important;margin-bottom:92px!important;text-align:center!important}
         #how.ct-live-story-v1 .ct-story-sticky h2{font-size:52px!important}
@@ -112,7 +114,9 @@
         #how.ct-live-story-v1 .ct-live-choice-row b{font-size:18px!important}
         #how.ct-live-story-v1 .ct-live-next-date{grid-template-columns:1fr!important;gap:12px!important}
         #how.ct-live-story-v1 .ct-live-next-date strong{font-size:29px!important}
-        #how.ct-live-story-v1 .ct-live-story-result{min-height:220px;margin-top:96px;padding:38px 22px;font-size:40px;border-radius:24px}
+        #how.ct-live-story-v1 .ct-live-step-finish{margin-top:20px;padding:20px 4px 0;gap:14px}
+        #how.ct-live-story-v1 .ct-live-step-finish strong{font-size:24px}
+        #how.ct-live-story-v1 .ct-live-step-finish span{font-size:16px}
       }
 
       @media(prefers-reduced-motion:reduce){
@@ -169,7 +173,7 @@
       },
       {
         title:'다음 할 일',
-        html:`<div class="ct-step-label">03</div><h3>다시 연락할 날짜까지<br><span>남기면 끝.</span></h3><div class="ct-screen"><div class="ct-live-next-date"><div><span>다음 연락</span><strong>내일 · 오전 10:30</strong></div><b>재연락</b></div><div class="ct-live-next-task"><span>다음 할 일</span><b>견적서 발송</b></div><div class="ct-live-save">저장 완료</div></div>`
+        html:`<div class="ct-step-label">03</div><h3>다시 연락할 날짜까지<br><span>남기면 끝.</span></h3><div class="ct-screen"><div class="ct-live-next-date"><div><span>다음 연락</span><strong>내일 · 오전 10:30</strong></div><b>재연락</b></div><div class="ct-live-next-task"><span>다음 할 일</span><b>견적서 발송</b></div><div class="ct-live-save">저장 완료</div></div><div class="ct-live-step-finish"><strong>약 10초</strong><span>고객관리 완료</span></div>`
       }
     ];
 
@@ -184,13 +188,7 @@
     });
     steps.slice(3).forEach(step=>{step.style.setProperty('display','none','important');step.setAttribute('aria-hidden','true');});
 
-    const stepWrap=story.querySelector('.ct-story-steps');
-    if(stepWrap&&!stepWrap.querySelector('.ct-live-story-result')){
-      const result=document.createElement('div');
-      result.className='ct-live-story-result';
-      result.innerHTML='약 10초면<br><span>고객관리 완료.</span>';
-      stepWrap.append(result);
-    }
+    story.querySelectorAll('.ct-live-story-result').forEach(result=>result.remove());
     return true;
   };
 
