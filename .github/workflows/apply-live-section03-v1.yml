@@ -1,0 +1,212 @@
+name: Apply CallTag live section 03 v1
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/apply-live-section03-v1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-section03:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch live section 03
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('assets/calltag-landing-live-0102-v1.js')
+          text = path.read_text(encoding='utf-8')
+
+          if 'ctLanding0103V1' not in text:
+              text = text.replace('ctLanding0102V4', 'ctLanding0103V1')
+
+          css_anchor = '      @keyframes ctLiveHeroUp{from{opacity:0;transform:translateY(34px)}to{opacity:1;transform:none}}\n'
+          story_css = '''      /* SECTION 03 — 통화 종료 후 10초 시연 */
+      #how.ct-live-story-v1{position:relative!important;overflow:visible!important;padding:220px 0 240px!important;background:#090a0d!important;border-top:1px solid var(--line)!important;border-bottom:1px solid var(--line)!important}
+      #how.ct-live-story-v1:before{content:"";position:absolute;width:980px;height:980px;right:-460px;top:80px;border-radius:50%;background:radial-gradient(circle,rgba(59,111,255,.14),rgba(59,111,255,0) 67%);pointer-events:none}
+      #how.ct-live-story-v1 .ct-story-layout{position:relative;z-index:1;width:min(1460px,calc(100% - 96px))!important;max-width:none!important;display:grid!important;grid-template-columns:minmax(360px,.72fr) minmax(620px,1.28fr)!important;gap:110px!important;align-items:start!important}
+      #how.ct-live-story-v1 .ct-story-sticky{position:sticky!important;top:132px!important;align-self:start!important;padding:0!important}
+      #how.ct-live-story-v1 .ct-story-sticky>p,#how.ct-live-story-v1 .ct-story-current{display:none!important}
+      #how.ct-live-story-v1 .ct-story-sticky h2{margin:0!important;font-size:clamp(64px,6vw,92px)!important;line-height:.96!important;letter-spacing:-.085em!important}
+      #how.ct-live-story-v1 .ct-story-sticky h2 span{color:var(--blue-2)!important}
+      #how.ct-live-story-v1 .ct-story-status{display:flex!important;align-items:baseline!important;gap:10px!important;margin-top:54px!important;color:#69707d!important}
+      #how.ct-live-story-v1 .ct-story-status strong{color:#8ea6ff!important;font-size:54px!important;line-height:1!important;letter-spacing:-.07em!important}
+      #how.ct-live-story-v1 .ct-story-status span{font-size:20px!important;font-weight:850!important}
+      #how.ct-live-story-v1 .ct-story-steps{display:grid!important;gap:128px!important;min-width:0!important}
+      #how.ct-live-story-v1 .ct-story-step{min-height:760px!important;display:flex!important;flex-direction:column!important;justify-content:center!important;padding:68px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:32px!important;background:linear-gradient(155deg,#151820,#0f1117)!important;opacity:.42!important;transform:translateY(54px) scale(.975)!important;filter:saturate(.72)!important;transition:opacity .62s ease,transform .78s cubic-bezier(.18,.82,.22,1),filter .62s ease,border-color .38s ease,box-shadow .38s ease,background .38s ease!important}
+      #how.ct-live-story-v1 .ct-story-step.is-active{opacity:1!important;transform:none!important;filter:none!important;border-color:rgba(94,130,255,.58)!important;background:linear-gradient(155deg,rgba(59,111,255,.12),#12151c 54%,#0f1117)!important;box-shadow:0 38px 90px rgba(0,0,0,.32),0 0 0 1px rgba(59,111,255,.08)!important}
+      #how.ct-live-story-v1 .ct-story-step[data-number="04"]{display:none!important}
+      #how.ct-live-story-v1 .ct-step-label{margin:0 0 28px!important;color:#7595ff!important;font-size:64px!important;font-weight:950!important;line-height:1!important;letter-spacing:-.08em!important}
+      #how.ct-live-story-v1 .ct-story-step h3{margin:0!important;color:#f7f8fb!important;font-size:clamp(46px,4.1vw,66px)!important;line-height:1.02!important;letter-spacing:-.07em!important}
+      #how.ct-live-story-v1 .ct-story-step h3 span{color:var(--blue-2)!important}
+      #how.ct-live-story-v1 .ct-screen{min-height:380px!important;margin-top:58px!important;padding:36px!important;border:1px solid rgba(255,255,255,.11)!important;border-radius:24px!important;background:#0d1016!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.03)!important;overflow:hidden!important}
+      #how.ct-live-story-v1 .ct-live-callend-top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;padding-bottom:28px;border-bottom:1px solid rgba(255,255,255,.1)}
+      #how.ct-live-story-v1 .ct-live-callend-top span{color:#87909e;font-size:16px;font-weight:800}
+      #how.ct-live-story-v1 .ct-live-callend-top strong{font-size:30px;letter-spacing:-.045em}
+      #how.ct-live-story-v1 .ct-live-callend-row{display:flex;align-items:center;justify-content:space-between;margin-top:30px;padding:28px;border-radius:18px;background:#171b24}
+      #how.ct-live-story-v1 .ct-live-callend-row b{font-size:28px;letter-spacing:-.05em}
+      #how.ct-live-story-v1 .ct-live-callend-row span{color:#7c99ff;font-size:16px;font-weight:850}
+      #how.ct-live-story-v1 .ct-live-callend-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}
+      #how.ct-live-story-v1 .ct-live-callend-actions b{min-height:74px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.1);border-radius:16px;background:#161a22;color:#b6bdca;font-size:17px}
+      #how.ct-live-story-v1 .ct-live-callend-actions b:first-child{border-color:rgba(59,111,255,.55);background:rgba(59,111,255,.15);color:#fff}
+      #how.ct-live-story-v1 .ct-live-choice-grid{display:grid;gap:16px}
+      #how.ct-live-story-v1 .ct-live-choice-row{min-height:88px;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0 24px;border:1px solid rgba(255,255,255,.1);border-radius:17px;background:#171b24}
+      #how.ct-live-story-v1 .ct-live-choice-row span{color:#8e96a3;font-size:16px;font-weight:750}
+      #how.ct-live-story-v1 .ct-live-choice-row b{font-size:21px;letter-spacing:-.035em}
+      #how.ct-live-story-v1 .ct-live-choice-row.is-on{border-color:rgba(59,111,255,.48);background:rgba(59,111,255,.12)}
+      #how.ct-live-story-v1 .ct-live-next-date{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:end;padding:30px;border-radius:20px;background:#171b24}
+      #how.ct-live-story-v1 .ct-live-next-date span{display:block;color:#8c95a3;font-size:16px;font-weight:800}
+      #how.ct-live-story-v1 .ct-live-next-date strong{display:block;margin-top:10px;font-size:34px;letter-spacing:-.055em}
+      #how.ct-live-story-v1 .ct-live-next-date b{color:#8ea6ff;font-size:22px}
+      #how.ct-live-story-v1 .ct-live-next-task{margin-top:18px;padding:26px 28px;border:1px solid rgba(255,255,255,.1);border-radius:18px;background:#151922}
+      #how.ct-live-story-v1 .ct-live-next-task span{display:block;color:#7f8896;font-size:15px;font-weight:800}
+      #how.ct-live-story-v1 .ct-live-next-task b{display:block;margin-top:9px;font-size:24px;letter-spacing:-.04em}
+      #how.ct-live-story-v1 .ct-live-save{min-height:68px;display:grid;place-items:center;margin-top:18px;border-radius:16px;background:#3b6fff;color:#fff;font-size:18px;font-weight:950;box-shadow:0 16px 36px rgba(59,111,255,.23)}
+      #how.ct-live-story-v1 .ct-live-story-result{min-height:250px;display:grid;place-items:center;margin-top:150px;padding:50px;border:1px solid rgba(59,111,255,.35);border-radius:30px;background:radial-gradient(circle at 50% 0,rgba(59,111,255,.16),transparent 56%),#10131a;text-align:center;font-size:clamp(42px,4.4vw,66px);font-weight:950;line-height:1;letter-spacing:-.07em}
+      #how.ct-live-story-v1 .ct-live-story-result span{color:var(--blue-2)}
+      @media(max-width:900px){
+        #how.ct-live-story-v1{padding:150px 0 170px!important}
+        #how.ct-live-story-v1 .ct-story-layout{width:min(100% - 40px,720px)!important;display:block!important}
+        #how.ct-live-story-v1 .ct-story-sticky{position:relative!important;top:auto!important;margin-bottom:84px!important;text-align:center!important}
+        #how.ct-live-story-v1 .ct-story-sticky h2{font-size:52px!important}
+        #how.ct-live-story-v1 .ct-story-status{justify-content:center!important;margin-top:38px!important}
+        #how.ct-live-story-v1 .ct-story-steps{gap:62px!important}
+        #how.ct-live-story-v1 .ct-story-step{min-height:0!important;padding:34px 26px!important;border-radius:24px!important;opacity:1!important;transform:none!important;filter:none!important}
+        #how.ct-live-story-v1 .ct-step-label{margin-bottom:22px!important;font-size:48px!important}
+        #how.ct-live-story-v1 .ct-story-step h3{font-size:40px!important}
+        #how.ct-live-story-v1 .ct-screen{min-height:0!important;margin-top:38px!important;padding:24px!important;border-radius:20px!important}
+        #how.ct-live-story-v1 .ct-live-callend-top{display:block!important}.ct-live-callend-top strong{display:block;margin-top:9px;font-size:25px!important}
+        #how.ct-live-story-v1 .ct-live-callend-actions{grid-template-columns:1fr!important}
+        #how.ct-live-story-v1 .ct-live-callend-actions b{min-height:64px!important;font-size:16px!important}
+        #how.ct-live-story-v1 .ct-live-choice-row{min-height:74px!important;padding:0 18px!important}.ct-live-choice-row span{font-size:15px!important}.ct-live-choice-row b{font-size:18px!important}
+        #how.ct-live-story-v1 .ct-live-next-date{grid-template-columns:1fr!important;gap:12px!important}.ct-live-next-date strong{font-size:29px!important}
+        #how.ct-live-story-v1 .ct-live-story-result{min-height:210px;margin-top:90px;padding:34px 22px;font-size:40px;border-radius:24px}
+      }
+'''
+          if 'SECTION 03 — 통화 종료 후 10초 시연' not in text:
+              if css_anchor not in text:
+                  raise SystemExit('CSS anchor not found')
+              text = text.replace(css_anchor, story_css + css_anchor, 1)
+
+          reduced_anchor = '        #ct-live-pain .ct-live-pain-head,#ct-live-pain .ct-live-pain-card{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}\n'
+          reduced_extra = '        #how.ct-live-story-v1 .ct-story-step{opacity:1!important;transform:none!important;filter:none!important;transition:none!important}\n'
+          if reduced_extra not in text:
+              if reduced_anchor not in text:
+                  raise SystemExit('Reduced motion anchor not found')
+              text = text.replace(reduced_anchor, reduced_anchor + reduced_extra, 1)
+
+          helper_anchor = '''  const revealPain=section=>{\n    if(section.dataset.ctObserved)return;\n    section.dataset.ctObserved='1';\n    if(reduced||!('IntersectionObserver'in window)){section.classList.add('is-visible');return;}\n    const observer=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('is-visible');observer.unobserve(entry.target);}});},{threshold:.24,rootMargin:'0px 0px -10%'});\n    observer.observe(section);\n  };\n'''
+          story_helper = r'''
+
+  const patchStory=()=>{
+    const pain=document.getElementById('ct-live-pain');
+    const story=document.querySelector('#how.ct-story-section')||[...document.querySelectorAll('.ct-story-section')].find(section=>{const t=(section.textContent||'').replace(/\s+/g,' ').trim();return t.includes('통화가 끝나면')&&t.includes('태그만 하세요');});
+    if(!story)return false;
+    story.classList.add('ct-live-story-v1');
+    story.setAttribute('aria-label','통화 종료 후 3단계 고객관리 시연');
+    if(pain&&pain.nextElementSibling!==story)pain.insertAdjacentElement('afterend',story);
+
+    const sticky=story.querySelector('.ct-story-sticky');
+    const stickyTitle=sticky?.querySelector('h2');
+    if(stickyTitle)stickyTitle.innerHTML='통화가 끝나면,<br><span>3단계면 끝.</span>';
+    const status=sticky?.querySelector('.ct-story-status');
+    const number=status?.querySelector('strong');
+    const total=status?.querySelector('span');
+    if(number&&!['01','02','03'].includes(number.textContent.trim()))number.textContent='01';
+    if(total)total.textContent='/ 03';
+
+    const steps=[...story.querySelectorAll('.ct-story-step')];
+    if(steps.length<3)return false;
+    const definitions=[
+      {
+        title:'통화 종료',
+        html:`<div class="ct-step-label">01</div><h3>전화를 끊으면<br><span>바로 나타납니다.</span></h3><div class="ct-screen ct-live-callend-screen"><div class="ct-live-callend-top"><span>통화 종료</span><strong>010-4821-7536</strong></div><div class="ct-live-callend-row"><b>김민수</b><span>방금 통화</span></div><div class="ct-live-callend-actions"><b>신규 문의</b><b>기존 고객</b><b>제외</b></div></div>`
+      },
+      {
+        title:'고객 + 상담',
+        html:`<div class="ct-step-label">02</div><h3>누구인지,<br><span>상담만 선택.</span></h3><div class="ct-screen"><div class="ct-live-choice-grid"><div class="ct-live-choice-row is-on"><span>고객 구분</span><b>신규 문의</b></div><div class="ct-live-choice-row is-on"><span>상담 유형</span><b>상품 상담</b></div><div class="ct-live-choice-row"><span>상담 상태</span><b>진행 중</b></div></div></div>`
+      },
+      {
+        title:'다음 할 일',
+        html:`<div class="ct-step-label">03</div><h3>다시 연락할 날짜까지<br><span>남기면 끝.</span></h3><div class="ct-screen"><div class="ct-live-next-date"><div><span>다음 연락</span><strong>내일 · 오전 10:30</strong></div><b>재연락</b></div><div class="ct-live-next-task"><span>다음 할 일</span><b>견적서 발송</b></div><div class="ct-live-save">저장 완료</div></div>`
+      }
+    ];
+    definitions.forEach((definition,index)=>{
+      const step=steps[index];
+      step.dataset.number=String(index+1).padStart(2,'0');
+      step.dataset.title=definition.title;
+      if(step.dataset.ctPlan03!=='1'){
+        step.innerHTML=definition.html;
+        step.dataset.ctPlan03='1';
+      }
+    });
+    steps.slice(3).forEach(step=>{step.style.setProperty('display','none','important');step.setAttribute('aria-hidden','true');});
+
+    const stepWrap=story.querySelector('.ct-story-steps');
+    if(stepWrap&&!stepWrap.querySelector('.ct-live-story-result')){
+      const result=document.createElement('div');
+      result.className='ct-live-story-result';
+      result.innerHTML='약 10초면<br><span>고객관리 완료.</span>';
+      stepWrap.append(result);
+    }
+    return true;
+  };
+'''
+          if 'const patchStory=()=>{' not in text:
+              if helper_anchor not in text:
+                  raise SystemExit('Helper anchor not found')
+              text = text.replace(helper_anchor, helper_anchor + story_helper, 1)
+
+          apply_anchor = '''        revealPain(pain);\n      }\n'''
+          if '        patchStory();\n' not in text:
+              if apply_anchor not in text:
+                  raise SystemExit('Apply anchor not found')
+              text = text.replace(apply_anchor, apply_anchor + '      patchStory();\n', 1)
+
+          path.write_text(text, encoding='utf-8')
+
+          index = Path('index.html')
+          html = index.read_text(encoding='utf-8')
+          if 'calltag-landing-live-0102-v1.js?v=20260916-4' not in html:
+              if 'calltag-landing-live-0102-v1.js?v=20260916-3' not in html:
+                  raise SystemExit('Expected live patch script version not found')
+              html = html.replace('calltag-landing-live-0102-v1.js?v=20260916-3','calltag-landing-live-0102-v1.js?v=20260916-4',1)
+              index.write_text(html, encoding='utf-8')
+          PY
+
+      - name: Validate JavaScript and scope
+        shell: bash
+        run: |
+          node --check assets/calltag-landing-live-0102-v1.js
+          grep -q 'SECTION 03 — 통화 종료 후 10초 시연' assets/calltag-landing-live-0102-v1.js
+          grep -q '약 10초면' assets/calltag-landing-live-0102-v1.js
+          grep -q 'v=20260916-4' index.html
+
+      - name: Commit live patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/calltag-landing-live-0102-v1.js index.html
+          git commit -m 'feat(landing): rebuild section 03 as 3-step call flow'
+          git push origin HEAD:main
+
+      - name: Remove one-shot workflow
+        shell: bash
+        run: |
+          git pull --rebase origin main
+          git rm .github/workflows/apply-live-section03-v1.yml
+          git commit -m 'chore(ci): remove section 03 one-shot workflow'
+          git push origin HEAD:main
