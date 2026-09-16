@@ -26,13 +26,16 @@ jobs:
       - name: Validate
         run: |
           node --check assets/calltag-landing-live-0102-v1.js
-          grep -q 'ctLanding0104V1' assets/calltag-landing-live-0102-v1.js
-          grep -q 'ct-live-integrations' assets/calltag-landing-live-0102-v1.js
-          grep -q 'Meta Lead Ads' assets/calltag-landing-live-0102-v1.js
-          grep -q 'Google Forms' assets/calltag-landing-live-0102-v1.js
-          grep -q 'PageRo' assets/calltag-landing-live-0102-v1.js
-          grep -q 'Webhook' assets/calltag-landing-live-0102-v1.js
-          grep -q '20260916-7' index.html
+          python - <<'PY'
+          from pathlib import Path
+          js=Path('assets/calltag-landing-live-0102-v1.js').read_text(encoding='utf-8')
+          html=Path('index.html').read_text(encoding='utf-8')
+          required=['ctLanding0104V1','ct-live-integrations','Meta Lead Ads','Google Forms','PageRo','Webhook']
+          missing=[x for x in required if x not in js]
+          assert not missing, f'missing in js: {missing}'
+          assert '20260916-7' in html, 'cache version missing'
+          print('section04 validation PASS')
+          PY
 
       - name: Commit live patch
         run: |
