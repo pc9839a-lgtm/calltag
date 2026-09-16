@@ -1,13 +1,13 @@
-name: CallTag 0.44.58 external input forms release
+name: CallTag 0.44.59 Play quality optimization release
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - release/calltag-v04458-external-input-final
+      - release/calltag-v04459-r8-optimization
   pull_request:
     branches:
-      - release/calltag-v04457-play-policy-external-final
+      - release/calltag-v04458-external-input-final
 
 permissions:
   contents: read
@@ -32,8 +32,22 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/calltag-universal-lead-contract-check.py
-          grep -F 'versionCode 2026091102' app/build.gradle
-          grep -F "versionName '0.44.58'" app/build.gradle
+          grep -F 'versionCode 2026091601' app/build.gradle
+          grep -F "versionName '0.44.59'" app/build.gradle
+          grep -F 'minifyEnabled true' app/build.gradle
+          grep -F 'shrinkResources true' app/build.gradle
+          grep -F 'androidx.core:core:1.17.0' app/build.gradle
+          grep -F 'WindowCompat.enableEdgeToEdge(window)' app/src/main/java/kr/pagero/calltag/SystemBarInsetsInstaller.java
+          grep -F 'options.inSampleSize = sample;' app/src/main/java/kr/pagero/calltag/MessageAttachmentStore.java
+          if grep -RIn 'setStatusBarColor\|setNavigationBarColor\|windowOptOutEdgeToEdgeEnforcement' app/src/main --include='*.java' --include='*.xml'; then
+            echo '::error::Deprecated/opt-out edge-to-edge configuration remains.'
+            exit 1
+          fi
+          if grep -RIn 'android:screenOrientation=' app/src/main app/src/release app/src/debug --include='AndroidManifest.xml'; then
+            echo '::error::Fixed activity orientation remains in a shipped manifest.'
+            exit 1
+          fi
+
           grep -F 'android.permission.READ_CALL_LOG' app/src/main/AndroidManifest.xml
           grep -F 'android.permission.SEND_SMS' app/src/main/AndroidManifest.xml
           grep -F 'android.permission.FOREGROUND_SERVICE_SPECIAL_USE' app/src/main/AndroidManifest.xml
@@ -190,33 +204,37 @@ jobs:
             echo "CALLTAG_EXPECTED_UPLOAD_KEY_SHA256=$EXPECTED_UPLOAD_KEY_SHA256"
           } >> "$GITHUB_ENV"
 
-      - name: Build signed release AAB
+      - name: Build signed optimized release AAB
         run: gradle :app:bundleRelease --no-daemon --stacktrace
 
-      - name: Verify signed AAB
+      - name: Verify signed optimized AAB
         shell: bash
         run: |
           set -euo pipefail
           AAB='app/build/outputs/bundle/release/app-release.aab'
           APK='app/build/outputs/apk/debug/app-debug.apk'
+          MAPPING='app/build/outputs/mapping/release/mapping.txt'
           test -s "$AAB"
           test -s "$APK"
+          test -s "$MAPPING"
           jarsigner -verify -certs "$AAB"
-          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/CALLTAG_V04458_AAB_CERTIFICATE.txt"
-          grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/CALLTAG_V04458_AAB_CERTIFICATE.txt"
-          OUT="$RUNNER_TEMP/calltag-v0.44.58"
+          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/CALLTAG_V04459_AAB_CERTIFICATE.txt"
+          grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/CALLTAG_V04459_AAB_CERTIFICATE.txt"
+          OUT="$RUNNER_TEMP/calltag-v0.44.59"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.44.58-code2026091102.aab"
-          cp "$APK" "$OUT/CallTag-v0.44.58-code2026091102-debug.apk"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V04458_AAB_SHA256.txt"
-          sha256sum "$APK" > "$OUT/CALLTAG_V04458_DEBUG_APK_SHA256.txt"
+          cp "$AAB" "$OUT/CallTag-v0.44.59-code2026091601.aab"
+          cp "$APK" "$OUT/CallTag-v0.44.59-code2026091601-debug.apk"
+          cp "$MAPPING" "$OUT/CallTag-v0.44.59-mapping.txt"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04459_AAB_SHA256.txt"
+          sha256sum "$APK" > "$OUT/CALLTAG_V04459_DEBUG_APK_SHA256.txt"
+          sha256sum "$MAPPING" > "$OUT/CALLTAG_V04459_MAPPING_SHA256.txt"
           cp "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt" "$OUT/"
-          cp "$RUNNER_TEMP/CALLTAG_V04458_AAB_CERTIFICATE.txt" "$OUT/"
+          cp "$RUNNER_TEMP/CALLTAG_V04459_AAB_CERTIFICATE.txt" "$OUT/"
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.58-play-release
-          path: ${{ runner.temp }}/calltag-v0.44.58
+          name: calltag-v0.44.59-play-release
+          path: ${{ runner.temp }}/calltag-v0.44.59
           retention-days: 90
           if-no-files-found: error
