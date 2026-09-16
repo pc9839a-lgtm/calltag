@@ -1,0 +1,96 @@
+name: Fix CallTag section 03 ending v6
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-section03-ending-v6.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch section 03 ending
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('assets/calltag-landing-live-0102-v1.js')
+          s = p.read_text(encoding='utf-8')
+
+          s = s.replace('ctLanding0103V1', 'ctLanding0103V2')
+          s = s.replace(
+            '#how.ct-live-story-v1{position:relative!important;overflow:visible!important;padding:230px 0 250px!important;',
+            '#how.ct-live-story-v1{position:relative!important;overflow:visible!important;padding:230px 0 190px!important;'
+          )
+
+          old_css = '''      #how.ct-live-story-v1 .ct-live-story-result{min-height:270px;display:grid;place-items:center;margin-top:160px;padding:56px;border:1px solid rgba(59,111,255,.35);border-radius:32px;background:radial-gradient(circle at 50% 0,rgba(59,111,255,.16),transparent 56%),#10131a;text-align:center;font-size:clamp(44px,4.5vw,68px);font-weight:950;line-height:1;letter-spacing:-.07em}\n      #how.ct-live-story-v1 .ct-live-story-result span{color:var(--blue-2)}\n'''
+          new_css = '''      #how.ct-live-story-v1 .ct-live-step-finish{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:26px;padding:24px 28px;border-top:1px solid rgba(255,255,255,.1);color:#dce2ef}\n      #how.ct-live-story-v1 .ct-live-step-finish strong{color:var(--blue-2);font-size:30px;line-height:1;letter-spacing:-.055em}\n      #how.ct-live-story-v1 .ct-live-step-finish span{font-size:18px;font-weight:900;letter-spacing:-.035em}\n      #how.ct-live-story-v1 .ct-live-story-result{display:none!important}\n'''
+          if old_css not in s:
+              raise SystemExit('desktop result css anchor not found')
+          s = s.replace(old_css, new_css, 1)
+
+          s = s.replace(
+            '#how.ct-live-story-v1{padding:156px 0 178px!important}',
+            '#how.ct-live-story-v1{padding:156px 0 148px!important}'
+          )
+          s = s.replace(
+            '        #how.ct-live-story-v1 .ct-live-story-result{min-height:220px;margin-top:96px;padding:38px 22px;font-size:40px;border-radius:24px}\n',
+            '        #how.ct-live-story-v1 .ct-live-step-finish{margin-top:20px;padding:20px 4px 0;gap:14px}\n        #how.ct-live-story-v1 .ct-live-step-finish strong{font-size:24px}\n        #how.ct-live-story-v1 .ct-live-step-finish span{font-size:16px}\n'
+          )
+
+          old_step = '''        html:`<div class="ct-step-label">03</div><h3>다시 연락할 날짜까지<br><span>남기면 끝.</span></h3><div class="ct-screen"><div class="ct-live-next-date"><div><span>다음 연락</span><strong>내일 · 오전 10:30</strong></div><b>재연락</b></div><div class="ct-live-next-task"><span>다음 할 일</span><b>견적서 발송</b></div><div class="ct-live-save">저장 완료</div></div>`\n'''
+          new_step = '''        html:`<div class="ct-step-label">03</div><h3>다시 연락할 날짜까지<br><span>남기면 끝.</span></h3><div class="ct-screen"><div class="ct-live-next-date"><div><span>다음 연락</span><strong>내일 · 오전 10:30</strong></div><b>재연락</b></div><div class="ct-live-next-task"><span>다음 할 일</span><b>견적서 발송</b></div><div class="ct-live-save">저장 완료</div></div><div class="ct-live-step-finish"><strong>약 10초</strong><span>고객관리 완료</span></div>`\n'''
+          if old_step not in s:
+              raise SystemExit('step 03 html anchor not found')
+          s = s.replace(old_step, new_step, 1)
+
+          old_result = '''    const stepWrap=story.querySelector('.ct-story-steps');\n    if(stepWrap&&!stepWrap.querySelector('.ct-live-story-result')){\n      const result=document.createElement('div');\n      result.className='ct-live-story-result';\n      result.innerHTML='약 10초면<br><span>고객관리 완료.</span>';\n      stepWrap.append(result);\n    }\n'''
+          new_result = '''    story.querySelectorAll('.ct-live-story-result').forEach(result=>result.remove());\n'''
+          if old_result not in s:
+              raise SystemExit('result append anchor not found')
+          s = s.replace(old_result, new_result, 1)
+
+          p.write_text(s, encoding='utf-8')
+
+          index = Path('index.html')
+          html = index.read_text(encoding='utf-8')
+          old_ref = 'calltag-landing-live-0102-v1.js?v=20260916-5'
+          new_ref = 'calltag-landing-live-0102-v1.js?v=20260916-6'
+          if old_ref not in html and new_ref not in html:
+              raise SystemExit('live asset reference not found')
+          index.write_text(html.replace(old_ref, new_ref, 1), encoding='utf-8')
+          PY
+
+          node --check assets/calltag-landing-live-0102-v1.js
+          grep -q 'ctLanding0103V2' assets/calltag-landing-live-0102-v1.js
+          grep -q 'ct-live-step-finish' assets/calltag-landing-live-0102-v1.js
+          ! grep -q "stepWrap.append(result)" assets/calltag-landing-live-0102-v1.js
+          grep -q '20260916-6' index.html
+
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/calltag-landing-live-0102-v1.js index.html
+          git commit -m 'fix(landing): integrate section 03 completion into final step'
+          git push origin HEAD:main
+
+      - name: Remove one-shot workflow
+        shell: bash
+        run: |
+          git pull --rebase origin main
+          git rm .github/workflows/fix-section03-ending-v6.yml
+          git commit -m 'chore(ci): remove section 03 ending workflow'
+          git push origin HEAD:main
