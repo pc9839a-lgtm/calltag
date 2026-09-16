@@ -2,9 +2,10 @@ name: Apply CallTag live section 04
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
-      - '.github/workflows/apply-section04-live-v1.yml'
+      - .github/workflows/apply-section04-live-v1.yml
 
 permissions:
   contents: write
@@ -19,121 +20,11 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Patch section 04
-        shell: bash
+      - name: Apply patch
+        run: python scripts/apply_section04_live.py
+
+      - name: Validate
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-
-          path = Path('assets/calltag-landing-live-0102-v1.js')
-          text = path.read_text(encoding='utf-8')
-
-          text = text.replace('ctLanding0103V1', 'ctLanding0104V1')
-
-          css_anchor = '      @keyframes ctLiveHeroUp{from{opacity:0;transform:translateY(34px)}to{opacity:1;transform:none}}\n'
-          css = r'''      /* SECTION 04 — 외부 문의 유입 */
-      #ct-live-integrations{position:relative;overflow:hidden;padding:230px 0 250px!important;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#0d0f13}
-      #ct-live-integrations:before{content:"";position:absolute;width:900px;height:900px;left:-470px;top:120px;border-radius:50%;background:radial-gradient(circle,rgba(59,111,255,.14),rgba(59,111,255,0) 68%);pointer-events:none}
-      #ct-live-integrations .ct-int-wrap{position:relative;z-index:1;width:min(1460px,calc(100% - 96px));margin:0 auto}
-      #ct-live-integrations .ct-int-head{text-align:center;opacity:0;transform:translateY(38px);transition:opacity .72s ease,transform .82s cubic-bezier(.18,.82,.22,1)}
-      #ct-live-integrations h2{margin:0;font-size:clamp(58px,6.2vw,92px);line-height:.98;letter-spacing:-.082em}
-      #ct-live-integrations h2 span{color:var(--blue-2)}
-      #ct-live-integrations .ct-int-sub{margin:34px auto 0;color:#a2a9b6;font-size:clamp(18px,1.6vw,22px);font-weight:700;line-height:1.45;letter-spacing:-.03em}
-      #ct-live-integrations .ct-int-flow{display:grid;grid-template-columns:minmax(0,1.18fr) 86px minmax(280px,.72fr) 86px minmax(300px,.92fr);align-items:stretch;gap:0;margin-top:118px}
-      #ct-live-integrations .ct-int-sources{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
-      #ct-live-integrations .ct-int-source{min-height:168px;display:flex;flex-direction:column;justify-content:center;padding:30px;border:1px solid rgba(255,255,255,.12);border-radius:22px;background:linear-gradient(155deg,#171a21,#111319);opacity:0;transform:translateY(58px) scale(.97);transition:opacity .62s ease,transform .76s cubic-bezier(.18,.82,.22,1),border-color .3s ease,background .3s ease,box-shadow .3s ease}
-      #ct-live-integrations .ct-int-source:nth-child(1){transition-delay:.08s}#ct-live-integrations .ct-int-source:nth-child(2){transition-delay:.16s}#ct-live-integrations .ct-int-source:nth-child(3){transition-delay:.24s}#ct-live-integrations .ct-int-source:nth-child(4){transition-delay:.32s}
-      #ct-live-integrations .ct-int-source strong{color:#f5f7fb;font-size:clamp(23px,2vw,30px);line-height:1.05;letter-spacing:-.055em}
-      #ct-live-integrations .ct-int-source span{margin-top:14px;color:#8e97a6;font-size:16px;font-weight:800}
-      #ct-live-integrations .ct-int-arrow{display:grid;place-items:center;color:#6f7d9f;font-size:56px;font-weight:300;opacity:0;transform:translateX(-22px);transition:opacity .58s ease .42s,transform .7s cubic-bezier(.18,.82,.22,1) .42s}
-      #ct-live-integrations .ct-int-core,#ct-live-integrations .ct-int-result{min-height:354px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:38px;border:1px solid rgba(59,111,255,.46);border-radius:28px;text-align:center;opacity:0;transform:scale(.94);transition:opacity .62s ease .48s,transform .76s cubic-bezier(.18,.82,.22,1) .48s,box-shadow .35s ease,border-color .35s ease}
-      #ct-live-integrations .ct-int-core{background:radial-gradient(circle at 50% 0,rgba(59,111,255,.23),transparent 58%),#121722;box-shadow:0 24px 70px rgba(59,111,255,.12)}
-      #ct-live-integrations .ct-int-core small{color:#8ea6ff;font-size:16px;font-weight:950;letter-spacing:.08em}
-      #ct-live-integrations .ct-int-core strong{margin-top:18px;color:#fff;font-size:clamp(38px,3.8vw,58px);line-height:.96;letter-spacing:-.07em}
-      #ct-live-integrations .ct-int-result{border-color:rgba(255,255,255,.13);background:linear-gradient(155deg,#171a21,#111319);transition-delay:.68s}
-      #ct-live-integrations .ct-int-result>strong{font-size:clamp(34px,3.2vw,50px);line-height:1;letter-spacing:-.065em}
-      #ct-live-integrations .ct-int-result>span{margin-top:20px;color:#7c99ff;font-size:20px;font-weight:900;letter-spacing:-.035em}
-      #ct-live-integrations .ct-int-note{margin:72px 0 0;text-align:center;color:#69717e;font-size:14px;font-weight:700}
-      #ct-live-integrations.is-visible .ct-int-head,#ct-live-integrations.is-visible .ct-int-source,#ct-live-integrations.is-visible .ct-int-arrow,#ct-live-integrations.is-visible .ct-int-core,#ct-live-integrations.is-visible .ct-int-result{opacity:1;transform:none}
-      #ct-live-integrations.is-visible .ct-int-core{animation:ctIntCoreOnce 1.05s cubic-bezier(.18,.82,.22,1) .78s both}
-      #ct-live-integrations .ct-int-source:hover{transform:translateY(-6px);border-color:rgba(124,153,255,.42);background:linear-gradient(155deg,rgba(59,111,255,.12),#12151c 58%);box-shadow:0 22px 54px rgba(0,0,0,.26)}
-      @keyframes ctIntCoreOnce{0%{box-shadow:0 24px 70px rgba(59,111,255,.12)}48%{box-shadow:0 28px 84px rgba(59,111,255,.3),0 0 0 7px rgba(59,111,255,.06)}100%{box-shadow:0 24px 70px rgba(59,111,255,.12)}}
-
-      @media(max-width:1050px){
-        #ct-live-integrations .ct-int-flow{grid-template-columns:1fr;gap:0;max-width:760px;margin:90px auto 0}
-        #ct-live-integrations .ct-int-arrow{height:76px;transform:rotate(90deg) translateX(-14px)}
-        #ct-live-integrations.is-visible .ct-int-arrow{transform:rotate(90deg)}
-        #ct-live-integrations .ct-int-core,#ct-live-integrations .ct-int-result{min-height:260px}
-      }
-      @media(max-width:700px){
-        #ct-live-integrations{padding:156px 0 170px!important}
-        #ct-live-integrations .ct-int-wrap{width:min(100% - 40px,720px)}
-        #ct-live-integrations h2{font-size:48px}
-        #ct-live-integrations .ct-int-sub{margin-top:28px;font-size:18px}
-        #ct-live-integrations .ct-int-flow{margin-top:78px}
-        #ct-live-integrations .ct-int-sources{grid-template-columns:1fr;gap:14px}
-        #ct-live-integrations .ct-int-source{min-height:124px;padding:26px 24px;border-radius:19px}
-        #ct-live-integrations .ct-int-source strong{font-size:26px}
-        #ct-live-integrations .ct-int-source span{font-size:15px}
-        #ct-live-integrations .ct-int-arrow{height:64px;font-size:44px}
-        #ct-live-integrations .ct-int-core,#ct-live-integrations .ct-int-result{min-height:220px;padding:30px 24px;border-radius:22px}
-        #ct-live-integrations .ct-int-core strong{font-size:44px}
-        #ct-live-integrations .ct-int-result>strong{font-size:38px}
-        #ct-live-integrations .ct-int-result>span{font-size:18px}
-        #ct-live-integrations .ct-int-note{margin-top:54px;font-size:13px;line-height:1.5}
-      }
-'''
-          if 'SECTION 04 — 외부 문의 유입' not in text:
-              if css_anchor not in text:
-                  raise SystemExit('section04 css anchor not found')
-              text = text.replace(css_anchor, css + css_anchor, 1)
-
-          helper_anchor = '  const apply=()=>{\n'
-          helper = r'''  const patchIntegrations=()=>{
-    const story=document.querySelector('#how.ct-live-story-v1');
-    if(!story)return false;
-    let section=document.getElementById('ct-live-integrations');
-    if(!section){
-      section=document.createElement('section');
-      section.id='ct-live-integrations';
-      section.setAttribute('aria-label','외부 문의 연동');
-      section.innerHTML=`<div class="ct-int-wrap"><div class="ct-int-head"><h2>전화 오기 전 문의부터<br><span>이미 고객으로 들어옵니다.</span></h2><p class="ct-int-sub">광고·신청폼 문의를 다시 복사해서 입력하지 마세요.</p></div><div class="ct-int-flow"><div class="ct-int-sources"><article class="ct-int-source"><strong>Meta Lead Ads</strong><span>광고 리드폼 문의</span></article><article class="ct-int-source"><strong>Google Forms</strong><span>폼 응답</span></article><article class="ct-int-source"><strong>PageRo</strong><span>페이지 문의</span></article><article class="ct-int-source"><strong>Webhook</strong><span>외부 서비스 문의</span></article></div><div class="ct-int-arrow" aria-hidden="true">→</div><div class="ct-int-core"><small>CALLTAG</small><strong>고객관리로<br>연결</strong></div><div class="ct-int-arrow" aria-hidden="true">→</div><div class="ct-int-result"><strong>고객관리 시작</strong><span>전화 · 문자 · 일정</span></div></div><p class="ct-int-note">연동 방식과 수신 시점은 채널별로 다를 수 있습니다.</p></div>`;
-    }
-    if(story.nextElementSibling!==section)story.insertAdjacentElement('afterend',section);
-    if(!section.dataset.ctObserved){
-      section.dataset.ctObserved='1';
-      if(reduced||!('IntersectionObserver'in window)){section.classList.add('is-visible');}
-      else{
-        const io=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('is-visible');io.unobserve(entry.target);}});},{threshold:.2,rootMargin:'0px 0px -8%'});
-        io.observe(section);
-      }
-    }
-    return true;
-  };
-
-'''
-          if 'const patchIntegrations=()=>{' not in text:
-              if helper_anchor not in text:
-                  raise SystemExit('section04 helper anchor not found')
-              text = text.replace(helper_anchor, helper + helper_anchor, 1)
-
-          if 'patchIntegrations();' not in text:
-              call_anchor = '      patchStory();\n'
-              if call_anchor not in text:
-                  raise SystemExit('section04 call anchor not found')
-              text = text.replace(call_anchor, call_anchor + '      patchIntegrations();\n', 1)
-
-          path.write_text(text, encoding='utf-8')
-
-          index = Path('index.html')
-          html = index.read_text(encoding='utf-8')
-          html2, count = re.subn(r'calltag-landing-live-0102-v1\.js\?v=[^"\']+', 'calltag-landing-live-0102-v1.js?v=20260916-7', html, count=1)
-          if count != 1:
-              raise SystemExit('live script reference not found in index')
-          index.write_text(html2, encoding='utf-8')
-          PY
-
           node --check assets/calltag-landing-live-0102-v1.js
           grep -q 'ctLanding0104V1' assets/calltag-landing-live-0102-v1.js
           grep -q 'ct-live-integrations' assets/calltag-landing-live-0102-v1.js
@@ -144,7 +35,6 @@ jobs:
           grep -q '20260916-7' index.html
 
       - name: Commit live patch
-        shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -152,10 +42,9 @@ jobs:
           git commit -m 'feat(landing): add section 04 external inquiry flow'
           git push origin HEAD:main
 
-      - name: Remove one-shot workflow
-        shell: bash
+      - name: Remove one-shot files
         run: |
           git pull --rebase origin main
-          git rm .github/workflows/apply-section04-live-v1.yml
-          git commit -m 'chore(ci): remove section 04 workflow'
+          git rm .github/workflows/apply-section04-live-v1.yml scripts/apply_section04_live.py
+          git commit -m 'chore(ci): remove section 04 patch helpers'
           git push origin HEAD:main
