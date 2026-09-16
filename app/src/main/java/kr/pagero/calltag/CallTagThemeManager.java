@@ -11,6 +11,9 @@ import android.os.Build;
 import android.view.View;
 import android.view.Window;
 
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
+
 /** 앱 전체의 블랙/화이트 테마를 사용자가 직접 고정 선택하도록 관리한다. */
 public final class CallTagThemeManager {
     public static final String MODE_BLACK = "black";
@@ -59,19 +62,14 @@ public final class CallTagThemeManager {
         if (activity == null) return;
         Window window = activity.getWindow();
         if (window == null) return;
-        window.setStatusBarColor(activity.getColor(R.color.background));
-        window.setNavigationBarColor(activity.getColor(R.color.surface));
 
+        // Android 15+ ignores status/navigation bar color APIs for edge-to-edge apps.
+        // Keep icon contrast through WindowInsetsControllerCompat instead of deprecated APIs.
         View decor = window.getDecorView();
-        int flags = decor.getSystemUiVisibility();
-        int lightFlags = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-                | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
-        if (isBlack(activity)) {
-            flags &= ~lightFlags;
-        } else {
-            flags |= lightFlags;
-        }
-        decor.setSystemUiVisibility(flags);
+        WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, decor);
+        boolean lightIcons = !isBlack(activity);
+        controller.setAppearanceLightStatusBars(lightIcons);
+        controller.setAppearanceLightNavigationBars(lightIcons);
     }
 
     public static void showChooser(Context context) {
