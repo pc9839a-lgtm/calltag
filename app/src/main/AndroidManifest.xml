@@ -23,6 +23,7 @@
         android:usesCleartextTraffic="false"
         android:networkSecurityConfig="@xml/network_security_config"
         android:label="@string/app_name"
+        android:resizeableActivity="true"
         android:supportsRtl="true"
         android:theme="@style/Theme.CallTag">
 
@@ -34,37 +35,37 @@
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
 
-        <activity android:name=".InitialPermissionActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".MessageAutomationSettingsActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".PageroLeadMessageSettingsActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".MessageTemplateLibraryActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".MessageTemplateEditorActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".CustomerMessagePickerActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".GroupCampaignHubActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".MessageSafetyHubActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".TemplateImageLibraryActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".TemplateImageActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name=".InitialPermissionActivity" android:exported="false" />
+        <activity android:name=".MessageAutomationSettingsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".PageroLeadMessageSettingsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".MessageTemplateLibraryActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".MessageTemplateEditorActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".CustomerMessagePickerActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".GroupCampaignHubActivity" android:exported="false" />
+        <activity android:name=".MessageSafetyHubActivity" android:exported="false" />
+        <activity android:name=".TemplateImageLibraryActivity" android:exported="false" />
+        <activity android:name=".TemplateImageActivity" android:exported="false" />
         <activity android:name=".MmsComposeActivity" android:excludeFromRecents="true" android:exported="false" android:noHistory="true" android:theme="@style/Theme.CallTag" />
-        <activity android:name=".MessageExclusionActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".PostCallExclusionActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".ManualMessageActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".MessageHistoryActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".MessageGroupActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".CampaignListActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".CampaignComposerActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".CampaignDetailActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".CalendarSharePickerActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".BillingEntitlementActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".SettingsGroupActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".AppInfoActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".CustomerSupportActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".EntitlementNoticeActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".ReferralPartnerActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".PageroConnectionActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".PageroConnectionCompactActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".PageroUseGuideActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".PageroLeadNotificationActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".ExternalLeadIntegrationActivity" android:exported="true" android:launchMode="singleTop" android:screenOrientation="portrait">
+        <activity android:name=".MessageExclusionActivity" android:exported="false" />
+        <activity android:name=".PostCallExclusionActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".ManualMessageActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".MessageHistoryActivity" android:exported="false" />
+        <activity android:name=".MessageGroupActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".CampaignListActivity" android:exported="false" />
+        <activity android:name=".CampaignComposerActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".CampaignDetailActivity" android:exported="false" />
+        <activity android:name=".CalendarSharePickerActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".BillingEntitlementActivity" android:exported="false" />
+        <activity android:name=".SettingsGroupActivity" android:exported="false" />
+        <activity android:name=".AppInfoActivity" android:exported="false" />
+        <activity android:name=".CustomerSupportActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".EntitlementNoticeActivity" android:exported="false" />
+        <activity android:name=".ReferralPartnerActivity" android:exported="false" />
+        <activity android:name=".PageroConnectionActivity" android:exported="false" />
+        <activity android:name=".PageroConnectionCompactActivity" android:exported="false" />
+        <activity android:name=".PageroUseGuideActivity" android:exported="false" />
+        <activity android:name=".PageroLeadNotificationActivity" android:exported="false" />
+        <activity android:name=".ExternalLeadIntegrationActivity" android:exported="true" android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -79,16 +80,16 @@
             </intent-filter>
         </activity>
 
-        <activity android:name=".CallerInfoActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:noHistory="true" android:screenOrientation="portrait" android:showWhenLocked="true" android:theme="@style/Theme.CallTag.CallerInfo" android:turnScreenOn="true" />
-        <activity android:name=".CallerIdSetupActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".TaskTypeSettingsActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".StageSettingsActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".AccountActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".BackupRestoreActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".CallTagSyncStatusActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".CallTagSyncDevicesActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".LoginActivity" android:exported="false" android:launchMode="singleTop" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".GoogleCredentialLoginActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:screenOrientation="portrait" android:theme="@style/Theme.CallTag.GoogleCredentialBridge" />
+        <activity android:name=".CallerInfoActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:noHistory="true" android:showWhenLocked="true" android:theme="@style/Theme.CallTag.CallerInfo" android:turnScreenOn="true" />
+        <activity android:name=".CallerIdSetupActivity" android:exported="false" />
+        <activity android:name=".TaskTypeSettingsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".StageSettingsActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".AccountActivity" android:exported="false" />
+        <activity android:name=".BackupRestoreActivity" android:exported="false" />
+        <activity android:name=".CallTagSyncStatusActivity" android:exported="false" />
+        <activity android:name=".CallTagSyncDevicesActivity" android:exported="false" />
+        <activity android:name=".LoginActivity" android:exported="false" android:launchMode="singleTop" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".GoogleCredentialLoginActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:theme="@style/Theme.CallTag.GoogleCredentialBridge" />
         <activity android:name=".GoogleAuthCallbackActivity" android:excludeFromRecents="true" android:exported="true" android:noHistory="true" android:theme="@style/Theme.CallTag">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
@@ -97,15 +98,15 @@
                 <data android:scheme="calltag" android:host="auth" android:path="/google" />
             </intent-filter>
         </activity>
-        <activity android:name=".CustomerAddActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".CustomerDetailActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".CustomerQuickEditActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".CustomerDeleteActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".HomeTaskEditorActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name=".PostCallActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:noHistory="false" android:screenOrientation="portrait" android:showWhenLocked="true" android:theme="@style/Theme.CallTag.PostCallPopup" android:turnScreenOn="true" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".MainActivity" android:exported="false" android:screenOrientation="portrait" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".CustomerAddActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".CustomerDetailActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".CustomerQuickEditActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".CustomerDeleteActivity" android:exported="false" />
+        <activity android:name=".HomeTaskEditorActivity" android:exported="false" />
+        <activity android:name=".PostCallActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:noHistory="false" android:showWhenLocked="true" android:theme="@style/Theme.CallTag.PostCallPopup" android:turnScreenOn="true" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".MainActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
 
-        <activity android:name=".AuthGateActivity" android:exported="true" android:launchMode="singleTop" android:screenOrientation="portrait">
+        <activity android:name=".AuthGateActivity" android:exported="true" android:launchMode="singleTop">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
