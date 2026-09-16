@@ -1,0 +1,46 @@
+name: Apply CallTag section 04 slider alert
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/apply-section04-slider-alert.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply section 04 redesign
+        run: python scripts/apply_section04_slider_alert.py
+
+      - name: Validate
+        run: |
+          node --check assets/calltag-landing-live-0102-v1.js
+          python - <<'PY'
+          from pathlib import Path
+          js=Path('assets/calltag-landing-live-0102-v1.js').read_text(encoding='utf-8')
+          html=Path('index.html').read_text(encoding='utf-8')
+          required=['ctLanding0104V2','콜태그 앱이 바로 알려줍니다.','새 문의 도착','ct-source-slider','Google Forms','PageRo','Webhook','바로<br>고객관리']
+          missing=[x for x in required if x not in js]
+          assert not missing, f'missing: {missing}'
+          assert '20260916-8' in html
+          print('section04 slider alert validation PASS')
+          PY
+
+      - name: Commit live patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/calltag-landing-live-0102-v1.js index.html
+          git commit -m 'feat(landing): simplify section 04 around app alerts'
+          git push origin HEAD:main
