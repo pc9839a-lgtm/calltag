@@ -21,7 +21,9 @@ jobs:
           fetch-depth: 0
 
       - name: Apply patch
-        run: python scripts/apply_section04_live.py
+        run: |
+          sed -i 's/ctLanding0103V1/ctLanding0103V2/g' scripts/apply_section04_live.py
+          python scripts/apply_section04_live.py
 
       - name: Validate
         run: |
