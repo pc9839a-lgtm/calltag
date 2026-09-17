@@ -5,9 +5,7 @@ import { handleAdminPayoutBridge } from './worker/admin-payout-bridge.js';
 const SETTLEMENT_FINALIZER='/web/settlement-finalize.js?v=20260813-final1';
 const SETTLEMENT_POLISH_STYLE='/web/settlement-polish.css?v=20260813-polish1';
 const SETTLEMENT_POLISH_SCRIPT='/web/settlement-polish.js?v=20260813-polish1';
-const LANDING_PRICING_POLICY='/assets/calltag-pricing-policy-v1.js?v=20260917-pricing2';
-const LANDING_APP_ONLY='/assets/calltag-app-only-v1.js?v=20260917-apponly1';
-const LANDING_HERO_RESTORE='/assets/calltag-hero-restore-v1.js?v=20260917-hero2';
+const LANDING_STABILIZER='/assets/calltag-landing-stabilizer-v1.js?v=20260917-stable1';
 
 export default {
   async fetch(request,env,context){
@@ -30,17 +28,9 @@ export default {
     let body=await response.text();
 
     if(isLanding){
-      headers.set('x-calltag-pricing-policy','20260917-pricing2');
-      headers.set('x-calltag-app-only','20260917-apponly1');
-      headers.set('x-calltag-hero-restore','20260917-hero2');
-      if(!body.includes('calltag-pricing-policy-v1.js')){
-        body=body.replace('</body>',`<script src="${LANDING_PRICING_POLICY}"></script></body>`);
-      }
-      if(!body.includes('calltag-app-only-v1.js')){
-        body=body.replace('</body>',`<script src="${LANDING_APP_ONLY}"></script></body>`);
-      }
-      if(!body.includes('calltag-hero-restore-v1.js')){
-        body=body.replace('</body>',`<script src="${LANDING_HERO_RESTORE}"></script></body>`);
+      headers.set('x-calltag-landing-stabilizer','20260917-stable1');
+      if(!body.includes('calltag-landing-stabilizer-v1.js')){
+        body=body.replace('</body>',`<script src="${LANDING_STABILIZER}"></script></body>`);
       }
     }
 
