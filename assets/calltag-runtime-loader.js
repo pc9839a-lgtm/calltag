@@ -1,7 +1,7 @@
 (()=>{
   if(document.documentElement.dataset.ctRuntimeLoaderV60)return;
   document.documentElement.dataset.ctRuntimeLoaderV60='1';
-  const scripts=['calltag-core-runtime.js?v=20260918-core2'];
+  const scripts=['calltag-core-runtime.js?v=20260918-core2a'];
   const mountFoundation=()=>{
     if(document.documentElement.dataset.ctAdBootstrapV7)return true;
     document.documentElement.dataset.ctAdBootstrapV7='1';
