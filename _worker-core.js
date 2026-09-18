@@ -129,6 +129,7 @@ export default {
       return response;
     }
     const headers=new Headers(response.headers);['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));headers.set('content-type','text/html; charset=UTF-8');headers.set('cache-control','no-cache, no-store, must-revalidate');headers.set('x-calltag-worker',WORKER_VERSION);
+    const isGuide=/^\/guide(?:\/|$)/.test(url.pathname);if(isGuide){headers.set('cache-control','public, max-age=300, must-revalidate');return new Response(await response.text(),{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});}
     const isLegal=/^\/(terms|privacy|refund|support)(?:\.html)?(?:\/|$)/.test(url.pathname);if(isLegal)return new Response(await response.text(),{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
     const isSettlement=/^\/web\/settlement(?:\.html)?\/?$/.test(url.pathname);
     const securityScript=isSettlement?`<script src="${PARTNER_SECURITY_SRC}"></script>`:'';
