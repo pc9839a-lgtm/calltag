@@ -73,7 +73,7 @@ const SEO_HEAD=`
 <meta name="twitter:image" content="${OG_IMAGE}" />
 <script type="application/ld+json" id="ct-seo-schema">${JSON.stringify(SEO_SCHEMA).replace(/</g,'\\u003c')}</script>
 <link rel="stylesheet" href="${STYLE_BUNDLE_PATH}?v=${STYLE_BUNDLE_VERSION}" />
-<style id="ct-initial-layout-guard">html:not(.ct-layout-ready) body>main#top{visibility:hidden!important}</style>
+<style id="ct-initial-layout-guard">html:not(.ct-layout-ready) body>main#top>:not(#app){visibility:hidden!important}</style>
 <script>setTimeout(()=>document.documentElement.classList.add('ct-layout-ready'),3000)</script>`;
 
 const stripSeo=body=>body
