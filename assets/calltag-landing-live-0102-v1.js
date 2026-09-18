@@ -339,10 +339,14 @@
     }finally{applying=false;}
   };
 
-  const queueApply=()=>{if(queued||applying)return;queued=true;requestAnimationFrame(apply);};
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply,{once:true});else apply();
-  [80,220,500,900,1500,2400,3600,5200].forEach(delay=>setTimeout(apply,delay));
-  const observer=new MutationObserver(queueApply);
-  observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true});
-  setTimeout(()=>observer.disconnect(),7200);
+  const run=()=>apply();
+  let runtimeSeen=false;
+  const onReady=()=>{runtimeSeen=true;run();};
+  const arm=()=>{
+    if(document.documentElement.dataset.ctLayoutCoordinatorV12)onReady();
+    else document.addEventListener('calltag:runtime-ready',onReady,{once:true});
+    document.addEventListener('calltag:runtime-settled',run,{once:true});
+    setTimeout(()=>{if(!runtimeSeen)onReady();},2600);
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',arm,{once:true});else arm();
 })();

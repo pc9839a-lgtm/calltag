@@ -3,8 +3,6 @@
   document.documentElement.dataset.ctLandingStabilizerV1='1';
 
   const APP='https://pagero.kr/app?source=calltag&plan=all&utm_source=calltag_site&utm_medium=cta&utm_campaign=2026_launch&utm_content=pricing_all';
-  let finished=false;
-
   const installStyle=()=>{
     if(document.getElementById('ct-landing-stabilizer-v1-style'))return;
     const style=document.createElement('style');
@@ -103,24 +101,21 @@
     if(answer)answer.textContent='기본 7일 무료체험 후 페이지로 + 콜태그 통합권은 월 6,000원입니다.';
   };
 
-  const finalize=()=>{
-    if(finished)return;
-    finished=true;
+  const applyStable=()=>{
     installStyle();
     patchHero();
     patchAppOnly();
     patchPricing();
-    setTimeout(()=>{patchAppOnly();patchPricing();},2400);
   };
 
-  const waitForRuntime=()=>{
-    if(document.documentElement.dataset.ctLayoutCoordinatorV12){finalize();return;}
-    let tries=0;
-    const timer=setInterval(()=>{
-      tries+=1;
-      if(document.documentElement.dataset.ctLayoutCoordinatorV12||tries>=40){clearInterval(timer);finalize();}
-    },50);
+  let runtimeSeen=false;
+  const onReady=()=>{runtimeSeen=true;applyStable();};
+  const arm=()=>{
+    if(document.documentElement.dataset.ctLayoutCoordinatorV12)onReady();
+    else document.addEventListener('calltag:runtime-ready',onReady,{once:true});
+    document.addEventListener('calltag:runtime-settled',applyStable,{once:true});
+    setTimeout(()=>{if(!runtimeSeen)onReady();},2600);
   };
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',waitForRuntime,{once:true});else waitForRuntime();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',arm,{once:true});else arm();
 })();
