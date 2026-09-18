@@ -35,13 +35,17 @@
     const rail=viewport?.querySelector('.ct-marquee-rail'),group=rail?.querySelector('.ct-marquee-group');
     if(viewport&&rail&&group&&!rail.dataset.ctSteady){
       rail.dataset.ctSteady='1';rail.style.animation='none';rail.style.transition='none';
-      let offset=0,loopWidth=0,previousTime=0,frameId=0,active=true;
+      let offset=0,loopWidth=0,previousTime=0,frameId=0,running=false,inView=false,destroyed=false;
       const measure=()=>{const nextWidth=group.getBoundingClientRect().width;if(!nextWidth)return;loopWidth=nextWidth;offset%=loopWidth;rail.style.transform=`translate3d(${-offset}px,0,0)`;};
-      const tick=time=>{if(!active)return;if(!previousTime)previousTime=time;const elapsed=Math.min((time-previousTime)/1000,.05);previousTime=time;if(loopWidth>0){offset=(offset+38*elapsed)%loopWidth;rail.style.transform=`translate3d(${-offset}px,0,0)`;}frameId=requestAnimationFrame(tick);};
-      const resizeObserver=new ResizeObserver(()=>requestAnimationFrame(measure));resizeObserver.observe(group);
-      const onResize=measure,onVisibility=()=>{previousTime=0;};window.addEventListener('resize',onResize,{passive:true});document.addEventListener('visibilitychange',onVisibility);
-      measure();frameId=requestAnimationFrame(tick);
-      window.addEventListener('pagehide',()=>{active=false;cancelAnimationFrame(frameId);resizeObserver.disconnect();window.removeEventListener('resize',onResize);document.removeEventListener('visibilitychange',onVisibility);},{once:true});
+      const tick=time=>{if(!running||destroyed)return;if(!previousTime)previousTime=time;const elapsed=Math.min((time-previousTime)/1000,.05);previousTime=time;if(loopWidth>0){offset=(offset+38*elapsed)%loopWidth;rail.style.transform=`translate3d(${-offset}px,0,0)`;}frameId=requestAnimationFrame(tick);};
+      const stop=()=>{if(!running)return;running=false;cancelAnimationFrame(frameId);frameId=0;previousTime=0;};
+      const start=()=>{if(destroyed||running||!inView||document.hidden)return;running=true;previousTime=0;frameId=requestAnimationFrame(tick);};
+      const resizeObserver=new ResizeObserver(measure);resizeObserver.observe(group);
+      const visibilityObserver=new IntersectionObserver(entries=>{inView=entries[0]?.isIntersecting===true;if(inView){measure();start();}else stop();},{threshold:0,rootMargin:'160px 0px'});
+      visibilityObserver.observe(viewport);
+      const onResize=measure,onVisibility=()=>{if(document.hidden)stop();else start();};window.addEventListener('resize',onResize,{passive:true});document.addEventListener('visibilitychange',onVisibility);
+      measure();
+      window.addEventListener('pagehide',()=>{destroyed=true;stop();resizeObserver.disconnect();visibilityObserver.disconnect();window.removeEventListener('resize',onResize);document.removeEventListener('visibilitychange',onVisibility);},{once:true});
     }
   };
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});else requestAnimationFrame(run);
