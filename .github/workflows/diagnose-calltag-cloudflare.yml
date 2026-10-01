@@ -1,0 +1,27 @@
+name: Diagnose CallTag Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/diagnose-calltag-cloudflare.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check credentials
+        shell: bash
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "NO_CLOUDFLARE_API_TOKEN"; exit 2; fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "NO_CLOUDFLARE_ACCOUNT_ID"; exit 3; fi
+          echo "CLOUDFLARE_SECRETS_PRESENT"
+      - name: List Pages projects
+        shell: bash
+        run: npx --yes wrangler@latest pages project list
