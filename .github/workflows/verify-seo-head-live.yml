@@ -1,0 +1,38 @@
+name: Verify SEO heads live
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-seo-head-live.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Poll production SEO heads
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL1='https://calltag.pagero.kr/guide/real-estate-customer-management/'
+          URL2='https://calltag.pagero.kr/guide/insurance-agent-customer-management/'
+          for i in $(seq 1 24); do
+            H1="$(curl -fsSL --max-time 15 "$URL1" || true)"
+            H2="$(curl -fsSL --max-time 15 "$URL2" || true)"
+            OK=1
+            printf '%s' "$H1" | grep -Fq '<title>부동산 고객관리 프로그램: 공인중개사 CRM vs 매물관리 앱 | 콜태그</title>' || OK=0
+            printf '%s' "$H1" | grep -Fq '<link rel="canonical" href="https://calltag.pagero.kr/guide/real-estate-customer-management/">' || OK=0
+            printf '%s' "$H2" | grep -Fq '<title>보험설계사 고객관리 앱: 보험 CRM vs 상담·재연락 관리 기준 | 콜태그</title>' || OK=0
+            printf '%s' "$H2" | grep -Fq '<link rel="canonical" href="https://calltag.pagero.kr/guide/insurance-agent-customer-management/">' || OK=0
+            if [ "$OK" -eq 1 ]; then
+              echo "LIVE_OK attempt=$i"
+              exit 0
+            fi
+            echo "waiting attempt=$i"
+            sleep 10
+          done
+          echo "LIVE_NOT_UPDATED"
+          exit 1
