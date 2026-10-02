@@ -2,7 +2,7 @@ const CANONICAL='https://calltag.pagero.kr/';
 const SEO_TITLE='콜태그 | 통화 후 고객관리·자동문자·페이지로 문의 연동';
 const SEO_DESCRIPTION='통화가 끝나면 고객을 태그하고 상담 상태·다음 할 일·재연락 일정을 관리하세요. 페이지로 랜딩페이지 문의 자동등록과 안내·후속문자까지 연결하는 Android 고객관리 서비스입니다.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
-const WORKER_VERSION='v151-runtime60-final1';
+const WORKER_VERSION='v152-path-aware-seo';
 const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260811-runtime60';
 const STYLE_BUNDLE_PATH='/assets/calltag-style-bundle.css';
 const STYLE_BUNDLE_VERSION='20260812-cssbundle1';
@@ -118,7 +118,11 @@ export default {
       return response;
     }
     const headers=new Headers(response.headers);['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));headers.set('content-type','text/html; charset=UTF-8');headers.set('cache-control','no-cache, no-store, must-revalidate');headers.set('x-calltag-worker',WORKER_VERSION);
-    const isLegal=/^\/(terms|privacy|refund|support)(?:\.html)?(?:\/|$)/.test(url.pathname);if(isLegal)return new Response(await response.text(),{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
-    let body=await response.text();body=stripSeo(body).replace(/<title>[\s\S]*?<\/title>/i,`<title>${SEO_TITLE}</title>`).replace('</head>',`${SEO_HEAD}</head>`).replace('</body>',`<script src="${RUNTIME_SRC}"></script></body>`);return new Response(body,{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
+    const isLegal=/^\/(terms|privacy|refund|support)(?:\.html)?(?:\/|$)/.test(url.pathname);
+    const isHome=url.pathname==='/';
+    const body=await response.text();
+    if(isLegal||!isHome)return new Response(body,{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
+    const homeBody=stripSeo(body).replace(/<title>[\s\S]*?<\/title>/i,`<title>${SEO_TITLE}</title>`).replace('</head>',`${SEO_HEAD}</head>`).replace('</body>',`<script src="${RUNTIME_SRC}"></script></body>`);
+    return new Response(homeBody,{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
   }
 };
