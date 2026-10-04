@@ -1,30 +1,183 @@
 <!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>PageRo 문의 고객관리: 랜딩페이지 접수 이후 상담까지 연결하는 법 | 콜태그</title>
-<meta name="description" content="PageRo 랜딩페이지에서 접수된 문의를 콜태그 고객관리로 이어가는 실무 흐름을 정리했습니다. 첫 연락, 상담 기록, 다음 할 일, 재연락 일정까지 단계별로 설명합니다.">
+<title>랜딩페이지 CRM 연동: PageRo 문의폼부터 고객관리까지 | 콜태그</title>
+<meta name="description" content="랜딩페이지 CRM 연동을 찾는다면 문의폼 접수와 실제 고객관리를 구분해야 합니다. PageRo 문의, 첫 연락, 상담 상태, 자료·견적, 방문, 재연락까지 랜딩페이지 문의 이후의 실무 흐름을 정리했습니다.">
 <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">
 <link rel="canonical" href="https://calltag.pagero.kr/guide/pagero-inquiry-customer-management/">
 <meta property="og:type" content="article"><meta property="og:locale" content="ko_KR"><meta property="og:site_name" content="콜태그">
-<meta property="og:title" content="PageRo 문의 고객관리: 랜딩페이지 접수 이후 상담까지 연결하는 법 | 콜태그"><meta property="og:description" content="PageRo 랜딩페이지에서 접수된 문의를 콜태그 고객관리로 이어가는 실무 흐름을 정리했습니다. 첫 연락, 상담 기록, 다음 할 일, 재연락 일정까지 단계별로 설명합니다."><meta property="og:url" content="https://calltag.pagero.kr/guide/pagero-inquiry-customer-management/">
+<meta property="og:title" content="랜딩페이지 CRM 연동: PageRo 문의폼부터 고객관리까지 | 콜태그">
+<meta property="og:description" content="랜딩페이지 문의를 받은 뒤 첫 연락, 상담, 자료·견적, 방문, 재연락까지 이어지는 고객관리 기준을 정리합니다.">
+<meta property="og:url" content="https://calltag.pagero.kr/guide/pagero-inquiry-customer-management/">
 <meta property="og:image" content="https://calltag.pagero.kr/assets/calltag-og-20260805.png">
 <meta name="twitter:card" content="summary_large_image"><meta name="theme-color" content="#090a0d">
 <link rel="stylesheet" href="/assets/calltag-guide.css?v=20261001-cta3">
-<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https://calltag.pagero.kr/guide/pagero-inquiry-customer-management/#article","headline":"PageRo 문의 고객관리: 랜딩페이지 접수 이후 상담까지 연결하는 법","description":"PageRo 랜딩페이지에서 접수된 문의를 콜태그 고객관리로 이어가는 실무 흐름을 정리했습니다. 첫 연락, 상담 기록, 다음 할 일, 재연락 일정까지 단계별로 설명합니다.","datePublished":"2026-10-01","dateModified":"2026-10-01","inLanguage":"ko-KR","mainEntityOfPage":"https://calltag.pagero.kr/guide/pagero-inquiry-customer-management/","author":{"@type":"Organization","name":"웨이지 (WAYZI)"},"publisher":{"@type":"Organization","name":"웨이지 (WAYZI)"},"image":"https://calltag.pagero.kr/assets/calltag-og-20260805.png","about":["PageRo","페이지로 문의","랜딩페이지 문의","고객관리","전화 상담","재연락 일정"]},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"콜태그","item":"https://calltag.pagero.kr/"},{"@type":"ListItem","position":2,"name":"고객관리 가이드","item":"https://calltag.pagero.kr/guide/"},{"@type":"ListItem","position":3,"name":"외부 문의 연동","item":"https://calltag.pagero.kr/guide/external-inquiry-integration/"},{"@type":"ListItem","position":4,"name":"PageRo 문의 고객관리: 랜딩페이지 접수 이후 상담까지 연결하는 법","item":"https://calltag.pagero.kr/guide/pagero-inquiry-customer-management/"}]},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"PageRo 문의를 콜태그로 연결할 수 있나요?","acceptedAnswer":{"@type":"Answer","text":"PageRo에서 접수된 문의를 콜태그 고객관리 흐름으로 연결할 수 있습니다."}},{"@type":"Question","name":"PageRo 문의가 들어오면 모든 전화가 자동으로 고객이 되나요?","acceptedAnswer":{"@type":"Answer","text":"아닙니다. PageRo 문의 연동과 일반 통화 고객관리는 구분해서 봐야 합니다. 모든 전화가 조건 없이 고객으로 확정 등록되는 방식으로 설명하면 정확하지 않습니다."}},{"@type":"Question","name":"PageRo 문의 이후 무엇을 관리해야 하나요?","acceptedAnswer":{"@type":"Answer","text":"첫 연락 결과, 고객 상태, 상담 기록, 자료 발송이나 방문 같은 다음 할 일, 재연락 날짜를 이어서 관리하는 것이 핵심입니다."}},{"@type":"Question","name":"콜태그와 PageRo는 따로 결제하나요?","acceptedAnswer":{"@type":"Answer","text":"현재 랜딩 기준으로 PageRo + 콜태그 통합권은 기본 7일 무료 사용 후 월 6,000원으로 안내합니다."}}]}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Article","@id":"https://calltag.pagero.kr/guide/pagero-inquiry-customer-management/#article","headline":"랜딩페이지 CRM 연동: PageRo 문의폼부터 고객관리까지","description":"랜딩페이지 CRM 연동을 찾는다면 문의폼 접수와 실제 고객관리를 구분해야 합니다. PageRo 문의, 첫 연락, 상담 상태, 자료·견적, 방문, 재연락까지 랜딩페이지 문의 이후의 실무 흐름을 정리했습니다.","datePublished":"2026-10-01","dateModified":"2026-10-04","inLanguage":"ko-KR","mainEntityOfPage":"https://calltag.pagero.kr/guide/pagero-inquiry-customer-management/","author":{"@type":"Organization","name":"웨이지 (WAYZI)"},"publisher":{"@type":"Organization","name":"웨이지 (WAYZI)"},"image":"https://calltag.pagero.kr/assets/calltag-og-20260805.png","about":["랜딩페이지 CRM 연동","PageRo 문의","페이지로 문의","랜딩페이지 문의폼","문의폼 고객관리","리드 고객관리","상담 고객관리","재연락 일정"]},{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"콜태그","item":"https://calltag.pagero.kr/"},{"@type":"ListItem","position":2,"name":"고객관리 가이드","item":"https://calltag.pagero.kr/guide/"},{"@type":"ListItem","position":3,"name":"외부 문의 연동","item":"https://calltag.pagero.kr/guide/external-inquiry-integration/"},{"@type":"ListItem","position":4,"name":"랜딩페이지 CRM 연동","item":"https://calltag.pagero.kr/guide/pagero-inquiry-customer-management/"}]},{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"PageRo 문의를 콜태그 고객관리로 연결할 수 있나요?","acceptedAnswer":{"@type":"Answer","text":"PageRo에서 접수된 문의를 콜태그 고객관리 흐름으로 연결할 수 있습니다. 실제 수신 방식과 시점은 설정과 서비스 상태에 따라 달라질 수 있습니다."}},{"@type":"Question","name":"랜딩페이지 문의가 들어오면 바로 고객으로 확정되는 건가요?","acceptedAnswer":{"@type":"Answer","text":"문의 접수는 상담 시작점입니다. 모든 문의가 조건 없이 즉시 확정 고객이 되는 것으로 보면 정확하지 않습니다. 실제 연락 여부와 상담 결과에 따라 고객 상태와 다음 행동을 관리해야 합니다."}},{"@type":"Question","name":"랜딩페이지 문의폼에는 어떤 항목을 받는 게 좋나요?","acceptedAnswer":{"@type":"Answer","text":"이름·연락처·핵심 문의 항목처럼 첫 상담에 필요한 정보부터 받는 편이 좋습니다. 예산, 일정, 세부 요구사항처럼 상담 후 확인되는 정보는 고객 기록에서 이어서 관리하는 방식이 단순합니다."}},{"@type":"Question","name":"PageRo와 Google Forms는 어떤 차이가 있나요?","acceptedAnswer":{"@type":"Answer","text":"Google Forms는 범용 폼 수집에 적합하고 PageRo는 랜딩페이지에서 문의를 받는 흐름에 초점을 둡니다. 두 채널 모두 문의 이후에는 첫 연락, 상담 상태, 다음 할 일, 재연락 일정 같은 고객관리 단계가 필요할 수 있습니다."}},{"@type":"Question","name":"Meta Lead Ads 문의와 PageRo 문의도 같은 방식으로 관리하나요?","acceptedAnswer":{"@type":"Answer","text":"문의가 들어오는 입구는 다르지만 CRM에 들어온 뒤에는 첫 연락, 상담, 자료·견적, 재연락 같은 흐름이 비슷해질 수 있습니다. 유입 채널은 출처 정보로 남기고 상담 상태는 실제 대화 결과를 기준으로 관리하는 편이 좋습니다."}},{"@type":"Question","name":"PageRo + 콜태그를 같이 쓰면 무엇이 줄어드나요?","acceptedAnswer":{"@type":"Answer","text":"랜딩페이지 문의를 확인한 뒤 별도 고객목록에 다시 옮겨 적고 메모장·캘린더를 오가는 작업을 줄이는 데 목적이 있습니다. 문의 이후 상담 기록과 다음 할 일을 고객 흐름으로 이어서 관리할 수 있습니다."}},{"@type":"Question","name":"PageRo와 콜태그 요금은 어떻게 안내되나요?","acceptedAnswer":{"@type":"Answer","text":"현재 서비스 안내 기준으로 PageRo + 콜태그 통합권은 무료로 시작할 수 있고, 무료 사용 이후 월 6,000원으로 안내됩니다."}}]}]}</script>
 </head><body>
-<header class="ctg-head"><div class="ctg-head__in"><a class="ctg-brand" href="/">콜태그 <span>CALLTAG</span></a><nav class="ctg-nav"><a href="/guide/">고객관리 가이드</a><a href="/#integrations">외부 문의 연동</a><a href="/#pricing">요금</a><a href="/">서비스 보기</a></nav></div></header>
-<main><section class="hero"><p class="eyebrow">PageRo 문의 고객관리</p><h1>랜딩에서 받은 문의,<br>상담 이후까지<br>이어져야 합니다.</h1><p class="lead">PageRo에서 문의를 받은 뒤 다시 이름과 연락처를 옮겨 적는 대신, 콜태그 고객관리 흐름으로 연결해 첫 연락부터 상담 기록과 재연락까지 이어서 관리합니다.</p><div class="meta">2026.10.01 · 콜태그 고객관리 가이드</div></section>
+
+<header class="ctg-head"><div class="ctg-head__in"><a class="ctg-brand" href="/">콜태그 <span>CALLTAG</span></a><nav class="ctg-nav"><a href="/guide/">고객관리 가이드</a><a href="/guide/external-inquiry-integration/">외부 문의 연동</a><a href="/#pricing">요금</a><a href="/">서비스 보기</a></nav></div></header>
+
+<main>
+<section class="hero">
+<p class="eyebrow">랜딩페이지 CRM 연동 가이드</p>
+<h1>랜딩페이지 문의,<br>접수보다 중요한 건<br>그 다음 상담입니다.</h1>
+<p class="lead">PageRo에서 이름과 연락처를 받는 순간은 시작점입니다. 실제 고객관리는 <strong>첫 연락 → 상담 상태 → 자료·견적 → 방문·예약 → 재연락</strong>까지 이어집니다. 문의폼과 CRM의 역할을 구분하면 운영이 훨씬 단순해집니다.</p>
+<div class="meta">2026.10.04 · 콜태그 외부 문의 고객관리 가이드</div>
+</section>
+
 <article>
-<nav class="note" aria-label="핵심 요약"><strong>핵심 흐름</strong><p><b>PageRo 문의 접수 → 콜태그 고객관리 연결 → 첫 연락 → 상담 기록 → 다음 할 일 → 재연락 일정</b>으로 이어지게 만드는 것이 핵심입니다.</p></nav>
-<section><h2>랜딩페이지에서 받은 문의는 접수로 끝나지 않습니다</h2><p>문의폼으로 이름과 연락처를 받아도 실제 업무는 그다음부터 시작됩니다. 전화가 연결됐는지, 어떤 상담을 했는지, 견적이나 자료를 보냈는지, 다시 연락할 날짜가 있는지까지 계속 상태가 바뀝니다.</p><p>PageRo와 콜태그를 같이 쓰는 목적은 문의 정보를 다시 복사해 적는 단계를 줄이고, 접수 이후의 상담과 후속업무를 한 흐름으로 이어가는 데 있습니다.</p></section>
-<section><h2>PageRo 문의 이후에는 4가지만 이어서 관리하세요</h2><div class="flow"><div><span>01</span><strong>첫 연락</strong> — 문의자에게 실제로 연락했는지 확인</div><div><span>02</span><strong>상담 상태</strong> — 신규·상담 중·검토 중·보류 등 현재 단계</div><div><span>03</span><strong>다음 할 일</strong> — 견적, 자료, 방문, 확인 연락</div><div><span>04</span><strong>재연락 일정</strong> — 다시 연락할 날짜를 구체적으로 지정</div></div></section>
-<section><h2>문의 유입 정보와 상담 정보는 구분하는 편이 좋습니다</h2><p>랜딩페이지에서 받은 문의 내용은 첫 상담 준비에 유용하지만, 실제 통화 뒤에는 고객이 새로 말한 조건과 약속이 생깁니다. 유입 페이지와 최초 문의 내용은 출처 정보로 남기고, 상담 후 핵심 메모와 다음 행동은 별도로 이어서 관리하는 구조가 실무에 맞습니다.</p></section>
-<section><h2>통화 후 기록이 붙어야 문의가 실제 고객관리 데이터가 됩니다</h2><p>콜태그는 통화 음성을 녹음하거나 대화를 자동 분석하는 서비스가 아닙니다. 사용자가 통화 직후 고객 상태와 필요한 메모를 남기고, 다음 할 일과 재연락 날짜를 지정하는 방식입니다.</p><p>밖에서는 Android 앱으로 빠르게 기록하고, PC 웹에서는 고객·상담·일정과 오늘 할 일을 확인할 수 있습니다.</p></section>
-<section><h2>PageRo + 콜태그 통합 구조의 장점은 도구 사이 이동을 줄이는 것입니다</h2><div class="table-wrap"><table><thead><tr><th>업무</th><th>분리해서 할 때</th><th>연결해서 볼 때</th></tr></thead><tbody><tr><td>문의 접수</td><td>랜딩 문의 확인</td><td>고객관리 흐름으로 연결</td></tr><tr><td>첫 상담</td><td>별도 메모 작성</td><td>고객 상태·상담기록으로 이어짐</td></tr><tr><td>후속업무</td><td>캘린더·메모장 따로 관리</td><td>다음 할 일과 일정으로 연결</td></tr><tr><td>재연락</td><td>기억에 의존</td><td>날짜 기준으로 다시 확인</td></tr></tbody></table></div></section>
-<section><h2>모든 문의를 ‘자동 확정 고객’처럼 표현하지 않는 것이 중요합니다</h2><p>연동은 문의 정보를 고객관리 흐름으로 연결하는 기능입니다. 실제 고객 상태와 상담 결과는 통화와 업무 상황에 따라 달라집니다. 그래서 “100% 자동 CRM”, “모든 문의가 실시간 자동 등록”처럼 실제 동작 범위를 넘는 표현은 사용하지 않는 것이 정확합니다.</p></section>
-<section class="faq" id="faq"><h2>자주 묻는 질문</h2><details><summary>PageRo 문의를 콜태그로 연결할 수 있나요?</summary><p>PageRo에서 접수된 문의를 콜태그 고객관리 흐름으로 연결할 수 있습니다.</p></details><details><summary>PageRo 문의가 들어오면 모든 전화가 자동으로 고객이 되나요?</summary><p>아닙니다. PageRo 문의 연동과 일반 통화 고객관리는 구분해서 봐야 합니다. 모든 전화가 조건 없이 고객으로 확정 등록되는 방식으로 설명하면 정확하지 않습니다.</p></details><details><summary>PageRo 문의 이후 무엇을 관리해야 하나요?</summary><p>첫 연락 결과, 고객 상태, 상담 기록, 자료 발송이나 방문 같은 다음 할 일, 재연락 날짜를 이어서 관리하는 것이 핵심입니다.</p></details><details><summary>콜태그와 PageRo는 따로 결제하나요?</summary><p>현재 랜딩 기준으로 PageRo + 콜태그 통합권은 기본 7일 무료 사용 후 월 6,000원으로 안내합니다.</p></details></section>
-<section class="cta"><h2>문의가 들어온 뒤의 고객관리까지 이어가세요.</h2><p>콜태그는 외부 문의를 고객관리 흐름으로 연결하고 통화 후 상담 기록, 다음 할 일과 재연락 일정을 이어서 관리합니다.</p><a href="https://calltag.pagero.kr/" target="_blank" rel="noopener">무료로 시작</a></section>
-<section class="related"><h2>관련 고객관리 가이드</h2><div class="related-grid"><a href="/guide/meta-lead-ads-customer-management/">Meta Lead Ads 고객관리<br><small>광고 리드 이후 후속 상담 흐름</small></a><a href="/guide/google-forms-customer-management/">Google Forms 고객관리<br><small>폼 응답 이후 고객관리</small></a><a href="/guide/after-call-customer-management/">통화 후 고객관리<br><small>전화가 끝난 뒤 남길 정보</small></a><a href="/guide/follow-up-schedule-management/">재연락 일정 관리<br><small>다시 연락할 날짜 관리</small></a></div></section>
-</article></main>
+<section class="note" aria-label="빠른 결론">
+<strong>먼저 결론</strong>
+<p><b>랜딩페이지는 문의를 받는 입구</b>이고, <b>CRM은 문의가 들어온 이후 고객 상태와 다음 행동을 관리하는 도구</b>입니다. PageRo + 콜태그는 이 두 구간 사이에서 문의 정보를 다시 옮겨 적는 일을 줄이고 상담 후속업무를 이어서 관리하는 데 초점을 둡니다.</p>
+</section>
+
+<section id="intent">
+<h2>‘랜딩페이지 CRM 연동’ 검색에는 4가지 요구가 섞여 있습니다</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>지금 필요한 것</th><th>우선 볼 기능</th></tr></thead>
+<tbody>
+<tr><td>광고용 페이지를 만들고 문의를 받고 싶음</td><td><strong>랜딩페이지·문의폼</strong></td></tr>
+<tr><td>문의 DB를 한곳에 모으고 싶음</td><td><strong>문의 수집·전달</strong></td></tr>
+<tr><td>누가 연락했는지 관리하고 싶음</td><td><strong>CRM·고객 상태 관리</strong></td></tr>
+<tr><td>다시 연락할 날짜와 해야 할 일을 놓치고 싶지 않음</td><td><strong>후속업무·재연락 일정</strong></td></tr>
+</tbody></table></div>
+<p>랜딩페이지에서 문의를 받는 것과 영업 고객관리는 같은 기능이 아닙니다. 어떤 도구는 문의 접수까지만 해결하고, 어떤 CRM은 문의 이후 담당자·상담이력·후속업무까지 관리합니다.</p>
+</section>
+
+<section id="landing-vs-crm">
+<h2>랜딩페이지와 CRM은 관리하는 시점부터 다릅니다</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>구분</th><th>랜딩페이지·문의폼</th><th>CRM·고객관리</th></tr></thead>
+<tbody>
+<tr><td>시작 시점</td><td>방문자가 문의를 남기기 전</td><td>문의가 들어온 뒤</td></tr>
+<tr><td>주요 데이터</td><td>이름·연락처·문의 항목</td><td>상담 결과·고객 상태·다음 행동</td></tr>
+<tr><td>핵심 목적</td><td>문의 접수</td><td>후속 상담 누락 방지</td></tr>
+<tr><td>날짜 관리</td><td>접수 시각</td><td>재연락·방문·예약 일정</td></tr>
+</tbody></table></div>
+<p>그래서 랜딩페이지 문의를 많이 받는다고 고객관리가 자동으로 잘 되는 것은 아닙니다. <strong>문의 이후 상태 변화와 날짜가 있는 업무</strong>를 따로 관리해야 합니다.</p>
+</section>
+
+<section id="flow">
+<h2>PageRo 문의 이후에는 6단계만 이어지면 됩니다</h2>
+<div class="flow">
+<div><span>01</span><strong>문의 접수</strong> — 랜딩페이지에서 이름·연락처·문의 내용 확인</div>
+<div><span>02</span><strong>첫 연락</strong> — 실제 통화·문자 등 연락 시도</div>
+<div><span>03</span><strong>상담 기록</strong> — 고객 조건·요구사항·결과 정리</div>
+<div><span>04</span><strong>후속업무</strong> — 자료·견적·예약·방문 등 다음 행동 지정</div>
+<div><span>05</span><strong>재연락</strong> — 고객과 합의한 날짜에 다시 확인</div>
+<div><span>06</span><strong>상태 정리</strong> — 진행·검토·보류·종료 등 현재 상태 반영</div>
+</div>
+<p>문의폼을 복잡하게 만드는 것보다 이 여섯 단계가 실제 업무에서 끊기지 않는지가 더 중요합니다.</p>
+</section>
+
+<section id="fields">
+<h2>문의폼에서는 첫 상담에 필요한 정보부터 받으세요</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>문의폼에서 먼저 받기 좋은 정보</th><th>상담 후 고객기록에 남길 정보</th></tr></thead>
+<tbody>
+<tr><td>이름·연락처</td><td>실제 연락 결과</td></tr>
+<tr><td>문의 유형</td><td>구체 조건·예산·일정</td></tr>
+<tr><td>간단한 문의내용</td><td>자료·견적 발송 여부</td></tr>
+<tr><td>필요하면 선호 연락시간</td><td>다음 행동·재연락 날짜</td></tr>
+</tbody></table></div>
+<p>첫 화면에서 너무 많은 정보를 요구하기보다 상담 시작에 필요한 정보만 받고, 실제 대화에서 확인된 내용은 CRM에 이어서 남기는 편이 관리하기 쉽습니다.</p>
+</section>
+
+<section id="source">
+<h2>유입 페이지와 실제 상담 내용은 따로 보세요</h2>
+<p>어떤 랜딩페이지에서 문의가 들어왔는지는 중요한 출처 정보입니다. 하지만 같은 페이지에서 들어온 사람이라도 실제 문의 목적과 조건은 다를 수 있습니다.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>유입 정보</th><th>상담 정보</th></tr></thead>
+<tbody>
+<tr><td>문의가 들어온 페이지</td><td>고객이 실제로 원하는 내용</td></tr>
+<tr><td>폼에 적은 최초 문의</td><td>통화 후 확인된 조건</td></tr>
+<tr><td>접수 시각</td><td>첫 연락 결과</td></tr>
+<tr><td>초기 문의 유형</td><td>다음 행동·재연락 약속</td></tr>
+</tbody></table></div>
+<p>유입 정보는 마케팅과 첫 상담 준비에 쓰고, 이후 상태는 실제 상담 결과를 기준으로 관리하는 편이 정확합니다.</p>
+</section>
+
+<section id="followup">
+<h2>자료나 견적을 보냈다면 그 순간부터 다음 행동이 필요합니다</h2>
+<p>랜딩페이지 문의는 첫 통화에서 끝나지 않는 경우가 많습니다. 고객이 자료를 검토하거나 견적을 비교하거나 방문 일정을 잡는 순간부터는 날짜가 있는 후속업무가 생깁니다.</p>
+<div class="flow">
+<div><span>자료</span>브로슈어·안내자료 전달</div>
+<div><span>견적</span>비용 안내 후 검토 중</div>
+<div><span>방문</span>현장·매장·상담 방문 예약</div>
+<div><span>확인</span>고객이 정한 날짜에 재연락</div>
+</div>
+<p>이 단계가 메모장이나 개인 캘린더로 흩어지기 시작하면 문의 건수가 많아질수록 누락 가능성이 커집니다.</p>
+</section>
+
+<section id="compare">
+<h2>PageRo·Google Forms·Meta Lead Ads는 입구가 다릅니다</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>채널</th><th>문의가 시작되는 곳</th><th>이후 공통 관리</th></tr></thead>
+<tbody>
+<tr><td>PageRo</td><td>랜딩페이지 문의폼</td><td rowspan="3">첫 연락 → 상담 → 다음 행동 → 재연락</td></tr>
+<tr><td>Google Forms</td><td>직접 만든 범용 폼</td></tr>
+<tr><td>Meta Lead Ads</td><td>Facebook·Instagram 인스턴트폼</td></tr>
+</tbody></table></div>
+<p>입구는 다르지만 CRM에 들어온 뒤 해야 할 일은 비슷해집니다. <a href="/guide/external-inquiry-integration/"><strong>외부 문의 연동 전체 비교</strong></a>에서 네 채널의 차이를 한 번에 볼 수 있습니다.</p>
+</section>
+
+<section id="handoff">
+<h2>담당자가 여러 명이면 ‘문의가 왔다’보다 ‘누가 처리 중인지’가 중요합니다</h2>
+<p>문의량이 적고 한 명이 전부 상담하면 목록만으로도 운영할 수 있습니다. 하지만 여러 명이 문의를 나눠 처리하면 같은 고객에게 중복 연락하거나 아무도 연락하지 않는 일이 생길 수 있습니다.</p>
+<p>이 경우 최소한 <strong>첫 연락 여부 → 현재 상태 → 담당자 → 다음 행동 → 재연락 날짜</strong>가 명확해야 합니다. 팀 단위 영업이 커지면 담당자·권한·파이프라인 기능이 더 강한 CRM이 필요할 수도 있습니다.</p>
+</section>
+
+<section id="automation">
+<h2>‘자동 연동’은 어디까지 자동인지 구분해서 보세요</h2>
+<p>문의가 접수됐다는 사실을 다른 시스템으로 전달하는 것, 새 고객을 만드는 것, 담당자를 배정하는 것, 상담 상태를 바꾸는 것, 후속문자를 보내는 것은 서로 다른 자동화입니다.</p>
+<p>PageRo 문의 연동도 모든 문의가 조건 없이 실시간 확정 고객으로 등록되고 모든 후속업무가 자동 처리된다고 설명하면 정확하지 않습니다. 실제 수신 방식과 시점은 설정과 서비스 상태에 따라 달라질 수 있고, 상담 상태와 다음 행동은 실제 업무 결과에 맞게 관리해야 합니다.</p>
+</section>
+
+<section id="calltag">
+<h2>PageRo + 콜태그는 문의 접수와 후속 상담을 이어주는 조합입니다</h2>
+<p>PageRo는 랜딩페이지에서 문의를 받는 역할을 하고, 콜태그는 그 문의가 들어온 이후 통화·상담에서 생기는 고객 상태, 상담 기록, 다음 할 일과 재연락 일정을 관리하는 데 초점을 둡니다.</p>
+<p>콜태그는 통화 음성을 녹음하거나 대화 내용을 자동 분석하지 않습니다. Android 앱에서 통화 후 필요한 기록을 직접 남기고, PC 웹에서는 고객·상담·일정과 오늘 할 일을 확인할 수 있습니다.</p>
+</section>
+
+<section id="checklist">
+<h2>랜딩페이지 CRM 연동은 이 순서로 확인하세요</h2>
+<ol>
+<li>랜딩페이지에서 어떤 문의 정보를 받을지</li>
+<li>문의가 들어온 뒤 어디에서 확인할지</li>
+<li>첫 연락 여부와 상담 상태를 구분할 수 있는지</li>
+<li>유입 페이지와 실제 상담내용을 따로 볼 수 있는지</li>
+<li>자료·견적·방문 같은 다음 행동을 남길 수 있는지</li>
+<li>재연락 날짜가 오늘 할 일로 다시 나타나는지</li>
+<li>팀이 쓴다면 담당자와 중복 연락을 관리할 수 있는지</li>
+<li>‘자동 연동’이 실제로 어디까지 동작하는지</li>
+<li>테스트 문의 한 건으로 전체 경로를 확인했는지</li>
+</ol>
+</section>
+
+<section class="faq" id="faq">
+<h2>랜딩페이지 CRM 연동에 대해 자주 묻는 질문</h2>
+<details><summary>PageRo 문의를 콜태그 고객관리로 연결할 수 있나요?</summary><p>PageRo에서 접수된 문의를 콜태그 고객관리 흐름으로 연결할 수 있습니다. 실제 수신 방식과 시점은 설정과 서비스 상태에 따라 달라질 수 있습니다.</p></details><details><summary>랜딩페이지 문의가 들어오면 바로 고객으로 확정되는 건가요?</summary><p>문의 접수는 상담 시작점입니다. 모든 문의가 조건 없이 즉시 확정 고객이 되는 것으로 보면 정확하지 않습니다. 실제 연락 여부와 상담 결과에 따라 고객 상태와 다음 행동을 관리해야 합니다.</p></details><details><summary>랜딩페이지 문의폼에는 어떤 항목을 받는 게 좋나요?</summary><p>이름·연락처·핵심 문의 항목처럼 첫 상담에 필요한 정보부터 받는 편이 좋습니다. 예산, 일정, 세부 요구사항처럼 상담 후 확인되는 정보는 고객 기록에서 이어서 관리하는 방식이 단순합니다.</p></details><details><summary>PageRo와 Google Forms는 어떤 차이가 있나요?</summary><p>Google Forms는 범용 폼 수집에 적합하고 PageRo는 랜딩페이지에서 문의를 받는 흐름에 초점을 둡니다. 두 채널 모두 문의 이후에는 첫 연락, 상담 상태, 다음 할 일, 재연락 일정 같은 고객관리 단계가 필요할 수 있습니다.</p></details><details><summary>Meta Lead Ads 문의와 PageRo 문의도 같은 방식으로 관리하나요?</summary><p>문의가 들어오는 입구는 다르지만 CRM에 들어온 뒤에는 첫 연락, 상담, 자료·견적, 재연락 같은 흐름이 비슷해질 수 있습니다. 유입 채널은 출처 정보로 남기고 상담 상태는 실제 대화 결과를 기준으로 관리하는 편이 좋습니다.</p></details><details><summary>PageRo + 콜태그를 같이 쓰면 무엇이 줄어드나요?</summary><p>랜딩페이지 문의를 확인한 뒤 별도 고객목록에 다시 옮겨 적고 메모장·캘린더를 오가는 작업을 줄이는 데 목적이 있습니다. 문의 이후 상담 기록과 다음 할 일을 고객 흐름으로 이어서 관리할 수 있습니다.</p></details><details><summary>PageRo와 콜태그 요금은 어떻게 안내되나요?</summary><p>현재 서비스 안내 기준으로 PageRo + 콜태그 통합권은 무료로 시작할 수 있고, 무료 사용 이후 월 6,000원으로 안내됩니다.</p></details>
+</section>
+
+<section class="cta">
+<h2>문의는 잘 들어오는데 후속 상담이 끊긴다면 먼저 써보세요.</h2>
+<p>콜태그는 PageRo 문의 이후 상담 기록, 다음 할 일, 재연락 일정을 관리하는 Android 고객관리 앱입니다.</p>
+<a href="https://calltag.pagero.kr/" target="_blank" rel="noopener">무료로 시작</a>
+</section>
+
+<section class="related">
+<h2>다음으로 볼 고객관리 가이드</h2>
+<div class="related-grid">
+<a href="/guide/external-inquiry-integration/">외부 문의 연동 전체 비교<br><small>Meta·Google Forms·PageRo·Webhook 차이</small></a>
+<a href="/guide/meta-lead-ads-customer-management/">Meta 리드 광고 CRM 연동<br><small>인스턴트폼 DB부터 후속상담까지</small></a>
+<a href="/guide/google-forms-customer-management/">Google Forms CRM 연동<br><small>구글폼 응답을 고객관리로 연결</small></a>
+<a href="/guide/webhook-customer-inquiry-integration/">Webhook 문의 연동<br><small>외부 시스템 문의 연결 기준</small></a>
+<a href="/guide/after-call-customer-management/">통화 후 고객관리<br><small>전화가 끝난 뒤 무엇부터 남길지</small></a>
+<a href="/guide/follow-up-schedule-management/">고객 팔로업 관리<br><small>재연락 날짜와 오늘 할 일 관리</small></a>
+</div>
+</section>
+</article>
+</main>
+
 <aside class="guide-sticky-cta" aria-label="콜태그 무료 시작"><div class="guide-sticky-cta__copy"><strong>콜태그 무료로 시작</strong></div><a class="guide-sticky-cta__button" href="https://calltag.pagero.kr/">무료로 시작</a></aside>
 <footer><div class="foot-in"><span>© 2026 콜태그 · 웨이지(WAYZI)</span><span>Android 고객관리 앱 · PC 웹 연동</span></div></footer>
 </body></html>
