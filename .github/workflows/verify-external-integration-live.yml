@@ -1,0 +1,85 @@
+name: Verify external integration live
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-external-integration-live.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe live integration APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, subprocess, sys
+
+          bases = [
+              "https://pagero.kr",
+              "https://inlet-8mr.pages.dev",
+              "https://calltag.pagero.kr",
+          ]
+          checks = [
+              ("webhook_connections", "GET", "/api/calltag/v1/connections", None),
+              ("meta_connections", "GET", "/api/calltag/v1/meta/connections", None),
+              ("meta_oauth_start", "POST", "/api/calltag/v1/meta/oauth/start", "{}"),
+              ("google_connections", "GET", "/api/calltag/v1/google-forms/connections", None),
+              ("google_oauth_start", "POST", "/api/calltag/v1/google-forms/oauth/start", "{}"),
+              ("universal_leads", "GET", "/api/calltag/v1/leads?after=0&limit=1&excludeSourceType=pagero", None),
+              ("pagero_leads", "GET", "/api/call/pagero/leads?after=0&limit=1", None),
+          ]
+
+          results = {}
+          failures = []
+          for name, method, path, body in checks:
+              rows = []
+              route_ok = False
+              for base in bases:
+                  cmd = ["curl","-sS","--max-time","15","-o","/tmp/body","-w","%{http_code}|%{content_type}","-X",method]
+                  if body is not None:
+                      cmd += ["-H","content-type: application/json","--data",body]
+                  cmd.append(base + path)
+                  try:
+                      meta = subprocess.check_output(cmd, text=True).strip()
+                      code_s, ctype = (meta.split("|",1)+[""])[:2]
+                      code = int(code_s or 0)
+                      text = open("/tmp/body","r",encoding="utf-8",errors="replace").read()[:500]
+                  except Exception as e:
+                      code, ctype, text = 0, "", str(e)
+                  jsonish = "json" in (ctype or "").lower() or text.lstrip().startswith(("{","["))
+                  rows.append({"base":base,"status":code,"content_type":ctype,"body":text[:220]})
+                  # Protected route exists if it returns auth/validation JSON instead of 404/405/5xx/HTML.
+                  if code in (400,401,403,409,422) and jsonish:
+                      route_ok = True
+                  if 200 <= code < 300 and jsonish:
+                      route_ok = True
+              results[name] = rows
+              if not route_ok:
+                  failures.append(name)
+
+          # Legacy PageRo health endpoint is supplementary: report if present, don't gate universal APIs on it.
+          health_rows = []
+          for base in bases:
+              cmd=["curl","-sS","--max-time","15","-o","/tmp/body","-w","%{http_code}|%{content_type}",base+"/api/integrations/pagero/health"]
+              try:
+                  meta=subprocess.check_output(cmd,text=True).strip()
+                  code_s,ctype=(meta.split("|",1)+[""])[:2]
+                  code=int(code_s or 0)
+                  body=open("/tmp/body","r",encoding="utf-8",errors="replace").read()[:500]
+              except Exception as e:
+                  code,ctype,body=0,"",str(e)
+              health_rows.append({"base":base,"status":code,"content_type":ctype,"body":body[:220]})
+          results["pagero_health"]=health_rows
+
+          print(json.dumps(results, ensure_ascii=False, indent=2))
+          if failures:
+              print("FAILED_ROUTES=" + ",".join(failures))
+              sys.exit(1)
+          print("LIVE_API_ROUTES_OK")
+          PY
