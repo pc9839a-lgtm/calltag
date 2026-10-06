@@ -44,6 +44,9 @@ public final class ExternalLeadIntegrationActivity extends Activity {
     private JSONArray webhookConnections = new JSONArray();
     private JSONArray metaConnections = new JSONArray();
     private JSONArray googleFormsConnections = new JSONArray();
+    private String webhookLoadError = "";
+    private String metaLoadError = "";
+    private String googleFormsLoadError = "";
     private String transientSecret = "";
 
     private final BroadcastReceiver syncReceiver = new BroadcastReceiver() {
@@ -151,18 +154,21 @@ public final class ExternalLeadIntegrationActivity extends Activity {
                 v -> startActivity(new Intent(this, PageroConnectionCompactActivity.class)), null, null);
 
         int metaCount = activeMetaCount();
-        addChannelCard("Meta Lead Ads", metaCount > 0 ? metaCount + "개 연결" : "미연결", metaCount > 0,
+        addChannelCard("Meta Lead Ads", connectionState(metaCount, metaLoadError),
+                metaLoadError.isEmpty() && metaCount > 0,
                 metaCount > 0 ? "추가 연결" : "연결", v -> startMetaOauth((Button) v),
                 metaCount > 0 ? "연결 목록" : null, metaCount > 0 ? v -> showMetaConnections() : null);
 
         int googleCount = activeGoogleFormsCount();
-        addChannelCard("Google Forms", googleCount > 0 ? googleCount + "개 연결" : "미연결", googleCount > 0,
+        addChannelCard("Google Forms", connectionState(googleCount, googleFormsLoadError),
+                googleFormsLoadError.isEmpty() && googleCount > 0,
                 googleCount > 0 ? "추가 연결" : "연결", v -> startGoogleFormsOauth((Button) v),
                 googleCount > 0 ? "관리" : null, googleCount > 0 ? v -> showGoogleFormsConnections() : null);
 
         int webhookCount = activeWebhookCount();
         JSONObject webhook = latestGenericWebhook();
-        addChannelCard("Webhook", webhookCount > 0 ? webhookCount + "개 연결" : "미연결", webhookCount > 0,
+        addChannelCard("Webhook", connectionState(webhookCount, webhookLoadError),
+                webhookLoadError.isEmpty() && webhookCount > 0,
                 "Webhook 만들기", v -> createGenericWebhook((Button) v),
                 webhookCount > 0 ? "관리" : null, webhookCount > 0 ? v -> manageWebhook(webhook) : null);
     }
@@ -201,21 +207,52 @@ public final class ExternalLeadIntegrationActivity extends Activity {
             JSONArray webhooks = null;
             JSONArray metas = null;
             JSONArray google = null;
-            try { webhooks = ExternalLeadIntegrationApiClient.listWebhookConnections(session).optJSONArray("connections"); }
-            catch (Exception ignored) {}
-            try { metas = ExternalLeadIntegrationApiClient.listMetaConnections(session).optJSONArray("connections"); }
-            catch (Exception ignored) {}
-            try { google = ExternalLeadIntegrationApiClient.listGoogleFormsConnections(session).optJSONArray("connections"); }
-            catch (Exception ignored) {}
+            String webhookError = "";
+            String metaError = "";
+            String googleError = "";
+
+            try {
+                webhooks = ExternalLeadIntegrationApiClient.listWebhookConnections(session)
+                        .optJSONArray("connections");
+            } catch (Exception error) {
+                webhookError = providerStatusLabel(error);
+                recordProviderFailure("webhook_status", error);
+            }
+            try {
+                metas = ExternalLeadIntegrationApiClient.listMetaConnections(session)
+                        .optJSONArray("connections");
+            } catch (Exception error) {
+                metaError = providerStatusLabel(error);
+                recordProviderFailure("meta_status", error);
+            }
+            try {
+                google = ExternalLeadIntegrationApiClient.listGoogleFormsConnections(session)
+                        .optJSONArray("connections");
+            } catch (Exception error) {
+                googleError = providerStatusLabel(error);
+                recordProviderFailure("google_forms_status", error);
+            }
+
             final JSONArray finalWebhooks = webhooks;
             final JSONArray finalMetas = metas;
             final JSONArray finalGoogle = google;
+            final String finalWebhookError = webhookError;
+            final String finalMetaError = metaError;
+            final String finalGoogleError = googleError;
             runOnUiThread(() -> {
                 remoteLoading = false;
                 if (isFinishing() || isDestroyed()) return;
                 if (finalWebhooks != null) webhookConnections = finalWebhooks;
                 if (finalMetas != null) metaConnections = finalMetas;
                 if (finalGoogle != null) googleFormsConnections = finalGoogle;
+                webhookLoadError = finalWebhookError;
+                metaLoadError = finalMetaError;
+                googleFormsLoadError = finalGoogleError;
+                if (isAuthStatus(finalWebhookError)
+                        || isAuthStatus(finalMetaError)
+                        || isAuthStatus(finalGoogleError)) {
+                    setReceiverBadge("로그인 확인", false);
+                }
                 renderChannels();
             });
         });
@@ -331,10 +368,22 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         if (!AuthSessionStore.hasSession(this)) return;
         String session = AuthSessionStore.session(this);
         io.execute(() -> {
-            try { ExternalLeadIntegrationApiClient.syncGoogleForms(session); }
-            catch (Exception ignored) {}
+            String googleError = "";
+            try {
+                ExternalLeadIntegrationApiClient.syncGoogleForms(session);
+            } catch (Exception error) {
+                googleError = providerStatusLabel(error);
+                recordProviderFailure("google_forms_sync", error);
+            }
+            final String finalGoogleError = googleError;
             runOnUiThread(() -> {
-                if (!isFinishing() && !isDestroyed()) UniversalLeadSyncManager.requestSync(this, true);
+                if (isFinishing() || isDestroyed()) return;
+                googleFormsLoadError = finalGoogleError;
+                renderChannels();
+                if (!finalGoogleError.isEmpty()) {
+                    toast("Google Forms " + finalGoogleError + " · 다른 문의는 계속 확인합니다.");
+                }
+                UniversalLeadSyncManager.requestSync(this, true);
             });
         });
     }
@@ -508,10 +557,21 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         setReceiverBadge("확인 중", false);
         String session = AuthSessionStore.session(this);
         io.execute(() -> {
-            try { ExternalLeadIntegrationApiClient.syncGoogleForms(session); }
-            catch (Exception ignored) {}
+            String googleError = "";
+            try {
+                ExternalLeadIntegrationApiClient.syncGoogleForms(session);
+            } catch (Exception error) {
+                googleError = providerStatusLabel(error);
+                recordProviderFailure("google_forms_manual_sync", error);
+            }
+            final String finalGoogleError = googleError;
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
+                googleFormsLoadError = finalGoogleError;
+                renderChannels();
+                if (!finalGoogleError.isEmpty()) {
+                    toast("Google Forms " + finalGoogleError + " · 다른 문의는 계속 확인합니다.");
+                }
                 boolean started = UniversalLeadSyncManager.requestSync(this, true);
                 if (!started && !UniversalLeadSyncManager.isRunning()) {
                     finishSyncButton();
@@ -554,10 +614,15 @@ public final class ExternalLeadIntegrationActivity extends Activity {
                     success.accept(result == null ? new JSONObject() : result);
                 });
             } catch (Exception error) {
+                recordProviderFailure("integration_action", error);
                 runOnUiThread(() -> {
                     if (isFinishing() || isDestroyed()) return;
                     if (button != null) { button.setEnabled(true); button.setText(original); }
                     toast(userFacingError(error));
+                    if (isAuthenticationError(error)) {
+                        setReceiverBadge("로그인 확인", false);
+                        startActivity(new Intent(this, LoginActivity.class));
+                    }
                 });
             }
         });
@@ -567,12 +632,51 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         if (error instanceof ExternalLeadIntegrationApiClient.ApiException) {
             ExternalLeadIntegrationApiClient.ApiException api = (ExternalLeadIntegrationApiClient.ApiException) error;
             if (api.status == 401 || api.status == 403) return "로그인 또는 연동 권한을 다시 확인해주세요.";
+            if (api.status == 429) return "요청이 많습니다. 잠시 후 다시 시도해주세요.";
+            if (api.status == 408 || api.status >= 500) return "연동 서버 응답이 지연되고 있습니다. 잠시 후 다시 시도해주세요.";
             if ("CALLTAG_GOOGLE_FORMS_PHONE_FIELD_NOT_FOUND".equals(api.code)) return "폼에서 전화번호 질문을 찾지 못했습니다.";
             if ("CALLTAG_META_FORM_SELECTION_REQUIRED".equals(api.code)) return "받을 Meta 리드폼을 선택해주세요.";
             if (!api.code.isEmpty()) return value(api.getMessage());
         }
         String message = error == null ? "" : value(error.getMessage());
         return message.isEmpty() ? "연결에 실패했습니다." : message;
+    }
+
+    private String connectionState(int count, String error) {
+        if (!value(error).isEmpty()) return value(error);
+        return count > 0 ? count + "개 연결" : "미연결";
+    }
+
+    private String providerStatusLabel(Exception error) {
+        if (error instanceof ExternalLeadIntegrationApiClient.ApiException) {
+            ExternalLeadIntegrationApiClient.ApiException api =
+                    (ExternalLeadIntegrationApiClient.ApiException) error;
+            if (api.status == 401 || api.status == 403) return "로그인 확인";
+            if (api.status == 429) return "잠시 후 재시도";
+            if (api.status == 408 || api.status >= 500) return "서버 확인 지연";
+        }
+        return "상태 확인 실패";
+    }
+
+    private boolean isAuthenticationError(Exception error) {
+        if (!(error instanceof ExternalLeadIntegrationApiClient.ApiException)) return false;
+        ExternalLeadIntegrationApiClient.ApiException api =
+                (ExternalLeadIntegrationApiClient.ApiException) error;
+        return api.status == 401 || api.status == 403;
+    }
+
+    private boolean isAuthStatus(String value) {
+        return "로그인 확인".equals(value(value));
+    }
+
+    private void recordProviderFailure(String operation, Exception error) {
+        String detail = error == null ? "unknown" : error.getClass().getSimpleName();
+        if (error instanceof ExternalLeadIntegrationApiClient.ApiException) {
+            ExternalLeadIntegrationApiClient.ApiException api =
+                    (ExternalLeadIntegrationApiClient.ApiException) error;
+            detail = "http_" + api.status + (api.code.isEmpty() ? "" : "_" + api.code);
+        }
+        CrashTelemetryStore.record(this, "external_integration", operation, detail);
     }
 
     private int activeMetaCount() {
