@@ -40,6 +40,12 @@ public final class UniversalLeadSyncManager {
     private static final AtomicBoolean NOTIFY_WHEN_CHANGED = new AtomicBoolean(false);
     private static final AtomicLong LAST_ATTEMPT_AT = new AtomicLong(0L);
 
+    public enum WorkerSyncResult {
+        SUCCESS,
+        RETRY,
+        FAILURE
+    }
+
     private UniversalLeadSyncManager() {}
 
     public static boolean requestSync(Context context) {
@@ -116,21 +122,82 @@ public final class UniversalLeadSyncManager {
         return RUNNING.get();
     }
 
+    /**
+     * WorkManager entry point. Unlike requestSync(), this method returns the real execution result
+     * so transient network/provider failures can trigger WorkManager retry/backoff.
+     */
+    public static WorkerSyncResult runWorkerSync(Context context) {
+        if (context == null) return WorkerSyncResult.SUCCESS;
+        Context appContext = context.getApplicationContext();
+        if (!AuthSessionStore.hasSession(appContext)) return WorkerSyncResult.SUCCESS;
+
+        LAST_ATTEMPT_AT.set(System.currentTimeMillis());
+        if (!RUNNING.compareAndSet(false, true)) return WorkerSyncResult.RETRY;
+
+        boolean changed = false;
+        try {
+            SyncResult result = syncNow(appContext);
+            changed = result.imported > 0 || result.updated > 0;
+            if (changed) ContactNameSyncManager.requestSyncAll(appContext);
+            sendResult(appContext, true, result, successMessage(result), "");
+            return result.providerRetryRecommended
+                    ? WorkerSyncResult.RETRY : WorkerSyncResult.SUCCESS;
+        } catch (UniversalLeadApiClient.ApiException error) {
+            String message = safeMessage(error);
+            Log.w(TAG, "Universal lead worker API unavailable: " + error.code);
+            sendResult(appContext, false, new SyncResult(), message, error.code);
+            return isRetryableApiError(error)
+                    ? WorkerSyncResult.RETRY : WorkerSyncResult.FAILURE;
+        } catch (Exception error) {
+            String message = safeMessage(error);
+            Log.e(TAG, "Universal lead worker failed: " + error.getClass().getSimpleName());
+            sendResult(appContext, false, new SyncResult(), message,
+                    error.getClass().getSimpleName());
+            return WorkerSyncResult.RETRY;
+        } finally {
+            boolean rerun = PENDING_FORCE.getAndSet(false);
+            RUNNING.set(false);
+            if (rerun) requestSyncInternal(appContext, true, NOTIFY_WHEN_CHANGED.get());
+            else if (!changed) NOTIFY_WHEN_CHANGED.set(false);
+        }
+    }
+
+    private static boolean isRetryableApiError(UniversalLeadApiClient.ApiException error) {
+        return error != null
+                && (error.status == 408
+                || error.status == 429
+                || error.status >= 500
+                || "NON_JSON_RESPONSE".equals(error.code));
+    }
+
+    private static boolean isRetryableProviderError(
+            ExternalLeadIntegrationApiClient.ApiException error) {
+        return error != null
+                && (error.status == 408
+                || error.status == 429
+                || error.status >= 500
+                || "NON_JSON_RESPONSE".equals(error.code));
+    }
+
     private static SyncResult syncNow(Context context) throws Exception {
         String session = AuthSessionStore.session(context);
         if (session.isEmpty()) throw new IllegalStateException("콜태그 로그인이 필요합니다.");
 
+        SyncResult result = new SyncResult();
+
         // Google Forms is provider-pulled. Refresh it before reading the canonical lead queue.
-        // A provider outage must never block Meta/Webhook/PageRo lead delivery.
+        // A provider outage must never block Meta/Webhook/PageRo lead delivery, but transient
+        // provider failures are carried back to WorkManager so it can retry with backoff.
         try {
             ExternalLeadIntegrationApiClient.syncGoogleForms(session);
         } catch (ExternalLeadIntegrationApiClient.ApiException error) {
             Log.w(TAG, "Google Forms pre-sync skipped: " + error.code);
+            result.providerRetryRecommended = isRetryableProviderError(error);
         } catch (Exception error) {
             Log.w(TAG, "Google Forms pre-sync failed: " + error.getClass().getSimpleName());
+            result.providerRetryRecommended = true;
         }
 
-        SyncResult result = new SyncResult();
         long after = 0L;
         try (CallTagDbHelper db = new CallTagDbHelper(context);
              UniversalLeadReceiptStore receipts = new UniversalLeadReceiptStore(context)) {
@@ -294,6 +361,7 @@ public final class UniversalLeadSyncManager {
         int imported;
         int updated;
         int rejected;
+        boolean providerRetryRecommended;
         final Set<Long> changedCustomerIds = new LinkedHashSet<>();
 
         void record(ImportResult importedResult) {
