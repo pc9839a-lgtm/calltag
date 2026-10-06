@@ -3,6 +3,7 @@ package kr.pagero.calltag;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -19,6 +20,8 @@ import java.util.List;
 
 public final class InitialPermissionActivity extends Activity {
     private static final int REQUEST_PERMISSIONS = 8401;
+    private static final String PREFS = "calltag_permission_flow";
+    private static final String KEY_RUNTIME_REQUESTED_ONCE = "runtime_permissions_requested_once";
 
     private TextView detail;
     private TextView requestButton;
@@ -111,6 +114,13 @@ public final class InitialPermissionActivity extends Activity {
             return;
         }
 
+        if (requiresSettings(missing)) {
+            renderMissingPermissions();
+            openAppSettings();
+            return;
+        }
+
+        markRuntimeRequestAttempted();
         requestInFlight = true;
         requestButton.setEnabled(false);
         requestButton.setAlpha(0.6f);
@@ -150,12 +160,35 @@ public final class InitialPermissionActivity extends Activity {
     }
 
     private void renderMissingPermissions() {
+        List<String> missing = missingCorePermissions();
+        boolean settingsRequired = requiresSettings(missing);
+
         requestButton.setEnabled(true);
         requestButton.setAlpha(1f);
-        requestButton.setText("남은 권한 허용");
+        requestButton.setText(settingsRequired ? "권한 설정에서 허용" : "남은 권한 허용");
         settingsButton.setVisibility(View.VISIBLE);
-        detail.setText("필수 권한이 남아 있습니다. 위 버튼을 누르면 권한창을 다시 열고, 더 이상 권한창이 뜨지 않으면 아래에서 직접 허용할 수 있습니다.\n\n남은 항목: "
-                + missingPermissionLabels());
+        detail.setText((settingsRequired
+                ? "Android가 권한창 재요청을 제한하고 있습니다. 권한 설정에서 남은 항목을 직접 허용해주세요."
+                : "필수 권한이 남아 있습니다. 위 버튼을 누르면 Android 권한창을 다시 엽니다.")
+                + "\n\n남은 항목: " + missingPermissionLabels());
+    }
+
+    private boolean requiresSettings(List<String> missing) {
+        if (missing == null || missing.isEmpty() || !runtimeRequestAttempted()) return false;
+        for (String permission : missing) {
+            if (!shouldShowRequestPermissionRationale(permission)) return true;
+        }
+        return false;
+    }
+
+    private boolean runtimeRequestAttempted() {
+        return getSharedPreferences(PREFS, MODE_PRIVATE)
+                .getBoolean(KEY_RUNTIME_REQUESTED_ONCE, false);
+    }
+
+    private void markRuntimeRequestAttempted() {
+        SharedPreferences preferences = getSharedPreferences(PREFS, MODE_PRIVATE);
+        preferences.edit().putBoolean(KEY_RUNTIME_REQUESTED_ONCE, true).apply();
     }
 
     private String missingPermissionLabels() {
@@ -174,6 +207,9 @@ public final class InitialPermissionActivity extends Activity {
                     Uri.parse("package:" + getPackageName())));
         } catch (RuntimeException ignored) {
             openedSettings = false;
+            detail.setText("권한 설정 화면을 열지 못했습니다. Android 설정에서 콜태그의 권한을 직접 허용해주세요.\n\n남은 항목: "
+                    + missingPermissionLabels());
+            settingsButton.setVisibility(View.VISIBLE);
         }
     }
 
