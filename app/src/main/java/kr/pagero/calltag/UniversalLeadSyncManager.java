@@ -25,6 +25,7 @@ public final class UniversalLeadSyncManager {
     public static final String EXTRA_CUSTOMER_IDS = "customer_ids";
     public static final String EXTRA_MESSAGE = "message";
     public static final String EXTRA_ERROR_CODE = "error_code";
+    public static final String EXTRA_PROVIDER_WARNING = "provider_warning";
 
     private static final String TAG = "UniversalLeadSync";
     private static final long MIN_SYNC_INTERVAL_MS = 30_000L;
@@ -193,9 +194,14 @@ public final class UniversalLeadSyncManager {
         } catch (ExternalLeadIntegrationApiClient.ApiException error) {
             Log.w(TAG, "Google Forms pre-sync skipped: " + error.code);
             result.providerRetryRecommended = isRetryableProviderError(error);
+            result.providerWarning = result.providerRetryRecommended
+                    ? "Google Forms 확인이 지연되고 있습니다. 다른 문의는 계속 확인합니다."
+                    : "Google Forms 연결 상태를 확인해주세요. 다른 문의는 계속 확인합니다.";
         } catch (Exception error) {
             Log.w(TAG, "Google Forms pre-sync failed: " + error.getClass().getSimpleName());
             result.providerRetryRecommended = true;
+            result.providerWarning =
+                    "Google Forms 확인이 지연되고 있습니다. 다른 문의는 계속 확인합니다.";
         }
 
         long after = 0L;
@@ -343,7 +349,9 @@ public final class UniversalLeadSyncManager {
                 .putExtra(EXTRA_REJECTED, result.rejected)
                 .putExtra(EXTRA_CUSTOMER_IDS, result.customerIds())
                 .putExtra(EXTRA_MESSAGE, message == null ? "" : message)
-                .putExtra(EXTRA_ERROR_CODE, errorCode == null ? "" : errorCode);
+                .putExtra(EXTRA_ERROR_CODE, errorCode == null ? "" : errorCode)
+                .putExtra(EXTRA_PROVIDER_WARNING,
+                        result.providerWarning == null ? "" : result.providerWarning);
         context.sendBroadcast(intent);
     }
 
@@ -362,6 +370,7 @@ public final class UniversalLeadSyncManager {
         int updated;
         int rejected;
         boolean providerRetryRecommended;
+        String providerWarning = "";
         final Set<Long> changedCustomerIds = new LinkedHashSet<>();
 
         void record(ImportResult importedResult) {
