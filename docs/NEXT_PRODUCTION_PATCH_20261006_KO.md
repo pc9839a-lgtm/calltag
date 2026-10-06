@@ -7,6 +7,24 @@
 
 > 목적: 현재 프로덕션에서 실제 사용자 사용을 막거나 “연동이 안 된다”고 느끼게 만드는 권한/외부서비스 연동 문제를 최우선으로 정리한다. 신규 기능 추가보다 복구 가능성, 서비스 연결 신뢰도, 오류 가시성을 먼저 해결한다.
 
+## 2026-10-06 구현 상태
+
+- 다음 후보 버전: **0.44.60 / 2026100601**
+- 작업 브랜치: `patch/calltag-next-production-20261006`
+- Draft PR: **#119**
+- 권한 재요청 가능/불가 분기: **구현 완료**
+- 외부연동 상태 실패 가시화: **구현 완료**
+- 401/403 로그인 복구, 429/5xx/timeout 상태 구분: **구현 완료**
+- Google Forms partial failure 격리 및 warning 전달: **구현 완료**
+- WorkManager 실제 sync 결과 기반 retry/failure: **구현 완료**
+- release contract / debug APK / signed optimized AAB / 서명 검증: **PASS**
+- CI Run: `37469711979`
+- Artifact: `calltag-v0.44.60-play-release`
+- Artifact ID: `11417485195`
+
+**남은 릴리스 게이트:** 실기기 권한 복구 QA와 Meta / Google Forms / Webhook / PageRo / Direct API 실제 계정 E2E. 이 항목 통과 전 production 병합/배포 금지.
+
+
 ## P0-1. 권한 거부 후 복구 UX
 
 ### 현재 0.44.59
