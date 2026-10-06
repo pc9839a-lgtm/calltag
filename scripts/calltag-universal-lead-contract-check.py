@@ -135,7 +135,7 @@ require(external_ui, 'recordProviderFailure("webhook_status", error)', "Webhook 
 require(external_ui, 'recordProviderFailure("meta_status", error)', "Meta status failure telemetry missing")
 require(external_ui, 'recordProviderFailure("google_forms_status", error)', "Google Forms status failure telemetry missing")
 require(external_ui, 'UniversalLeadSyncManager.EXTRA_PROVIDER_WARNING', "partial provider warning UI missing")
-require(sync, '"다른 문의는 계속 확인합니다."', "provider failure isolation copy missing")
+require(sync, '다른 문의는 계속 확인합니다.', "provider failure isolation copy missing")
 require(external_ui, 'if (isAuthenticationError(error))', "integration auth recovery route missing")
 forbid(external_ui, 'catch (Exception ignored) {}\n            try { metas =', "provider status failures must not be silently ignored")
 forbid(external_ui, 'try { ExternalLeadIntegrationApiClient.syncGoogleForms(session); }\n            catch (Exception ignored) {}', "Google Forms sync failure must not be silently ignored")
