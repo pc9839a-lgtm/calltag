@@ -28,6 +28,7 @@ resolver = read("CustomerSourceResolver.java")
 customer_list = read("CustomerListView.java")
 source_detail = read("CustomerSourceDetailView.java")
 application = read("CallTagApplication.java")
+initial_permission = read("InitialPermissionActivity.java")
 external_ui = read("ExternalLeadIntegrationActivity.java")
 external_api = read("ExternalLeadIntegrationApiClient.java")
 direct_api_ui = read("DirectApiIntegrationActivity.java")
@@ -103,6 +104,14 @@ forbid(post_call_launcher, 'context.startActivity(', "post-call launcher must ne
 forbid(post_call_recovery, 'PostCallActivityLauncher.launch(context, review)', "post-call recovery must never retry an Activity")
 require(post_call_recovery, 'CallPopupNotificationManager.showPostCall(', "post-call recovery must use passive overlay/notification delivery")
 
+# Permission recovery must distinguish a normal denial from a system-blocked re-request.
+require(initial_permission, 'shouldShowRequestPermissionRationale(permission)', "permission rationale gate missing")
+require(initial_permission, 'KEY_RUNTIME_REQUESTED_ONCE', "permission request history missing")
+require(initial_permission, '"권한 설정에서 허용"', "permanent-denial settings CTA missing")
+require(initial_permission, 'Settings.ACTION_APPLICATION_DETAILS_SETTINGS', "app permission settings recovery missing")
+require(initial_permission, 'if (requiresSettings(missing))', "blocked permission must route to settings")
+require(initial_permission, 'if (!openedSettings) return;', "settings return re-check missing")
+
 # Compact provider integration UI: PageRo, Meta, Google Forms and Webhook.
 for channel in ["PageRo", "Meta Lead Ads", "Google Forms", "Webhook"]:
     require(external_ui, f'"{channel}"', f"channel card missing: {channel}")
@@ -121,6 +130,14 @@ require(external_ui, 'connectGoogleForm', "Google Forms direct connection missin
 require(external_ui, 'showGoogleFormsConnections', "Google Forms connection management missing")
 require(external_ui, 'CustomTabsIntent', "OAuth must launch in browser custom tabs")
 require(external_ui, 'transientSecret = ""', "one-time webhook secret cleanup missing")
+require(external_ui, 'providerStatusLabel(error)', "provider status failures must be surfaced")
+require(external_ui, 'recordProviderFailure("webhook_status", error)', "Webhook status failure telemetry missing")
+require(external_ui, 'recordProviderFailure("meta_status", error)', "Meta status failure telemetry missing")
+require(external_ui, 'recordProviderFailure("google_forms_status", error)', "Google Forms status failure telemetry missing")
+require(external_ui, '"다른 문의는 계속 확인합니다."', "provider failure isolation copy missing")
+require(external_ui, 'if (isAuthenticationError(error))', "integration auth recovery route missing")
+forbid(external_ui, 'catch (Exception ignored) {}\n            try { metas =', "provider status failures must not be silently ignored")
+forbid(external_ui, 'try { ExternalLeadIntegrationApiClient.syncGoogleForms(session); }\n            catch (Exception ignored) {}', "Google Forms sync failure must not be silently ignored")
 forbid(external_ui, 'https://calltag.pagero.kr/connect', "integration UI must not use undeployed /connect")
 forbid(external_ui, 'WebView', "provider OAuth must not run in WebView")
 
@@ -182,7 +199,13 @@ require(sync, 'Google Forms pre-sync skipped', "Google Forms API failure isolati
 require(external_ui, 'UniversalLeadSyncManager.requestSync(this, true)', "manual lead refresh missing")
 require(external_ui, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "sync result receiver missing")
 require(external_ui, 'AuthSessionStore.hasSession(this)', "integration UI must respect login session")
-require(external_sync_worker, 'UniversalLeadSyncManager.requestSync(app, true)', "background universal lead pull missing")
+require(sync, 'public enum WorkerSyncResult', "worker sync outcome contract missing")
+require(sync, 'providerRetryRecommended', "provider retry signal missing")
+require(sync, 'isRetryableApiError', "universal API retry classification missing")
+require(external_sync_worker, 'UniversalLeadSyncManager.runWorkerSync(app)', "background universal lead sync must return a real outcome")
+require(external_sync_worker, 'WorkerSyncResult.RETRY', "WorkManager retry mapping missing")
+require(external_sync_worker, 'WorkerSyncResult.FAILURE', "WorkManager permanent failure mapping missing")
+forbid(external_sync_worker, 'UniversalLeadSyncManager.requestSync(app, true)', "worker must not treat async launch as sync success")
 require(external_sync_scheduler, 'PERIOD_MINUTES = 15L', "background provider sync interval missing")
 require(external_sync_scheduler, 'ExistingPeriodicWorkPolicy.UPDATE', "background provider periodic work missing")
 
