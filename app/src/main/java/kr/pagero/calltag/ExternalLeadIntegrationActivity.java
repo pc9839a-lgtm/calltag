@@ -57,10 +57,23 @@ public final class ExternalLeadIntegrationActivity extends Activity {
             int imported = intent.getIntExtra(UniversalLeadSyncManager.EXTRA_IMPORTED, 0);
             int updated = intent.getIntExtra(UniversalLeadSyncManager.EXTRA_UPDATED, 0);
             int rejected = intent.getIntExtra(UniversalLeadSyncManager.EXTRA_REJECTED, 0);
-            setReceiverBadge(success ? "정상" : "확인 필요", success);
+            String providerWarning = value(
+                    intent.getStringExtra(UniversalLeadSyncManager.EXTRA_PROVIDER_WARNING));
+
+            googleFormsLoadError = providerWarning.isEmpty() ? "" : "확인 필요";
+            setReceiverBadge(success
+                    ? (providerWarning.isEmpty() ? "정상" : "일부 확인 필요")
+                    : "확인 필요",
+                    success && providerWarning.isEmpty());
             finishSyncButton();
+            renderChannels();
+
             if (success && imported + updated + rejected > 0) {
-                toast("신규 " + imported + " · 갱신 " + updated + (rejected > 0 ? " · 확인 " + rejected : ""));
+                String summary = "신규 " + imported + " · 갱신 " + updated
+                        + (rejected > 0 ? " · 확인 " + rejected : "");
+                toast(providerWarning.isEmpty() ? summary : summary + " · Google Forms 확인 필요");
+            } else if (success && !providerWarning.isEmpty()) {
+                toast(providerWarning);
             } else if (!success) {
                 String message = value(intent.getStringExtra(UniversalLeadSyncManager.EXTRA_MESSAGE));
                 toast(message.isEmpty() ? "문의 확인에 실패했습니다." : message);
@@ -366,26 +379,11 @@ public final class ExternalLeadIntegrationActivity extends Activity {
 
     private void syncGoogleFormsThenPull() {
         if (!AuthSessionStore.hasSession(this)) return;
-        String session = AuthSessionStore.session(this);
-        io.execute(() -> {
-            String googleError = "";
-            try {
-                ExternalLeadIntegrationApiClient.syncGoogleForms(session);
-            } catch (Exception error) {
-                googleError = providerStatusLabel(error);
-                recordProviderFailure("google_forms_sync", error);
-            }
-            final String finalGoogleError = googleError;
-            runOnUiThread(() -> {
-                if (isFinishing() || isDestroyed()) return;
-                googleFormsLoadError = finalGoogleError;
-                renderChannels();
-                if (!finalGoogleError.isEmpty()) {
-                    toast("Google Forms " + finalGoogleError + " · 다른 문의는 계속 확인합니다.");
-                }
-                UniversalLeadSyncManager.requestSync(this, true);
-            });
-        });
+        boolean started = UniversalLeadSyncManager.requestSync(this, true);
+        if (!started && !UniversalLeadSyncManager.isRunning()) {
+            setReceiverBadge("확인 필요", false);
+            toast("Google Forms 문의 확인을 시작하지 못했습니다.");
+        }
     }
 
     private void createGenericWebhook(Button button) {
@@ -555,31 +553,12 @@ public final class ExternalLeadIntegrationActivity extends Activity {
         syncButton.setEnabled(false);
         syncButton.setText("확인 중...");
         setReceiverBadge("확인 중", false);
-        String session = AuthSessionStore.session(this);
-        io.execute(() -> {
-            String googleError = "";
-            try {
-                ExternalLeadIntegrationApiClient.syncGoogleForms(session);
-            } catch (Exception error) {
-                googleError = providerStatusLabel(error);
-                recordProviderFailure("google_forms_manual_sync", error);
-            }
-            final String finalGoogleError = googleError;
-            runOnUiThread(() -> {
-                if (isFinishing() || isDestroyed()) return;
-                googleFormsLoadError = finalGoogleError;
-                renderChannels();
-                if (!finalGoogleError.isEmpty()) {
-                    toast("Google Forms " + finalGoogleError + " · 다른 문의는 계속 확인합니다.");
-                }
-                boolean started = UniversalLeadSyncManager.requestSync(this, true);
-                if (!started && !UniversalLeadSyncManager.isRunning()) {
-                    finishSyncButton();
-                    setReceiverBadge("확인 필요", false);
-                    toast("문의 확인을 시작하지 못했습니다.");
-                }
-            });
-        });
+        boolean started = UniversalLeadSyncManager.requestSync(this, true);
+        if (!started && !UniversalLeadSyncManager.isRunning()) {
+            finishSyncButton();
+            setReceiverBadge("확인 필요", false);
+            toast("문의 확인을 시작하지 못했습니다.");
+        }
     }
 
     private void finishSyncButton() {
