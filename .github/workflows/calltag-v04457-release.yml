@@ -1,13 +1,13 @@
-name: CallTag 0.44.59 Play quality optimization release
+name: CallTag 0.44.60 integration reliability release
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - release/calltag-v04459-r8-optimization
+      - patch/calltag-next-production-20261006
   pull_request:
     branches:
-      - release/calltag-v04458-external-input-final
+      - release/calltag-v04459-r8-optimization
 
 permissions:
   contents: read
@@ -32,8 +32,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/calltag-universal-lead-contract-check.py
-          grep -F 'versionCode 2026091601' app/build.gradle
-          grep -F "versionName '0.44.59'" app/build.gradle
+          grep -F 'versionCode 2026100601' app/build.gradle
+          grep -F "versionName '0.44.60'" app/build.gradle
           grep -F 'minifyEnabled true' app/build.gradle
           grep -F 'shrinkResources true' app/build.gradle
           grep -F 'androidx.core:core:1.17.0' app/build.gradle
@@ -218,23 +218,23 @@ jobs:
           test -s "$APK"
           test -s "$MAPPING"
           jarsigner -verify -certs "$AAB"
-          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/CALLTAG_V04459_AAB_CERTIFICATE.txt"
-          grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/CALLTAG_V04459_AAB_CERTIFICATE.txt"
-          OUT="$RUNNER_TEMP/calltag-v0.44.59"
+          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/CALLTAG_V04460_AAB_CERTIFICATE.txt"
+          grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/CALLTAG_V04460_AAB_CERTIFICATE.txt"
+          OUT="$RUNNER_TEMP/calltag-v0.44.60"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.44.59-code2026091601.aab"
-          cp "$APK" "$OUT/CallTag-v0.44.59-code2026091601-debug.apk"
-          cp "$MAPPING" "$OUT/CallTag-v0.44.59-mapping.txt"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V04459_AAB_SHA256.txt"
-          sha256sum "$APK" > "$OUT/CALLTAG_V04459_DEBUG_APK_SHA256.txt"
-          sha256sum "$MAPPING" > "$OUT/CALLTAG_V04459_MAPPING_SHA256.txt"
+          cp "$AAB" "$OUT/CallTag-v0.44.60-code2026100601.aab"
+          cp "$APK" "$OUT/CallTag-v0.44.60-code2026100601-debug.apk"
+          cp "$MAPPING" "$OUT/CallTag-v0.44.60-mapping.txt"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04460_AAB_SHA256.txt"
+          sha256sum "$APK" > "$OUT/CALLTAG_V04460_DEBUG_APK_SHA256.txt"
+          sha256sum "$MAPPING" > "$OUT/CALLTAG_V04460_MAPPING_SHA256.txt"
           cp "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt" "$OUT/"
-          cp "$RUNNER_TEMP/CALLTAG_V04459_AAB_CERTIFICATE.txt" "$OUT/"
+          cp "$RUNNER_TEMP/CALLTAG_V04460_AAB_CERTIFICATE.txt" "$OUT/"
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.59-play-release
-          path: ${{ runner.temp }}/calltag-v0.44.59
+          name: calltag-v0.44.60-play-release
+          path: ${{ runner.temp }}/calltag-v0.44.60
           retention-days: 90
           if-no-files-found: error
