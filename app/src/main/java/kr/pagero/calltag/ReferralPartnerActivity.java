@@ -35,6 +35,7 @@ public final class ReferralPartnerActivity extends Activity {
     private TextView myBenefitView;
     private TextView recurringView;
     private TextView partnerCenterButton;
+    private TextView shareButton;
 
     private JSONObject summary = new JSONObject();
     private boolean working;
@@ -88,11 +89,11 @@ public final class ReferralPartnerActivity extends Activity {
         copy.setOnClickListener(v -> copyCode());
         actions.addView(copy, new LinearLayout.LayoutParams(0, dp(48), 1f));
 
-        TextView share = primaryButton("친구에게 공유");
-        share.setOnClickListener(v -> shareCode());
+        shareButton = primaryButton("친구에게 공유");
+        shareButton.setOnClickListener(v -> shareCode());
         LinearLayout.LayoutParams shareParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
         shareParams.leftMargin = dp(8);
-        actions.addView(share, shareParams);
+        actions.addView(shareButton, shareParams);
         invite.addView(actions, top(14));
 
         friendBenefitView = text(
@@ -255,6 +256,15 @@ public final class ReferralPartnerActivity extends Activity {
         myBenefitView.setText(myBenefit);
         recurringView.setText(recurring);
 
+        boolean programEnabled = summary.optBoolean("programEnabled", true);
+        boolean signupEnabled = summary.optBoolean("signupEnabled", true);
+        boolean shareEnabled = programEnabled && signupEnabled;
+        shareButton.setEnabled(shareEnabled);
+        shareButton.setAlpha(shareEnabled ? 1f : 0.55f);
+        if (!shareEnabled && friendBenefit.isEmpty()) {
+            friendBenefitView.setText("신규 추천인 코드 등록이 일시 중지되어 있습니다.");
+        }
+
         boolean available = summary.optBoolean("partnerCenterAvailable", true);
         partnerCenterButton.setEnabled(available);
         partnerCenterButton.setAlpha(available ? 1f : 0.55f);
@@ -277,6 +287,11 @@ public final class ReferralPartnerActivity extends Activity {
     }
 
     private void shareCode() {
+        if (!summary.optBoolean("programEnabled", true)
+                || !summary.optBoolean("signupEnabled", true)) {
+            Toast.makeText(this, "현재 신규 추천인 코드 등록이 중지되어 있습니다.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         ReferralStateStore.Snapshot value = ReferralStateStore.snapshot(this);
         if (value.code.isEmpty()) {
             Toast.makeText(this, "추천인 코드를 불러오는 중입니다.", Toast.LENGTH_SHORT).show();
