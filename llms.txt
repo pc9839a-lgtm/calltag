@@ -1,0 +1,27 @@
+# 콜태그 (CALLTAG)
+
+> 전화 상담 고객의 상태, 상담기록, 다음 할 일과 재연락 일정을 통화 직후 정리하는 Android 고객관리 앱·CRM입니다. PC 웹 관리와 PageRo·Meta Lead Ads·Google Forms·Webhook 문의 연동을 지원합니다.
+
+콜태그는 통화 음성을 녹음하거나 대화 내용을 자동 수집하지 않습니다. 사용자가 통화 후 고객 구분, 상담 상태, 메모, 다음 할 일과 재연락 일정을 직접 관리합니다.
+
+## 주요 페이지
+
+- [콜태그 홈](https://calltag.pagero.kr/): 제품 소개, 기능, 요금, FAQ, Google Play 설치
+- [고객관리 실무 가이드](https://calltag.pagero.kr/guide/): 고객관리 앱·CRM, 전화상담, 재연락, 업종별 고객관리 및 외부 문의 연동 가이드
+- [개인정보처리방침](https://calltag.pagero.kr/privacy/)
+- [이용약관](https://calltag.pagero.kr/terms/)
+- [계정 삭제](https://calltag.pagero.kr/account-deletion/)
+- [Google Play](https://play.google.com/store/apps/details?id=kr.pagero.calltag): Android 앱 설치
+
+## 핵심 기능
+
+- 통화 후 고객 구분 및 상담 상태 기록
+- 고객별 상담기록과 다음 할 일 관리
+- 재연락·자료 발송·방문 일정 관리
+- 사용자가 설정한 안내·후속문자 자동화
+- PageRo, Meta Lead Ads, Google Forms, Webhook 문의 연동
+- Android 앱과 PC 웹 연동
+
+## 요금
+
+기본 7일 무료 사용 후 페이지로 + 콜태그 통합권은 월 6,000원입니다.
