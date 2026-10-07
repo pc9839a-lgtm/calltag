@@ -38,6 +38,8 @@ external_sync_scheduler = read("ExternalLeadSyncWorkScheduler.java")
 menu_installer = read("ExternalLeadMenuInstaller.java")
 more_hub = read("MoreSettingsHubView.java")
 post_call_activity = read("PostCallActivity.java")
+caller_overlay = read("CallerOverlayManager.java")
+post_call_overlay = read("PostCallOverlayManager.java")
 post_call_launcher = read("PostCallActivityLauncher.java")
 post_call_recovery = read("PostCallRecoveryStore.java")
 theme_manager = read("CallTagThemeManager.java")
@@ -95,6 +97,15 @@ forbid(manifest, '.ExternalLeadE2eActivity', "test activity must not be register
 require(menu_installer, '"외부 문의 연동"', "legacy More fallback label missing")
 require(menu_installer, 'ExternalLeadSyncWorkScheduler.reconcile(activity)', "background external lead scheduler missing")
 require(application, 'ExternalLeadMenuInstaller.install((MainActivity) activity);', "legacy More fallback installer missing")
+
+# In-call / post-call overlays must close deterministically when the user taps 닫기.
+require(caller_overlay, 'public static void dismissByUser(Context context)', "in-call explicit dismiss missing")
+require(caller_overlay, 'CallerOverlayCallStateWatcher.stop(app);', "in-call dismiss must stop watcher")
+require(caller_overlay, 'close.setOnClickListener(v -> dismissByUser(context));', "in-call close button is not wired to dismiss")
+require(caller_overlay, '"dismissed_by_user"', "in-call dismiss telemetry missing")
+require(post_call_overlay, 'public static void dismissByUser(Context context)', "post-call explicit dismiss missing")
+require(post_call_overlay, 'close.setOnClickListener(v -> dismissByUser(context));', "post-call close button is not wired to dismiss")
+require(post_call_overlay, '"dismissed_by_user"', "post-call dismiss telemetry missing")
 
 # Post-call UX must stay passive unless the user explicitly taps a notification/action.
 require(post_call_activity, 'EXTRA_USER_INITIATED = "post_call_user_initiated"', "post-call explicit-user gate missing")
