@@ -99,6 +99,21 @@ require(referral_partner, '"이번 달 수익"', "referral monthly earnings summ
 require(referral_partner, '"누적 확정"', "referral confirmed earnings summary missing")
 require(referral_partner, '"정산센터 열기"', "secure settlement-center link missing")
 require(referral_partner, 'https://pagero.kr/partner?service=CALLTAG', "CallTag settlement-center URL missing")
+for token in [
+    '"friendBonusDays"',
+    '"commissionRatePercent"',
+    '"friendBenefitMessage"',
+    '"benefitMessage"',
+    '"recurringMessage"',
+    '"pausedMessage"',
+    '"programEnabled"',
+    '"signupEnabled"',
+    '"partnerCenterAvailable"',
+    '"partnerCenterUrl"',
+    '"shareMessage"',
+]:
+    require(referral_partner, token, f"server-controlled referral field missing: {token}")
+require(referral_partner, 'shareButton.setEnabled(shareEnabled);', "server referral pause must disable sharing")
 require(auth_api, 'return get("/api/referrals/summary", session);', "referral earnings summary API missing")
 require(play_reconcile, 'AuthApiClient.restoreGooglePurchases(session, payload)', "renewal reconciliation API call missing")
 require(play_reconcile, 'MIN_INTERVAL_MS = 6L * 60L * 60L * 1000L', "renewal reconciliation cadence missing")
@@ -271,5 +286,5 @@ require(gradle, "androidx.browser:browser:1.8.0", "browser dependency required f
 
 print(
     "CallTag contract OK: external leads + passive post-call + R8 + edge-to-edge + adaptive layouts + "
-    "bitmap downsampling, permission recovery + integration retry + 20% referral cash, v0.44.61"
+    "bitmap downsampling, permission recovery + integration retry + server-controlled referral cash, v0.44.61"
 )
