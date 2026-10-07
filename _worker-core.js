@@ -3,8 +3,8 @@ import { handlePartnerAdminSecurity } from './worker/partner-admin-security.js';
 import { handlePartnerApi } from './worker/partner.js';
 
 const CANONICAL='https://calltag.pagero.kr/';
-const SEO_TITLE='콜태그 | 통화 후 고객관리 앱 · 상담기록 · 재연락 일정';
-const SEO_DESCRIPTION='통화가 끝난 뒤 고객 상태, 상담 기록, 다음 할 일과 재연락 일정을 Android 앱에서 관리하세요. 페이지로·외부 문의 연동과 설정한 안내·후속문자 자동화를 지원합니다.';
+const SEO_TITLE='고객관리 앱 콜태그 | 전화상담·상담기록·재연락 CRM';
+const SEO_DESCRIPTION='전화 상담 고객의 상태·상담기록·재연락 일정을 통화 직후 정리하는 Android 고객관리 앱·CRM 콜태그. PC 웹 관리와 PageRo·Meta Lead Ads·Google Forms·Webhook 문의 연동을 지원합니다.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
 const WORKER_VERSION='v153-partner-totp3';
 const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260918-runtime61';
@@ -34,7 +34,8 @@ const SEO_SCHEMA={
   '@graph':[
     {'@type':'Organization','@id':`${CANONICAL}#organization`,name:'웨이지',alternateName:'WAYZI',url:'https://pagero.kr/',brand:[{'@type':'Brand',name:'콜태그'},{'@type':'Brand',name:'페이지로'}]},
     {'@type':'WebSite','@id':`${CANONICAL}#website`,url:CANONICAL,name:'콜태그',alternateName:'CALLTAG',inLanguage:'ko-KR',publisher:{'@id':`${CANONICAL}#organization`}},
-    {'@type':'SoftwareApplication','@id':`${CANONICAL}#software`,name:'콜태그',alternateName:'CALLTAG',url:CANONICAL,applicationCategory:'BusinessApplication',applicationSubCategory:'Customer Relationship Management',operatingSystem:'Android',description:'통화 후 고객 상태, 상담 기록, 다음 할 일과 재연락 일정을 관리하고 외부 문의 연동과 설정형 안내·후속문자 자동화를 지원하는 Android 고객관리 앱',provider:{'@id':`${CANONICAL}#organization`},featureList:['통화 후 고객 분류','고객 상태와 상담 기록 관리','다음 할 일과 재연락 일정 관리','설정한 안내·후속문자 자동화','페이지로 문의 연동','Meta Lead Ads·Google Forms·Webhook 외부 문의 연동'],offers:[{'@type':'Offer',name:'페이지로 + 콜태그 통합권',price:'6000',priceCurrency:'KRW',availability:'https://schema.org/InStock',url:`${CANONICAL}#pricing`,description:'기본 7일 무료체험 후 월 6,000원'}]},
+    {'@type':'SoftwareApplication','@id':`${CANONICAL}#software`,name:'콜태그',alternateName:'CALLTAG',url:CANONICAL,installUrl:'https://play.google.com/store/apps/details?id=kr.pagero.calltag',downloadUrl:'https://play.google.com/store/apps/details?id=kr.pagero.calltag',sameAs:['https://play.google.com/store/apps/details?id=kr.pagero.calltag'],applicationCategory:'BusinessApplication',applicationSubCategory:'Customer Relationship Management',operatingSystem:'Android',inLanguage:'ko-KR',description:'통화 후 고객 상태, 상담 기록, 다음 할 일과 재연락 일정을 관리하고 외부 문의 연동과 설정형 안내·후속문자 자동화를 지원하는 Android 고객관리 앱',provider:{'@id':`${CANONICAL}#organization`},featureList:['통화 후 고객 분류','고객 상태와 상담 기록 관리','다음 할 일과 재연락 일정 관리','설정한 안내·후속문자 자동화','페이지로 문의 연동','Meta Lead Ads·Google Forms·Webhook 외부 문의 연동'],offers:[{'@type':'Offer',name:'페이지로 + 콜태그 통합권',price:'6000',priceCurrency:'KRW',availability:'https://schema.org/InStock',url:`${CANONICAL}#pricing`,description:'기본 7일 무료체험 후 월 6,000원'}]},
+    {'@type':'WebPage','@id':`${CANONICAL}#webpage`,url:CANONICAL,name:SEO_TITLE,description:SEO_DESCRIPTION,inLanguage:'ko-KR',isPartOf:{'@id':`${CANONICAL}#website`},about:{'@id':`${CANONICAL}#software`},mainEntity:{'@id':`${CANONICAL}#software`}},
     {'@type':'Service','@id':`${CANONICAL}#pagero-service`,name:'페이지로',serviceType:'노코드 랜딩페이지 제작 및 고객 문의 수집',url:'https://pagero.kr/',provider:{'@id':`${CANONICAL}#organization`}},
     {'@type':'FAQPage','@id':`${CANONICAL}#faq`,url:`${CANONICAL}#faq`,mainEntity:[
       {'@type':'Question',name:'통화 내용이 녹음되나요?',acceptedAnswer:{'@type':'Answer',text:'아닙니다. 콜태그는 통화 음성을 녹음하거나 대화 내용을 자동 수집하지 않습니다.'}},
@@ -66,7 +67,7 @@ const SEO_HEAD=`
 <meta property="og:image:type" content="image/png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
-<meta property="og:image:alt" content="콜태그 통화 후 고객관리과 페이지로 문의 연동" />
+<meta property="og:image:alt" content="콜태그 통화 후 고객관리와 페이지로 문의 연동" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${SEO_TITLE}" />
 <meta name="twitter:description" content="${SEO_DESCRIPTION}" />
