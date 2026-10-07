@@ -91,6 +91,7 @@ public final class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         refreshAll();
+        PlaySubscriptionReconcileManager.reconcileIfDue(this);
     }
 
     private void normalizeCalendarState() {
