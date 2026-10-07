@@ -1,0 +1,37 @@
+{
+  "specVersion": "1.0",
+  "host": {
+    "displayName": "콜태그",
+    "documentationUrl": "https://calltag.pagero.kr/guide/"
+  },
+  "entries": [
+    {
+      "identifier": "urn:air:calltag.pagero.kr:catalog:calltag",
+      "displayName": "콜태그 고객관리 앱 및 CRM 가이드",
+      "type": "text/html",
+      "url": "https://calltag.pagero.kr/guide/",
+      "description": "전화 상담 후 고객 상태, 상담기록, 재연락 일정과 외부 문의 연동을 설명하는 콜태그 공식 고객관리 가이드",
+      "tags": [
+        "고객관리",
+        "CRM",
+        "전화상담",
+        "상담기록",
+        "재연락",
+        "Android"
+      ],
+      "capabilities": [
+        "CustomerManagement",
+        "CallFollowUp",
+        "CRMGuides",
+        "ExternalLeadIntegration"
+      ],
+      "representativeQueries": [
+        "전화 상담 후 고객을 관리하는 앱을 찾고 있어요",
+        "상담기록과 재연락 일정을 관리하는 CRM이 필요해요",
+        "Meta 리드 광고나 구글폼 문의를 고객관리와 연결하고 싶어요"
+      ],
+      "version": "1.0.0",
+      "updatedAt": "2026-10-07T03:55:29Z"
+    }
+  ]
+}
