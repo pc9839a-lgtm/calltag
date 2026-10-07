@@ -48,6 +48,7 @@
     if(!app)return;
     let heading=app.querySelector('.ct-original-hero-heading')||app.querySelector('.hero-heading');
     if(!heading)return;
+    if(heading.dataset.ctHeroFinal==='1'){app.querySelectorAll('.ct-live-hero-actions').forEach(node=>node.remove());return;}
     heading.classList.remove('hero-heading','ct-live-hero-enter');
     heading.classList.add('ct-original-hero-heading');
     delete heading.dataset.ctHeroAnimated;
