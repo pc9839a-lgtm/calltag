@@ -1,13 +1,13 @@
-name: CallTag 0.44.60 integration reliability release
+name: CallTag 0.44.61 referral cash release
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - patch/calltag-next-production-20261006
+      - patch/calltag-v04461-referral-cash-20261007
   pull_request:
     branches:
-      - release/calltag-v04459-r8-optimization
+      - patch/calltag-next-production-20261006
 
 permissions:
   contents: read
@@ -32,8 +32,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/calltag-universal-lead-contract-check.py
-          grep -F 'versionCode 2026100601' app/build.gradle
-          grep -F "versionName '0.44.60'" app/build.gradle
+          grep -F 'versionCode 2026100701' app/build.gradle
+          grep -F "versionName '0.44.61'" app/build.gradle
           grep -F 'minifyEnabled true' app/build.gradle
           grep -F 'shrinkResources true' app/build.gradle
           grep -F 'androidx.core:core:1.17.0' app/build.gradle
@@ -65,19 +65,20 @@ jobs:
           grep -F 'ExternalLeadSyncWorkScheduler.reconcile(activity)' app/src/main/java/kr/pagero/calltag/ExternalLeadMenuInstaller.java
           grep -F 'ExternalLeadIntegrationApiClient.syncGoogleForms(session)' app/src/main/java/kr/pagero/calltag/UniversalLeadSyncManager.java
 
-          # Referral policy: every recommendation-related bonus is +5 days; +7 copy must never ship.
+          # Referral policy: invitee gets +5 days; referrer earns 20% of verified CallTag payments.
           grep -F '추천인 코드 입력 시 무료 5일 추가' app/src/main/java/kr/pagero/calltag/LoginActivity.java
           grep -F '추천인 코드 입력 시 5일이 추가됩니다' app/src/main/java/kr/pagero/calltag/BillingEntitlementActivity.java
           grep -F '무료체험 +5일' app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java
-          grep -F '추천 가입 1명마다 무료 이용 +5일' app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java
+          grep -F '유료 결제액의 20%' app/src/main/java/kr/pagero/calltag/ReferralPartnerActivity.java
+          grep -F 'AuthApiClient.restoreGooglePurchases(session, payload)' app/src/main/java/kr/pagero/calltag/PlaySubscriptionReconcileManager.java
           if grep -RInE '추천인[^\n]{0,40}(\+?7일)|무료체험[^\n]{0,20}(\+?7일)|추천인 코드 입력 시[^\n]{0,30}7일' app/src/main --include='*.java' --include='*.kt' --include='*.xml'; then
             echo '::error::Legacy +7 referral copy remains in shipped Android sources.'
             exit 1
           fi
 
-          # Monetary partner UI must not return to the Play app.
-          if grep -RInE 'PartnerStatusActivity|PartnerSettlementActivity|예상 수익|확정 수익|파트너 정산' app/src/main app/src/release --include='*.java' --include='*.kt' --include='*.xml'; then
-            echo '::error::Monetary partner/settlement UI is present in shipped Android sources.'
+          # Cash referral summary is allowed. Payout/security stays in the web settlement center.
+          if grep -RInE 'PartnerStatusActivity|PartnerSettlementActivity' app/src/main app/src/release --include='*.java' --include='*.kt' --include='*.xml'; then
+            echo '::error::Legacy native partner settlement activity is present in shipped Android sources.'
             exit 1
           fi
 
@@ -218,23 +219,23 @@ jobs:
           test -s "$APK"
           test -s "$MAPPING"
           jarsigner -verify -certs "$AAB"
-          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/CALLTAG_V04460_AAB_CERTIFICATE.txt"
-          grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/CALLTAG_V04460_AAB_CERTIFICATE.txt"
-          OUT="$RUNNER_TEMP/calltag-v0.44.60"
+          keytool -printcert -jarfile "$AAB" > "$RUNNER_TEMP/CALLTAG_V04461_AAB_CERTIFICATE.txt"
+          grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/CALLTAG_V04461_AAB_CERTIFICATE.txt"
+          OUT="$RUNNER_TEMP/calltag-v0.44.61"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.44.60-code2026100601.aab"
-          cp "$APK" "$OUT/CallTag-v0.44.60-code2026100601-debug.apk"
-          cp "$MAPPING" "$OUT/CallTag-v0.44.60-mapping.txt"
-          sha256sum "$AAB" > "$OUT/CALLTAG_V04460_AAB_SHA256.txt"
-          sha256sum "$APK" > "$OUT/CALLTAG_V04460_DEBUG_APK_SHA256.txt"
-          sha256sum "$MAPPING" > "$OUT/CALLTAG_V04460_MAPPING_SHA256.txt"
+          cp "$AAB" "$OUT/CallTag-v0.44.61-code2026100701.aab"
+          cp "$APK" "$OUT/CallTag-v0.44.61-code2026100701-debug.apk"
+          cp "$MAPPING" "$OUT/CallTag-v0.44.61-mapping.txt"
+          sha256sum "$AAB" > "$OUT/CALLTAG_V04461_AAB_SHA256.txt"
+          sha256sum "$APK" > "$OUT/CALLTAG_V04461_DEBUG_APK_SHA256.txt"
+          sha256sum "$MAPPING" > "$OUT/CALLTAG_V04461_MAPPING_SHA256.txt"
           cp "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt" "$OUT/"
-          cp "$RUNNER_TEMP/CALLTAG_V04460_AAB_CERTIFICATE.txt" "$OUT/"
+          cp "$RUNNER_TEMP/CALLTAG_V04461_AAB_CERTIFICATE.txt" "$OUT/"
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-v0.44.60-play-release
-          path: ${{ runner.temp }}/calltag-v0.44.60
+          name: calltag-v0.44.61-play-release
+          path: ${{ runner.temp }}/calltag-v0.44.61
           retention-days: 90
           if-no-files-found: error

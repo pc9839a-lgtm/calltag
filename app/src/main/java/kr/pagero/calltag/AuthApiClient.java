@@ -163,6 +163,10 @@ public final class AuthApiClient {
         return get("/api/referrals/me", session);
     }
 
+    public static JSONObject referralSummary(String session) throws Exception {
+        return get("/api/referrals/summary", session);
+    }
+
     public static JSONObject verifyGooglePurchase(
             String session,
             String productId,
