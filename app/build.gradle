@@ -26,9 +26,9 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // Production patch: permission recovery + external integration reliability 2026-10-06
-        versionCode 2026100601
-        versionName '0.44.60'
+        // Production patch: 20% referral cash commission + renewal reconciliation 2026-10-07
+        versionCode 2026100701
+        versionName '0.44.61'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
