@@ -261,8 +261,11 @@ public final class ReferralPartnerActivity extends Activity {
         boolean shareEnabled = programEnabled && signupEnabled;
         shareButton.setEnabled(shareEnabled);
         shareButton.setAlpha(shareEnabled ? 1f : 0.55f);
-        if (!shareEnabled && friendBenefit.isEmpty()) {
-            friendBenefitView.setText("신규 추천인 코드 등록이 일시 중지되어 있습니다.");
+        if (!shareEnabled) {
+            String paused = summary.optString("pausedMessage", "").trim();
+            friendBenefitView.setText(paused.isEmpty()
+                    ? "현재 신규 추천인 코드 등록이 일시 중지되어 있습니다."
+                    : paused);
         }
 
         boolean available = summary.optBoolean("partnerCenterAvailable", true);
