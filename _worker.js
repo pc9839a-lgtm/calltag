@@ -30,7 +30,7 @@ export default {
     if(isLanding){
       headers.set('x-calltag-landing-stabilizer','20260918-stable2');
       if(!body.includes('calltag-landing-stabilizer-v1.js')){
-        body=body.replace('</body>',`<script src="${LANDING_STABILIZER}"></script></body>`);
+        body=body.replace('</body>',`<script src="${LANDING_STABILIZER}" defer></script></body>`);
       }
     }
 
