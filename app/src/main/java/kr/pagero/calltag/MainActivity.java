@@ -52,6 +52,7 @@ public final class MainActivity extends Activity {
     private TextView todayNewCount;
     private TextView todayEmpty;
     private TextView monitorStateText;
+    private TextView callerIdStateText;
     private Switch enableMonitorButton;
     private LinearLayout todayTaskList;
 
@@ -113,6 +114,7 @@ public final class MainActivity extends Activity {
         todayNewCount = findViewById(R.id.todayNewCount);
         todayEmpty = findViewById(R.id.todayEmpty);
         monitorStateText = findViewById(R.id.monitorStateText);
+        callerIdStateText = findViewById(R.id.callerIdStateText);
         enableMonitorButton = findViewById(R.id.enableMonitorButton);
         todayTaskList = findViewById(R.id.todayTaskList);
 
@@ -277,8 +279,17 @@ public final class MainActivity extends Activity {
 
     private void renderMonitorState() {
         boolean enabled = hasMonitorPermissions() && SettingsStore.isMonitorEnabled(this);
-        monitorStateText.setText(enabled ? "통화와 할 일을\n자동으로 연결해요" : "통화 감지를\n켜주세요");
+        monitorStateText.setText(enabled ? "사용 중" : "꺼짐");
+        monitorStateText.setTextColor(getColor(enabled ? R.color.primary : R.color.text_muted));
         enableMonitorButton.setChecked(enabled);
+
+        boolean callerInfoEnabled = SetupRequirements.hasScreeningRole(this)
+                && SettingsStore.isCallerInfoDisplayEnabled(this);
+        if (callerIdStateText != null) {
+            callerIdStateText.setText(callerInfoEnabled ? "사용 중" : "설정 필요");
+            callerIdStateText.setTextColor(getColor(
+                    callerInfoEnabled ? R.color.primary : R.color.text_muted));
+        }
     }
 
     private void renderTasks() {
