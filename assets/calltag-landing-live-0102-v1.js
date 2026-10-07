@@ -317,15 +317,18 @@
       installStyle();
       const app=document.querySelector('#app');
       const heading=app?.querySelector('.hero-heading');
+      const heroFinal=heading?.dataset.ctHeroFinal==='1';
       const title=heading?.querySelector('h1');
       const description=heading?.querySelector(':scope > p:last-of-type');
-      if(title&&title.innerHTML!==TITLE)title.innerHTML=TITLE;
-      if(description&&description.textContent.trim()!==DESCRIPTION)description.textContent=DESCRIPTION;
-      if(heading){
-        let actions=heading.querySelector('.ct-live-hero-actions');
-        if(!actions){actions=document.createElement('div');actions.className='ct-live-hero-actions';heading.append(actions);}
-        if(!actions.querySelector('.ct-live-hero-primary'))actions.innerHTML=`<a class="ct-live-hero-primary" href="${APP}" target="_blank" rel="noopener">7일 무료로 시작하기</a>`;
-        if(!heading.dataset.ctHeroAnimated){heading.dataset.ctHeroAnimated='1';requestAnimationFrame(()=>heading.classList.add('ct-live-hero-enter'));}
+      if(!heroFinal){
+        if(title&&title.innerHTML!==TITLE)title.innerHTML=TITLE;
+        if(description&&description.textContent.trim()!==DESCRIPTION)description.textContent=DESCRIPTION;
+        if(heading){
+          let actions=heading.querySelector('.ct-live-hero-actions');
+          if(!actions){actions=document.createElement('div');actions.className='ct-live-hero-actions';heading.append(actions);}
+          if(!actions.querySelector('.ct-live-hero-primary'))actions.innerHTML=`<a class="ct-live-hero-primary" href="${APP}" target="_blank" rel="noopener">7일 무료로 시작하기</a>`;
+          if(!heading.dataset.ctHeroAnimated){heading.dataset.ctHeroAnimated='1';requestAnimationFrame(()=>heading.classList.add('ct-live-hero-enter'));}
+        }
       }
       if(app){
         let pain=document.getElementById('ct-live-pain');
