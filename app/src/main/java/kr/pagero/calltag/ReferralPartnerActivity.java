@@ -31,6 +31,9 @@ public final class ReferralPartnerActivity extends Activity {
     private TextView paidCountView;
     private TextView estimatedRevenueView;
     private TextView confirmedRevenueView;
+    private TextView friendBenefitView;
+    private TextView myBenefitView;
+    private TextView recurringView;
     private TextView partnerCenterButton;
 
     private JSONObject summary = new JSONObject();
@@ -92,23 +95,23 @@ public final class ReferralPartnerActivity extends Activity {
         actions.addView(share, shareParams);
         invite.addView(actions, top(14));
 
-        TextView friendBenefit = text(
+        friendBenefitView = text(
                 "친구 혜택 · 회원가입할 때 추천인 코드를 입력하면 무료체험 +5일",
                 13f, R.color.text_secondary, false);
-        friendBenefit.setLineSpacing(0f, 1.2f);
-        invite.addView(friendBenefit, top(12));
+        friendBenefitView.setLineSpacing(0f, 1.2f);
+        invite.addView(friendBenefitView, top(12));
 
-        TextView myBenefit = text(
+        myBenefitView = text(
                 "내 수익 · 추천 회원의 콜태그 유료 결제액의 20%",
                 13f, R.color.text_primary, true);
-        myBenefit.setLineSpacing(0f, 1.2f);
-        invite.addView(myBenefit, top(8));
+        myBenefitView.setLineSpacing(0f, 1.2f);
+        invite.addView(myBenefitView, top(8));
 
-        TextView recurring = text(
+        recurringView = text(
                 "추천 회원이 유료 구독을 유지해 새 결제가 확인될 때마다 같은 비율로 적립됩니다.",
                 13f, R.color.text_secondary, false);
-        recurring.setLineSpacing(0f, 1.2f);
-        invite.addView(recurring, top(8));
+        recurringView.setLineSpacing(0f, 1.2f);
+        invite.addView(recurringView, top(8));
 
         root.addView(invite, top(14));
 
@@ -232,6 +235,26 @@ public final class ReferralPartnerActivity extends Activity {
         confirmedRevenueView.setText(statText(
                 "누적 확정", money(summary.optLong("confirmedRevenueKrw", 0L))));
 
+        int bonusDays = Math.max(0, summary.optInt("friendBonusDays", 5));
+        double rate = summary.optDouble("commissionRatePercent", 20d);
+        String friendBenefit = summary.optString("friendBenefitMessage", "").trim();
+        if (friendBenefit.isEmpty()) {
+            friendBenefit = "친구 혜택 · 회원가입할 때 추천인 코드를 입력하면 무료체험 +"
+                    + bonusDays + "일";
+        }
+        String myBenefit = summary.optString("benefitMessage", "").trim();
+        if (myBenefit.isEmpty()) {
+            myBenefit = "내 수익 · 추천 회원의 콜태그 유료 결제액의 "
+                    + rateText(rate) + "%";
+        }
+        String recurring = summary.optString("recurringMessage", "").trim();
+        if (recurring.isEmpty()) {
+            recurring = "추천 회원이 유료 구독을 유지해 새 결제가 확인될 때마다 같은 비율로 적립됩니다.";
+        }
+        friendBenefitView.setText(friendBenefit);
+        myBenefitView.setText(myBenefit);
+        recurringView.setText(recurring);
+
         boolean available = summary.optBoolean("partnerCenterAvailable", true);
         partnerCenterButton.setEnabled(available);
         partnerCenterButton.setAlpha(available ? 1f : 0.55f);
@@ -261,8 +284,14 @@ public final class ReferralPartnerActivity extends Activity {
             return;
         }
 
+        String shareIntro = summary.optString("shareMessage", "").trim();
+        if (shareIntro.isEmpty()) {
+            int bonusDays = Math.max(0, summary.optInt("friendBonusDays", 5));
+            shareIntro = "콜태그 가입할 때 추천인 코드를 입력하면 무료체험이 "
+                    + bonusDays + "일 추가돼요.";
+        }
         StringBuilder message = new StringBuilder()
-                .append("콜태그 가입할 때 아래 추천인 코드를 입력하면 무료체험이 5일 추가돼요.\n")
+                .append(shareIntro).append("\n")
                 .append("추천인 코드: ").append(value.code);
         if (!value.shareUrl.isEmpty()) message.append("\n").append(value.shareUrl);
 
@@ -358,7 +387,16 @@ public final class ReferralPartnerActivity extends Activity {
 
     private String money(long amount) {
         return NumberFormat.getNumberInstance(Locale.KOREA)
-                .format(Math.max(0L, amount)) + "원";
+                .format(amount) + "원";
+    }
+
+    private String rateText(double value) {
+        if (Math.abs(value - Math.rint(value)) < 0.0001d) {
+            return Long.toString(Math.round(value));
+        }
+        return String.format(Locale.KOREA, "%.2f", value)
+                .replaceAll("0+$", "")
+                .replaceAll("\\.$", "");
     }
 
     private int dp(int value) {
