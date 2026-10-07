@@ -127,6 +127,9 @@ export default {
       if(url.pathname==='/robots.txt'||url.pathname==='/sitemap.xml'){
         const headers=new Headers(response.headers);headers.set('content-type',url.pathname==='/robots.txt'?'text/plain; charset=UTF-8':'application/xml; charset=UTF-8');headers.set('cache-control','public, max-age=3600, must-revalidate');return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
       }
+      if(url.pathname.startsWith('/assets/')&&url.searchParams.has('v')){
+        const headers=new Headers(response.headers);headers.set('cache-control','public, max-age=31536000, immutable');return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+      }
       return response;
     }
     const headers=new Headers(response.headers);['content-encoding','content-length','etag','last-modified','content-md5','digest'].forEach(name=>headers.delete(name));headers.set('content-type','text/html; charset=UTF-8');headers.set('cache-control','no-cache, no-store, must-revalidate');headers.set('x-calltag-worker',WORKER_VERSION);
