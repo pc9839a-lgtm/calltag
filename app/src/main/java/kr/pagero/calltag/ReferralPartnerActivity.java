@@ -6,6 +6,7 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.widget.LinearLayout;
@@ -15,12 +16,24 @@ import android.widget.Toast;
 
 import org.json.JSONObject;
 
-/** 더보기 > 친구 초대. 가입 추천 혜택만 제공하며 금전성 파트너 기능은 노출하지 않는다. */
+import java.text.NumberFormat;
+import java.util.Locale;
+
+/** 더보기 > 친구 추천 수익. 추천코드, 20% 수익 현황, 보안 정산센터 진입을 제공한다. */
 public final class ReferralPartnerActivity extends Activity {
     private static final long CODE_REFRESH_MS = 24L * 60L * 60L * 1000L;
+    private static final String DEFAULT_PARTNER_CENTER =
+            "https://pagero.kr/partner?service=CALLTAG";
 
     private TextView codeView;
     private TextView refreshButton;
+    private TextView referredCountView;
+    private TextView paidCountView;
+    private TextView estimatedRevenueView;
+    private TextView confirmedRevenueView;
+    private TextView partnerCenterButton;
+
+    private JSONObject summary = new JSONObject();
     private boolean working;
 
     @Override
@@ -50,7 +63,7 @@ public final class ReferralPartnerActivity extends Activity {
         back.setOnClickListener(v -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(44), dp(48)));
 
-        TextView title = text("친구 초대", 21f, R.color.text_primary, true);
+        TextView title = text("친구 추천 수익", 21f, R.color.text_primary, true);
         header.addView(title, new LinearLayout.LayoutParams(0, dp(48), 1f));
 
         refreshButton = secondaryButton("새로고침");
@@ -86,25 +99,57 @@ public final class ReferralPartnerActivity extends Activity {
         invite.addView(friendBenefit, top(12));
 
         TextView myBenefit = text(
-                "내 혜택 · 추천 가입 1명마다 무료 이용 +5일",
-                13f, R.color.text_secondary, true);
+                "내 수익 · 추천 회원의 콜태그 유료 결제액의 20%",
+                13f, R.color.text_primary, true);
         myBenefit.setLineSpacing(0f, 1.2f);
         invite.addView(myBenefit, top(8));
 
-        TextView unlimited = text(
-                "추천 횟수 제한 없이 평생 계속 적용됩니다.",
+        TextView recurring = text(
+                "추천 회원이 유료 구독을 유지해 새 결제가 확인될 때마다 같은 비율로 적립됩니다.",
                 13f, R.color.text_secondary, false);
-        unlimited.setLineSpacing(0f, 1.2f);
-        invite.addView(unlimited, top(8));
+        recurring.setLineSpacing(0f, 1.2f);
+        invite.addView(recurring, top(8));
 
         root.addView(invite, top(14));
 
+        LinearLayout revenue = card();
+        revenue.addView(text("추천 수익 현황", 17f, R.color.text_primary, true));
+
+        LinearLayout countRow = new LinearLayout(this);
+        countRow.setOrientation(LinearLayout.HORIZONTAL);
+        referredCountView = stat("추천 가입", "0명");
+        paidCountView = stat("유료 전환", "0명");
+        countRow.addView(referredCountView, statParams(false));
+        countRow.addView(paidCountView, statParams(true));
+        revenue.addView(countRow, top(14));
+
+        LinearLayout revenueRow = new LinearLayout(this);
+        revenueRow.setOrientation(LinearLayout.HORIZONTAL);
+        estimatedRevenueView = stat("이번 달 수익", "0원");
+        confirmedRevenueView = stat("누적 확정", "0원");
+        revenueRow.addView(estimatedRevenueView, statParams(false));
+        revenueRow.addView(confirmedRevenueView, statParams(true));
+        revenue.addView(revenueRow, top(8));
+
+        partnerCenterButton = primaryButton("정산센터 열기");
+        partnerCenterButton.setOnClickListener(v -> openPartnerCenter());
+        revenue.addView(partnerCenterButton, fixedTop(50, 14));
+
+        TextView payoutNotice = text(
+                "정산정보 등록과 지급 요청은 보안 확인이 적용되는 정산센터에서 처리합니다.",
+                12.5f, R.color.text_muted, false);
+        payoutNotice.setLineSpacing(0f, 1.2f);
+        revenue.addView(payoutNotice, top(10));
+        root.addView(revenue, top(12));
+
         TextView signupOnly = text(
-                "추천인 코드는 회원가입할 때 1회만 입력할 수 있습니다.",
+                "추천인 코드는 회원가입할 때 1회만 입력할 수 있습니다. 자기추천·중복가입·환불 등 부정 또는 취소 결제는 수익 대상에서 제외될 수 있습니다.",
                 13f, R.color.text_secondary, false);
         signupOnly.setBackgroundResource(R.drawable.bg_preview);
         signupOnly.setPadding(dp(14), dp(12), dp(14), dp(12));
+        signupOnly.setLineSpacing(0f, 1.2f);
         root.addView(signupOnly, top(10));
+
         return scroll;
     }
 
@@ -113,7 +158,9 @@ public final class ReferralPartnerActivity extends Activity {
         long age = System.currentTimeMillis() - value.codeCheckedAt;
         if (value.code.isEmpty() || value.codeCheckedAt <= 0L || age >= CODE_REFRESH_MS) {
             refresh(false);
+            return;
         }
+        refresh(false);
     }
 
     private void refresh(boolean notify) {
@@ -128,34 +175,66 @@ public final class ReferralPartnerActivity extends Activity {
         if (notify) setManualRefreshState(true);
 
         new Thread(() -> {
-            boolean success = false;
+            boolean codeLoaded = false;
+            boolean summaryLoaded = false;
+            JSONObject loadedSummary = null;
             try {
                 JSONObject me = AuthApiClient.referralMe(session);
                 ReferralStateStore.saveMe(this, me);
-                success = true;
-            } catch (Exception ignored) {
+                codeLoaded = true;
+            } catch (Exception error) {
+                CrashTelemetryStore.record(this, "referral_cash", "code_load_failed",
+                        error.getClass().getSimpleName());
+            }
+            try {
+                JSONObject response = AuthApiClient.referralSummary(session);
+                loadedSummary = response.optJSONObject("summary");
+                summaryLoaded = loadedSummary != null;
+            } catch (Exception error) {
+                CrashTelemetryStore.record(this, "referral_cash", "summary_load_failed",
+                        error.getClass().getSimpleName());
             }
 
-            boolean loaded = success;
+            final boolean finalCodeLoaded = codeLoaded;
+            final boolean finalSummaryLoaded = summaryLoaded;
+            final JSONObject finalSummary = loadedSummary;
             runOnUiThread(() -> {
                 working = false;
                 if (notify) setManualRefreshState(false);
+                if (finalSummary != null) summary = finalSummary;
                 render();
                 if (notify) {
-                    Toast.makeText(
-                            this,
-                            loaded ? "추천인 코드를 새로 확인했습니다."
-                                    : "추천인 코드를 확인하지 못했습니다.",
-                            loaded ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG
-                    ).show();
+                    String message;
+                    if (finalCodeLoaded && finalSummaryLoaded) {
+                        message = "추천 수익 현황을 새로 확인했습니다.";
+                    } else if (finalCodeLoaded) {
+                        message = "추천코드는 확인했지만 수익 현황을 불러오지 못했습니다.";
+                    } else {
+                        message = "추천 정보를 확인하지 못했습니다.";
+                    }
+                    Toast.makeText(this, message,
+                            finalCodeLoaded ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
                 }
             });
-        }, "calltag-referral-code-refresh").start();
+        }, "calltag-referral-cash-refresh").start();
     }
 
     private void render() {
         ReferralStateStore.Snapshot value = ReferralStateStore.snapshot(this);
         codeView.setText(value.code.isEmpty() ? "불러오는 중…" : value.code);
+
+        referredCountView.setText(statText(
+                "추천 가입", summary.optInt("referredCount", 0) + "명"));
+        paidCountView.setText(statText(
+                "유료 전환", summary.optInt("activePaidCount", 0) + "명"));
+        estimatedRevenueView.setText(statText(
+                "이번 달 수익", money(summary.optLong("estimatedRevenueKrw", 0L))));
+        confirmedRevenueView.setText(statText(
+                "누적 확정", money(summary.optLong("confirmedRevenueKrw", 0L))));
+
+        boolean available = summary.optBoolean("partnerCenterAvailable", true);
+        partnerCenterButton.setEnabled(available);
+        partnerCenterButton.setAlpha(available ? 1f : 0.55f);
     }
 
     private void copyCode() {
@@ -195,6 +274,16 @@ public final class ReferralPartnerActivity extends Activity {
         ));
     }
 
+    private void openPartnerCenter() {
+        String url = summary.optString("partnerCenterUrl", DEFAULT_PARTNER_CENTER).trim();
+        if (url.isEmpty()) url = DEFAULT_PARTNER_CENTER;
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (RuntimeException error) {
+            Toast.makeText(this, "정산센터를 열지 못했습니다.", Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void setManualRefreshState(boolean value) {
         refreshButton.setEnabled(!value);
         refreshButton.setAlpha(value ? 0.55f : 1f);
@@ -207,6 +296,25 @@ public final class ReferralPartnerActivity extends Activity {
         view.setPadding(dp(18), dp(18), dp(18), dp(18));
         view.setBackgroundResource(R.drawable.bg_card);
         return view;
+    }
+
+    private TextView stat(String label, String value) {
+        TextView view = text(statText(label, value), 14f, R.color.text_primary, true);
+        view.setGravity(Gravity.CENTER_VERTICAL);
+        view.setLineSpacing(0f, 1.18f);
+        view.setBackgroundResource(R.drawable.bg_preview);
+        view.setPadding(dp(14), dp(12), dp(14), dp(12));
+        return view;
+    }
+
+    private String statText(String label, String value) {
+        return label + "\n" + value;
+    }
+
+    private LinearLayout.LayoutParams statParams(boolean withLeftMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, dp(68), 1f);
+        if (withLeftMargin) params.leftMargin = dp(8);
+        return params;
     }
 
     private TextView primaryButton(String value) {
@@ -239,6 +347,18 @@ public final class ReferralPartnerActivity extends Activity {
                 LinearLayout.LayoutParams.WRAP_CONTENT);
         params.topMargin = dp(margin);
         return params;
+    }
+
+    private LinearLayout.LayoutParams fixedTop(int height, int margin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(height));
+        params.topMargin = dp(margin);
+        return params;
+    }
+
+    private String money(long amount) {
+        return NumberFormat.getNumberInstance(Locale.KOREA)
+                .format(Math.max(0L, amount)) + "원";
     }
 
     private int dp(int value) {
