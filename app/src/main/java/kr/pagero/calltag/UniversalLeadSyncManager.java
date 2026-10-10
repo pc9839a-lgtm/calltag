@@ -193,22 +193,24 @@ public final class UniversalLeadSyncManager {
 
         SyncResult result = new SyncResult();
 
-        // Google Forms is provider-pulled. Refresh it before reading the canonical lead queue.
-        // A provider outage must never block Meta/Webhook/PageRo lead delivery, but transient
-        // provider failures are carried back to WorkManager so it can retry with backoff.
-        if (pollGoogleForms) try {
-            ExternalLeadIntegrationApiClient.syncGoogleForms(session);
-        } catch (ExternalLeadIntegrationApiClient.ApiException error) {
-            Log.w(TAG, "Google Forms pre-sync skipped: " + error.code);
-            result.providerRetryRecommended = isRetryableProviderError(error);
-            result.providerWarning = result.providerRetryRecommended
-                    ? "Google Forms 확인이 지연되고 있습니다. 다른 문의는 계속 확인합니다."
-                    : "Google Forms 연결 상태를 확인해주세요. 다른 문의는 계속 확인합니다.";
-        } catch (Exception error) {
-            Log.w(TAG, "Google Forms pre-sync failed: " + error.getClass().getSimpleName());
-            result.providerRetryRecommended = true;
-            result.providerWarning =
-                    "Google Forms 확인이 지연되고 있습니다. 다른 문의는 계속 확인합니다.";
+        // Scheduled/manual sync refreshes Google Forms before pulling canonical leads.
+        // FCM-triggered sync skips the provider call: the FCM event is already queued,
+        // and slow provider requests must not delay Meta / Webhook / Direct API delivery.
+        if (pollGoogleForms) {
+            try {
+                ExternalLeadIntegrationApiClient.syncGoogleForms(session);
+            } catch (ExternalLeadIntegrationApiClient.ApiException error) {
+                Log.w(TAG, "Google Forms pre-sync skipped: " + error.code);
+                result.providerRetryRecommended = isRetryableProviderError(error);
+                result.providerWarning = result.providerRetryRecommended
+                        ? "Google Forms 확인이 지연되고 있습니다. 다른 문의는 계속 확인합니다."
+                        : "Google Forms 연결 상태를 확인해주세요. 다른 문의는 계속 확인합니다.";
+            } catch (Exception error) {
+                Log.w(TAG, "Google Forms pre-sync failed: " + error.getClass().getSimpleName());
+                result.providerRetryRecommended = true;
+                result.providerWarning =
+                        "Google Forms 확인이 지연되고 있습니다. 다른 문의는 계속 확인합니다.";
+            }
         }
 
         long after = 0L;
