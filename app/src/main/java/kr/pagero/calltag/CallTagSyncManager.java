@@ -107,10 +107,15 @@ public final class CallTagSyncManager {
             broadcast(context);
 
             String session = AuthSessionStore.session(context);
+            String accountKey = store.accountKey();
+            requireSameAccount(context, accountKey, session);
+            // A shared legacy CRM must not be uploaded or restored into another account.
+            CrmOwnershipPreflight.requireSafeForSync(context, accountKey);
             String deviceId = CallTagSyncDeviceStore.deviceId(context);
 
             // 고객 원문을 만들기 전에 민감정보가 없는 status 호출로 서버 활성화 여부를 확인한다.
             JSONObject statusResponse = CallTagSyncApiClient.status(session, deviceId);
+            requireSameAccount(context, accountKey, session);
             JSONObject serverStatus = statusResponse.optJSONObject("sync");
             long serverRecords = serverStatus == null
                     ? 0L : serverStatus.optLong("recordCount", 0L);
@@ -119,15 +124,21 @@ public final class CallTagSyncManager {
                 store.markStatus("RESTORING", "기존 데이터를 안전하게 확인하고 있습니다.");
                 broadcast(context);
                 bootstrap(context, store, session, deviceId);
+                requireSameAccount(context, accountKey, session);
                 store.setInitialized(true);
             }
 
             store.markStatus("SCANNING", "기기에서 변경된 항목을 확인하고 있습니다.");
+            requireSameAccount(context, accountKey, session);
+            CrmOwnershipPreflight.requireSafeForSync(context, accountKey);
             CallTagSyncDataAdapter.scanLocal(context, store);
-            pushPending(store, session, deviceId);
-            pullChanges(context, store, session, deviceId);
+            requireSameAccount(context, accountKey, session);
+            CrmOwnershipPreflight.requireSafeForSync(context, accountKey);
+            pushPending(context, store, accountKey, session, deviceId);
+            pullChanges(context, store, accountKey, session, deviceId);
 
             JSONObject finalStatus = CallTagSyncApiClient.status(session, deviceId);
+            requireSameAccount(context, accountKey, session);
             JSONObject finalSync = finalStatus.optJSONObject("sync");
             if (finalSync != null) serverRecords = finalSync.optLong("recordCount", serverRecords);
             store.markSuccess(serverRecords);
@@ -157,12 +168,16 @@ public final class CallTagSyncManager {
             CallTagSyncLocalStore store,
             String session,
             String deviceId) throws Exception {
+        String accountKey = store.accountKey();
         Long snapshotCursor = null;
         String afterType = "";
         String afterId = "";
         for (int page = 0; page < MAX_PAGES_PER_RUN; page++) {
+            requireSameAccount(context, accountKey, session);
+            CrmOwnershipPreflight.requireSafeForSync(context, accountKey);
             JSONObject response = CallTagSyncApiClient.bootstrap(
                     session, deviceId, snapshotCursor, afterType, afterId, PAGE_SIZE);
+            requireSameAccount(context, accountKey, session);
             if (snapshotCursor == null) snapshotCursor = response.optLong("snapshotCursor", 0L);
             JSONArray items = response.optJSONArray("items");
             CallTagSyncDataAdapter.applyRemote(context,
@@ -183,10 +198,14 @@ public final class CallTagSyncManager {
     }
 
     private static void pushPending(
+            Context context,
             CallTagSyncLocalStore store,
+            String accountKey,
             String session,
             String deviceId) throws Exception {
         for (int page = 0; page < MAX_PAGES_PER_RUN; page++) {
+            requireSameAccount(context, accountKey, session);
+            CrmOwnershipPreflight.requireSafeForSync(context, accountKey);
             List<CallTagSyncLocalStore.PendingItem> pending = store.listPending(PAGE_SIZE);
             if (pending.isEmpty()) return;
             JSONArray items = new JSONArray();
@@ -200,7 +219,9 @@ public final class CallTagSyncManager {
                         ? new JSONObject() : new JSONObject(item.payloadJson));
                 items.put(body);
             }
+            requireSameAccount(context, accountKey, session);
             JSONObject response = CallTagSyncApiClient.push(session, deviceId, items);
+            requireSameAccount(context, accountKey, session);
             JSONArray accepted = response.optJSONArray("accepted");
             int acceptedCount = 0;
             if (accepted != null) {
@@ -229,12 +250,16 @@ public final class CallTagSyncManager {
     private static void pullChanges(
             Context context,
             CallTagSyncLocalStore store,
+            String accountKey,
             String session,
             String deviceId) throws Exception {
         long cursor = store.cursor();
         for (int page = 0; page < MAX_PAGES_PER_RUN; page++) {
+            requireSameAccount(context, accountKey, session);
+            CrmOwnershipPreflight.requireSafeForSync(context, accountKey);
             JSONObject response = CallTagSyncApiClient.pull(
                     session, deviceId, cursor, PAGE_SIZE);
+            requireSameAccount(context, accountKey, session);
             JSONArray items = response.optJSONArray("items");
             CallTagSyncDataAdapter.ApplyResult applied =
                     CallTagSyncDataAdapter.applyRemote(context,
@@ -252,6 +277,16 @@ public final class CallTagSyncManager {
             if (!response.optBoolean("hasMore", false)) return;
         }
         throw new IllegalStateException("받아올 변경사항이 많습니다. 다시 시도해주세요.");
+    }
+
+    private static void requireSameAccount(Context context, String accountKey, String session) {
+        if (accountKey == null || accountKey.isEmpty()
+                || session == null || session.isEmpty()
+                || !accountKey.equals(CallTagSyncLocalStore.accountKey(context))
+                || !session.equals(AuthSessionStore.session(context))) {
+            throw new IllegalStateException(
+                    "로그인 계정이 변경되어 동기화를 중지했습니다. 다시 로그인 후 재시도해주세요.");
+        }
     }
 
     private static String safeMessage(Exception error) {
