@@ -1,7 +1,9 @@
 package kr.pagero.calltag;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.IntentFilter;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -12,6 +14,8 @@ import android.view.Gravity;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.core.content.ContextCompat;
+
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -21,11 +25,23 @@ public final class EntitlementNoticeActivity extends Activity {
     private static final String PREFS = "calltag_entitlement_notices";
     private static final String KEY_LAST_CODE = "last_code";
     private static final String KEY_LAST_DATE = "last_date";
+    private static final String KEY_RETURNED_FROM_BILLING = "returned_from_billing";
+    public static final String ACTION_ENTITLEMENT_VERIFIED =
+            "kr.pagero.calltag.ENTITLEMENT_VERIFIED";
     private static final int BLUE = Color.rgb(37, 99, 235);
     private static final int TEXT = Color.rgb(15, 23, 42);
     private static final int SUBTEXT = Color.rgb(71, 85, 105);
     private static final int BORDER = Color.rgb(226, 232, 240);
     private boolean returnedFromBilling;
+    private boolean receiverRegistered;
+    private final BroadcastReceiver purchaseVerificationReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // A verification can complete after the user has already returned from Play.
+            // Only a server-verified active entitlement allows leaving the expired notice.
+            routeToCrmIfEntitled();
+        }
+    };
 
     public static boolean shouldOpen(Context context) {
         FeatureEntitlementStore.Snapshot value = FeatureEntitlementStore.snapshot(context);
@@ -44,6 +60,9 @@ public final class EntitlementNoticeActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (savedInstanceState != null) {
+            returnedFromBilling = savedInstanceState.getBoolean(KEY_RETURNED_FROM_BILLING, false);
+        }
         FeatureEntitlementStore.Snapshot value = FeatureEntitlementStore.snapshot(this);
         String code = noticeCode(value);
         if (code.isEmpty()) {
@@ -55,11 +74,38 @@ public final class EntitlementNoticeActivity extends Activity {
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        ContextCompat.registerReceiver(this, purchaseVerificationReceiver,
+                new IntentFilter(ACTION_ENTITLEMENT_VERIFIED),
+                ContextCompat.RECEIVER_NOT_EXPORTED);
+        receiverRegistered = true;
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
-        // Google Play verification writes the authoritative entitlement before returning.
-        // Once restored, return to CRM; if still expired, keep the notice and records CTA.
-        if (returnedFromBilling && !EntitlementNoticeActivity.shouldOpen(this)) {
+        routeToCrmIfEntitled();
+    }
+
+    @Override
+    protected void onStop() {
+        if (receiverRegistered) {
+            unregisterReceiver(purchaseVerificationReceiver);
+            receiverRegistered = false;
+        }
+        super.onStop();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putBoolean(KEY_RETURNED_FROM_BILLING, returnedFromBilling);
+        super.onSaveInstanceState(outState);
+    }
+
+    private void routeToCrmIfEntitled() {
+        if (!returnedFromBilling || isFinishing() || isDestroyed()) return;
+        if (!EntitlementNoticeActivity.shouldOpen(this)) {
             returnedFromBilling = false;
             openMain();
         }
