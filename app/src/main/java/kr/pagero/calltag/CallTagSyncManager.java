@@ -110,7 +110,7 @@ public final class CallTagSyncManager {
             String accountKey = store.accountKey();
             requireSameAccount(context, accountKey, session);
             // A shared legacy CRM must not be uploaded or restored into another account.
-            CrmOwnershipPreflight.requireSafeForSync(context, accountKey);
+            CrmOwnershipPreflight.requireScopedForSync(context, accountKey);
             String deviceId = CallTagSyncDeviceStore.deviceId(context);
 
             // 고객 원문을 만들기 전에 민감정보가 없는 status 호출로 서버 활성화 여부를 확인한다.
@@ -130,10 +130,10 @@ public final class CallTagSyncManager {
 
             store.markStatus("SCANNING", "기기에서 변경된 항목을 확인하고 있습니다.");
             requireSameAccount(context, accountKey, session);
-            CrmOwnershipPreflight.requireSafeForSync(context, accountKey);
+            CrmOwnershipPreflight.requireScopedForSync(context, accountKey);
             CallTagSyncDataAdapter.scanLocal(context, store);
             requireSameAccount(context, accountKey, session);
-            CrmOwnershipPreflight.requireSafeForSync(context, accountKey);
+            CrmOwnershipPreflight.requireScopedForSync(context, accountKey);
             pushPending(context, store, accountKey, session, deviceId);
             pullChanges(context, store, accountKey, session, deviceId);
 
@@ -174,7 +174,7 @@ public final class CallTagSyncManager {
         String afterId = "";
         for (int page = 0; page < MAX_PAGES_PER_RUN; page++) {
             requireSameAccount(context, accountKey, session);
-            CrmOwnershipPreflight.requireSafeForSync(context, accountKey);
+            CrmOwnershipPreflight.requireScopedForSync(context, accountKey);
             JSONObject response = CallTagSyncApiClient.bootstrap(
                     session, deviceId, snapshotCursor, afterType, afterId, PAGE_SIZE);
             requireSameAccount(context, accountKey, session);
@@ -205,7 +205,7 @@ public final class CallTagSyncManager {
             String deviceId) throws Exception {
         for (int page = 0; page < MAX_PAGES_PER_RUN; page++) {
             requireSameAccount(context, accountKey, session);
-            CrmOwnershipPreflight.requireSafeForSync(context, accountKey);
+            CrmOwnershipPreflight.requireScopedForSync(context, accountKey);
             List<CallTagSyncLocalStore.PendingItem> pending = store.listPending(PAGE_SIZE);
             if (pending.isEmpty()) return;
             JSONArray items = new JSONArray();
@@ -256,7 +256,7 @@ public final class CallTagSyncManager {
         long cursor = store.cursor();
         for (int page = 0; page < MAX_PAGES_PER_RUN; page++) {
             requireSameAccount(context, accountKey, session);
-            CrmOwnershipPreflight.requireSafeForSync(context, accountKey);
+            CrmOwnershipPreflight.requireScopedForSync(context, accountKey);
             JSONObject response = CallTagSyncApiClient.pull(
                     session, deviceId, cursor, PAGE_SIZE);
             requireSameAccount(context, accountKey, session);

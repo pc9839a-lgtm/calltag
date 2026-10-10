@@ -88,6 +88,18 @@ public final class CrmOwnershipPreflight {
         }
     }
 
+    /**
+     * Cloud sync v2 is attached to the account-specific CRM database.
+     * The legacy shared file is never scanned and must never affect the new owner namespace.
+     */
+    public static void requireScopedForSync(Context context, String accountKey) {
+        if (context == null || accountKey == null || !accountKey.endsWith("|crm:v2")
+                || !accountKey.equals(CallTagSyncLocalStore.accountKey(context))) {
+            throw new IllegalStateException("동기화 계정 식별자가 바뀌어 작업을 중지했습니다.");
+        }
+        AccountDataScope.currentCrmName(context);
+    }
+
     private static long count(SQLiteDatabase db, String table) {
         if (!hasTable(db, table)) {
             throw new IllegalStateException("기존 CRM 테이블이 누락되었습니다: " + table);

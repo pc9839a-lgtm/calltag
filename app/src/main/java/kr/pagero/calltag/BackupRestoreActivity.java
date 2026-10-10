@@ -306,10 +306,12 @@ public final class BackupRestoreActivity extends Activity {
 
     private void setWorking(boolean value, String label) {
         working = value;
-        createButton.setEnabled(!value);
-        restoreButton.setEnabled(!value);
-        createButton.setAlpha(value ? 0.5f : 1f);
-        restoreButton.setAlpha(value ? 0.5f : 1f);
+        // The old backup implementation restores all device databases; keep disabled
+        // even if an unrelated spinner finishes or Activity state is restored.
+        createButton.setEnabled(false);
+        restoreButton.setEnabled(false);
+        createButton.setAlpha(0.45f);
+        restoreButton.setAlpha(0.45f);
         if (value) statusView.setText(label);
     }
 
