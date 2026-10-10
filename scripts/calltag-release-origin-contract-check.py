@@ -33,6 +33,7 @@ notice = (JAVA / "EntitlementNoticeActivity.java").read_text(encoding="utf-8")
 gate = (JAVA / "AuthGateActivity.java").read_text(encoding="utf-8")
 assert 'if ("TRIAL_EXPIRED".equals(code)) return true;' in notice
 assert '"TRIAL_EXPIRED".equalsIgnoreCase(value.noticeCode)' in notice
+assert 'if (value.phoneSubscribed || value.messageSubscribed) return "";' in notice
 assert gate.index("if (EntitlementNoticeActivity.shouldOpen(this))") < gate.index("if (!SetupRequirements.isReady(this))")
 
 # A single restore tap must be honored after Play reconnect even when ProductDetails
