@@ -16,10 +16,7 @@ import java.util.List;
 
 public final class PageroLeadApiClient {
     private static final String[] BASE_URLS = {
-            "https://pagero.kr",
-            "https://inlet-8mr.pages.dev",
-            "https://calltag.pagero.kr",
-            "https://agent-calltag-foundation.calltag.pages.dev"
+            "https://pagero.kr"
     };
 
     public static final class Page {
