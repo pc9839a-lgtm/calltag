@@ -28,6 +28,7 @@ import java.util.Map;
 public final class BillingEntitlementActivity extends Activity
         implements PlayBillingManager.Listener {
     private static final long PLAY_LOAD_TIMEOUT_MS = 6000L;
+    public static final String EXTRA_RETURN_AFTER_VERIFICATION = "return_after_verification";
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView stateTitle;
@@ -199,16 +200,28 @@ public final class BillingEntitlementActivity extends Activity
         }
 
         refreshing = true;
+        String ownerId = AuthSessionStore.ownerId(this);
+        long requestedAt = System.currentTimeMillis();
         if (notify) setWorking(true);
         new Thread(() -> {
             try {
                 JSONObject response = AuthApiClient.billingEntitlements(session);
-                FeatureEntitlementStore.saveServerEntitlement(this, response);
                 runOnUiThread(() -> {
                     refreshing = false;
+                    if (isFinishing() || isDestroyed()) return;
+                    // A Play verification can complete while this initial GET is in flight.
+                    // Never let its older response overwrite the newly verified purchase.
+                    boolean sameAccount = session.equals(AuthSessionStore.session(this))
+                            && ownerId.equals(AuthSessionStore.ownerId(this));
+                    if (sameAccount
+                            && FeatureEntitlementStore.snapshot(this).lastCheckedAt <= requestedAt) {
+                        FeatureEntitlementStore.saveServerEntitlement(this, response);
+                    }
                     if (notify) setWorking(false);
                     render();
-                    if (notify) Toast.makeText(this, "이용권을 새로 확인했습니다.", Toast.LENGTH_SHORT).show();
+                    if (notify && sameAccount) {
+                        Toast.makeText(this, "이용권을 새로 확인했습니다.", Toast.LENGTH_SHORT).show();
+                    }
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
@@ -425,8 +438,16 @@ public final class BillingEntitlementActivity extends Activity
     @Override
     public void onServerVerified() {
         runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed()) return;
             render();
             FeatureEntitlementStore.Snapshot value = FeatureEntitlementStore.snapshot(this);
+            if (getIntent().getBooleanExtra(EXTRA_RETURN_AFTER_VERIFICATION, false)
+                    && (value.phoneSubscribed || value.messageSubscribed)
+                    && !EntitlementNoticeActivity.shouldOpen(this)) {
+                // The existing notice on the back stack will reopen CRM on resume.
+                finish();
+                return;
+            }
             Toast.makeText(this, verifiedMessage(value), Toast.LENGTH_SHORT).show();
         });
     }
