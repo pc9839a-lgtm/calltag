@@ -96,7 +96,8 @@ assert "refreshEntitlement(session);" not in gate
 sync = (JAVA / "UniversalLeadSyncManager.java").read_text(encoding="utf-8")
 assert "return requestSyncInternal(context, true, true, false);" in sync
 assert "SyncResult result = syncNow(appContext, pollGoogleForms);" in sync
-assert "SyncResult result = syncNow(appContext, true);" in sync
+assert "return runWorkerSync(context, true);" in sync
+assert "SyncResult result = syncNow(appContext, pollGoogleForms);" in sync
 assert "if (pollGoogleForms) {" in sync
 assert sync.count("UniversalLeadNotificationManager.showImported(") >= 2
 assert "ExternalLeadIntegrationApiClient.syncGoogleForms(session);" in sync
@@ -112,6 +113,12 @@ assert "PERIOD_MINUTES = 15L" in scheduler
 assert ".setRequiredNetworkType(NetworkType.CONNECTED)" in scheduler
 assert ".setRequiresBatteryNotLow(true)" not in scheduler
 assert "ExistingWorkPolicy.KEEP" in scheduler
+assert 'KEY_SKIP_GOOGLE_FORMS_POLL = "skip_google_forms_poll"' in scheduler
+assert ".putBoolean(KEY_SKIP_GOOGLE_FORMS_POLL, true)" in scheduler
+assert "new PeriodicWorkRequest.Builder(" in scheduler
+worker = (JAVA / "ExternalLeadSyncWorker.java").read_text(encoding="utf-8")
+assert "runWorkerSync(app, pollGoogleForms)" in worker
+assert "KEY_SKIP_GOOGLE_FORMS_POLL, false" in worker
 fcm = (JAVA / "CallTagMessagingService.java").read_text(encoding="utf-8")
 assert 'UniversalLeadSyncManager.requestRealtimeSync(this);' in fcm
 assert 'ExternalLeadSyncWorkScheduler.enqueueImmediate(this);' in fcm
