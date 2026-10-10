@@ -43,10 +43,11 @@ public final class CallTagApplication extends Application implements Application
         ContactNameSyncManager.disableAndRestore(this);
 
         new Thread(() -> {
-            MessageRecoveryManager.recoverNow(this,
-                    MessageRecoveryManager.TRIGGER_APP_START);
+            // Both recovery modules access owner-scoped SQLite stores.
             if (AuthSessionStore.hasSession(this)
                     && !AuthSessionStore.ownerId(this).trim().isEmpty()) {
+                MessageRecoveryManager.recoverNow(this,
+                        MessageRecoveryManager.TRIGGER_APP_START);
                 DataIntegrityManager.recoverNow(this,
                         DataIntegrityManager.TRIGGER_APP_START);
             }
@@ -102,6 +103,7 @@ public final class CallTagApplication extends Application implements Application
             CrashTelemetryStore.record(activity, "home_task_editor", "visible", "");
         }
         if (activity instanceof MainActivity) {
+            LegacyCrmReviewNotice.showOnce(activity);
             MainExitGuard.install(activity);
             MainActivityCardInteractionFix.install((MainActivity) activity);
             ExternalLeadMenuInstaller.install((MainActivity) activity);

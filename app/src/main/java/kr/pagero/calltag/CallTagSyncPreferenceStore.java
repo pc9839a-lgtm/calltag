@@ -22,8 +22,9 @@ public final class CallTagSyncPreferenceStore {
     public static boolean isEnabled(Context context) {
         String key = key(context);
         if (key.isEmpty()) return false;
-        return prefs(context).getBoolean(key,
-                prefs(context).getBoolean(KEY_ENABLED, false));
+        // New scoped CRM needs explicit re-enablement; never inherit the global
+        // flag that was set while local IDs belonged to a shared database.
+        return prefs(context).getBoolean(key, false);
     }
 
     public static void setEnabled(Context context, boolean enabled) {

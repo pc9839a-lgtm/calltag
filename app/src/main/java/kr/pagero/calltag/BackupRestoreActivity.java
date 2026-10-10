@@ -80,10 +80,14 @@ public final class BackupRestoreActivity extends Activity {
 
         createButton = button("암호화 백업 만들기", true);
         createButton.setOnClickListener(v -> showBackupPasswordDialog());
+        createButton.setEnabled(false);
+        createButton.setAlpha(0.45f);
         root.addView(createButton, fixedHeight(52, 16));
 
         restoreButton = button("백업 파일 복원", false);
         restoreButton.setOnClickListener(v -> chooseRestoreFile());
+        restoreButton.setEnabled(false);
+        restoreButton.setAlpha(0.45f);
         root.addView(restoreButton, fixedHeight(50, 8));
 
         TextView format = body("콜태그 전용 .ctbackup · 로그인과 결제 권한은 제외");
@@ -92,7 +96,7 @@ public final class BackupRestoreActivity extends Activity {
         format.setEllipsize(TextUtils.TruncateAt.END);
         root.addView(format, topMargin(10));
 
-        TextView warning = body("복원하면 현재 데이터가 백업 시점 데이터로 교체됩니다");
+        TextView warning = body("다른 계정 데이터 보호를 위해 백업·복원을 일시 중단했습니다. 기존 DB와 .ctbackup 파일은 삭제되지 않습니다.");
         warning.setTextColor(getColor(R.color.danger));
         warning.setGravity(Gravity.CENTER_VERTICAL);
         warning.setPadding(dp(14), dp(11), dp(14), dp(11));
