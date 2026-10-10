@@ -24,6 +24,9 @@ public final class CallTagMessagingService extends FirebaseMessagingService {
             PageroLeadSyncManager.requestRealtimeSync(this);
             return;
         }
+        // The direct request is fast, while WorkManager keeps a durable fallback
+        // if Android stops this Firebase service before the in-memory task finishes.
         UniversalLeadSyncManager.requestRealtimeSync(this);
+        ExternalLeadSyncWorkScheduler.enqueueImmediate(this);
     }
 }
