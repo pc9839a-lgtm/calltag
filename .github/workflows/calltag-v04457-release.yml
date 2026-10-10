@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - patch/calltag-v04461-referral-cash-20261007
+      - patch/calltag-next-production-20261006
   pull_request:
     branches:
       - patch/calltag-next-production-20261006
@@ -32,6 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/calltag-universal-lead-contract-check.py
+          python3 scripts/calltag-release-origin-contract-check.py
           grep -F 'versionCode 2026100701' app/build.gradle
           grep -F "versionName '0.44.61'" app/build.gradle
           grep -F 'minifyEnabled true' app/build.gradle
