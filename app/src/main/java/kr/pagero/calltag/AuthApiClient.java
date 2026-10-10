@@ -22,9 +22,7 @@ public final class AuthApiClient {
      * to a different environment.
      */
     private static final String[] BASE_URLS = {
-            PRODUCTION_API_BASE,
-            "https://call.pagero.kr",
-            "https://inlet-8mr.pages.dev"
+            PRODUCTION_API_BASE
     };
 
     public static final class ApiException extends Exception {
