@@ -15,7 +15,7 @@ source = Path("app/src/main/java/kr/pagero/calltag/CallTagDbHelper.java").read_t
 sync = Path("app/src/main/java/kr/pagero/calltag/UniversalLeadSyncManager.java").read_text(
     encoding="utf-8"
 )
-assert "DB_VERSION = 4" in source
+assert "DB_VERSION = 5" in source
 assert "if (oldVersion < 4)" in source
 assert "createUniversalLeadImportTable(db);" in source
 assert "crm.beginTransaction();" in sync

@@ -12,8 +12,10 @@ import java.util.List;
 
 public final class CallTagDbHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "calltag.db";
-    private static final int DB_VERSION = 4;
+    private static final int DB_VERSION = 5;
     private static final String UNIVERSAL_LEAD_IMPORTS = "universal_lead_import_events";
+    private static final String POST_CALL_SAVES = "post_call_save_receipts";
+    private final Context appContext;
 
     public static final String STATUS_NEW = "신규";
     public static final String STATUS_CONSULTING = "진행 중";
@@ -42,6 +44,7 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
 
     public CallTagDbHelper(Context context) {
         super(context, DB_NAME, null, DB_VERSION);
+        appContext = context.getApplicationContext();
     }
 
     @Override
@@ -136,6 +139,7 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX idx_interactions_customer ON interactions(customer_id, started_at DESC)");
         db.execSQL("CREATE INDEX idx_tasks_due ON follow_up_tasks(status, due_at)");
         createUniversalLeadImportTable(db);
+        createPostCallSaveReceiptsTable(db);
         seedStages(db);
     }
 
@@ -162,6 +166,10 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
             // Append-only import journal: preserve all existing CRM rows and legacy receipts.
             createUniversalLeadImportTable(db);
         }
+        if (oldVersion < 5) {
+            // Add a durable post-call receipt without touching legacy customers or consultations.
+            createPostCallSaveReceiptsTable(db);
+        }
     }
 
     private static void createUniversalLeadImportTable(SQLiteDatabase db) {
@@ -176,6 +184,19 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
                 ")");
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_universal_crm_lead_owner " +
                 "ON " + UNIVERSAL_LEAD_IMPORTS + "(owner_id, customer_id)");
+    }
+
+    private static void createPostCallSaveReceiptsTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + POST_CALL_SAVES + " (" +
+                "account_key TEXT NOT NULL," +
+                "call_fingerprint TEXT NOT NULL," +
+                "interaction_id INTEGER NOT NULL," +
+                "saved_at INTEGER NOT NULL," +
+                "PRIMARY KEY(account_key, call_fingerprint)," +
+                "FOREIGN KEY(interaction_id) REFERENCES interactions(id) ON DELETE CASCADE" +
+                ")");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_post_call_receipt_interaction " +
+                "ON " + POST_CALL_SAVES + "(interaction_id)");
     }
 
     private boolean hasColumn(SQLiteDatabase db, String table, String column) {
@@ -428,6 +449,66 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
         if (ownerId == null || ownerId.trim().isEmpty()
                 || eventId == null || eventId.trim().isEmpty()) {
             throw new IllegalArgumentException("문의 수신 계정 또는 eventId가 없습니다.");
+        }
+    }
+
+    /**
+     * Crash-safe post-call memo save shared by the Activity and compact overlay.
+     * Customer creation, memo update, call interaction and receipt are committed together.
+     * The receipt remains even if Android kills the process before SharedPreferences is updated.
+     *
+     * Account-qualified receipts do NOT migrate or isolate the legacy shared CRM tables.
+     */
+    public synchronized long savePostCallMemo(
+            String accountKey, String fingerprint, String displayName, String phone, String memo,
+            String type, long startedAt, long endedAt, long durationSec) {
+        if (accountKey == null || accountKey.isEmpty()
+                || fingerprint == null || fingerprint.isEmpty()) {
+            throw new IllegalStateException("로그인 계정 또는 통화 식별자가 없습니다.");
+        }
+        if (!accountKey.equals(CallTagSyncLocalStore.accountKey(appContext))) {
+            throw new IllegalStateException("로그인 계정이 변경되었습니다. 다시 시도해주세요.");
+        }
+        SQLiteDatabase database = getWritableDatabase();
+        database.beginTransaction();
+        try {
+            try (Cursor receipt = database.query(POST_CALL_SAVES,
+                    new String[]{"interaction_id"},
+                    "account_key=? AND call_fingerprint=?",
+                    new String[]{accountKey, fingerprint}, null, null, null, "1")) {
+                if (receipt.moveToFirst()) {
+                    long interactionId = receipt.getLong(0);
+                    database.setTransactionSuccessful();
+                    return interactionId;
+                }
+            }
+
+            Customer latest = findByPhone(phone);
+            long customerId = latest == null
+                    ? insertCustomer(displayName, phone, firstStage(), "")
+                    : latest.id;
+            String stage = latest == null ? firstStage() : latest.relationStatus;
+            updateCustomerProfile(customerId, displayName, stage, memo);
+            long safeStart = Math.max(0L, startedAt);
+            long safeEnd = Math.max(safeStart, endedAt);
+            long interactionId = CallInteractionDeduper.insertOnce(
+                    this, customerId, type, safeStart, safeEnd,
+                    Math.max(0L, durationSec), "MEMO_SAVED", memo);
+
+            // Do not commit another user's note if a new account logged in mid-save.
+            if (!accountKey.equals(CallTagSyncLocalStore.accountKey(appContext))) {
+                throw new IllegalStateException("저장 중 로그인 계정이 변경되었습니다.");
+            }
+            ContentValues receipt = new ContentValues();
+            receipt.put("account_key", accountKey);
+            receipt.put("call_fingerprint", fingerprint);
+            receipt.put("interaction_id", interactionId);
+            receipt.put("saved_at", System.currentTimeMillis());
+            database.insertOrThrow(POST_CALL_SAVES, null, receipt);
+            database.setTransactionSuccessful();
+            return interactionId;
+        } finally {
+            database.endTransaction();
         }
     }
 

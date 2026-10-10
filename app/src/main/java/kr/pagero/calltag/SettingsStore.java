@@ -82,13 +82,17 @@ public final class SettingsStore {
     }
 
     public static boolean isCallProcessed(Context context, String fingerprint) {
-        if (fingerprint == null || fingerprint.isEmpty()) return false;
-        return fingerprint.equals(prefs(context).getString(KEY_LAST_PROCESSED_CALL, ""));
+        String accountKey = CallTagSyncLocalStore.accountKey(context);
+        if (accountKey.isEmpty() || fingerprint == null || fingerprint.isEmpty()) return false;
+        return (accountKey + "|" + fingerprint).equals(
+                prefs(context).getString(KEY_LAST_PROCESSED_CALL, ""));
     }
 
     public static void markCallProcessed(Context context, String fingerprint) {
-        if (fingerprint == null || fingerprint.isEmpty()) return;
-        prefs(context).edit().putString(KEY_LAST_PROCESSED_CALL, fingerprint).apply();
+        String accountKey = CallTagSyncLocalStore.accountKey(context);
+        if (accountKey.isEmpty() || fingerprint == null || fingerprint.isEmpty()) return;
+        prefs(context).edit().putString(KEY_LAST_PROCESSED_CALL,
+                accountKey + "|" + fingerprint).apply();
     }
 
     public static int callerPrivacyMode(Context context) {
