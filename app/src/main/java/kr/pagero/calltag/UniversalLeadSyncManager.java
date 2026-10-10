@@ -196,7 +196,10 @@ public final class UniversalLeadSyncManager {
 
     private static SyncResult syncNow(Context context, boolean pollGoogleForms) throws Exception {
         String session = AuthSessionStore.session(context);
-        if (session.isEmpty()) throw new IllegalStateException("콜태그 로그인이 필요합니다.");
+        String ownerId = AuthSessionStore.ownerId(context);
+        if (session.isEmpty() || ownerId.isEmpty()) {
+            throw new IllegalStateException("콜태그 로그인 계정을 확인해주세요.");
+        }
 
         SyncResult result = new SyncResult();
 
@@ -220,15 +223,21 @@ public final class UniversalLeadSyncManager {
             }
         }
 
+        // Provider polling is remote and can take time. A different user might have signed in.
+        assertSameAccount(context, session, ownerId);
         long after = 0L;
         try (CallTagDbHelper db = new CallTagDbHelper(context);
              UniversalLeadReceiptStore receipts = new UniversalLeadReceiptStore(context)) {
             for (int pageIndex = 0; pageIndex < MAX_PAGES_PER_RUN; pageIndex++) {
+                assertSameAccount(context, session, ownerId);
                 UniversalLeadApiClient.Page page = UniversalLeadApiClient.list(session, after, PAGE_SIZE);
+                assertSameAccount(context, session, ownerId);
                 if (page.leads.isEmpty()) break;
 
                 List<Long> acknowledged = new ArrayList<>();
                 for (UniversalLead lead : page.leads) {
+                    // Never store a previous user's remote lead after an account switch.
+                    assertSameAccount(context, session, ownerId);
                     if (receipts.isImported(lead.eventId)) {
                         acknowledged.add(lead.id);
                         continue;
@@ -250,6 +259,7 @@ public final class UniversalLeadSyncManager {
                 }
 
                 if (!acknowledged.isEmpty()) {
+                    assertSameAccount(context, session, ownerId);
                     UniversalLeadApiClient.acknowledgeImported(
                             session,
                             acknowledged,
@@ -263,6 +273,14 @@ public final class UniversalLeadSyncManager {
             }
         }
         return result;
+    }
+
+    private static void assertSameAccount(Context context, String session, String ownerId) {
+        if (!session.equals(AuthSessionStore.session(context))
+                || !ownerId.equals(AuthSessionStore.ownerId(context))) {
+            throw new IllegalStateException(
+                    "로그인 계정이 변경되어 외부 문의 동기화를 중단했습니다.");
+        }
     }
 
     private static ImportResult importLead(CallTagDbHelper db, UniversalLead lead) {
