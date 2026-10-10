@@ -46,7 +46,11 @@ assert "if (billing != null && billing.isReady())" in billing
 assert "if (restoreRequested) {" in billing
 assert "setEnabled(restoreButton, !working && !restoreRequested);" in billing
 assert "private boolean returnedFromBilling;" in notice
-assert "if (returnedFromBilling && !EntitlementNoticeActivity.shouldOpen(this))" in notice
+assert "if (!returnedFromBilling || isFinishing() || isDestroyed()) return;" in notice
+assert "private void routeToCrmIfEntitled()" in notice
+assert "ContextCompat.RECEIVER_NOT_EXPORTED" in notice
+assert "KEY_RETURNED_FROM_BILLING" in notice
+assert "EXTRA_RETURN_AFTER_VERIFICATION" in notice
 assert "startActivity(new Intent(this, BillingEntitlementActivity.class));\n            finish();" not in notice
 
 # Play subscription reconciliation must be account-scoped, not device-global.
@@ -65,6 +69,17 @@ assert play.count('if (!matchesAccount(ownerId, session)) return;') >= 4
 assert play.count('if (!closed) listener.onServerVerified();') == 2
 
 assert play.count('FeatureEntitlementStore.saveServerEntitlement(activity, response);') == 2
+
+# Expired notice must be informed when verification finishes after billing screen closes.
+assert play.count("EntitlementNoticeActivity.ACTION_ENTITLEMENT_VERIFIED") == 2
+assert 'EXTRA_RETURN_AFTER_VERIFICATION = "return_after_verification"' in billing
+assert "lastCheckedAt <= requestedAt" in billing
+assert "sameAccount = session.equals(AuthSessionStore.session(this))" in billing
+assert "if (isFinishing() || isDestroyed()) return;" in billing
+
+entitlement = (JAVA / "FeatureEntitlementStore.java").read_text(encoding="utf-8")
+assert "isTrial() && remainingDays >= 0 && remainingDays <= 1" in entitlement
+
 
 
 
