@@ -144,6 +144,10 @@ public final class UniversalLeadSyncManager {
      * so transient network/provider failures can trigger WorkManager retry/backoff.
      */
     public static WorkerSyncResult runWorkerSync(Context context) {
+        return runWorkerSync(context, true);
+    }
+
+    public static WorkerSyncResult runWorkerSync(Context context, boolean pollGoogleForms) {
         if (context == null) return WorkerSyncResult.SUCCESS;
         Context appContext = context.getApplicationContext();
         if (!AuthSessionStore.hasSession(appContext)) return WorkerSyncResult.SUCCESS;
@@ -153,7 +157,7 @@ public final class UniversalLeadSyncManager {
 
         boolean changed = false;
         try {
-            SyncResult result = syncNow(appContext, true);
+            SyncResult result = syncNow(appContext, pollGoogleForms);
             changed = result.imported > 0 || result.updated > 0;
             if (changed) {
                 ContactNameSyncManager.requestSyncAll(appContext);
