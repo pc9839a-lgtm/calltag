@@ -107,7 +107,11 @@ public final class SmsSender {
                 Intent sent = new Intent(context, SmsStatusReceiver.class)
                         .setAction(SmsStatusReceiver.ACTION_SENT)
                         .setPackage(context.getPackageName())
-                        .setData(Uri.parse("calltag://sms-sent/" + messageId + "/" + i))
+                        .setData(Uri.parse("calltag://sms-sent/"
+                                + AccountDataScope.fingerprint(AccountDataScope.requireOwner(context))
+                                + "/" + messageId + "/" + i))
+                        .putExtra(SmsStatusReceiver.EXTRA_OWNER_SCOPE,
+                                AccountDataScope.fingerprint(AccountDataScope.requireOwner(context)))
                         .putExtra(SmsStatusReceiver.EXTRA_MESSAGE_ID, messageId)
                         .putExtra(SmsStatusReceiver.EXTRA_PART_INDEX, i)
                         .putExtra(SmsStatusReceiver.EXTRA_PART_COUNT, parts.size());
