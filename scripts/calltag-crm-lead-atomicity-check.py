@@ -15,7 +15,7 @@ source = Path("app/src/main/java/kr/pagero/calltag/CallTagDbHelper.java").read_t
 sync = Path("app/src/main/java/kr/pagero/calltag/UniversalLeadSyncManager.java").read_text(
     encoding="utf-8"
 )
-assert "DB_VERSION = 4" in source
+assert "DB_VERSION = 5" in source
 assert "if (oldVersion < 4)" in source
 assert "createUniversalLeadImportTable(db);" in source
 assert "crm.beginTransaction();" in sync
@@ -25,7 +25,7 @@ assert sync.index("db.recordUniversalLeadImported(") < sync.index("receipts.mark
 
 table = re.search(r'UNIVERSAL_LEAD_IMPORTS\s*=\s*"([^"]+)"', source).group(1)
 sql_body = source.split("private static void createUniversalLeadImportTable", 1)[1].split(
-    "private boolean hasColumn", 1
+    "private static void createPostCallSaveReceiptsTable", 1
 )[0]
 ddls = []
 for expression in re.findall(r"db\.execSQL\((.*?)\);", sql_body, re.S):

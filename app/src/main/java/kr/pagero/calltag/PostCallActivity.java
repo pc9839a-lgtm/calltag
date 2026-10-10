@@ -165,29 +165,10 @@ public final class PostCallActivity extends Activity {
 
         setSaving(true);
         try {
-            Customer latest = db.findByPhone(phone);
-            long customerId;
-            String stage;
-            if (latest == null) {
-                stage = db.firstStage();
-                customerId = db.insertCustomer(name, phone, stage, "");
-            } else {
-                customerId = latest.id;
-                stage = latest.relationStatus;
-            }
-            db.updateCustomerProfile(customerId, name, stage, memo);
-
-            long startedAt = startedAt();
-            long endedAt = Math.max(startedAt, endedAt());
-            long interactionId = CallInteractionDeduper.insertOnce(
-                    db,
-                    customerId,
-                    CallDisposition.interactionType(callType()),
-                    startedAt,
-                    endedAt,
-                    durationSec(),
-                    "MEMO_SAVED",
-                    memo);
+            long interactionId = db.savePostCallMemo(
+                    CallTagSyncLocalStore.accountKey(this), callFingerprint,
+                    name, phone, memo, CallDisposition.interactionType(callType()),
+                    startedAt(), endedAt(), durationSec());
 
             SettingsStore.markCallProcessed(this, callFingerprint);
             markPendingHandledSafely();

@@ -35,6 +35,7 @@ jobs:
           python3 scripts/calltag-universal-lead-contract-check.py
           python3 scripts/calltag-receipt-schema-sqlite-check.py
           python3 scripts/calltag-crm-lead-atomicity-check.py
+          python3 scripts/calltag-postcall-memo-sqlite-check.py
           python3 scripts/calltag-release-origin-contract-check.py
           grep -F 'versionCode 2026100701' app/build.gradle
           grep -F "versionName '0.44.61'" app/build.gradle

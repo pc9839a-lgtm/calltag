@@ -251,28 +251,10 @@ public final class PostCallOverlayManager {
 
         CallTagDbHelper db = new CallTagDbHelper(context);
         try {
-            Customer latest = db.findByPhone(record.phone);
-            long customerId;
-            String stage;
-            if (latest == null) {
-                stage = db.firstStage();
-                customerId = db.insertCustomer(name, record.phone, stage, "");
-            } else {
-                customerId = latest.id;
-                stage = latest.relationStatus;
-            }
-            db.updateCustomerProfile(customerId, name, stage, note);
-            long startedAt = Math.max(0L, record.startedAt);
-            long endedAt = Math.max(startedAt, record.endedAt());
-            long interactionId = CallInteractionDeduper.insertOnce(
-                    db,
-                    customerId,
-                    CallDisposition.interactionType(record.type),
-                    startedAt,
-                    endedAt,
-                    Math.max(0L, record.durationSec),
-                    "MEMO_SAVED",
-                    note);
+            long interactionId = db.savePostCallMemo(
+                    CallTagSyncLocalStore.accountKey(context), fingerprint,
+                    name, record.phone, note, CallDisposition.interactionType(record.type),
+                    record.startedAt, record.endedAt(), record.durationSec);
             SettingsStore.markCallProcessed(context, fingerprint);
             markPendingHandled(context, reviewIntent);
             PostCallRecoveryStore.markDelivered(context, record.id);
