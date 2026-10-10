@@ -89,6 +89,8 @@ assert sync.index('if (imported != null) result.record(imported);') < sync.index
 forbid(receipt, "DROP TABLE", "v1 receipt history must never be dropped during migration")
 forbid(receipt, "deleteDatabase(", "legacy customer receipt files must not be deleted")
 require(sync, '"ACK_PENDING"', "partial local import and pending server ACK status missing")
+require(sync, 'sendResult(appContext, false, result,', "ACK_PENDING broadcast must pass a SyncResult")
+forbid(sync, 'sendResult(appContext, false,\n', "ACK_PENDING broadcast must not omit the SyncResult argument")
 require(sync, 'if (result.ackPending)', "ACK failure must not claim full sync success")
 require(sync, 'if (result.ackRetryRecommended)', "transient ACK failures need durable retry")
 require(sync, 'ExternalLeadSyncWorkScheduler.enqueueImmediate(appContext)', "async ACK retry schedule missing")
