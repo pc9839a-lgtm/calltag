@@ -27,7 +27,9 @@ public final class PlaySubscriptionReconcileManager {
     private static final String PREFS = "calltag_play_reconcile";
     private static final String KEY_LAST_ATTEMPT_AT = "last_attempt_at";
     private static final String KEY_LAST_SUCCESS_AT = "last_success_at";
+    private static final String KEY_OWNER_ID = "owner_id";
     private static final long MIN_INTERVAL_MS = 6L * 60L * 60L * 1000L;
+    private static final long RETRY_INTERVAL_MS = 5L * 60L * 1000L;
     private static final AtomicBoolean RUNNING = new AtomicBoolean(false);
 
     private PlaySubscriptionReconcileManager() {}
@@ -36,14 +38,27 @@ public final class PlaySubscriptionReconcileManager {
         if (context == null) return;
         Context app = context.getApplicationContext();
         String session = AuthSessionStore.session(app);
-        if (session == null || session.trim().isEmpty()) return;
+        String ownerId = AuthSessionStore.ownerId(app);
+        if (session == null || session.trim().isEmpty()
+                || ownerId == null || ownerId.trim().isEmpty()) return;
 
         SharedPreferences prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        if (!RUNNING.compareAndSet(false, true)) return;
+        String previousOwner = prefs.getString(KEY_OWNER_ID, "");
+        if (!ownerId.equals(previousOwner)) {
+            // A different user must not inherit the previous account's 6h throttle.
+            prefs.edit().putString(KEY_OWNER_ID, ownerId)
+                    .remove(KEY_LAST_ATTEMPT_AT).remove(KEY_LAST_SUCCESS_AT).commit();
+        }
         long now = System.currentTimeMillis();
         long lastAttempt = prefs.getLong(KEY_LAST_ATTEMPT_AT, 0L);
-        if (now - lastAttempt < MIN_INTERVAL_MS) return;
-        if (!RUNNING.compareAndSet(false, true)) return;
-
+        long lastSuccess = prefs.getLong(KEY_LAST_SUCCESS_AT, 0L);
+        long interval = lastAttempt > 0L && lastSuccess >= lastAttempt
+                ? MIN_INTERVAL_MS : RETRY_INTERVAL_MS;
+        if (now - lastAttempt < interval) {
+            RUNNING.set(false);
+            return;
+        }
         prefs.edit().putLong(KEY_LAST_ATTEMPT_AT, now).apply();
 
         BillingClient client = BillingClient.newBuilder(app)
@@ -79,12 +94,18 @@ public final class PlaySubscriptionReconcileManager {
                     JSONArray payload = purchasePayload(purchases);
                     finish(client);
                     if (payload.length() == 0) {
-                        prefs.edit().putLong(KEY_LAST_SUCCESS_AT, System.currentTimeMillis()).apply();
+                        if (matchesAccount(app, ownerId, session)) {
+                            prefs.edit().putLong(KEY_LAST_SUCCESS_AT, System.currentTimeMillis()).apply();
+                        }
                         return;
                     }
                     new Thread(() -> {
                         try {
+                            // A logout or account switch can happen while Play is querying.
+                            // Never apply the old user's verification to the current user's cache.
+                            if (!matchesAccount(app, ownerId, session)) return;
                             JSONObject response = AuthApiClient.restoreGooglePurchases(session, payload);
+                            if (!matchesAccount(app, ownerId, session)) return;
                             FeatureEntitlementStore.saveServerEntitlement(app, response);
                             prefs.edit()
                                     .putLong(KEY_LAST_SUCCESS_AT, System.currentTimeMillis())
@@ -108,6 +129,11 @@ public final class PlaySubscriptionReconcileManager {
                 finish(client);
             }
         });
+    }
+
+    private static boolean matchesAccount(Context app, String ownerId, String session) {
+        return ownerId.equals(AuthSessionStore.ownerId(app))
+                && session.equals(AuthSessionStore.session(app));
     }
 
     private static JSONArray purchasePayload(List<Purchase> purchases) {
