@@ -267,6 +267,11 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                     // Persist the verified state for the same account; avoid callbacks
                     // into a destroyed billing UI.
                     FeatureEntitlementStore.saveServerEntitlement(activity, response);
+                    // The billing screen can already be closed when server verification ends.
+                    // Notify the expired notice without trusting a client-side purchase result.
+                    activity.sendBroadcast(new android.content.Intent(
+                            EntitlementNoticeActivity.ACTION_ENTITLEMENT_VERIFIED)
+                            .setPackage(activity.getPackageName()));
                     if (!closed) listener.onServerVerified();
                 });
             } catch (Exception error) {
@@ -321,6 +326,11 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                     // Persist the verified state for the same account; avoid callbacks
                     // into a destroyed billing UI.
                     FeatureEntitlementStore.saveServerEntitlement(activity, response);
+                    // The billing screen can already be closed when server verification ends.
+                    // Notify the expired notice without trusting a client-side purchase result.
+                    activity.sendBroadcast(new android.content.Intent(
+                            EntitlementNoticeActivity.ACTION_ENTITLEMENT_VERIFIED)
+                            .setPackage(activity.getPackageName()));
                     if (!closed) listener.onServerVerified();
                 });
             } catch (Exception error) {
