@@ -11,7 +11,13 @@ import java.util.Locale;
 public final class AccountDataScope {
     private static final String[] DATABASES = {
             "calltag.db", "calltag_groups.db", "calltag_messages.db",
-            "calltag_campaigns.db", "calltag_task_types.db", "calltag_pending.db"
+            "calltag_campaigns.db", "calltag_task_types.db", "calltag_pending.db",
+            "calltag-pagero-sync.db"
+    };
+    private static final String[] PRIVATE_PREFERENCES = {
+            "calltag_message_automation", "calltag_message_templates_v1",
+            "calltag_message_exclusions", "calltag_task_message_links_v1",
+            "calltag_post_call_exclusions", "calltag_post_call_recovery"
     };
     private AccountDataScope() {}
 
@@ -60,6 +66,15 @@ public final class AccountDataScope {
         String owner = requireOwner(context);
         List<String> names = new ArrayList<>();
         for (String db : DATABASES) names.add(nameForOwner(owner, db));
+        return names;
+    }
+
+    public static List<String> currentAccountPreferences(Context context) {
+        String owner = requireOwner(context);
+        List<String> names = new ArrayList<>();
+        for (String pref : PRIVATE_PREFERENCES) {
+            names.add(pref + "-owner-" + fingerprint(owner));
+        }
         return names;
     }
 

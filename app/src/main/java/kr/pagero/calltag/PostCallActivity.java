@@ -33,6 +33,11 @@ public final class PostCallActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (!AuthSessionStore.hasSession(this)
+                || AuthSessionStore.ownerId(this).trim().isEmpty()) {
+            finish();
+            return;
+        }
         if (!isUserInitiated(getIntent())) {
             CrashTelemetryStore.record(this, "post_call", "blocked_automatic_activity",
                     "call=" + getIntent().getLongExtra(EXTRA_CALL_LOG_ID, -1L));

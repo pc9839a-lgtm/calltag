@@ -161,6 +161,7 @@ public final class AccountActivity extends Activity {
         FeatureEntitlementStore.clear(this);
         ReferralStateStore.clear(this);
         java.util.List<String> ownedDatabases = AccountDataScope.currentAccountDatabases(this);
+        java.util.List<String> ownedPreferences = AccountDataScope.currentAccountPreferences(this);
         String deletedAccountKey = CallTagSyncLocalStore.accountKey(this);
         try (CallTagSyncLocalStore store = new CallTagSyncLocalStore(this)) {
             if (!deletedAccountKey.isEmpty()) {
@@ -176,6 +177,9 @@ public final class AccountActivity extends Activity {
         AuthSessionStore.clear(this);
         for (String databaseName : ownedDatabases) {
             deleteDatabase(databaseName);
+        }
+        for (String preferenceName : ownedPreferences) {
+            getSharedPreferences(preferenceName, MODE_PRIVATE).edit().clear().commit();
         }
         Toast.makeText(this, "회원탈퇴가 완료됐어요.", Toast.LENGTH_LONG).show();
         startActivity(new Intent(this, LoginActivity.class)
