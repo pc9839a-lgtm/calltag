@@ -241,7 +241,8 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
         }
         if (purchase.getPurchaseState() != Purchase.PurchaseState.PURCHASED) return;
         String session = AuthSessionStore.session(activity);
-        if (session.isEmpty()) {
+        String ownerId = AuthSessionStore.ownerId(activity);
+        if (session.isEmpty() || ownerId.isEmpty()) {
             listener.onBillingMessage("로그인 정보를 다시 확인해주세요.");
             return;
         }
@@ -254,23 +255,32 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
         }
         new Thread(() -> {
             try {
+                if (!matchesAccount(ownerId, session)) return;
                 JSONObject response = AuthApiClient.verifyGooglePurchase(
                         session,
                         productId,
                         purchase.getPurchaseToken(),
                         purchase.getOrderId());
-                FeatureEntitlementStore.saveServerEntitlement(activity, response);
-                activity.runOnUiThread(listener::onServerVerified);
+                activity.runOnUiThread(() -> {
+                    if (!matchesAccount(ownerId, session) || closed) return;
+                    FeatureEntitlementStore.saveServerEntitlement(activity, response);
+                    listener.onServerVerified();
+                });
             } catch (Exception error) {
-                activity.runOnUiThread(() -> listener.onBillingMessage(
-                        "결제 확인을 완료하지 못했습니다. 구매 복원을 눌러주세요."));
+                activity.runOnUiThread(() -> {
+                    if (matchesAccount(ownerId, session) && !closed) {
+                        listener.onBillingMessage(
+                                "결제 확인을 완료하지 못했습니다. 구매 복원을 눌러주세요.");
+                    }
+                });
             }
         }, "calltag-play-verify").start();
     }
 
     private void restoreOnServer(List<Purchase> purchases) {
         String session = AuthSessionStore.session(activity);
-        if (session.isEmpty()) {
+        String ownerId = AuthSessionStore.ownerId(activity);
+        if (session.isEmpty() || ownerId.isEmpty()) {
             listener.onBillingMessage("로그인 정보를 다시 확인해주세요.");
             return;
         }
@@ -300,14 +310,27 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
         }
         new Thread(() -> {
             try {
+                if (!matchesAccount(ownerId, session)) return;
                 JSONObject response = AuthApiClient.restoreGooglePurchases(session, payload);
-                FeatureEntitlementStore.saveServerEntitlement(activity, response);
-                activity.runOnUiThread(listener::onServerVerified);
+                activity.runOnUiThread(() -> {
+                    if (!matchesAccount(ownerId, session) || closed) return;
+                    FeatureEntitlementStore.saveServerEntitlement(activity, response);
+                    listener.onServerVerified();
+                });
             } catch (Exception error) {
-                activity.runOnUiThread(() -> listener.onBillingMessage(
-                        "구매 내역을 복원하지 못했습니다. 잠시 후 다시 시도해주세요."));
+                activity.runOnUiThread(() -> {
+                    if (matchesAccount(ownerId, session) && !closed) {
+                        listener.onBillingMessage(
+                                "구매 내역을 복원하지 못했습니다. 잠시 후 다시 시도해주세요.");
+                    }
+                });
             }
         }, "calltag-play-restore").start();
+    }
+
+    private boolean matchesAccount(String ownerId, String session) {
+        return ownerId.equals(AuthSessionStore.ownerId(activity))
+                && session.equals(AuthSessionStore.session(activity));
     }
 
     private String obfuscatedAccountId() {
