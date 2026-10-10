@@ -160,7 +160,8 @@ public final class EntitlementNoticeActivity extends Activity {
             // Keep the expired notice in the back stack. Otherwise returning from
             // Play purchase/restore can leave the user at a blank/exiting task.
             returnedFromBilling = true;
-            startActivity(new Intent(this, BillingEntitlementActivity.class));
+            startActivity(new Intent(this, BillingEntitlementActivity.class)
+                    .putExtra(BillingEntitlementActivity.EXTRA_RETURN_AFTER_VERIFICATION, true));
         });
         LinearLayout.LayoutParams billingParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
