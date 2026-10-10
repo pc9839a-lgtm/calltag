@@ -26,13 +26,11 @@ public final class MessageLogStore extends SQLiteOpenHelper {
     private static final int DB_VERSION = 2;
     private static final String ACTIVE_STATUS_SQL = "('SCHEDULED','READY','SENDING','SENT')";
 
-    private final Context appContext;
 
     public MessageLogStore(Context context) {
         super(context.getApplicationContext(), AccountDataScope.name(context, DB_NAME), null, DB_VERSION);
         appContext = context.getApplicationContext();
         openedDatabaseName = AccountDataScope.name(context, DB_NAME);
-        appContext = context.getApplicationContext();
     }
 
     private void assertScope() {
