@@ -47,7 +47,9 @@ assert "if (billing != null && billing.isReady())" in billing
 assert "if (restoreRequested) {" in billing
 assert "setEnabled(restoreButton, !working && !restoreRequested);" in billing
 assert "private boolean returnedFromBilling;" in notice
-assert "if (!returnedFromBilling || isFinishing() || isDestroyed()) return;" in notice
+assert "(!returnedFromBilling && !restoredByPlayReconcile)" in notice
+assert "PlaySubscriptionReconcileManager.reconcileIfDue(this);" in notice
+assert "current.phoneSubscribed || current.messageSubscribed" in notice
 assert "private void routeToCrmIfEntitled()" in notice
 assert "ContextCompat.RECEIVER_NOT_EXPORTED" in notice
 assert "KEY_RETURNED_FROM_BILLING" in notice
@@ -62,6 +64,7 @@ assert 'RETRY_INTERVAL_MS = 5L * 60L * 1000L' in reconcile
 assert 'lastSuccess >= lastAttempt' in reconcile
 assert 'prefs.edit().putString(KEY_OWNER_ID, ownerId)' in reconcile
 assert reconcile.count("matchesAccount(app, ownerId, session)") >= 3
+assert "EntitlementNoticeActivity.ACTION_ENTITLEMENT_VERIFIED" in reconcile
 
 # Purchase and restore callbacks must not overwrite entitlement after logout/account switch.
 play = (JAVA / "PlayBillingManager.java").read_text(encoding="utf-8")
