@@ -21,8 +21,10 @@ public final class ExternalLeadSyncWorker extends Worker {
         if (!AuthSessionStore.hasSession(app)) return Result.success();
         if (isStopped()) return Result.retry();
 
+        boolean pollGoogleForms = !getInputData().getBoolean(
+                ExternalLeadSyncWorkScheduler.KEY_SKIP_GOOGLE_FORMS_POLL, false);
         UniversalLeadSyncManager.WorkerSyncResult outcome =
-                UniversalLeadSyncManager.runWorkerSync(app);
+                UniversalLeadSyncManager.runWorkerSync(app, pollGoogleForms);
         if (outcome == UniversalLeadSyncManager.WorkerSyncResult.RETRY) {
             return Result.retry();
         }
