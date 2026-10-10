@@ -106,8 +106,13 @@ public final class UniversalLeadSyncManager {
                                 appContext, result.imported, result.updated, result.customerIds());
                     }
                 }
+                if (result.morePagesPending) {
+                    // A bounded batch is complete, but more than 200 queued leads remain.
+                    // Continue through a durable worker rather than waiting 15 minutes.
+                    ExternalLeadSyncWorkScheduler.enqueueImmediate(appContext);
+                }
                 if (result.ackPending) {
-                    sendResult(appContext, false, result,
+                    sendResult(appContext, false,
                             "문의는 기기에 저장됐지만 서버 수신 확인을 완료하지 못했습니다.",
                             "ACK_PENDING");
                     if (result.ackRetryRecommended) {
@@ -175,7 +180,7 @@ public final class UniversalLeadSyncManager {
                         ? WorkerSyncResult.RETRY : WorkerSyncResult.FAILURE;
             }
             sendResult(appContext, true, result, successMessage(result), "");
-            return result.providerRetryRecommended
+            return (result.providerRetryRecommended || result.morePagesPending)
                     ? WorkerSyncResult.RETRY : WorkerSyncResult.SUCCESS;
         } catch (UniversalLeadApiClient.ApiException error) {
             String message = safeMessage(error);
@@ -331,6 +336,10 @@ public final class UniversalLeadSyncManager {
 
                 after = page.nextAfter;
                 if (!page.hasMore) break;
+                if (pageIndex == MAX_PAGES_PER_RUN - 1) {
+                    // WorkManager retries another bounded batch until the queue drains.
+                    result.morePagesPending = true;
+                }
             }
         }
         return result;
@@ -467,6 +476,7 @@ public final class UniversalLeadSyncManager {
         boolean providerRetryRecommended;
         boolean ackPending;
         boolean ackRetryRecommended;
+        boolean morePagesPending;
         String providerWarning = "";
         final Set<Long> changedCustomerIds = new LinkedHashSet<>();
 
