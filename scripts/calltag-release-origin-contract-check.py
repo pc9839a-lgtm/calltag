@@ -48,5 +48,11 @@ assert "SyncResult result = syncNow(appContext, true);" in sync
 assert "if (pollGoogleForms) {" in sync
 assert "ExternalLeadIntegrationApiClient.syncGoogleForms(session);" in sync
 
+scheduler = (JAVA / "ExternalLeadSyncWorkScheduler.java").read_text(encoding="utf-8")
+assert "PERIOD_MINUTES = 15L" in scheduler
+assert ".setRequiredNetworkType(NetworkType.CONNECTED)" in scheduler
+assert ".setRequiresBatteryNotLow(true)" not in scheduler
+
+
 
 print("CallTag 0.44.61 release origin / permission / expiry contract: PASS")
