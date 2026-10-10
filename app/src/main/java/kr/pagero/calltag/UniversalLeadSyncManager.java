@@ -298,9 +298,19 @@ public final class UniversalLeadSyncManager {
 
                         // This other DB is only an ACK/receipt cache now. If writing it
                         // fails, the CRM journal above still prevents a duplicate import.
-                        receipts.markImported(ownerId, lead.eventId, lead.id, customerId);
-                        acknowledged.add(lead.id);
                         if (imported != null) result.record(imported);
+                        try {
+                            receipts.markImported(ownerId, lead.eventId, lead.id, customerId);
+                            acknowledged.add(lead.id);
+                        } catch (RuntimeException receiptError) {
+                            // The transactional CRM journal has already committed:
+                            // report the new customer, retain its notification, and
+                            // retry the separate receipt/ACK database on the next run.
+                            result.ackPending = true;
+                            result.ackRetryRecommended = true;
+                            Log.w(TAG, "Lead receipt cache write pending");
+                            break;
+                        }
                     } catch (IllegalArgumentException invalid) {
                         result.rejected++;
                         try {
