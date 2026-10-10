@@ -61,8 +61,9 @@ assert reconcile.count("matchesAccount(app, ownerId, session)") >= 3
 # Purchase and restore callbacks must not overwrite entitlement after logout/account switch.
 play = (JAVA / "PlayBillingManager.java").read_text(encoding="utf-8")
 assert 'private boolean matchesAccount(String ownerId, String session)' in play
-assert play.count('if (!matchesAccount(ownerId, session) || closed) return;') == 2
-assert play.count('if (!matchesAccount(ownerId, session)) return;') >= 2
+assert play.count('if (!matchesAccount(ownerId, session)) return;') >= 4
+assert play.count('if (!closed) listener.onServerVerified();') == 2
+
 assert play.count('FeatureEntitlementStore.saveServerEntitlement(activity, response);') == 2
 
 
