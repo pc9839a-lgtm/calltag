@@ -33,12 +33,14 @@ public final class EntitlementNoticeActivity extends Activity {
     private static final int SUBTEXT = Color.rgb(71, 85, 105);
     private static final int BORDER = Color.rgb(226, 232, 240);
     private boolean returnedFromBilling;
+    private boolean restoredByPlayReconcile;
     private boolean receiverRegistered;
     private final BroadcastReceiver purchaseVerificationReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             // A verification can complete after the user has already returned from Play.
             // Only a server-verified active entitlement allows leaving the expired notice.
+            restoredByPlayReconcile = true;
             routeToCrmIfEntitled();
         }
     };
@@ -86,6 +88,12 @@ public final class EntitlementNoticeActivity extends Activity {
     protected void onResume() {
         super.onResume();
         routeToCrmIfEntitled();
+        if (!isFinishing() && "TRIAL_EXPIRED".equals(
+                noticeCode(FeatureEntitlementStore.snapshot(this)))) {
+            // Expired users cannot reach MainActivity, where the normal Play renewal
+            // reconciler runs. Try restoring a verified active subscription here too.
+            PlaySubscriptionReconcileManager.reconcileIfDue(this);
+        }
     }
 
     @Override
@@ -104,9 +112,13 @@ public final class EntitlementNoticeActivity extends Activity {
     }
 
     private void routeToCrmIfEntitled() {
-        if (!returnedFromBilling || isFinishing() || isDestroyed()) return;
-        if (!EntitlementNoticeActivity.shouldOpen(this)) {
+        if ((!returnedFromBilling && !restoredByPlayReconcile)
+                || isFinishing() || isDestroyed()) return;
+        FeatureEntitlementStore.Snapshot current = FeatureEntitlementStore.snapshot(this);
+        if (!EntitlementNoticeActivity.shouldOpen(this)
+                && (returnedFromBilling || current.phoneSubscribed || current.messageSubscribed)) {
             returnedFromBilling = false;
+            restoredByPlayReconcile = false;
             openMain();
         }
     }
