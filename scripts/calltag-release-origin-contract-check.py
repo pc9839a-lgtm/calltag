@@ -10,6 +10,7 @@ CLIENTS = (
     "CallTagSyncApiClient.java",
     "AuthApiClient.java",
     "CallTagPushApiClient.java",
+    "UniversalLeadApiClient.java",
 )
 for name in CLIENTS:
     source = (JAVA / name).read_text(encoding="utf-8")
@@ -33,5 +34,19 @@ gate = (JAVA / "AuthGateActivity.java").read_text(encoding="utf-8")
 assert 'if ("TRIAL_EXPIRED".equals(code)) return true;' in notice
 assert '"TRIAL_EXPIRED".equalsIgnoreCase(value.noticeCode)' in notice
 assert gate.index("if (EntitlementNoticeActivity.shouldOpen(this))") < gate.index("if (!SetupRequirements.isReady(this))")
+
+# Server rotates session tokens on some refreshes; all follow-up entitlement calls use stored new token.
+assert "String currentSession = AuthSessionStore.session(this);" in gate
+assert "refreshEntitlement(currentSession);" in gate
+assert "refreshEntitlement(session);" not in gate
+
+# FCM should never block canonical lead pull while polling Google Forms.
+sync = (JAVA / "UniversalLeadSyncManager.java").read_text(encoding="utf-8")
+assert "return requestSyncInternal(context, true, true, false);" in sync
+assert "SyncResult result = syncNow(appContext, pollGoogleForms);" in sync
+assert "SyncResult result = syncNow(appContext, true);" in sync
+assert "if (pollGoogleForms) {" in sync
+assert "ExternalLeadIntegrationApiClient.syncGoogleForms(session);" in sync
+
 
 print("CallTag 0.44.61 release origin / permission / expiry contract: PASS")
