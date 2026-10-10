@@ -107,6 +107,11 @@ public final class PlaySubscriptionReconcileManager {
                             JSONObject response = AuthApiClient.restoreGooglePurchases(session, payload);
                             if (!matchesAccount(app, ownerId, session)) return;
                             FeatureEntitlementStore.saveServerEntitlement(app, response);
+                            // The expired notice can be in the foreground instead of MainActivity.
+                            // Let it re-evaluate only server-verified subscription state.
+                            app.sendBroadcast(new android.content.Intent(
+                                    EntitlementNoticeActivity.ACTION_ENTITLEMENT_VERIFIED)
+                                    .setPackage(app.getPackageName()));
                             prefs.edit()
                                     .putLong(KEY_LAST_SUCCESS_AT, System.currentTimeMillis())
                                     .apply();
