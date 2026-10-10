@@ -266,10 +266,32 @@ public final class UniversalLeadSyncManager {
                         continue;
                     }
                     try {
-                        ImportResult imported = importLead(db, lead);
-                        receipts.markImported(ownerId, lead.eventId, lead.id, imported.customerId);
+                        // Commit the customer, LEAD_INQUIRY interaction and event journal
+                        // atomically inside calltag.db. A crash before the separate ACK
+                        // receipt write must never create a second consultation entry.
+                        SQLiteDatabase crm = db.getWritableDatabase();
+                        ImportResult imported = null;
+                        long customerId;
+                        crm.beginTransaction();
+                        try {
+                            customerId = db.importedUniversalLeadCustomerId(
+                                    ownerId, lead.eventId);
+                            if (customerId <= 0L) {
+                                imported = importLead(db, lead);
+                                customerId = imported.customerId;
+                                db.recordUniversalLeadImported(
+                                        ownerId, lead.eventId, lead.id, customerId);
+                            }
+                            crm.setTransactionSuccessful();
+                        } finally {
+                            crm.endTransaction();
+                        }
+
+                        // This other DB is only an ACK/receipt cache now. If writing it
+                        // fails, the CRM journal above still prevents a duplicate import.
+                        receipts.markImported(ownerId, lead.eventId, lead.id, customerId);
                         acknowledged.add(lead.id);
-                        result.record(imported);
+                        if (imported != null) result.record(imported);
                     } catch (IllegalArgumentException invalid) {
                         result.rejected++;
                         try {
