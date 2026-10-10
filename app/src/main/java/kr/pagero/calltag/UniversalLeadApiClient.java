@@ -16,11 +16,9 @@ import java.util.List;
 
 /** CallTag Universal Lead pull/ack API client. */
 public final class UniversalLeadApiClient {
+    // Delivery and ACK must use the same production D1 owner and session.
     private static final String[] BASE_URLS = {
-            "https://pagero.kr",
-            "https://inlet-8mr.pages.dev",
-            "https://calltag.pagero.kr",
-            "https://agent-calltag-foundation.calltag.pages.dev"
+            "https://pagero.kr"
     };
 
     public static final class Page {

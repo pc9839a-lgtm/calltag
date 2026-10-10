@@ -12,7 +12,8 @@ import java.util.List;
 
 public final class CallTagDbHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "calltag.db";
-    private static final int DB_VERSION = 3;
+    private static final int DB_VERSION = 4;
+    private static final String UNIVERSAL_LEAD_IMPORTS = "universal_lead_import_events";
 
     public static final String STATUS_NEW = "신규";
     public static final String STATUS_CONSULTING = "진행 중";
@@ -134,6 +135,7 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX idx_opportunities_customer ON opportunities(customer_id, updated_at DESC)");
         db.execSQL("CREATE INDEX idx_interactions_customer ON interactions(customer_id, started_at DESC)");
         db.execSQL("CREATE INDEX idx_tasks_due ON follow_up_tasks(status, due_at)");
+        createUniversalLeadImportTable(db);
         seedStages(db);
     }
 
@@ -156,6 +158,24 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
             }
             migrateToSimpleStages(db);
         }
+        if (oldVersion < 4) {
+            // Append-only import journal: preserve all existing CRM rows and legacy receipts.
+            createUniversalLeadImportTable(db);
+        }
+    }
+
+    private static void createUniversalLeadImportTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS " + UNIVERSAL_LEAD_IMPORTS + " (" +
+                "owner_id TEXT NOT NULL," +
+                "event_id TEXT NOT NULL," +
+                "server_lead_id INTEGER NOT NULL," +
+                "customer_id INTEGER NOT NULL," +
+                "imported_at INTEGER NOT NULL," +
+                "PRIMARY KEY(owner_id, event_id)," +
+                "FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE" +
+                ")");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_universal_crm_lead_owner " +
+                "ON " + UNIVERSAL_LEAD_IMPORTS + "(owner_id, customer_id)");
     }
 
     private boolean hasColumn(SQLiteDatabase db, String table, String column) {
@@ -367,6 +387,48 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
     private String sanitizeColor(String rawColor) {
         String color = rawColor == null ? "" : rawColor.trim().toUpperCase();
         return color.matches("#[0-9A-F]{6}") ? color : "#4389FF";
+    }
+
+    /**
+     * Query the durable CRM import journal. Call this within the same writable SQLite
+     * transaction that inserts the customer and LEAD_INQUIRY interaction.
+     */
+    public long importedUniversalLeadCustomerId(String ownerId, String eventId) {
+        validateUniversalLeadKey(ownerId, eventId);
+        try (Cursor cursor = getReadableDatabase().query(
+                UNIVERSAL_LEAD_IMPORTS, new String[]{"customer_id"},
+                "owner_id=? AND event_id=?",
+                new String[]{ownerId.trim(), eventId.trim()},
+                null, null, null, "1")) {
+            return cursor.moveToFirst() ? cursor.getLong(0) : -1L;
+        }
+    }
+
+    /**
+     * Must commit in the SAME CRM transaction as customer and interaction writes.
+     * A restart can then recover an imported lead even if the separate ACK receipt
+     * database was never updated.
+     */
+    public void recordUniversalLeadImported(
+            String ownerId, String eventId, long serverLeadId, long customerId) {
+        validateUniversalLeadKey(ownerId, eventId);
+        if (serverLeadId <= 0L || customerId <= 0L) {
+            throw new IllegalArgumentException("외부 문의 저장 식별자가 유효하지 않습니다.");
+        }
+        ContentValues values = new ContentValues();
+        values.put("owner_id", ownerId.trim());
+        values.put("event_id", eventId.trim());
+        values.put("server_lead_id", serverLeadId);
+        values.put("customer_id", customerId);
+        values.put("imported_at", System.currentTimeMillis());
+        getWritableDatabase().insertOrThrow(UNIVERSAL_LEAD_IMPORTS, null, values);
+    }
+
+    private static void validateUniversalLeadKey(String ownerId, String eventId) {
+        if (ownerId == null || ownerId.trim().isEmpty()
+                || eventId == null || eventId.trim().isEmpty()) {
+            throw new IllegalArgumentException("문의 수신 계정 또는 eventId가 없습니다.");
+        }
     }
 
     public long insertNewLead(String displayName, String phone) {

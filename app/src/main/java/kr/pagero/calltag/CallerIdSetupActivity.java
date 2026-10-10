@@ -134,6 +134,21 @@ public final class CallerIdSetupActivity extends Activity {
     }
 
     private void requestScreeningRole() {
+        // ROLE_CALL_SCREENING does NOT make CallTag the default dialer. Explain this before
+        // handing the user to Android's system role selector, which can be confusing.
+        if (roleRequestInFlight || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return;
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                .setTitle("기본 전화 앱은 변경되지 않습니다")
+                .setMessage("콜태그는 기본 전화 앱이 아닙니다. 이 설정은 수신 전화의 고객명과 최근 메모를 표시하기 위한 '발신자 정보' 역할입니다. 지금 쓰는 전화 앱과 통화 기능은 그대로 유지됩니다.\n\n원하지 않으면 지금은 건너뛸 수 있습니다.")
+                .setNegativeButton("지금은 건너뛰기", (dialog, which) -> {
+                    if (requiredSetup) finishCoreSetupWithoutScreening();
+                    else finish();
+                })
+                .setPositiveButton("발신자 정보 설정", (dialog, which) -> launchScreeningRoleRequest())
+                .show();
+    }
+
+    private void launchScreeningRoleRequest() {
         if (roleRequestInFlight || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return;
 
         RoleManager manager = (RoleManager) getSystemService(ROLE_SERVICE);
@@ -209,7 +224,7 @@ public final class CallerIdSetupActivity extends Activity {
 
         CrashTelemetryStore.record(this, "caller_screening_role", "not_granted", "");
         Toast.makeText(this,
-                "수신 화면에 고객명·최근 메모를 표시하려면 발신자 정보 역할을 허용해주세요.",
+                "기본 전화 앱은 그대로 유지됩니다. 발신자 정보는 나중에 설정할 수 있습니다.",
                 Toast.LENGTH_LONG).show();
         render();
     }
@@ -235,7 +250,7 @@ public final class CallerIdSetupActivity extends Activity {
             status.setText("전화 고객정보와 통화 후 작은 팝업이 준비되었습니다.\n연락처와 시스템 통화목록은 변경하지 않습니다.");
             action.setText("앱 시작");
         } else {
-            status.setText("통화 후 작은 팝업은 준비되었습니다.\n발신자 정보 역할을 켜면 수신 시 고객명·최근 메모도 표시합니다.");
+            status.setText("통화 후 작은 팝업은 준비되었습니다.\n발신자 정보 역할은 기본 전화 앱을 바꾸지 않습니다. 수신 시 고객명·최근 메모 표시에 사용합니다.");
             action.setText("발신자 정보 역할 켜기");
         }
 

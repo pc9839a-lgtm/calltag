@@ -89,6 +89,19 @@ public final class PostCallOverlayManager {
         }
     }
 
+    public static void dismissByUser(Context context) {
+        if (context == null) return;
+        Context app = context.getApplicationContext();
+        Runnable dismiss = () -> {
+            boolean wasShowing = isShowing();
+            hideOnMain();
+            CrashTelemetryStore.record(app, "post_call_overlay",
+                    wasShowing ? "dismissed_by_user" : "dismiss_requested_not_showing", "");
+        };
+        if (Looper.myLooper() == Looper.getMainLooper()) dismiss.run();
+        else new Handler(Looper.getMainLooper()).post(dismiss);
+    }
+
     public static boolean isShowing() {
         View current = overlayView;
         return current != null && current.isAttachedToWindow();
@@ -155,7 +168,8 @@ public final class PostCallOverlayManager {
         header.addView(title, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         TextView close = action(context, "닫기", false);
-        close.setOnClickListener(v -> hide(context));
+        close.setContentDescription("통화 종료 팝업 닫기");
+        close.setOnClickListener(v -> dismissByUser(context));
         header.addView(close, new LinearLayout.LayoutParams(dp(context, 62), dp(context, 38)));
         card.addView(header);
 

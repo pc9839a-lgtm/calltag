@@ -28,6 +28,7 @@ import java.util.Map;
 public final class BillingEntitlementActivity extends Activity
         implements PlayBillingManager.Listener {
     private static final long PLAY_LOAD_TIMEOUT_MS = 6000L;
+    public static final String EXTRA_RETURN_AFTER_VERIFICATION = "return_after_verification";
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private TextView stateTitle;
@@ -42,6 +43,7 @@ public final class BillingEntitlementActivity extends Activity
     private Map<String, ProductDetails> playProducts = Collections.emptyMap();
     private boolean working;
     private boolean refreshing;
+    private boolean restoreRequested;
     private boolean productQueryCompleted;
     private boolean billingLoadFailed;
     private String billingError = "";
@@ -51,6 +53,15 @@ public final class BillingEntitlementActivity extends Activity
         productQueryCompleted = true;
         billingLoadFailed = true;
         billingError = "Google Play 응답이 늦습니다. 다시 시도해주세요.";
+        if (restoreRequested) {
+            restoreRequested = false;
+            if (billing != null && billing.isReady()) {
+                billing.restore();
+            } else {
+                Toast.makeText(this, "Google Play에 연결하지 못했습니다. 구매 복원을 다시 시도해주세요.",
+                        Toast.LENGTH_LONG).show();
+            }
+        }
         render();
     };
 
@@ -135,11 +146,15 @@ public final class BillingEntitlementActivity extends Activity
 
         restoreButton = button("구매 복원", false);
         restoreButton.setOnClickListener(v -> {
-            if (billing != null && billing.isReady()) {
+            if (billing == null || restoreRequested) return;
+            if (billing.isReady()) {
                 billing.restore();
             } else {
+                // A single user tap must eventually run restore after Play reconnects.
+                restoreRequested = true;
                 startPlayLoad();
-                Toast.makeText(this, "Google Play에 다시 연결합니다.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Google Play 연결 후 구매 내역을 자동 확인합니다.",
+                        Toast.LENGTH_SHORT).show();
             }
         });
         root.addView(restoreButton, fixedTop(50, 16));
@@ -185,16 +200,28 @@ public final class BillingEntitlementActivity extends Activity
         }
 
         refreshing = true;
+        String ownerId = AuthSessionStore.ownerId(this);
+        long requestedAt = System.currentTimeMillis();
         if (notify) setWorking(true);
         new Thread(() -> {
             try {
                 JSONObject response = AuthApiClient.billingEntitlements(session);
-                FeatureEntitlementStore.saveServerEntitlement(this, response);
                 runOnUiThread(() -> {
                     refreshing = false;
+                    if (isFinishing() || isDestroyed()) return;
+                    // A Play verification can complete while this initial GET is in flight.
+                    // Never let its older response overwrite the newly verified purchase.
+                    boolean sameAccount = session.equals(AuthSessionStore.session(this))
+                            && ownerId.equals(AuthSessionStore.ownerId(this));
+                    if (sameAccount
+                            && FeatureEntitlementStore.snapshot(this).lastCheckedAt <= requestedAt) {
+                        FeatureEntitlementStore.saveServerEntitlement(this, response);
+                    }
                     if (notify) setWorking(false);
                     render();
-                    if (notify) Toast.makeText(this, "이용권을 새로 확인했습니다.", Toast.LENGTH_SHORT).show();
+                    if (notify && sameAccount) {
+                        Toast.makeText(this, "이용권을 새로 확인했습니다.", Toast.LENGTH_SHORT).show();
+                    }
                 });
             } catch (Exception error) {
                 runOnUiThread(() -> {
@@ -247,7 +274,7 @@ public final class BillingEntitlementActivity extends Activity
         updateProductButton(phoneButton, "월 1,900원 시작", FeatureEntitlementStore.PLAN_PHONE, value);
         updateProductButton(messageButton, "월 990원 시작", FeatureEntitlementStore.PLAN_MESSAGE, value);
 
-        setEnabled(restoreButton, !working);
+        setEnabled(restoreButton, !working && !restoreRequested);
         boolean hasPaid = value.phoneSubscribed || value.messageSubscribed;
         manageButton.setVisibility(hasPaid ? View.VISIBLE : View.GONE);
         setEnabled(manageButton, !working && hasPaid);
@@ -361,6 +388,17 @@ public final class BillingEntitlementActivity extends Activity
         setEnabled(view, false);
     }
 
+    private void restoreAfterReconnectIfRequested() {
+        if (!restoreRequested) return;
+        restoreRequested = false;
+        if (billing != null && billing.isReady()) {
+            billing.restore();
+        } else {
+            Toast.makeText(this, "Google Play에 연결하지 못했습니다. 구매 복원을 다시 시도해주세요.",
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
     @Override
     public void onBillingReady(Map<String, ProductDetails> products) {
         runOnUiThread(() -> {
@@ -371,6 +409,7 @@ public final class BillingEntitlementActivity extends Activity
             playProducts = products == null
                     ? Collections.emptyMap()
                     : Collections.unmodifiableMap(new HashMap<>(products));
+            restoreAfterReconnectIfRequested();
             render();
         });
     }
@@ -383,6 +422,9 @@ public final class BillingEntitlementActivity extends Activity
             billingLoadFailed = true;
             billingError = message == null ? "Google Play 결제 정보를 불러오지 못했습니다." : message;
             playProducts = Collections.emptyMap();
+            // Product listings can fail while the subscription query API remains available.
+            // Do not lose a user-requested restore just because product details failed.
+            restoreAfterReconnectIfRequested();
             render();
             Toast.makeText(this, billingError, Toast.LENGTH_LONG).show();
         });
@@ -396,8 +438,16 @@ public final class BillingEntitlementActivity extends Activity
     @Override
     public void onServerVerified() {
         runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed()) return;
             render();
             FeatureEntitlementStore.Snapshot value = FeatureEntitlementStore.snapshot(this);
+            if (getIntent().getBooleanExtra(EXTRA_RETURN_AFTER_VERIFICATION, false)
+                    && (value.phoneSubscribed || value.messageSubscribed)
+                    && !EntitlementNoticeActivity.shouldOpen(this)) {
+                // The existing notice on the back stack will reopen CRM on resume.
+                finish();
+                return;
+            }
             Toast.makeText(this, verifiedMessage(value), Toast.LENGTH_SHORT).show();
         });
     }

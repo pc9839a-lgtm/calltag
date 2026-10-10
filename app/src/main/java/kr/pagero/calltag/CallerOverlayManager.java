@@ -100,7 +100,26 @@ public final class CallerOverlayManager {
     }
 
     public static void hide(Context context) {
-        HANDLER.post(CallerOverlayManager::hideOnMain);
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            hideOnMain();
+        } else {
+            HANDLER.post(CallerOverlayManager::hideOnMain);
+        }
+    }
+
+    /** User explicitly dismissed the in-call customer overlay. Never reopen it from the watcher. */
+    public static void dismissByUser(Context context) {
+        if (context == null) return;
+        Context app = context.getApplicationContext();
+        Runnable dismiss = () -> {
+            boolean wasShowing = isShowing();
+            CallerOverlayCallStateWatcher.stop(app);
+            hideOnMain();
+            CrashTelemetryStore.record(app, "caller_overlay",
+                    wasShowing ? "dismissed_by_user" : "dismiss_requested_not_showing", "");
+        };
+        if (Looper.myLooper() == Looper.getMainLooper()) dismiss.run();
+        else HANDLER.post(dismiss);
     }
 
     private static boolean showOnMain(Context context, Customer customer, String memo,
@@ -160,7 +179,10 @@ public final class CallerOverlayManager {
                 context.getColor(R.color.text_primary), true);
         close.setGravity(Gravity.CENTER);
         close.setBackgroundResource(R.drawable.bg_secondary_button);
-        close.setOnClickListener(v -> hide(context));
+        close.setContentDescription("통화 중 고객정보 팝업 닫기");
+        close.setClickable(true);
+        close.setFocusable(true);
+        close.setOnClickListener(v -> dismissByUser(context));
         header.addView(close, new LinearLayout.LayoutParams(dp(context, 62), dp(context, 40)));
         card.addView(header);
 

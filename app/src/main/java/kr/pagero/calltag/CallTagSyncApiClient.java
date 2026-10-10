@@ -17,8 +17,7 @@ import java.nio.charset.StandardCharsets;
 
 public final class CallTagSyncApiClient {
     private static final String[] BASE_URLS = {
-            "https://pagero.kr",
-            "https://inlet-8mr.pages.dev"
+            "https://pagero.kr"
     };
 
     private CallTagSyncApiClient() {}

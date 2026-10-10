@@ -22,12 +22,18 @@ db = read("CallTagDbHelper.java")
 api = read("UniversalLeadApiClient.java")
 lead = read("UniversalLead.java")
 sync = read("UniversalLeadSyncManager.java")
+receipt = read("UniversalLeadReceiptStore.java")
 pagero_sync = read("PageroLeadSyncManager.java")
 fcm = read("CallTagMessagingService.java")
 resolver = read("CustomerSourceResolver.java")
 customer_list = read("CustomerListView.java")
 source_detail = read("CustomerSourceDetailView.java")
 application = read("CallTagApplication.java")
+main_activity = read("MainActivity.java")
+initial_permission = read("InitialPermissionActivity.java")
+auth_api = read("AuthApiClient.java")
+referral_partner = read("ReferralPartnerActivity.java")
+play_reconcile = read("PlaySubscriptionReconcileManager.java")
 external_ui = read("ExternalLeadIntegrationActivity.java")
 external_api = read("ExternalLeadIntegrationApiClient.java")
 direct_api_ui = read("DirectApiIntegrationActivity.java")
@@ -37,6 +43,8 @@ external_sync_scheduler = read("ExternalLeadSyncWorkScheduler.java")
 menu_installer = read("ExternalLeadMenuInstaller.java")
 more_hub = read("MoreSettingsHubView.java")
 post_call_activity = read("PostCallActivity.java")
+caller_overlay = read("CallerOverlayManager.java")
+post_call_overlay = read("PostCallOverlayManager.java")
 post_call_launcher = read("PostCallActivityLauncher.java")
 post_call_recovery = read("PostCallRecoveryStore.java")
 theme_manager = read("CallTagThemeManager.java")
@@ -57,11 +65,49 @@ require(db, 'values.put("source", source == null ? "" : source.trim());', "inser
 require(db, 'cursor.getString(cursor.getColumnIndexOrThrow("source"))', "readCustomer must hydrate source")
 forbid(db, 'values.put("source", "");', "insertCustomer must not discard source")
 require(api, 'excludeSourceType=pagero', "universal pull must exclude PageRo canonical copies")
+require(receipt, 'private static final int DB_VERSION = 2;', "account-aware receipt schema version missing")
+require(receipt, 'PRIMARY KEY(owner_id, event_id)', "receipts must be keyed per owner/event")
+require(receipt, 'if (oldVersion < 2)', "legacy receipt migration missing")
+require(receipt, 'createAccountTable(db);', "non-destructive receipt v2 migration missing")
+require(receipt, '"owner_id=? AND server_lead_id=?"', "ACK update must stay in the current owner")
+require(receipt, 'SQLiteDatabase.CONFLICT_IGNORE', "receipt insert must not reset an already ACKed event")
+require(db, 'private static final int DB_VERSION = 4;', "durable CRM import journal migration version missing")
+require(db, 'PRIMARY KEY(owner_id, event_id)', "CRM import journal must prevent duplicate event per owner")
+require(db, 'if (oldVersion < 4)', "existing customer DB must receive additive journal migration")
+require(db, 'public long importedUniversalLeadCustomerId(', "CRM journal lookup missing")
+require(db, 'public void recordUniversalLeadImported(', "CRM journal insert missing")
+require(sync, 'crm.beginTransaction();', "customer and import receipt must share one SQLite transaction")
+require(sync, 'crm.setTransactionSuccessful();', "CRM import transaction must commit atomically")
+require(sync, 'crm.endTransaction();', "CRM import transaction must roll back on failures")
+require(sync, 'db.recordUniversalLeadImported(', "CRM journal must be written before external receipt")
+require(sync, 'if (imported != null) result.record(imported);', "recovered events must not recount customer changes")
+require(sync, 'catch (RuntimeException receiptError)', "receipt cache write failure must not hide CRM commits")
+require(sync, 'result.ackRetryRecommended = true;', "failed receipt cache writes need a durable worker retry")
+assert sync.index('if (imported != null) result.record(imported);') < sync.index(
+    'receipts.markImported(ownerId, lead.eventId, lead.id, customerId)'
+), "new customer notification must survive receipt cache failure"
+forbid(receipt, "DROP TABLE", "v1 receipt history must never be dropped during migration")
+forbid(receipt, "deleteDatabase(", "legacy customer receipt files must not be deleted")
+require(sync, '"ACK_PENDING"', "partial local import and pending server ACK status missing")
+require(sync, 'sendResult(appContext, false, result,', "ACK_PENDING broadcast must pass a SyncResult")
+forbid(sync, 'sendResult(appContext, false,\n', "ACK_PENDING broadcast must not omit the SyncResult argument")
+require(sync, 'if (result.ackPending)', "ACK failure must not claim full sync success")
+require(sync, 'if (result.ackRetryRecommended)', "transient ACK failures need durable retry")
+require(sync, 'ExternalLeadSyncWorkScheduler.enqueueImmediate(appContext)', "async ACK retry schedule missing")
+require(sync, 'return result.ackRetryRecommended', "worker must retry transient ACK errors")
+require(sync, 'catch (Exception ackError)', "ACK failure must be isolated from successful local import")
+require(sync, 'result.ackPending = true;', "ACK failure status must be persisted in sync result")
+require(sync, 'if (pageIndex == MAX_PAGES_PER_RUN - 1)', "last bounded page must detect an unfinished lead backlog")
+require(sync, 'result.morePagesPending = true;', "200+ backlog must request another batch")
+require(sync, 'if (result.morePagesPending)', "async backlog must schedule a durable continuation")
+require(sync, 'result.providerRetryRecommended || result.morePagesPending', "worker must retry until queued leads drain")
 require(pagero_sync, 'values.put("source", CustomerSourceResolver.PAGERO);', "PageRo source persistence missing")
 require(fcm, '"lead_available".equals(type)', "generic FCM route missing")
 require(fcm, '"pagero_lead_available".equals(type)', "PageRo FCM route must remain")
 require(sync, 'UniversalLeadApiClient.list(session, after, PAGE_SIZE)', "generic pull missing")
-require(sync, 'receipts.markImported(lead.eventId, lead.id, imported.customerId)', "local idempotency receipt missing")
+require(sync, 'receipts.markImported(ownerId, lead.eventId, lead.id, customerId)', "owner-scoped local ACK receipt missing")
+require(sync, 'receipts.isImported(ownerId, lead.eventId)', "owner-scoped duplicate detection missing")
+require(sync, 'receipts.markAcked(ownerId, id)', "owner-scoped ACK missing")
 require(sync, 'UniversalLeadApiClient.acknowledgeImported', "generic imported ACK missing")
 require(sync, 'values.put("source", sourceLabel);', "generic sync must update customer source")
 require(lead, 'E2E_TEST_SOURCE_TYPE = "calltag_e2e_test"', "historical E2E source classification missing")
@@ -84,16 +130,48 @@ require(more_hub, 'service.addMenu("Webhook 필드 매핑"', "webhook field mapp
 require(more_hub, 'WebhookMappingActivity.class', "webhook mapping destination missing")
 require(more_hub, 'service.addMenu("Direct API"', "Direct API entry missing")
 require(more_hub, 'DirectApiIntegrationActivity.class', "Direct API destination missing")
-require(more_hub, 'service.addMenu("친구 초대"', "referral entry must be friend-invite only")
-forbid(more_hub, 'PartnerStatusActivity', "monetary partner status UI must not be exposed")
-forbid(more_hub, '예상 수익', "monetary referral copy must not be exposed")
-forbid(more_hub, '정산', "settlement copy must not be exposed")
+require(more_hub, 'service.addMenu("친구 추천 수익"', "referral earnings entry missing")
+forbid(more_hub, 'PartnerStatusActivity', "legacy native partner status activity must not return")
+forbid(more_hub, 'PartnerSettlementActivity', "legacy native settlement activity must not return")
+require(referral_partner, '"내 수익 · 추천 회원의 콜태그 유료 결제액의 20%"', "20 percent cash referral copy missing")
+require(referral_partner, '"이번 달 수익"', "referral monthly earnings summary missing")
+require(referral_partner, '"누적 확정"', "referral confirmed earnings summary missing")
+require(referral_partner, '"정산센터 열기"', "secure settlement-center link missing")
+require(referral_partner, 'https://pagero.kr/partner?service=CALLTAG', "CallTag settlement-center URL missing")
+for token in [
+    '"friendBonusDays"',
+    '"commissionRatePercent"',
+    '"friendBenefitMessage"',
+    '"benefitMessage"',
+    '"recurringMessage"',
+    '"pausedMessage"',
+    '"programEnabled"',
+    '"signupEnabled"',
+    '"partnerCenterAvailable"',
+    '"partnerCenterUrl"',
+    '"shareMessage"',
+]:
+    require(referral_partner, token, f"server-controlled referral field missing: {token}")
+require(referral_partner, 'shareButton.setEnabled(shareEnabled);', "server referral pause must disable sharing")
+require(auth_api, 'return get("/api/referrals/summary", session);', "referral earnings summary API missing")
+require(play_reconcile, 'AuthApiClient.restoreGooglePurchases(session, payload)', "renewal reconciliation API call missing")
+require(play_reconcile, 'MIN_INTERVAL_MS = 6L * 60L * 60L * 1000L', "renewal reconciliation cadence missing")
+require(main_activity, 'PlaySubscriptionReconcileManager.reconcileIfDue(this);', "foreground renewal reconciliation hook missing")
 forbid(more_hub, '외부 문의 수신 테스트', "test entry must not be exposed")
 forbid(more_hub, 'ExternalLeadE2eActivity', "test activity must not be referenced")
 forbid(manifest, '.ExternalLeadE2eActivity', "test activity must not be registered")
 require(menu_installer, '"외부 문의 연동"', "legacy More fallback label missing")
 require(menu_installer, 'ExternalLeadSyncWorkScheduler.reconcile(activity)', "background external lead scheduler missing")
 require(application, 'ExternalLeadMenuInstaller.install((MainActivity) activity);', "legacy More fallback installer missing")
+
+# In-call / post-call overlays must close deterministically when the user taps 닫기.
+require(caller_overlay, 'public static void dismissByUser(Context context)', "in-call explicit dismiss missing")
+require(caller_overlay, 'CallerOverlayCallStateWatcher.stop(app);', "in-call dismiss must stop watcher")
+require(caller_overlay, 'close.setOnClickListener(v -> dismissByUser(context));', "in-call close button is not wired to dismiss")
+require(caller_overlay, '"dismissed_by_user"', "in-call dismiss telemetry missing")
+require(post_call_overlay, 'public static void dismissByUser(Context context)', "post-call explicit dismiss missing")
+require(post_call_overlay, 'close.setOnClickListener(v -> dismissByUser(context));', "post-call close button is not wired to dismiss")
+require(post_call_overlay, '"dismissed_by_user"', "post-call dismiss telemetry missing")
 
 # Post-call UX must stay passive unless the user explicitly taps a notification/action.
 require(post_call_activity, 'EXTRA_USER_INITIATED = "post_call_user_initiated"', "post-call explicit-user gate missing")
@@ -102,6 +180,14 @@ require(post_call_launcher, 'target.putExtra(PostCallActivity.EXTRA_USER_INITIAT
 forbid(post_call_launcher, 'context.startActivity(', "post-call launcher must never foreground the app")
 forbid(post_call_recovery, 'PostCallActivityLauncher.launch(context, review)', "post-call recovery must never retry an Activity")
 require(post_call_recovery, 'CallPopupNotificationManager.showPostCall(', "post-call recovery must use passive overlay/notification delivery")
+
+# Permission recovery must distinguish a normal denial from a system-blocked re-request.
+require(initial_permission, 'shouldShowRequestPermissionRationale(permission)', "permission rationale gate missing")
+require(initial_permission, 'KEY_RUNTIME_REQUESTED_ONCE', "permission request history missing")
+require(initial_permission, '"권한 설정에서 허용"', "permanent-denial settings CTA missing")
+require(initial_permission, 'Settings.ACTION_APPLICATION_DETAILS_SETTINGS', "app permission settings recovery missing")
+require(initial_permission, 'if (requiresSettings(missing))', "blocked permission must route to settings")
+require(initial_permission, 'if (!openedSettings) return;', "settings return re-check missing")
 
 # Compact provider integration UI: PageRo, Meta, Google Forms and Webhook.
 for channel in ["PageRo", "Meta Lead Ads", "Google Forms", "Webhook"]:
@@ -121,6 +207,15 @@ require(external_ui, 'connectGoogleForm', "Google Forms direct connection missin
 require(external_ui, 'showGoogleFormsConnections', "Google Forms connection management missing")
 require(external_ui, 'CustomTabsIntent', "OAuth must launch in browser custom tabs")
 require(external_ui, 'transientSecret = ""', "one-time webhook secret cleanup missing")
+require(external_ui, 'providerStatusLabel(error)', "provider status failures must be surfaced")
+require(external_ui, 'recordProviderFailure("webhook_status", error)', "Webhook status failure telemetry missing")
+require(external_ui, 'recordProviderFailure("meta_status", error)', "Meta status failure telemetry missing")
+require(external_ui, 'recordProviderFailure("google_forms_status", error)', "Google Forms status failure telemetry missing")
+require(external_ui, 'UniversalLeadSyncManager.EXTRA_PROVIDER_WARNING', "partial provider warning UI missing")
+require(sync, '다른 문의는 계속 확인합니다.', "provider failure isolation copy missing")
+require(external_ui, 'if (isAuthenticationError(error))', "integration auth recovery route missing")
+forbid(external_ui, 'catch (Exception ignored) {}\n            try { metas =', "provider status failures must not be silently ignored")
+forbid(external_ui, 'try { ExternalLeadIntegrationApiClient.syncGoogleForms(session); }\n            catch (Exception ignored) {}', "Google Forms sync failure must not be silently ignored")
 forbid(external_ui, 'https://calltag.pagero.kr/connect', "integration UI must not use undeployed /connect")
 forbid(external_ui, 'WebView', "provider OAuth must not run in WebView")
 
@@ -182,7 +277,14 @@ require(sync, 'Google Forms pre-sync skipped', "Google Forms API failure isolati
 require(external_ui, 'UniversalLeadSyncManager.requestSync(this, true)', "manual lead refresh missing")
 require(external_ui, 'UniversalLeadSyncManager.ACTION_LEADS_UPDATED', "sync result receiver missing")
 require(external_ui, 'AuthSessionStore.hasSession(this)', "integration UI must respect login session")
-require(external_sync_worker, 'UniversalLeadSyncManager.requestSync(app, true)', "background universal lead pull missing")
+require(sync, 'public enum WorkerSyncResult', "worker sync outcome contract missing")
+require(sync, 'providerRetryRecommended', "provider retry signal missing")
+require(sync, 'isRetryableApiError', "universal API retry classification missing")
+require(external_sync_worker, 'UniversalLeadSyncManager.runWorkerSync(app, pollGoogleForms)', "background universal lead sync must return a real outcome")
+require(external_sync_worker, 'KEY_SKIP_GOOGLE_FORMS_POLL, false', "immediate FCM fallback must skip slow provider polling")
+require(external_sync_worker, 'WorkerSyncResult.RETRY', "WorkManager retry mapping missing")
+require(external_sync_worker, 'WorkerSyncResult.FAILURE', "WorkManager permanent failure mapping missing")
+forbid(external_sync_worker, 'UniversalLeadSyncManager.requestSync(app, true)', "worker must not treat async launch as sync success")
 require(external_sync_scheduler, 'PERIOD_MINUTES = 15L', "background provider sync interval missing")
 require(external_sync_scheduler, 'ExistingPeriodicWorkPolicy.UPDATE', "background provider periodic work missing")
 
@@ -218,11 +320,11 @@ require(attachment_store, 'options.inSampleSize = sample;', "preview inSampleSiz
 forbid(attachment_store, 'BitmapFactory.decodeFile(file.getAbsolutePath());', "full-resolution preview decode must not return")
 
 # Play quality release version.
-require(gradle, 'versionCode 2026091601', "Play versionCode must be 2026091601")
-require(gradle, "versionName '0.44.59'", "Play versionName must be 0.44.59")
+require(gradle, 'versionCode 2026100701', "Play versionCode must be 2026100701")
+require(gradle, "versionName '0.44.61'", "Play versionName must be 0.44.61")
 require(gradle, "androidx.browser:browser:1.8.0", "browser dependency required for OAuth custom tabs")
 
 print(
     "CallTag contract OK: external leads + passive post-call + R8 + edge-to-edge + adaptive layouts + "
-    "bitmap downsampling, no monetary partner UI, v0.44.59"
+    "bitmap downsampling, permission recovery + integration retry + server-controlled referral cash, v0.44.61"
 )
