@@ -59,8 +59,9 @@ public final class ExternalLeadSyncWorkScheduler {
 
     private static Constraints networkConstraints() {
         return new Constraints.Builder()
+                // Lead collection must not stop simply because battery is low.
+                // Android's scheduler can still defer work for Doze / quota policies.
                 .setRequiredNetworkType(NetworkType.CONNECTED)
-                .setRequiresBatteryNotLow(true)
                 .build();
     }
 }
