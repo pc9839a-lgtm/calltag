@@ -106,7 +106,16 @@ public final class UniversalLeadSyncManager {
                                 appContext, result.imported, result.updated, result.customerIds());
                     }
                 }
-                sendResult(appContext, true, result, successMessage(result), "");
+                if (result.ackPending) {
+                    sendResult(appContext, false, result,
+                            "문의는 기기에 저장됐지만 서버 수신 확인을 완료하지 못했습니다.",
+                            "ACK_PENDING");
+                    if (result.ackRetryRecommended) {
+                        ExternalLeadSyncWorkScheduler.enqueueImmediate(appContext);
+                    }
+                } else {
+                    sendResult(appContext, true, result, successMessage(result), "");
+                }
             } catch (UniversalLeadApiClient.ApiException error) {
                 String message = safeMessage(error);
                 Log.w(TAG, "Universal lead API unavailable: " + error.code);
@@ -154,6 +163,13 @@ public final class UniversalLeadSyncManager {
                         appContext, result.imported, result.updated, result.customerIds());
                 NOTIFY_WHEN_CHANGED.set(false);
             }
+            if (result.ackPending) {
+                sendResult(appContext, false, result,
+                        "문의는 기기에 저장됐지만 서버 수신 확인을 완료하지 못했습니다.",
+                        "ACK_PENDING");
+                return result.ackRetryRecommended
+                        ? WorkerSyncResult.RETRY : WorkerSyncResult.FAILURE;
+            }
             sendResult(appContext, true, result, successMessage(result), "");
             return result.providerRetryRecommended
                     ? WorkerSyncResult.RETRY : WorkerSyncResult.SUCCESS;
@@ -192,6 +208,13 @@ public final class UniversalLeadSyncManager {
                 || error.status == 429
                 || error.status >= 500
                 || "NON_JSON_RESPONSE".equals(error.code));
+    }
+
+    private static boolean isRetryableAckError(Exception error) {
+        if (error instanceof UniversalLeadApiClient.ApiException) {
+            return isRetryableApiError((UniversalLeadApiClient.ApiException) error);
+        }
+        return true;
     }
 
     private static SyncResult syncNow(Context context, boolean pollGoogleForms) throws Exception {
@@ -254,6 +277,8 @@ public final class UniversalLeadSyncManager {
                             UniversalLeadApiClient.acknowledgeRejected(
                                     session, lead.id, safeMessage(invalid));
                         } catch (Exception ackError) {
+                            result.ackPending = true;
+                            result.ackRetryRecommended |= isRetryableAckError(ackError);
                             Log.w(TAG, "Unable to reject invalid universal lead");
                         }
                     }
@@ -261,12 +286,21 @@ public final class UniversalLeadSyncManager {
 
                 if (!acknowledged.isEmpty()) {
                     assertSameAccount(context, session, ownerId);
-                    UniversalLeadApiClient.acknowledgeImported(
-                            session,
-                            acknowledged,
-                            "신규 고객 " + result.imported + "건, 기존 고객 갱신 "
-                                    + result.updated + "건");
-                    for (Long id : acknowledged) receipts.markAcked(ownerId, id);
+                    try {
+                        UniversalLeadApiClient.acknowledgeImported(
+                                session,
+                                acknowledged,
+                                "신규 고객 " + result.imported + "건, 기존 고객 갱신 "
+                                        + result.updated + "건");
+                        for (Long id : acknowledged) receipts.markAcked(ownerId, id);
+                    } catch (Exception ackError) {
+                        // Data is already persisted locally. Preserve the imported counts
+                        // and retry ACK; never claim the full sync succeeded.
+                        result.ackPending = true;
+                        result.ackRetryRecommended |= isRetryableAckError(ackError);
+                        Log.w(TAG, "Universal lead ACK is pending");
+                        break;
+                    }
                 }
 
                 after = page.nextAfter;
@@ -405,6 +439,8 @@ public final class UniversalLeadSyncManager {
         int updated;
         int rejected;
         boolean providerRetryRecommended;
+        boolean ackPending;
+        boolean ackRetryRecommended;
         String providerWarning = "";
         final Set<Long> changedCustomerIds = new LinkedHashSet<>();
 
