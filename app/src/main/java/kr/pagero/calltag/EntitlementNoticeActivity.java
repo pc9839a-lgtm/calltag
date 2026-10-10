@@ -30,6 +30,9 @@ public final class EntitlementNoticeActivity extends Activity {
         FeatureEntitlementStore.Snapshot value = FeatureEntitlementStore.snapshot(context);
         String code = noticeCode(value);
         if (code.isEmpty()) return false;
+        // Expired users must see the renewal path on every cold app launch,
+        // not merely once per calendar day. The reminder remains daily for ending-soon trials.
+        if ("TRIAL_EXPIRED".equals(code)) return true;
         SharedPreferences prefs = context.getApplicationContext()
                 .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String date = serverDate(value.estimatedServerNow);
