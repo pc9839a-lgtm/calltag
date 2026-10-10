@@ -238,18 +238,19 @@ public final class UniversalLeadSyncManager {
                 for (UniversalLead lead : page.leads) {
                     // Never store a previous user's remote lead after an account switch.
                     assertSameAccount(context, session, ownerId);
-                    if (receipts.isImported(lead.eventId)) {
+                    if (receipts.isImported(ownerId, lead.eventId)) {
                         acknowledged.add(lead.id);
                         continue;
                     }
                     try {
                         ImportResult imported = importLead(db, lead);
-                        receipts.markImported(lead.eventId, lead.id, imported.customerId);
+                        receipts.markImported(ownerId, lead.eventId, lead.id, imported.customerId);
                         acknowledged.add(lead.id);
                         result.record(imported);
                     } catch (IllegalArgumentException invalid) {
                         result.rejected++;
                         try {
+                            assertSameAccount(context, session, ownerId);
                             UniversalLeadApiClient.acknowledgeRejected(
                                     session, lead.id, safeMessage(invalid));
                         } catch (Exception ackError) {
@@ -265,7 +266,7 @@ public final class UniversalLeadSyncManager {
                             acknowledged,
                             "신규 고객 " + result.imported + "건, 기존 고객 갱신 "
                                     + result.updated + "건");
-                    for (Long id : acknowledged) receipts.markAcked(id);
+                    for (Long id : acknowledged) receipts.markAcked(ownerId, id);
                 }
 
                 after = page.nextAfter;
