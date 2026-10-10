@@ -81,6 +81,11 @@ require(sync, 'crm.setTransactionSuccessful();', "CRM import transaction must co
 require(sync, 'crm.endTransaction();', "CRM import transaction must roll back on failures")
 require(sync, 'db.recordUniversalLeadImported(', "CRM journal must be written before external receipt")
 require(sync, 'if (imported != null) result.record(imported);', "recovered events must not recount customer changes")
+require(sync, 'catch (RuntimeException receiptError)', "receipt cache write failure must not hide CRM commits")
+require(sync, 'result.ackRetryRecommended = true;', "failed receipt cache writes need a durable worker retry")
+assert sync.index('if (imported != null) result.record(imported);') < sync.index(
+    'receipts.markImported(ownerId, lead.eventId, lead.id, customerId)'
+), "new customer notification must survive receipt cache failure"
 forbid(receipt, "DROP TABLE", "v1 receipt history must never be dropped during migration")
 forbid(receipt, "deleteDatabase(", "legacy customer receipt files must not be deleted")
 require(sync, '"ACK_PENDING"', "partial local import and pending server ACK status missing")
