@@ -112,7 +112,7 @@ public final class UniversalLeadSyncManager {
                     ExternalLeadSyncWorkScheduler.enqueueImmediate(appContext);
                 }
                 if (result.ackPending) {
-                    sendResult(appContext, false,
+                    sendResult(appContext, false, result,
                             "문의는 기기에 저장됐지만 서버 수신 확인을 완료하지 못했습니다.",
                             "ACK_PENDING");
                     if (result.ackRetryRecommended) {
