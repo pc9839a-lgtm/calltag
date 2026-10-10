@@ -53,7 +53,7 @@ public final class ExternalLeadSyncWorkScheduler {
                 .build();
         WorkManager.getInstance(app).enqueueUniqueWork(
                 IMMEDIATE_NAME,
-                ExistingWorkPolicy.REPLACE,
+                ExistingWorkPolicy.KEEP,
                 request);
     }
 
