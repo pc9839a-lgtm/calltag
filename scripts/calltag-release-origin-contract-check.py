@@ -96,6 +96,12 @@ assert "SyncResult result = syncNow(appContext, true);" in sync
 assert "if (pollGoogleForms) {" in sync
 assert sync.count("UniversalLeadNotificationManager.showImported(") >= 2
 assert "ExternalLeadIntegrationApiClient.syncGoogleForms(session);" in sync
+# A re-login or account change during provider polling must stop local CRM writes and ACK.
+assert "String ownerId = AuthSessionStore.ownerId(context);" in sync
+assert "private static void assertSameAccount(Context context, String session, String ownerId)" in sync
+assert sync.count("assertSameAccount(context, session, ownerId);") >= 5
+assert "ownerId.equals(AuthSessionStore.ownerId(context))" in sync
+
 
 scheduler = (JAVA / "ExternalLeadSyncWorkScheduler.java").read_text(encoding="utf-8")
 assert "PERIOD_MINUTES = 15L" in scheduler
