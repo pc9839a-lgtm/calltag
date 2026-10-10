@@ -39,6 +39,29 @@ assert app.index("AuthSessionStore.hasSession(this)",app.index('new Thread(() ->
 notice=src("LegacyCrmReviewNotice.java")
 assert 'SQLiteDatabase.OPEN_READONLY' in notice
 assert '계정별 DB와 분리했습니다' in notice
+# Account-scoped inbound PageRo and legacy callbacks cannot reuse an old owner's job ID.
+pagero=src("PageroLeadReceiptStore.java")
+assert "AccountDataScope.name(context, DB_NAME)" in pagero
+assert pagero.count("AccountDataScope.assertCurrent") >= 2
+lead=src("PageroLeadSyncManager.java")
+assert "assertSameAccount(context, session, ownerId);" in lead
+scheduled=src("ScheduledMessageReceiver.java")
+callback=src("SmsStatusReceiver.java")
+sender=src("SmsSender.java")
+scheduler=src("MessageScheduler.java")
+for text in (scheduled,callback):
+    assert "EXTRA_OWNER_SCOPE" in text and "AccountDataScope.requireOwner(context)" in text
+assert "EXTRA_OWNER_SCOPE" in scheduler and "EXTRA_OWNER_SCOPE" in sender
+assert 'AccountDataScope.fingerprint(AccountDataScope.requireOwner(context))' in scheduler
+assert 'AccountDataScope.fingerprint(AccountDataScope.requireOwner(context))' in sender
+for filename in ("MessageAutomationStore.java","MessageTemplateStore.java",
+                 "MessageExclusionStore.java","TaskMessageLinkStore.java",
+                 "PostCallExclusionStore.java","PostCallRecoveryStore.java"):
+    assert "AccountDataScope.preferenceName(context, PREFS)" in src(filename),filename
+assert "AccountDataScope.currentAccountPreferences(this)" in a
+post=src("PostCallActivity.java")
+assert "AuthSessionStore.ownerId(this).trim().isEmpty()" in post
+
 # Semantics of separately named databases: A/B writes never meet; legacy is not moved/deleted.
 with TemporaryDirectory() as root:
     root=Path(root)
