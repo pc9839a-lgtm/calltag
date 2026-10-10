@@ -146,7 +146,14 @@ public final class UniversalLeadSyncManager {
         try {
             SyncResult result = syncNow(appContext, true);
             changed = result.imported > 0 || result.updated > 0;
-            if (changed) ContactNameSyncManager.requestSyncAll(appContext);
+            if (changed) {
+                ContactNameSyncManager.requestSyncAll(appContext);
+                // A WorkManager fallback may finish after Android has terminated the
+                // original Firebase service. Users still need a visible new-lead notice.
+                UniversalLeadNotificationManager.showImported(
+                        appContext, result.imported, result.updated, result.customerIds());
+                NOTIFY_WHEN_CHANGED.set(false);
+            }
             sendResult(appContext, true, result, successMessage(result), "");
             return result.providerRetryRecommended
                     ? WorkerSyncResult.RETRY : WorkerSyncResult.SUCCESS;
