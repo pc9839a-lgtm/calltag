@@ -52,7 +52,10 @@ public final class AuthGateActivity extends Activity {
             try {
                 JSONObject response = AuthApiClient.refresh(session);
                 AuthSessionStore.save(this, response);
-                refreshEntitlement(session);
+                // The refresh endpoint may rotate the session token. Never query billing
+                // with the pre-refresh token after the new one has been persisted.
+                String currentSession = AuthSessionStore.session(this);
+                refreshEntitlement(currentSession);
                 CallTagSyncManager.request(this, false);
                 runOnUiThread(() -> routeAfterLoading(this::openDestination));
             } catch (Exception error) {
