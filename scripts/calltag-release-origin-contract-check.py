@@ -35,6 +35,20 @@ assert 'if ("TRIAL_EXPIRED".equals(code)) return true;' in notice
 assert '"TRIAL_EXPIRED".equalsIgnoreCase(value.noticeCode)' in notice
 assert gate.index("if (EntitlementNoticeActivity.shouldOpen(this))") < gate.index("if (!SetupRequirements.isReady(this))")
 
+# A single restore tap must be honored after Play reconnect even when ProductDetails
+# lookup fails; the expired notice must remain navigable until verification succeeds.
+billing = (JAVA / "BillingEntitlementActivity.java").read_text(encoding="utf-8")
+assert "private boolean restoreRequested;" in billing
+assert "restoreRequested = true;" in billing
+assert "private void restoreAfterReconnectIfRequested()" in billing
+assert billing.count("restoreAfterReconnectIfRequested();") == 2
+assert "if (billing != null && billing.isReady())" in billing
+assert "if (restoreRequested) {" in billing
+assert "setEnabled(restoreButton, !working && !restoreRequested);" in billing
+assert "private boolean returnedFromBilling;" in notice
+assert "if (returnedFromBilling && !EntitlementNoticeActivity.shouldOpen(this))" in notice
+assert "startActivity(new Intent(this, BillingEntitlementActivity.class));\n            finish();" not in notice
+
 # Server rotates session tokens on some refreshes; all follow-up entitlement calls use stored new token.
 assert "String currentSession = AuthSessionStore.session(this);" in gate
 assert "refreshEntitlement(currentSession);" in gate
