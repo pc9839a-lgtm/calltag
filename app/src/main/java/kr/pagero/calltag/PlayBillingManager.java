@@ -262,9 +262,12 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                         purchase.getPurchaseToken(),
                         purchase.getOrderId());
                 activity.runOnUiThread(() -> {
-                    if (!matchesAccount(ownerId, session) || closed) return;
+                    if (!matchesAccount(ownerId, session)) return;
+                    // Verification may finish after the user leaves this screen.
+                    // Persist the verified state for the same account; avoid callbacks
+                    // into a destroyed billing UI.
                     FeatureEntitlementStore.saveServerEntitlement(activity, response);
-                    listener.onServerVerified();
+                    if (!closed) listener.onServerVerified();
                 });
             } catch (Exception error) {
                 activity.runOnUiThread(() -> {
@@ -313,9 +316,12 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
                 if (!matchesAccount(ownerId, session)) return;
                 JSONObject response = AuthApiClient.restoreGooglePurchases(session, payload);
                 activity.runOnUiThread(() -> {
-                    if (!matchesAccount(ownerId, session) || closed) return;
+                    if (!matchesAccount(ownerId, session)) return;
+                    // Verification may finish after the user leaves this screen.
+                    // Persist the verified state for the same account; avoid callbacks
+                    // into a destroyed billing UI.
                     FeatureEntitlementStore.saveServerEntitlement(activity, response);
-                    listener.onServerVerified();
+                    if (!closed) listener.onServerVerified();
                 });
             } catch (Exception error) {
                 activity.runOnUiThread(() -> {
