@@ -110,7 +110,7 @@ public final class AccountActivity extends Activity {
         if (working) return;
         new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("회원탈퇴")
-                .setMessage("콜태그 계정과 이 휴대전화의 고객정보·통화기록·상담메모·일정·문자 발송기록을 모두 삭제합니다. 되돌릴 수 없습니다.")
+                .setMessage("이 계정의 서버 정보와 계정별 기기 DB를 삭제합니다. 다른 계정 및 소유자를 확인할 수 없는 구버전 기록은 보존됩니다.")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("탈퇴하기", (dialog, which) -> confirmDeleteAgain())
                 .show();
@@ -119,7 +119,7 @@ public final class AccountActivity extends Activity {
     private void confirmDeleteAgain() {
         new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("정말 탈퇴하시겠습니까?")
-                .setMessage("콜태그 계정과 앱 데이터를 영구 삭제합니다.")
+                .setMessage("현재 계정의 서버 정보와 계정별 기기 DB만 삭제합니다.")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("계정 삭제", (dialog, which) -> deleteAccount())
                 .show();
@@ -160,10 +160,21 @@ public final class AccountActivity extends Activity {
         PageroAccountStatusStore.clear(this);
         FeatureEntitlementStore.clear(this);
         ReferralStateStore.clear(this);
-        getSharedPreferences("calltag_settings", MODE_PRIVATE).edit().clear().commit();
-        getSharedPreferences("calltag_message_automation", MODE_PRIVATE).edit().clear().commit();
+        java.util.List<String> ownedDatabases = AccountDataScope.currentAccountDatabases(this);
+        String deletedAccountKey = CallTagSyncLocalStore.accountKey(this);
+        try (CallTagSyncLocalStore store = new CallTagSyncLocalStore(this)) {
+            if (!deletedAccountKey.isEmpty()) {
+                store.getWritableDatabase().delete("entity_map", "account_key=?",
+                        new String[]{deletedAccountKey});
+                store.getWritableDatabase().delete("sync_meta", "account_key=?",
+                        new String[]{deletedAccountKey});
+            }
+        } catch (RuntimeException error) {
+            CrashTelemetryStore.record(this, "account_deletion", "sync_cleanup_failed",
+                    error.getClass().getSimpleName());
+        }
         AuthSessionStore.clear(this);
-        for (String databaseName : databaseList()) {
+        for (String databaseName : ownedDatabases) {
             deleteDatabase(databaseName);
         }
         Toast.makeText(this, "회원탈퇴가 완료됐어요.", Toast.LENGTH_LONG).show();

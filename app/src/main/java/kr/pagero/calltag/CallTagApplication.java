@@ -45,8 +45,11 @@ public final class CallTagApplication extends Application implements Application
         new Thread(() -> {
             MessageRecoveryManager.recoverNow(this,
                     MessageRecoveryManager.TRIGGER_APP_START);
-            DataIntegrityManager.recoverNow(this,
-                    DataIntegrityManager.TRIGGER_APP_START);
+            if (AuthSessionStore.hasSession(this)
+                    && !AuthSessionStore.ownerId(this).trim().isEmpty()) {
+                DataIntegrityManager.recoverNow(this,
+                        DataIntegrityManager.TRIGGER_APP_START);
+            }
         }, "calltag-startup-recovery").start();
 
         if (AuthSessionStore.hasSession(this)) {

@@ -19,10 +19,28 @@ public final class CampaignStore extends SQLiteOpenHelper {
     public static final String STATUS_CANCELLED = "CANCELLED";
 
     private static final String DB_NAME = "calltag_campaigns.db";
+    private final Context appContext;
+    private final String openedDatabaseName;
     private static final int DB_VERSION = 2;
 
     public CampaignStore(Context context) {
-        super(context.getApplicationContext(), DB_NAME, null, DB_VERSION);
+        super(context.getApplicationContext(), AccountDataScope.name(context, DB_NAME), null, DB_VERSION);
+        appContext = context.getApplicationContext();
+        openedDatabaseName = AccountDataScope.name(context, DB_NAME);
+    }
+
+    private void assertScope() {
+        AccountDataScope.assertCurrent(appContext, openedDatabaseName, DB_NAME);
+    }
+
+    @Override public synchronized SQLiteDatabase getWritableDatabase() {
+        assertScope();
+        return super.getWritableDatabase();
+    }
+
+    @Override public synchronized SQLiteDatabase getReadableDatabase() {
+        assertScope();
+        return super.getReadableDatabase();
     }
 
     @Override
