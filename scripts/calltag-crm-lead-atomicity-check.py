@@ -25,7 +25,7 @@ assert sync.index("db.recordUniversalLeadImported(") < sync.index("receipts.mark
 
 table = re.search(r'UNIVERSAL_LEAD_IMPORTS\s*=\s*"([^"]+)"', source).group(1)
 sql_body = source.split("private static void createUniversalLeadImportTable", 1)[1].split(
-    "private boolean hasColumn", 1
+    "private static void createPostCallSaveReceiptsTable", 1
 )[0]
 ddls = []
 for expression in re.findall(r"db\.execSQL\((.*?)\);", sql_body, re.S):
