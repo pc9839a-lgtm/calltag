@@ -58,7 +58,9 @@ public final class UniversalLeadSyncManager {
     }
 
     public static boolean requestRealtimeSync(Context context) {
-        return requestSyncInternal(context, true, true);
+        // The FCM lead is already present in the canonical queue. Polling Google Forms
+        // first adds provider latency and can prevent timely delivery of other leads.
+        return requestSyncInternal(context, true, true, false);
     }
 
     public static boolean requestSyncAndNotify(Context context, boolean force) {
@@ -66,6 +68,11 @@ public final class UniversalLeadSyncManager {
     }
 
     private static boolean requestSyncInternal(Context context, boolean force, boolean notifyWhenChanged) {
+        return requestSyncInternal(context, force, notifyWhenChanged, true);
+    }
+
+    private static boolean requestSyncInternal(
+            Context context, boolean force, boolean notifyWhenChanged, boolean pollGoogleForms) {
         if (context == null) return false;
         Context appContext = context.getApplicationContext();
         if (!AuthSessionStore.hasSession(appContext)) {
@@ -90,7 +97,7 @@ public final class UniversalLeadSyncManager {
         EXECUTOR.execute(() -> {
             boolean changed = false;
             try {
-                SyncResult result = syncNow(appContext);
+                SyncResult result = syncNow(appContext, pollGoogleForms);
                 changed = result.imported > 0 || result.updated > 0;
                 if (changed) {
                     ContactNameSyncManager.requestSyncAll(appContext);
@@ -112,7 +119,7 @@ public final class UniversalLeadSyncManager {
             } finally {
                 boolean rerun = PENDING_FORCE.getAndSet(false);
                 RUNNING.set(false);
-                if (rerun) requestSyncInternal(appContext, true, NOTIFY_WHEN_CHANGED.get());
+                if (rerun) requestSyncInternal(appContext, true, NOTIFY_WHEN_CHANGED.get(), pollGoogleForms);
                 else if (!changed) NOTIFY_WHEN_CHANGED.set(false);
             }
         });
@@ -137,7 +144,7 @@ public final class UniversalLeadSyncManager {
 
         boolean changed = false;
         try {
-            SyncResult result = syncNow(appContext);
+            SyncResult result = syncNow(appContext, true);
             changed = result.imported > 0 || result.updated > 0;
             if (changed) ContactNameSyncManager.requestSyncAll(appContext);
             sendResult(appContext, true, result, successMessage(result), "");
@@ -180,7 +187,7 @@ public final class UniversalLeadSyncManager {
                 || "NON_JSON_RESPONSE".equals(error.code));
     }
 
-    private static SyncResult syncNow(Context context) throws Exception {
+    private static SyncResult syncNow(Context context, boolean pollGoogleForms) throws Exception {
         String session = AuthSessionStore.session(context);
         if (session.isEmpty()) throw new IllegalStateException("콜태그 로그인이 필요합니다.");
 
@@ -189,7 +196,7 @@ public final class UniversalLeadSyncManager {
         // Google Forms is provider-pulled. Refresh it before reading the canonical lead queue.
         // A provider outage must never block Meta/Webhook/PageRo lead delivery, but transient
         // provider failures are carried back to WorkManager so it can retry with backoff.
-        try {
+        if (pollGoogleForms) try {
             ExternalLeadIntegrationApiClient.syncGoogleForms(session);
         } catch (ExternalLeadIntegrationApiClient.ApiException error) {
             Log.w(TAG, "Google Forms pre-sync skipped: " + error.code);
