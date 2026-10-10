@@ -65,7 +65,7 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(title, wrap());
 
         detail = new TextView(this);
-        detail.setText("고객 확인과 통화 이력 연결에 필요한 권한만 먼저 요청합니다. 문자·알림 권한은 해당 기능을 사용할 때 바로 요청합니다.");
+        detail.setText("콜태그는 기본 전화 앱이 아닌 고객관리 앱입니다. 아래 요청은 기본 전화 앱 변경이 아니라 고객 확인과 통화 이력 연결을 위한 권한 허용입니다. 문자·알림 권한은 해당 기능 사용 시 별도로 요청합니다.");
         detail.setTextColor(getColor(R.color.text_secondary));
         detail.setTextSize(14f);
         detail.setGravity(Gravity.CENTER);
@@ -82,7 +82,7 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(settingsButton, fixedTop(50, 9));
 
         TextView note = new TextView(this);
-        note.setText("연락처 내용은 수정하지 않습니다. 통화기록은 고객 이력 연결에만 사용합니다.");
+        note.setText("현재 사용 중인 전화 앱은 그대로 유지됩니다. 콜태그는 연락처 내용을 수정하지 않으며, 통화기록은 고객 이력 연결에만 사용합니다.");
         note.setTextColor(getColor(R.color.text_muted));
         note.setTextSize(12f);
         note.setGravity(Gravity.CENTER);
