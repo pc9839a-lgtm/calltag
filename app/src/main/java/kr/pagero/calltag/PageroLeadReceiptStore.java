@@ -15,9 +15,23 @@ public final class PageroLeadReceiptStore extends SQLiteOpenHelper {
 
     private static final String DB_NAME = "calltag-pagero-sync.db";
     private static final int DB_VERSION = 2;
+    private final Context appContext;
+    private final String openedDatabaseName;
 
     public PageroLeadReceiptStore(Context context) {
-        super(context.getApplicationContext(), DB_NAME, null, DB_VERSION);
+        super(context.getApplicationContext(), AccountDataScope.name(context, DB_NAME), null, DB_VERSION);
+        appContext = context.getApplicationContext();
+        openedDatabaseName = AccountDataScope.name(context, DB_NAME);
+    }
+
+    @Override public synchronized SQLiteDatabase getWritableDatabase() {
+        AccountDataScope.assertCurrent(appContext, openedDatabaseName, DB_NAME);
+        return super.getWritableDatabase();
+    }
+
+    @Override public synchronized SQLiteDatabase getReadableDatabase() {
+        AccountDataScope.assertCurrent(appContext, openedDatabaseName, DB_NAME);
+        return super.getReadableDatabase();
     }
 
     @Override

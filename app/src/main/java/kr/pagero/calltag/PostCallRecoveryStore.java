@@ -187,7 +187,8 @@ public final class PostCallRecoveryStore {
 
     private static SharedPreferences prefs(Context context) {
         return context.getApplicationContext()
-                .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+                .getSharedPreferences(AccountDataScope.preferenceName(context, PREFS),
+                        Context.MODE_PRIVATE);
     }
 
     private static String safe(String value) {

@@ -33,7 +33,10 @@ public final class CallTagApplication extends Application implements Application
         CallTagThemeManager.applyApplicationMode(this);
         CrashTelemetryStore.install(this);
         registerActivityLifecycleCallbacks(this);
-        MessageAutomationStore.ensureDefaults(this);
+        if (AuthSessionStore.hasSession(this)
+                && !AuthSessionStore.ownerId(this).trim().isEmpty()) {
+            MessageAutomationStore.ensureDefaults(this);
+        }
         PageroLeadNotificationManager.ensureChannel(this);
         UniversalLeadNotificationManager.ensureChannel(this);
         CallTagSyncWorkScheduler.reconcile(this);
@@ -54,6 +57,7 @@ public final class CallTagApplication extends Application implements Application
         }, "calltag-startup-recovery").start();
 
         if (AuthSessionStore.hasSession(this)) {
+            MessageAutomationStore.ensureDefaults(this);
             SetupRequirements.refreshScreeningRoleState(this);
             EntitlementRefreshManager.request(this, true);
             PageroLeadSyncManager.requestSync(this, true);

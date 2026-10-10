@@ -43,6 +43,13 @@ public final class AccountDataScope {
 
     public static String currentCrmName(Context context) { return name(context, "calltag.db"); }
 
+    public static String preferenceName(Context context, String original) {
+        if (original == null || !original.matches("[a-zA-Z0-9_-]+")) {
+            throw new IllegalArgumentException("잘못된 계정 설정 이름입니다.");
+        }
+        return original + "-owner-" + fingerprint(requireOwner(context));
+    }
+
     public static void assertCurrent(Context context, String openedName, String legacyName) {
         if (!name(context, legacyName).equals(openedName)) {
             throw new IllegalStateException("계정 변경 후 이전 계정 DB 접근을 차단했습니다.");

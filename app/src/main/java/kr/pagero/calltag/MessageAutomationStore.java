@@ -36,7 +36,8 @@ public final class MessageAutomationStore {
 
     private static SharedPreferences prefs(Context context) {
         return context.getApplicationContext()
-                .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+                .getSharedPreferences(AccountDataScope.preferenceName(context, PREFS),
+                        Context.MODE_PRIVATE);
     }
 
     public static void ensureDefaults(Context context) {

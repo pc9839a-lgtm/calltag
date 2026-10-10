@@ -29,14 +29,16 @@ public final class MessageTemplateStore {
     private MessageTemplateStore() {}
 
     private static SharedPreferences prefs(Context context) {
-        return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        return context.getApplicationContext().getSharedPreferences(
+                AccountDataScope.preferenceName(context, PREFS), Context.MODE_PRIVATE);
     }
 
     public static synchronized void ensureDefaults(Context context) {
         List<Template> templates = readAll(context);
         if (templates.isEmpty()) {
             SharedPreferences legacy = context.getApplicationContext()
-                    .getSharedPreferences(LEGACY_PREFS, Context.MODE_PRIVATE);
+                    .getSharedPreferences(AccountDataScope.preferenceName(context, LEGACY_PREFS),
+                            Context.MODE_PRIVATE);
             String connected = MessageTemplateEngine.normalizeLegacyAliases(legacy.getString(
                     "connected_template", MessageAutomationStore.DEFAULT_CONNECTED_TEMPLATE));
             String missed = MessageTemplateEngine.normalizeLegacyAliases(legacy.getString(
