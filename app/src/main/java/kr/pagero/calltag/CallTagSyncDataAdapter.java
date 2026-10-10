@@ -34,18 +34,24 @@ public final class CallTagSyncDataAdapter {
 
     public static ScanResult scanLocal(Context context, CallTagSyncLocalStore store) throws Exception {
         if (!store.isReady()) return new ScanResult(0, 0);
+        requireSameAccount(context, store);
         CallTagDbHelper helper = new CallTagDbHelper(context);
         SQLiteDatabase db = helper.getReadableDatabase();
         Set<String> seen = new HashSet<>();
         int scanned = 0;
 
         scanned += scanCustomers(db, store, seen);
+        requireSameAccount(context, store);
         scanned += scanStages(db, store, seen);
+        requireSameAccount(context, store);
         scanned += scanInteractions(db, store, seen);
+        requireSameAccount(context, store);
         scanned += scanTasks(db, store, seen);
+        requireSameAccount(context, store);
 
         int deleted = 0;
         for (CallTagSyncLocalStore.Mapping mapping : store.listMappings()) {
+            requireSameAccount(context, store);
             if (!SUPPORTED.contains(mapping.entityType) || mapping.deleted) continue;
             String key = key(mapping.entityType, mapping.localId);
             if (seen.contains(key)) continue;
@@ -60,6 +66,7 @@ public final class CallTagSyncDataAdapter {
             Context context,
             JSONArray rawItems,
             CallTagSyncLocalStore store) throws Exception {
+        requireSameAccount(context, store);
         List<JSONObject> items = new ArrayList<>();
         for (int index = 0; index < rawItems.length(); index++) {
             JSONObject item = rawItems.optJSONObject(index);
@@ -76,18 +83,28 @@ public final class CallTagSyncDataAdapter {
         List<JSONObject> deferred = new ArrayList<>();
 
         for (JSONObject item : items) {
+            requireSameAccount(context, store);
             ApplyOutcome outcome = applyOne(db, store, item);
             if (outcome == ApplyOutcome.APPLIED) applied++;
             else if (outcome == ApplyOutcome.CONFLICT) conflicts++;
             else if (outcome == ApplyOutcome.DEFERRED) deferred.add(item);
         }
         for (JSONObject item : deferred) {
+            requireSameAccount(context, store);
             ApplyOutcome outcome = applyOne(db, store, item);
             if (outcome == ApplyOutcome.APPLIED) applied++;
             else if (outcome == ApplyOutcome.CONFLICT) conflicts++;
             else throw new IllegalStateException("연결된 고객 데이터를 먼저 복구하지 못했습니다.");
         }
         return new ApplyResult(applied, conflicts);
+    }
+
+    private static void requireSameAccount(Context context, CallTagSyncLocalStore store) {
+        if (!store.isReady()
+                || !store.accountKey().equals(CallTagSyncLocalStore.accountKey(context))
+                || !AuthSessionStore.hasSession(context)) {
+            throw new IllegalStateException("로그인 계정이 바뀌어 고객 데이터 동기화를 중지했습니다.");
+        }
     }
 
     private static int scanCustomers(SQLiteDatabase db, CallTagSyncLocalStore store,
