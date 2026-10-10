@@ -30,8 +30,12 @@ public final class MessageScheduler {
     private static PendingIntent pendingIntent(Context context, long messageId) {
         Intent intent = new Intent(context, ScheduledMessageReceiver.class)
                 .setAction(ScheduledMessageReceiver.ACTION_SEND_SCHEDULED)
-                .setData(Uri.parse("calltag://scheduled-message/" + messageId))
-                .putExtra(ScheduledMessageReceiver.EXTRA_MESSAGE_ID, messageId);
+                .setData(Uri.parse("calltag://scheduled-message/"
+                        + AccountDataScope.fingerprint(AccountDataScope.requireOwner(context))
+                        + "/" + messageId))
+                .putExtra(ScheduledMessageReceiver.EXTRA_MESSAGE_ID, messageId)
+                .putExtra(ScheduledMessageReceiver.EXTRA_OWNER_SCOPE,
+                        AccountDataScope.fingerprint(AccountDataScope.requireOwner(context)));
         int requestCode = (int) (messageId ^ (messageId >>> 32));
         return PendingIntent.getBroadcast(context, requestCode, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);

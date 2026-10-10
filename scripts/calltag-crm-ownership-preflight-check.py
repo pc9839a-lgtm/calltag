@@ -22,16 +22,18 @@ for token in (
     "liveRows > 0 && ownMappings == 0",
 ):
     assert token in guard, token
+assert 'public static void requireScopedForSync(' in guard
+assert '"|crm:v2"' in guard
 assert "deleteDatabase(" not in guard
 assert "INSERT INTO" not in guard
 assert "UPDATE " not in guard
 assert "DELETE FROM" not in guard
-assert manager.count("CrmOwnershipPreflight.requireSafeForSync(context, accountKey);") >= 4
+assert manager.count("CrmOwnershipPreflight.requireScopedForSync(context, accountKey);") >= 4
 assert "requireSameAccount(context, accountKey, session);" in manager
 assert manager.count("requireSameAccount(context, accountKey, session);") >= 7
 assert "requireSameAccount(context, store);" in adapter
 assert adapter.count("requireSameAccount(context, store);") >= 6
-assert manager.index("CrmOwnershipPreflight.requireSafeForSync(context, accountKey)") < manager.index(
+assert manager.index("CrmOwnershipPreflight.requireScopedForSync(context, accountKey)") < manager.index(
     "JSONObject statusResponse = CallTagSyncApiClient.status(session, deviceId);"
 )
 

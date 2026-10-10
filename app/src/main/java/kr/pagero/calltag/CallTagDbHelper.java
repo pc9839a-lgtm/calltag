@@ -16,6 +16,7 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
     private static final String UNIVERSAL_LEAD_IMPORTS = "universal_lead_import_events";
     private static final String POST_CALL_SAVES = "post_call_save_receipts";
     private final Context appContext;
+    private final String openedDatabaseName;
 
     public static final String STATUS_NEW = "신규";
     public static final String STATUS_CONSULTING = "진행 중";
@@ -43,8 +44,19 @@ public final class CallTagDbHelper extends SQLiteOpenHelper {
     };
 
     public CallTagDbHelper(Context context) {
-        super(context, DB_NAME, null, DB_VERSION);
+        super(context, AccountDataScope.currentCrmName(context), null, DB_VERSION);
         appContext = context.getApplicationContext();
+        openedDatabaseName = AccountDataScope.currentCrmName(context);
+    }
+
+    @Override public synchronized SQLiteDatabase getWritableDatabase() {
+        AccountDataScope.assertCurrent(appContext, openedDatabaseName, DB_NAME);
+        return super.getWritableDatabase();
+    }
+
+    @Override public synchronized SQLiteDatabase getReadableDatabase() {
+        AccountDataScope.assertCurrent(appContext, openedDatabaseName, DB_NAME);
+        return super.getReadableDatabase();
     }
 
     @Override

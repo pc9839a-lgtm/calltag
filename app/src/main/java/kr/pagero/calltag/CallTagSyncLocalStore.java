@@ -293,19 +293,11 @@ public final class CallTagSyncLocalStore extends SQLiteOpenHelper {
     }
 
     public static String accountKey(Context context) {
-        String ownerId = AuthSessionStore.ownerId(context).trim();
-        if (!ownerId.isEmpty()) return "owner:" + ownerId;
-        String email = AuthSessionStore.email(context).trim().toLowerCase(Locale.ROOT);
-        if (email.isEmpty()) return "";
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] bytes = digest.digest(email.getBytes(StandardCharsets.UTF_8));
-            StringBuilder result = new StringBuilder("email:");
-            for (byte value : bytes) result.append(String.format(Locale.ROOT, "%02x", value));
-            return result.toString();
-        } catch (Exception ignored) {
-            return "";
-        }
+        // The v1 mapping keyed local IDs from the shared calltag.db. Reusing it
+        // after switching to owner-specific databases could push false deletions.
+        String owner = AuthSessionStore.ownerId(context).trim();
+        if (owner.isEmpty() || !AuthSessionStore.hasSession(context)) return "";
+        return "owner:" + owner + "|crm:v2";
     }
 
     public static final class Mapping {

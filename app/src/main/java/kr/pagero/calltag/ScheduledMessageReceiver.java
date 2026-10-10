@@ -7,11 +7,22 @@ import android.content.Intent;
 public final class ScheduledMessageReceiver extends BroadcastReceiver {
     public static final String ACTION_SEND_SCHEDULED = "kr.pagero.calltag.SEND_SCHEDULED_MESSAGE";
     public static final String EXTRA_MESSAGE_ID = "message_id";
+    public static final String EXTRA_OWNER_SCOPE = "owner_scope";
 
     @Override
     public void onReceive(Context context, Intent intent) {
         long messageId = intent == null ? -1L : intent.getLongExtra(EXTRA_MESSAGE_ID, -1L);
-        if (messageId <= 0L) return;
+        if (messageId <= 0L || intent == null) return;
+        try {
+            String scope = AccountDataScope.fingerprint(AccountDataScope.requireOwner(context));
+            if (!scope.equals(intent.getStringExtra(EXTRA_OWNER_SCOPE))) {
+                DiagnosticEventStore.record(context, "예약 무시", messageId,
+                        "다른 계정 또는 구버전 예약 작업");
+                return;
+            }
+        } catch (IllegalStateException missingSession) {
+            return;
+        }
         DiagnosticEventStore.record(context, "예약 수신", messageId, "예약 리시버 실행");
 
         MessageLogStore store = new MessageLogStore(context);

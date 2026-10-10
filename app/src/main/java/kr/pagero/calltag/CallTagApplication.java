@@ -33,7 +33,10 @@ public final class CallTagApplication extends Application implements Application
         CallTagThemeManager.applyApplicationMode(this);
         CrashTelemetryStore.install(this);
         registerActivityLifecycleCallbacks(this);
-        MessageAutomationStore.ensureDefaults(this);
+        if (AuthSessionStore.hasSession(this)
+                && !AuthSessionStore.ownerId(this).trim().isEmpty()) {
+            MessageAutomationStore.ensureDefaults(this);
+        }
         PageroLeadNotificationManager.ensureChannel(this);
         UniversalLeadNotificationManager.ensureChannel(this);
         CallTagSyncWorkScheduler.reconcile(this);
@@ -43,13 +46,18 @@ public final class CallTagApplication extends Application implements Application
         ContactNameSyncManager.disableAndRestore(this);
 
         new Thread(() -> {
-            MessageRecoveryManager.recoverNow(this,
-                    MessageRecoveryManager.TRIGGER_APP_START);
-            DataIntegrityManager.recoverNow(this,
-                    DataIntegrityManager.TRIGGER_APP_START);
+            // Both recovery modules access owner-scoped SQLite stores.
+            if (AuthSessionStore.hasSession(this)
+                    && !AuthSessionStore.ownerId(this).trim().isEmpty()) {
+                MessageRecoveryManager.recoverNow(this,
+                        MessageRecoveryManager.TRIGGER_APP_START);
+                DataIntegrityManager.recoverNow(this,
+                        DataIntegrityManager.TRIGGER_APP_START);
+            }
         }, "calltag-startup-recovery").start();
 
         if (AuthSessionStore.hasSession(this)) {
+            MessageAutomationStore.ensureDefaults(this);
             SetupRequirements.refreshScreeningRoleState(this);
             EntitlementRefreshManager.request(this, true);
             PageroLeadSyncManager.requestSync(this, true);
@@ -99,6 +107,7 @@ public final class CallTagApplication extends Application implements Application
             CrashTelemetryStore.record(activity, "home_task_editor", "visible", "");
         }
         if (activity instanceof MainActivity) {
+            LegacyCrmReviewNotice.showOnce(activity);
             MainExitGuard.install(activity);
             MainActivityCardInteractionFix.install((MainActivity) activity);
             ExternalLeadMenuInstaller.install((MainActivity) activity);

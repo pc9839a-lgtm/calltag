@@ -86,6 +86,7 @@ public final class CallTagBackupManager {
 
     public static BackupResult createBackup(Context context, Uri target, char[] password)
             throws Exception {
+        blockUnsafeLegacyBackup();
         requirePassword(password);
         if (context == null || target == null) {
             throw new IllegalArgumentException("백업 파일 위치를 선택해주세요.");
@@ -121,6 +122,7 @@ public final class CallTagBackupManager {
 
     public static RestoreResult restoreBackup(Context context, Uri source, char[] password)
             throws Exception {
+        blockUnsafeLegacyBackup();
         requirePassword(password);
         if (context == null || source == null) {
             throw new IllegalArgumentException("복원할 백업 파일을 선택해주세요.");
@@ -196,6 +198,14 @@ public final class CallTagBackupManager {
                 deleteRecursively(rollback);
             }
         }
+    }
+
+    private static void blockUnsafeLegacyBackup() {
+        // Version 1 copied/restored every calltag*.db regardless of owner, along
+        // with shared preferences and image files. Fail closed until the new
+        // format can be bound and independently verified against account scope.
+        throw new IllegalStateException(
+                "계정별 보안 백업 형식이 아직 준비되지 않아 백업·복원을 중단했습니다. 이전 기록은 보존됩니다.");
     }
 
     public static String lastSummary(Context context) {

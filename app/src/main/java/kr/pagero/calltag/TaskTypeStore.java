@@ -12,6 +12,8 @@ import java.util.Locale;
 
 public final class TaskTypeStore extends SQLiteOpenHelper {
     private static final String DB_NAME = "calltag_task_types.db";
+    private final Context appContext;
+    private final String openedDatabaseName;
     private static final int DB_VERSION = 1;
 
     public static final String TYPE_CALL = "CALL";
@@ -20,7 +22,9 @@ public final class TaskTypeStore extends SQLiteOpenHelper {
     public static final String TYPE_CUSTOM = "CUSTOM";
 
     public TaskTypeStore(Context context) {
-        super(context.getApplicationContext(), DB_NAME, null, DB_VERSION);
+        super(context.getApplicationContext(), AccountDataScope.name(context, DB_NAME), null, DB_VERSION);
+        appContext = context.getApplicationContext();
+        openedDatabaseName = AccountDataScope.name(context, DB_NAME);
         migrateNewCustomerColor(context.getApplicationContext());
     }
 
@@ -36,6 +40,20 @@ public final class TaskTypeStore extends SQLiteOpenHelper {
         } finally {
             crm.close();
         }
+    }
+
+    private void assertScope() {
+        AccountDataScope.assertCurrent(appContext, openedDatabaseName, DB_NAME);
+    }
+
+    @Override public synchronized SQLiteDatabase getWritableDatabase() {
+        assertScope();
+        return super.getWritableDatabase();
+    }
+
+    @Override public synchronized SQLiteDatabase getReadableDatabase() {
+        assertScope();
+        return super.getReadableDatabase();
     }
 
     @Override

@@ -10,6 +10,7 @@ import android.telephony.SmsManager;
 public final class SmsStatusReceiver extends BroadcastReceiver {
     public static final String ACTION_SENT = "kr.pagero.calltag.SMS_SENT";
     public static final String EXTRA_MESSAGE_ID = "message_id";
+    public static final String EXTRA_OWNER_SCOPE = "owner_scope";
     public static final String EXTRA_PART_INDEX = "part_index";
     public static final String EXTRA_PART_COUNT = "part_count";
 
@@ -19,7 +20,16 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         long messageId = intent == null ? -1L : intent.getLongExtra(EXTRA_MESSAGE_ID, -1L);
         int partCount = intent == null ? 1 : Math.max(1, intent.getIntExtra(EXTRA_PART_COUNT, 1));
-        if (messageId <= 0L) return;
+        if (messageId <= 0L || intent == null) return;
+        // Android can deliver a carrier callback after logout or account switch.
+        // Never apply an old SMS result to another owner's same-numbered job.
+        try {
+            String currentScope = AccountDataScope.fingerprint(
+                    AccountDataScope.requireOwner(context));
+            if (!currentScope.equals(intent.getStringExtra(EXTRA_OWNER_SCOPE))) return;
+        } catch (IllegalStateException missingSession) {
+            return;
+        }
 
         boolean finalResult = false;
         boolean successResult = false;

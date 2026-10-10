@@ -118,17 +118,21 @@ public final class PageroLeadSyncManager {
     private static SyncResult syncNow(Context context) throws Exception {
         String session = AuthSessionStore.session(context);
         if (session.isEmpty()) throw new IllegalStateException("콜태그 로그인이 필요합니다.");
+        String ownerId = AccountDataScope.requireOwner(context);
 
         SyncResult result = new SyncResult();
         long after = 0L;
         try (CallTagDbHelper db = new CallTagDbHelper(context);
              PageroLeadReceiptStore receipts = new PageroLeadReceiptStore(context)) {
             for (int pageIndex = 0; pageIndex < MAX_PAGES_PER_RUN; pageIndex++) {
+                assertSameAccount(context, session, ownerId);
                 PageroLeadApiClient.Page page = PageroLeadApiClient.list(session, after, PAGE_SIZE);
+                assertSameAccount(context, session, ownerId);
                 if (page.leads.isEmpty()) break;
 
                 List<Long> acknowledged = new ArrayList<>();
                 for (PageroLead lead : page.leads) {
+                    assertSameAccount(context, session, ownerId);
                     if (receipts.isImported(lead.eventId)) {
                         acknowledged.add(lead.id);
                         continue;
@@ -153,6 +157,7 @@ public final class PageroLeadSyncManager {
                     } catch (IllegalArgumentException invalid) {
                         result.rejected++;
                         try {
+                            assertSameAccount(context, session, ownerId);
                             PageroLeadApiClient.acknowledgeRejected(session, lead.id, safeMessage(invalid));
                         } catch (Exception ackError) {
                             Log.w(TAG, "Unable to reject invalid PageRo lead");
@@ -161,9 +166,11 @@ public final class PageroLeadSyncManager {
                 }
 
                 if (!acknowledged.isEmpty()) {
+                    assertSameAccount(context, session, ownerId);
                     PageroLeadApiClient.acknowledgeImported(session, acknowledged,
                             "신규 고객 " + result.imported + "건, 기존 고객 갱신 "
                                     + result.updated + "건");
+                    assertSameAccount(context, session, ownerId);
                     for (Long id : acknowledged) receipts.markAcked(id);
                 }
 
@@ -172,6 +179,13 @@ public final class PageroLeadSyncManager {
             }
         }
         return result;
+    }
+
+    private static void assertSameAccount(Context context, String session, String ownerId) {
+        if (!session.equals(AuthSessionStore.session(context))
+                || !ownerId.equals(AuthSessionStore.ownerId(context))) {
+            throw new IllegalStateException("로그인 계정이 바뀌어 페이지로 수신을 중지했습니다.");
+        }
     }
 
     private static ImportResult importLead(CallTagDbHelper db, PageroLead lead) {
