@@ -4,6 +4,7 @@ import android.content.Context;
 
 import androidx.work.BackoffPolicy;
 import androidx.work.Constraints;
+import androidx.work.Data;
 import androidx.work.ExistingPeriodicWorkPolicy;
 import androidx.work.ExistingWorkPolicy;
 import androidx.work.NetworkType;
@@ -18,6 +19,7 @@ public final class ExternalLeadSyncWorkScheduler {
     private static final String PERIODIC_NAME = "calltag-external-leads-periodic";
     private static final String IMMEDIATE_NAME = "calltag-external-leads-immediate";
     private static final String TAG = "calltag-external-leads";
+    public static final String KEY_SKIP_GOOGLE_FORMS_POLL = "skip_google_forms_poll";
     private static final long PERIOD_MINUTES = 15L;
 
     private ExternalLeadSyncWorkScheduler() {}
@@ -47,6 +49,10 @@ public final class ExternalLeadSyncWorkScheduler {
         Context app = context.getApplicationContext();
         if (!AuthSessionStore.hasSession(app)) return;
         OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(ExternalLeadSyncWorker.class)
+                // FCM and pending-ACK recovery must not wait for a slow Google Forms poll.
+                .setInputData(new Data.Builder()
+                        .putBoolean(KEY_SKIP_GOOGLE_FORMS_POLL, true)
+                        .build())
                 .setConstraints(networkConstraints())
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30L, TimeUnit.SECONDS)
                 .addTag(TAG)
