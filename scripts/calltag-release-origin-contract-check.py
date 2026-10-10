@@ -49,6 +49,16 @@ assert "private boolean returnedFromBilling;" in notice
 assert "if (returnedFromBilling && !EntitlementNoticeActivity.shouldOpen(this))" in notice
 assert "startActivity(new Intent(this, BillingEntitlementActivity.class));\n            finish();" not in notice
 
+# Play subscription reconciliation must be account-scoped, not device-global.
+# Failed attempts must retry sooner than the six-hour successful-check cadence.
+reconcile = (JAVA / "PlaySubscriptionReconcileManager.java").read_text(encoding="utf-8")
+assert 'KEY_OWNER_ID = "owner_id"' in reconcile
+assert 'RETRY_INTERVAL_MS = 5L * 60L * 1000L' in reconcile
+assert 'lastSuccess >= lastAttempt' in reconcile
+assert 'prefs.edit().putString(KEY_OWNER_ID, ownerId)' in reconcile
+assert reconcile.count("matchesAccount(app, ownerId, session)") >= 3
+
+
 # Server rotates session tokens on some refreshes; all follow-up entitlement calls use stored new token.
 assert "String currentSession = AuthSessionStore.session(this);" in gate
 assert "refreshEntitlement(currentSession);" in gate
