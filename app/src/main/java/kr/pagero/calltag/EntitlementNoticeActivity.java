@@ -179,6 +179,9 @@ public final class EntitlementNoticeActivity extends Activity {
 
     private static String noticeCode(FeatureEntitlementStore.Snapshot value) {
         if (!value.serverChecked) return "";
+        // A verified paid phone or message subscription supersedes the expired trial.
+        // Do not trap paying users behind an old TRIAL_EXPIRED server notice.
+        if (value.phoneSubscribed || value.messageSubscribed) return "";
         // The server explicitly reports TRIAL_EXPIRED even when the top-level status is
         // "inactive", so prefer the server lifecycle notice over legacy status matching.
         if (!value.active && "TRIAL_EXPIRED".equalsIgnoreCase(value.noticeCode)) {
