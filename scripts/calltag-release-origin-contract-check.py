@@ -46,6 +46,7 @@ assert "return requestSyncInternal(context, true, true, false);" in sync
 assert "SyncResult result = syncNow(appContext, pollGoogleForms);" in sync
 assert "SyncResult result = syncNow(appContext, true);" in sync
 assert "if (pollGoogleForms) {" in sync
+assert sync.count("UniversalLeadNotificationManager.showImported(") >= 2
 assert "ExternalLeadIntegrationApiClient.syncGoogleForms(session);" in sync
 
 scheduler = (JAVA / "ExternalLeadSyncWorkScheduler.java").read_text(encoding="utf-8")
