@@ -58,6 +58,14 @@ assert 'lastSuccess >= lastAttempt' in reconcile
 assert 'prefs.edit().putString(KEY_OWNER_ID, ownerId)' in reconcile
 assert reconcile.count("matchesAccount(app, ownerId, session)") >= 3
 
+# Purchase and restore callbacks must not overwrite entitlement after logout/account switch.
+play = (JAVA / "PlayBillingManager.java").read_text(encoding="utf-8")
+assert 'private boolean matchesAccount(String ownerId, String session)' in play
+assert play.count('if (!matchesAccount(ownerId, session) || closed) return;') == 2
+assert play.count('if (!matchesAccount(ownerId, session)) return;') >= 2
+assert play.count('FeatureEntitlementStore.saveServerEntitlement(activity, response);') == 2
+
+
 
 # Server rotates session tokens on some refreshes; all follow-up entitlement calls use stored new token.
 assert "String currentSession = AuthSessionStore.session(this);" in gate
