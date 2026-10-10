@@ -25,6 +25,7 @@ public final class EntitlementNoticeActivity extends Activity {
     private static final int TEXT = Color.rgb(15, 23, 42);
     private static final int SUBTEXT = Color.rgb(71, 85, 105);
     private static final int BORDER = Color.rgb(226, 232, 240);
+    private boolean returnedFromBilling;
 
     public static boolean shouldOpen(Context context) {
         FeatureEntitlementStore.Snapshot value = FeatureEntitlementStore.snapshot(context);
@@ -51,6 +52,17 @@ public final class EntitlementNoticeActivity extends Activity {
         }
         markShown(code, value.estimatedServerNow);
         setContentView(buildScreen(value, code));
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Google Play verification writes the authoritative entitlement before returning.
+        // Once restored, return to CRM; if still expired, keep the notice and records CTA.
+        if (returnedFromBilling && !EntitlementNoticeActivity.shouldOpen(this)) {
+            returnedFromBilling = false;
+            openMain();
+        }
     }
 
     private LinearLayout buildScreen(FeatureEntitlementStore.Snapshot value, String code) {
@@ -99,8 +111,10 @@ public final class EntitlementNoticeActivity extends Activity {
 
         TextView billing = button("이용권 확인", true);
         billing.setOnClickListener(v -> {
+            // Keep the expired notice in the back stack. Otherwise returning from
+            // Play purchase/restore can leave the user at a blank/exiting task.
+            returnedFromBilling = true;
             startActivity(new Intent(this, BillingEntitlementActivity.class));
-            finish();
         });
         LinearLayout.LayoutParams billingParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
