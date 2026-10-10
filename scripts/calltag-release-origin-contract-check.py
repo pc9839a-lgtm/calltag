@@ -52,6 +52,10 @@ scheduler = (JAVA / "ExternalLeadSyncWorkScheduler.java").read_text(encoding="ut
 assert "PERIOD_MINUTES = 15L" in scheduler
 assert ".setRequiredNetworkType(NetworkType.CONNECTED)" in scheduler
 assert ".setRequiresBatteryNotLow(true)" not in scheduler
+assert "ExistingWorkPolicy.KEEP" in scheduler
+fcm = (JAVA / "CallTagMessagingService.java").read_text(encoding="utf-8")
+assert 'UniversalLeadSyncManager.requestRealtimeSync(this);' in fcm
+assert 'ExternalLeadSyncWorkScheduler.enqueueImmediate(this);' in fcm
 
 
 
