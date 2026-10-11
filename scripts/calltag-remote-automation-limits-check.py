@@ -51,7 +51,9 @@ receiver=code("ScheduledMessageReceiver.java")
 sender=code("SmsSender.java")
 store=code("MessageLogStore.java")
 assert 'CallTagRemoteAutomationLimits.earliestAutomatedSendAt(' in receiver
-assert 'MessageScheduler.schedule(context, messageId, remoteMinimumAt)' in receiver
+assert 'MessageScheduler.schedule(context, messageId, safeAt)' in receiver
+assert 'store.deferScheduledForRemoteMinimum(messageId, safeAt)' in receiver
+assert 'id=? AND status=? AND scheduled_at<?' in store
 assert 'CallTagRemoteAutomationLimits.earliestAutomatedSendAt(' in sender
 assert 'store.deferReadyForRemoteMinimum(messageId, earliest)' in sender
 assert 'id=? AND status=?' in store

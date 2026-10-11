@@ -60,8 +60,10 @@ public final class ScheduledMessageReceiver extends BroadcastReceiver {
 
             long remoteMinimumAt = CallTagRemoteAutomationLimits.earliestAutomatedSendAt(
                     context, record);
-            if (remoteMinimumAt > System.currentTimeMillis()) {
-                MessageScheduler.schedule(context, messageId, remoteMinimumAt);
+            long safeAt = Math.max(remoteMinimumAt, record.scheduledAt);
+            if (safeAt > System.currentTimeMillis()) {
+                store.deferScheduledForRemoteMinimum(messageId, safeAt);
+                MessageScheduler.schedule(context, messageId, safeAt);
                 DiagnosticEventStore.record(context, "예약 추가 지연", messageId,
                         "서버 운영 정책 최소 발송 지연");
                 return;

@@ -219,6 +219,17 @@ public final class MessageLogStore extends SQLiteOpenHelper {
                 new String[]{String.valueOf(messageId), STATUS_READY}) == 1;
     }
 
+    public boolean deferScheduledForRemoteMinimum(long messageId, long earliest) {
+        ContentValues changes = new ContentValues();
+        changes.put("scheduled_at", earliest);
+        changes.put("updated_at", System.currentTimeMillis());
+        changes.put("error", "서버 운영 정책에 따른 최소 지연 시간 적용");
+        return getWritableDatabase().update("message_jobs", changes,
+                "id=? AND status=? AND scheduled_at<?",
+                new String[]{String.valueOf(messageId), STATUS_SCHEDULED,
+                        String.valueOf(earliest)}) == 1;
+    }
+
     private long insertDuplicateAttempt(SQLiteDatabase db, long customerId,
                                         long callLogId, long scheduleId,
                                         String campaignId, String templateId,
