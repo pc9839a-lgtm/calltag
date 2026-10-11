@@ -34,6 +34,7 @@ public final class CallTagApplication extends Application implements Application
         CrashTelemetryStore.install(this);
         // Public operational policy only; refresh asynchronously and never block launch.
         CallTagRemotePolicy.refreshAsync(this, true);
+        CallTagRemotePolicyScheduler.ensureScheduled(this);
         registerActivityLifecycleCallbacks(this);
         if (AuthSessionStore.hasSession(this)
                 && !AuthSessionStore.ownerId(this).trim().isEmpty()) {

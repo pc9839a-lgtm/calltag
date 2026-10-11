@@ -65,6 +65,22 @@ public final class CallTagRemotePolicy {
         thread.start();
     }
 
+    /**
+     * WorkManager invokes this on a background worker thread even when no
+     * Activity has been opened recently. A failed poll retains cached stops.
+     */
+    public static void refreshOnWorker(Context context) {
+        if (context == null || !RUNNING.compareAndSet(false, true)) return;
+        try {
+            lastAttemptElapsedMs = SystemClock.elapsedRealtime();
+            refreshNow(context.getApplicationContext());
+        } catch (Exception ignored) {
+            // Retain the last committed operational policy.
+        } finally {
+            RUNNING.set(false);
+        }
+    }
+
     private static void refreshNow(Context context) throws Exception {
         HttpURLConnection connection = null;
         try {

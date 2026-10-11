@@ -32,6 +32,14 @@ assert 'public static boolean allowed(Context context, String flag)' in remote
 app=source("CallTagApplication.java")
 assert 'CallTagRemotePolicy.refreshAsync(this, true)' in app
 assert 'CallTagRemotePolicy.refreshAsync(this, false)' in app
+assert 'CallTagRemotePolicyScheduler.ensureScheduled(this)' in app
+assert 'public static void refreshOnWorker(Context context)' in remote
+worker=source("CallTagRemotePolicyWorker.java")
+scheduler=source("CallTagRemotePolicyScheduler.java")
+assert 'CallTagRemotePolicy.refreshOnWorker(getApplicationContext())' in worker
+assert 'ExistingPeriodicWorkPolicy.KEEP' in scheduler
+assert '15L, TimeUnit.MINUTES' in scheduler
+assert 'NetworkType.CONNECTED' in scheduler
 sms=source("SmsSender.java")
 assert sms.count('CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.SMS)') >= 2
 assert sms.index('if (!CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.SMS)) return;') < sms.index('MessageLogStore store = new MessageLogStore(context);',sms.index('public static void sendExisting'))
