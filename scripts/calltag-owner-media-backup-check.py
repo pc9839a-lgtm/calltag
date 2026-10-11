@@ -48,7 +48,7 @@ for item in [
     assert item in backup, "backup contract: "+item
 assert '"files/message_images/owner-[0-9a-f]{40}"' in backup
 assert "path.substring(prefix.length()).matches" in backup
-assert "ownerImages = MessageAttachmentStore.currentOwnerDirectory(context)" in backup
+assert "File ownerImages = new File(context.getFilesDir(), scopedImages);" in backup
 assert "공용 이미지는 보존하지만" in backup_ui
 assert "source.execSQL" not in code("LegacyCrmRecoveryManager.java")
 
