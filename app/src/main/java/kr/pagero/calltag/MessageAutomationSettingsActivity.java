@@ -112,7 +112,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
         commonText.setOrientation(LinearLayout.VERTICAL);
         commonText.addView(title("발송 조건·회선", 15f), matchWrap());
         commonSummary = body("");
-        commonSummary.setMaxLines(2);
+        commonSummary.setMaxLines(4);
         commonText.addView(commonSummary, topMargin(4));
         common.addView(commonText, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -388,7 +388,17 @@ public final class MessageAutomationSettingsActivity extends Activity {
                 ? startHourValue + ":00–" + endHourValue + ":00"
                 : "시간 제한 없음")
                 + " · " + cooldownHoursValue + "시간 중복 방지"
-                + "\n" + selectedLineLabel());
+                + "\n" + selectedLineLabel()
+                + serverMinimumNotice());
+    }
+
+    private String serverMinimumNotice() {
+        int cooldown = CallTagRemotePolicy.minimumCooldownHours(this);
+        int followup = CallTagRemotePolicy.minimumFollowupDays(this);
+        int leadDelay = CallTagRemotePolicy.minimumLeadDelayMinutes(this);
+        if (cooldown == 0 && followup == 0 && leadDelay == 0) return "";
+        return "\n서버 안전 기준: 중복 " + cooldown + "시간 · 후속 "
+                + followup + "일 · 문의 " + leadDelay + "분 (더 긴 조건 우선)";
     }
 
     private String selectedLineLabel() {

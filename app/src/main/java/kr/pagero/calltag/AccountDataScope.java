@@ -18,7 +18,7 @@ public final class AccountDataScope {
             "calltag_message_automation", "calltag_message_templates_v1",
             "calltag_message_exclusions", "calltag_task_message_links_v1",
             "calltag_post_call_exclusions", "calltag_post_call_recovery",
-            "calltag_mms_compose_v1"
+            "calltag_mms_compose_v1", "calltag_pagero_lead_message"
     };
     private AccountDataScope() {}
 

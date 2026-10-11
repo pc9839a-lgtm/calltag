@@ -4,12 +4,26 @@ export const FLAG_NAMES = Object.freeze([
   'smsSending', 'automaticSms', 'mmsCompose', 'leadImport', 'cloudSync'
 ]);
 
+export const LIMIT_CAPS = Object.freeze({
+  minCooldownHours: 720,
+  minLeadDelayMinutes: 1440,
+  minFollowupDays: 30
+});
+
+export function validateAutomationLimits(limits) {
+  if (!limits || typeof limits !== 'object' || Array.isArray(limits)) return false;
+  return Object.keys(LIMIT_CAPS).every(name => Number.isSafeInteger(limits[name])
+    && limits[name] >= 0 && limits[name] <= LIMIT_CAPS[name]);
+}
+
 export function validateMobilePolicy(value) {
   return value && typeof value === 'object' && !Array.isArray(value)
     && value.schemaVersion === 1
     && Number.isSafeInteger(value.revision) && value.revision >= 1
     && value.flags && typeof value.flags === 'object' && !Array.isArray(value.flags)
-    && FLAG_NAMES.every(name => typeof value.flags[name] === 'boolean');
+    && FLAG_NAMES.every(name => typeof value.flags[name] === 'boolean')
+    && (value.automationLimits === undefined
+        || validateAutomationLimits(value.automationLimits));
 }
 
 export async function serveMobilePolicy(request, env) {
@@ -40,8 +54,15 @@ export async function serveMobilePolicy(request, env) {
     const config = JSON.parse(body);
     if (!validateMobilePolicy(config)) throw new Error('policy_schema_invalid');
     const safeFlags = Object.fromEntries(FLAG_NAMES.map(key => [key, config.flags[key]]));
+    // Missing limits are supported for previously deployed v1 assets.
+    // An absent field means no server minimum; it does not lift user restrictions.
+    const safeLimits = config.automationLimits === undefined
+      ? Object.fromEntries(Object.keys(LIMIT_CAPS).map(key => [key, 0]))
+      : Object.fromEntries(Object.keys(LIMIT_CAPS).map(key =>
+          [key, config.automationLimits[key]]));
     const response = JSON.stringify({
-      schemaVersion: 1, revision: config.revision, flags: safeFlags
+      schemaVersion: 1, revision: config.revision,
+      flags: safeFlags, automationLimits: safeLimits
     });
     return new Response(request.method === 'HEAD' ? null : response, {
       status: 200, headers

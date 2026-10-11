@@ -460,6 +460,10 @@ public final class CallTagBackupManager {
             if (!expected.containsKey("preferences/" + preference + ".json")) {
                 // Allow owner-scoped v2 archives generated before MMS/media support.
                 if (!hasOwnerImages && preference.equals(mmsPrefs)) continue;
+                // Older owner-v2 archives predate the separately scoped PageRo
+                // automation preference. Never guess ownership of global settings.
+                if (preference.equals(AccountDataScope.preferenceName(
+                        context, "calltag_pagero_lead_message"))) continue;
                 throw new IOException("계정별 설정 파일이 누락된 백업입니다.");
             }
         }

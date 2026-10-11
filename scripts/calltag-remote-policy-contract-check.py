@@ -20,7 +20,7 @@ assert 'connection.setRequestMethod("GET")' in remote
 assert 'X-Inlet-Session' not in remote and "Bearer " not in remote
 assert 'MAX_RESPONSE_BYTES = 8192' in remote
 assert 'MIN_REFRESH_MS = 60_000L' in remote
-assert 'if (revision <= p.getLong("revision", 0L)) return;' in remote
+assert 'revision < cachedRevision' in remote
 assert 'flags.opt(key) instanceof Boolean' in remote
 assert 'editor.putBoolean(PREFIX + key, flags.getBoolean(key));' in remote
 assert 'editor.putLong("revision", revision);' in remote

@@ -12,6 +12,7 @@ on:
       - patch/calltag-owner-media-backup-20261011
       - patch/calltag-server-policy-foundation-20261011
       - patch/calltag-remote-template-catalog-20261011
+      - patch/calltag-remote-automation-limits-20261011
   pull_request:
     branches:
       - patch/calltag-next-production-20261006
@@ -50,6 +51,8 @@ jobs:
           node scripts/calltag-worker-policy-check.mjs
           python3 scripts/calltag-remote-template-catalog-check.py
           node scripts/calltag-worker-template-catalog-check.mjs
+          python3 scripts/calltag-remote-automation-limits-check.py
+          node scripts/calltag-worker-automation-limits-check.mjs
           python3 scripts/calltag-release-origin-contract-check.py
           grep -F 'versionCode 2026100701' app/build.gradle
           grep -F "versionName '0.44.61'" app/build.gradle

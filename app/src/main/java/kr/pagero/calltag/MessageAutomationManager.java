@@ -136,7 +136,9 @@ public final class MessageAutomationManager {
                 ? MessageAutomationStore.DEFAULT_DELAYED_TEMPLATE : template.body;
         MessageTemplateEngine.RenderResult rendered = MessageAutomationStore.renderMessage(
                 context, templateBody, customer, record);
-        long when = now + MessageAutomationStore.delayDays(context) * DAY_MS;
+        int days = Math.max(MessageAutomationStore.delayDays(context),
+                CallTagRemotePolicy.minimumFollowupDays(context));
+        long when = now + days * DAY_MS;
         long customerId = customer == null ? 0L : customer.id;
         int subscriptionId = MessageAutomationStore.selectedSubscriptionId(context);
         if (!rendered.isReady()) {
