@@ -172,12 +172,13 @@ public final class CallTagBackupManager {
                             missingImages,
                             integrity == null ? "" : integrity.compactSummary(),
                             recovery == null ? "" : recovery.compactSummary());
-                    deleteRecursively(rollback);
+                    // Rollback staging must remain available until EVERY
+                    // post-restore step, including cloud-map invalidation, succeeds.
+                    invalidateOwnerSyncMappings(app);
                     saveStatus(app, "복원 완료 · DB " + result.databaseCount
                             + "개 · 설정 " + result.preferenceCount
                             + "개 · 이미지 " + result.imageCount
                             + "개 · 이미지 누락 " + result.missingImageCount + "개");
-                    invalidateOwnerSyncMappings(app);
                     if (SettingsStore.isMonitorEnabled(app)) startMonitor(app);
                     return result;
                 } catch (Exception restoreError) {
@@ -429,8 +430,17 @@ public final class CallTagBackupManager {
                 throw new IOException("백업 데이터 경로가 올바르지 않습니다.");
             }
         }
-        if (!expected.containsKey("databases/" + AccountDataScope.currentCrmName(context))) {
-            throw new IOException("고객 데이터베이스가 없는 백업 파일입니다.");
+        // v2 backups must be complete. Do not accept a reduced archive that
+        // could silently erase the active owner's missing database on restore.
+        for (String name : AccountDataScope.currentAccountDatabases(context)) {
+            if (!expected.containsKey("databases/" + name)) {
+                throw new IOException("계정별 DB가 누락된 백업입니다: " + name);
+            }
+        }
+        for (String preference : AccountDataScope.currentAccountPreferences(context)) {
+            if (!expected.containsKey("preferences/" + preference + ".json")) {
+                throw new IOException("계정별 설정 파일이 누락된 백업입니다.");
+            }
         }
 
         List<File> actualFiles = new ArrayList<>();
@@ -734,10 +744,15 @@ public final class CallTagBackupManager {
         try (CallTagSyncLocalStore store = new CallTagSyncLocalStore(context)) {
             String key = store.accountKey();
             if (!key.isEmpty()) {
-                store.getWritableDatabase().delete("entity_map", "account_key=?",
-                        new String[]{key});
-                store.getWritableDatabase().delete("sync_meta", "account_key=?",
-                        new String[]{key});
+                SQLiteDatabase db = store.getWritableDatabase();
+                db.beginTransaction();
+                try {
+                    db.delete("entity_map", "account_key=?", new String[]{key});
+                    db.delete("sync_meta", "account_key=?", new String[]{key});
+                    db.setTransactionSuccessful();
+                } finally {
+                    db.endTransaction();
+                }
             }
         }
     }
