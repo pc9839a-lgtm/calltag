@@ -1,4 +1,6 @@
 import core from './_worker-core.js';
+import { serveMobilePolicy } from './worker/mobile-policy.mjs';
+import { serveMobileTemplates } from './worker/mobile-templates.mjs';
 import { handleAdminOpsBridge } from './worker/admin-ops-bridge.js';
 import { handleAdminPayoutBridge } from './worker/admin-payout-bridge.js';
 
@@ -9,6 +11,12 @@ const LANDING_STABILIZER='/assets/calltag-landing-stabilizer-v1.js?v=20260918-st
 
 export default {
   async fetch(request,env,context){
+    // Independent remote policy routes. Preserve all existing admin and
+    // settlement/landing handlers for other paths.
+    const remotePolicy=await serveMobilePolicy(request,env);
+    if(remotePolicy)return remotePolicy;
+    const remoteTemplates=await serveMobileTemplates(request,env);
+    if(remoteTemplates)return remoteTemplates;
     const adminOpsResponse=await handleAdminOpsBridge(request);
     if(adminOpsResponse)return adminOpsResponse;
 

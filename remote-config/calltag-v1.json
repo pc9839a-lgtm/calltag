@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "revision": 2,
+  "flags": {
+    "smsSending": true,
+    "automaticSms": true,
+    "mmsCompose": true,
+    "leadImport": true,
+    "cloudSync": true
+  },
+  "automationLimits": {
+    "minCooldownHours": 0,
+    "minLeadDelayMinutes": 0,
+    "minFollowupDays": 0
+  }
+}
