@@ -31,7 +31,11 @@ public final class SmsSender {
                     campaignId, templateId, phone, body, triggerType,
                     MessageLogStore.STATUS_READY, System.currentTimeMillis(),
                     subscriptionId, forceSend);
-            if (store.isSendable(id)) sendExisting(context, id);
+            if (!CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.SMS)) {
+                store.markSkipped(id, "서버 운영 정책으로 문자 발송이 일시 중지됐습니다.");
+            } else if (store.isSendable(id)) {
+                sendExisting(context, id);
+            }
             return id;
         } finally {
             store.close();

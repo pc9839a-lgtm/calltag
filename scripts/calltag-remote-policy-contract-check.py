@@ -57,6 +57,10 @@ assert universal.count('CallTagRemotePolicy.LEAD_IMPORT') >= 3
 sync=source("CallTagSyncManager.java")
 assert sync.count('CallTagRemotePolicy.CLOUD_SYNC') >= 2
 assert 'CallTagSyncPreferenceStore.isEnabled(app)' in sync
+assert 'CallTagRemotePolicy.CLOUD_SYNC' in source("CallTagSyncWorker.java")
+assert 'CallTagRemotePolicy.CLOUD_SYNC' in source("CallTagSyncWorkScheduler.java")
+assert 'CallTagRemotePolicy.AUTOMATIC_SMS' in source("PageroLeadMessageAutomation.java")
+assert 'store.markSkipped(id, "서버 운영 정책으로 문자 발송이 일시 중지됐습니다.");' in sms
 assert 'requireSameAccount(context, accountKey, session);' in sync
 worker=Path("_worker.js").read_text(encoding="utf-8")
 assert "serveMobilePolicy(request, env)" in worker

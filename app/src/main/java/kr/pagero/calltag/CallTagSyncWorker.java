@@ -21,6 +21,7 @@ public final class CallTagSyncWorker extends Worker {
     public Result doWork() {
         Context app = getApplicationContext();
         if (!AuthSessionStore.hasSession(app)
+                || !CallTagRemotePolicy.allowed(app, CallTagRemotePolicy.CLOUD_SYNC)
                 || !CallTagSyncPreferenceStore.isEnabled(app)) {
             return Result.success();
         }
