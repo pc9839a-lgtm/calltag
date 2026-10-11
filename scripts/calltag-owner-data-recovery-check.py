@@ -67,6 +67,22 @@ assert 'private static boolean isAllowedOwnerPath' in backup
 assert 'manifest.optInt("formatVersion", 0) != FORMAT_VERSION' in backup
 assert '"기존 공용 백업(v1)"' not in backup or "공용 백업(v1)" in backup
 assert "currentAccountPreferences" in scope
+assert "workEpoch(Context context)" in scope
+assert "rotateWorkEpoch(Context context)" in scope
+assert "AccountDataScope.rotateWorkEpoch(app)" in backup
+assert 'for (String name : AccountDataScope.currentAccountDatabases(context)) {' in backup
+assert 'for (String preference : AccountDataScope.currentAccountPreferences(context)) {' in backup
+assert "disableAndResetOwnerSync(app, ownerId, session)" in recovery
+scheduled=text("ScheduledMessageReceiver.java")
+scheduler=text("MessageScheduler.java")
+sender=text("SmsSender.java")
+status=text("SmsStatusReceiver.java")
+for name,code in (("alarm",scheduled),("sms callback",status)):
+    assert 'EXTRA_WORK_EPOCH' in code,name
+    assert "AccountDataScope.workEpoch(context)" in code,name
+assert "AccountDataScope.workEpoch(context)" in scheduler
+assert "AccountDataScope.workEpoch(context)" in sender
+assert "partStatusKey(context, messageId)" in status
 assert "구버전 고객·상담 기록 복구" in ui
 assert "createButton.setEnabled(!value)" in ui
 assert "restoreButton.setEnabled(!value)" in ui
