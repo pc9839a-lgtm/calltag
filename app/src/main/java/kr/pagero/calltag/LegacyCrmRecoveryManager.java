@@ -78,6 +78,7 @@ public final class LegacyCrmRecoveryManager {
                                 "SELECT owner_hash FROM " + MARKER + " LIMIT 1", null)) {
                             if (cursor.moveToFirst()) {
                                 if (AccountDataScope.fingerprint(ownerId).equals(cursor.getString(0))) {
+                                    disableAndResetOwnerSync(app, ownerId, session);
                                     return new Result(true, 0, 0, 0);
                                 }
                                 throw new IllegalStateException("이미 다른 계정의 복구 기록이 있습니다.");
@@ -126,11 +127,37 @@ public final class LegacyCrmRecoveryManager {
                     } finally {
                         target.endTransaction();
                     }
+                    // Local v2 cloud mapping IDs are no longer guaranteed to refer
+                    // to the same customers after a historical CRM copy.
+                    disableAndResetOwnerSync(app, ownerId, session);
                     // Deliberately never alter, rename, or delete the legacy database.
                     return new Result(false, customers, interactions, tasks);
                 }
             } finally {
                 CallTagSyncManager.endMaintenance();
+            }
+        }
+    }
+
+    private static void disableAndResetOwnerSync(
+            Context context, String ownerId, String session) {
+        if (!ownerId.equals(AuthSessionStore.ownerId(context))
+                || !session.equals(AuthSessionStore.session(context))) {
+            throw new IllegalStateException("계정이 바뀌어 복구 동기화 정보를 변경하지 않았습니다.");
+        }
+        CallTagSyncPreferenceStore.setEnabled(context, false);
+        try (CallTagSyncLocalStore store = new CallTagSyncLocalStore(context)) {
+            String key = store.accountKey();
+            if (!key.isEmpty()) {
+                SQLiteDatabase db = store.getWritableDatabase();
+                db.beginTransaction();
+                try {
+                    db.delete("entity_map", "account_key=?", new String[]{key});
+                    db.delete("sync_meta", "account_key=?", new String[]{key});
+                    db.setTransactionSuccessful();
+                } finally {
+                    db.endTransaction();
+                }
             }
         }
     }
