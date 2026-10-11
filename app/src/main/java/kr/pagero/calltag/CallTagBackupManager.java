@@ -86,11 +86,13 @@ public final class CallTagBackupManager {
             Context app = context.getApplicationContext();
             String owner = AccountDataScope.requireOwner(app);
             String session = AuthSessionStore.session(app);
-            if (PageroLeadSyncManager.isRunning() || UniversalLeadSyncManager.isRunning()
-                    || !CallTagSyncManager.beginMaintenance()) {
-                throw new IllegalStateException("동기화가 끝난 뒤 백업을 다시 시도해주세요.");
+            if (!CallTagSyncManager.beginMaintenance()) {
+                throw new IllegalStateException("다른 데이터 작업이 진행 중입니다.");
             }
             try {
+            if (PageroLeadSyncManager.isRunning() || UniversalLeadSyncManager.isRunning()) {
+                throw new IllegalStateException("문의 수신 종료 후 백업을 다시 시도해주세요.");
+            }
             requireSameAccount(app, owner, session);
             ensureNoSending(app, "발송 중인 문자가 있어 백업을 시작할 수 없습니다.");
             boolean monitorEnabled = SettingsStore.isMonitorEnabled(app);
@@ -134,11 +136,13 @@ public final class CallTagBackupManager {
             Context app = context.getApplicationContext();
             String owner = AccountDataScope.requireOwner(app);
             String session = AuthSessionStore.session(app);
-            if (PageroLeadSyncManager.isRunning() || UniversalLeadSyncManager.isRunning()
-                    || !CallTagSyncManager.beginMaintenance()) {
-                throw new IllegalStateException("동기화가 끝난 뒤 복원을 다시 시도해주세요.");
+            if (!CallTagSyncManager.beginMaintenance()) {
+                throw new IllegalStateException("다른 데이터 작업이 진행 중입니다.");
             }
             try {
+            if (PageroLeadSyncManager.isRunning() || UniversalLeadSyncManager.isRunning()) {
+                throw new IllegalStateException("문의 수신 종료 후 복원을 다시 시도해주세요.");
+            }
             File extracted = new File(app.getCacheDir(), "calltag-restore-stage-" + UUID.randomUUID());
             File rollback = new File(app.getNoBackupFilesDir(), "calltag-restore-rollback-" + UUID.randomUUID());
             boolean monitorEnabledBefore = SettingsStore.isMonitorEnabled(app);

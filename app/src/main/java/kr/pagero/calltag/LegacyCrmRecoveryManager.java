@@ -56,11 +56,13 @@ public final class LegacyCrmRecoveryManager {
             if (!ownerId.equals(confirmedOwnerId) || session.isEmpty()) {
                 throw new IllegalStateException("현재 로그인한 계정을 다시 확인해주세요.");
             }
-            if (PageroLeadSyncManager.isRunning() || UniversalLeadSyncManager.isRunning()
-                    || !CallTagSyncManager.beginMaintenance()) {
-                throw new IllegalStateException("동기화 종료 후 다시 시도해주세요.");
+            if (!CallTagSyncManager.beginMaintenance()) {
+                throw new IllegalStateException("다른 데이터 작업이 진행 중입니다.");
             }
             try {
+                if (PageroLeadSyncManager.isRunning() || UniversalLeadSyncManager.isRunning()) {
+                    throw new IllegalStateException("문의 수신이 끝난 뒤 다시 시도해주세요.");
+                }
                 File sourceFile = app.getDatabasePath(SOURCE);
                 if (!sourceFile.isFile()) throw new IllegalStateException("이전 고객 DB가 없습니다.");
                 try (SQLiteDatabase source = SQLiteDatabase.openDatabase(
