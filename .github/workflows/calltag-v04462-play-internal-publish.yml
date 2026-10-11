@@ -1,0 +1,175 @@
+name: CallTag 0.44.62 Google Play Internal Publish
+on:
+  push:
+    branches:
+      - release/calltag-04462-play-internal-20261011
+permissions:
+  contents: read
+concurrency:
+  group: calltag-v04462-play-internal
+  cancel-in-progress: false
+jobs:
+  upload-play-internal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Verify dedicated release version and code
+        run: |
+          set -euo pipefail
+          grep -F "versionCode 2026101101" app/build.gradle
+          grep -F "versionName '0.44.62'" app/build.gradle
+          grep -F "applicationId 'kr.pagero.calltag'" app/build.gradle
+          python3 scripts/calltag-remote-automation-limits-check.py
+          node scripts/calltag-worker-automation-limits-check.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Verify Google Play publishing account secret exists
+        env:
+          PLAY_JSON_A: ${{ secrets.CALLTAG_PLAY_SERVICE_ACCOUNT_JSON }}
+          PLAY_JSON_B: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          PLAY_JSON_C: ${{ secrets.GOOGLE_PLAY_JSON_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "$PLAY_JSON_A" ]; then
+            printf '%s' "$PLAY_JSON_A" > "$RUNNER_TEMP/calltag-publisher.json"
+          elif [ -n "$PLAY_JSON_B" ]; then
+            printf '%s' "$PLAY_JSON_B" > "$RUNNER_TEMP/calltag-publisher.json"
+          elif [ -n "$PLAY_JSON_C" ]; then
+            printf '%s' "$PLAY_JSON_C" > "$RUNNER_TEMP/calltag-publisher.json"
+          else
+            echo "::error::Missing Google Play publisher service-account JSON secret. Configure CALLTAG_PLAY_SERVICE_ACCOUNT_JSON in GitHub Actions, with Google Play Console API access."
+            exit 1
+          fi
+          chmod 600 "$RUNNER_TEMP/calltag-publisher.json"
+          python3 - <<'PY'
+          import json, os
+          with open(os.path.join(os.environ['RUNNER_TEMP'],'calltag-publisher.json'),encoding='utf-8') as handle:
+              j=json.load(handle)
+          if j.get('type')!='service_account' or not j.get('client_email') or not j.get('private_key'):
+              raise SystemExit('::error::Play publisher credential is not a valid service account JSON.')
+          print('Publisher service account schema validated. Identity redacted.')
+          PY
+      - name: Resolve Play upload credentials
+        env:
+          SECRET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
+          SECRET_UPLOAD_CREDENTIALS: ${{ secrets.CALLTAG_UPLOAD_CREDENTIALS }}
+          SECRET_UPLOAD_STORE_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_STORE_PASSWORD }}
+          SECRET_UPLOAD_KEY_ALIAS: ${{ secrets.CALLTAG_UPLOAD_KEY_ALIAS }}
+          SECRET_UPLOAD_KEY_PASSWORD: ${{ secrets.CALLTAG_UPLOAD_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import json
+          import os
+          import sys
+
+          raw = (os.environ.get('SECRET_UPLOAD_CREDENTIALS') or '').strip()
+          values = {}
+
+          if raw:
+              try:
+                  parsed = json.loads(raw)
+                  if isinstance(parsed, dict):
+                      values.update({str(k): str(v) for k, v in parsed.items() if v is not None})
+              except json.JSONDecodeError:
+                  for line in raw.splitlines():
+                      line = line.strip()
+                      if not line or line.startswith('#') or '=' not in line:
+                          continue
+                      key, value = line.split('=', 1)
+                      values[key.strip()] = value.strip().strip('"').strip("'")
+
+          legacy = {
+              'CALLTAG_UPLOAD_STORE_PASSWORD': os.environ.get('SECRET_UPLOAD_STORE_PASSWORD', ''),
+              'CALLTAG_UPLOAD_KEY_ALIAS': os.environ.get('SECRET_UPLOAD_KEY_ALIAS', ''),
+              'CALLTAG_UPLOAD_KEY_PASSWORD': os.environ.get('SECRET_UPLOAD_KEY_PASSWORD', ''),
+          }
+          for key, value in legacy.items():
+              if value:
+                  values.setdefault(key, value)
+
+          aliases = {
+              'CALLTAG_UPLOAD_STORE_PASSWORD': (
+                  'CALLTAG_UPLOAD_STORE_PASSWORD', 'STORE_PASSWORD', 'storePassword', 'store_password',
+                  'KEYSTORE_PASSWORD', 'keystorePassword', 'keystore_password'),
+              'CALLTAG_UPLOAD_KEY_ALIAS': (
+                  'CALLTAG_UPLOAD_KEY_ALIAS', 'KEY_ALIAS', 'keyAlias', 'key_alias', 'ALIAS'),
+              'CALLTAG_UPLOAD_KEY_PASSWORD': (
+                  'CALLTAG_UPLOAD_KEY_PASSWORD', 'KEY_PASSWORD', 'keyPassword', 'key_password'),
+          }
+
+          resolved = {}
+          for target, candidates in aliases.items():
+              for candidate in candidates:
+                  value = values.get(candidate, '')
+                  if value:
+                      resolved[target] = value
+                      break
+
+          missing = [key for key in aliases if not resolved.get(key)]
+          if not os.environ.get('SECRET_UPLOAD_KEYSTORE_BASE64', '').strip():
+              missing.append('CALLTAG_UPLOAD_KEYSTORE_BASE64')
+          if missing:
+              print('::error::Stable Play upload signing is not fully configured: ' + ', '.join(missing))
+              sys.exit(1)
+
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
+              for key, value in resolved.items():
+                  env.write(f'{key}={value}\n')
+          PY
+
+      - name: Restore verified Play upload key
+        env:
+          SECRET_UPLOAD_KEYSTORE_BASE64: ${{ secrets.CALLTAG_UPLOAD_KEYSTORE_BASE64 }}
+          EXPECTED_UPLOAD_KEY_SHA256: 'C3:4C:98:88:9B:0C:88:8A:BB:39:94:6C:80:16:96:C2:89:E2:82:6C:10:0F:41:7A:0B:CE:25:A3:92:C4:72:A7'
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/calltag-upload.jks"
+          printf '%s' "$SECRET_UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+          test -s "$KEYSTORE"
+          echo "::add-mask::$CALLTAG_UPLOAD_STORE_PASSWORD"
+          echo "::add-mask::$CALLTAG_UPLOAD_KEY_PASSWORD"
+          chmod 600 "$KEYSTORE"
+          keytool -list -v -keystore "$KEYSTORE" -storepass "$CALLTAG_UPLOAD_STORE_PASSWORD" -alias "$CALLTAG_UPLOAD_KEY_ALIAS" \
+            | grep -E 'Alias name:|Owner:|SHA1:|SHA256:' > "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
+          grep -F "SHA256: $EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/CALLTAG_UPLOAD_KEY_FINGERPRINTS.txt"
+          {
+            echo "CALLTAG_UPLOAD_KEYSTORE_PATH=$KEYSTORE"
+            echo "CALLTAG_EXPECTED_UPLOAD_KEY_SHA256=$EXPECTED_UPLOAD_KEY_SHA256"
+          } >> "$GITHUB_ENV"
+
+      - name: Build signed optimized release AAB
+        run: gradle :app:bundleRelease --no-daemon --stacktrace
+
+
+      - name: Verify Android patch remains buildable
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify final signed AAB
+        run: |
+          set -euo pipefail
+          test -s app/build/outputs/bundle/release/app-release.aab
+          jarsigner -verify -certs app/build/outputs/bundle/release/app-release.aab
+          keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab | grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256"
+      - name: Upload signed release to Google Play internal testing
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJson: ${{ runner.temp }}/calltag-publisher.json
+          packageName: kr.pagero.calltag
+          releaseFiles: app/build/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+          inAppUpdatePriority: 0
+      - name: Record Play internal rollout
+        if: success()
+        run: |
+          echo "PLAY INTERNAL PUBLISH ACTION SUCCESS: kr.pagero.calltag 0.44.62 code 2026101101"
