@@ -4,7 +4,7 @@ import {FLAG_NAMES, validateMobilePolicy, serveMobilePolicy} from '../worker/mob
 
 const value = JSON.parse(readFileSync(new URL('../remote-config/calltag-v1.json', import.meta.url),'utf8'));
 assert.equal(validateMobilePolicy(value), true);
-assert.deepEqual(FLAG_NAMES.sort(), Object.keys(value.flags).sort());
+assert.deepEqual([...FLAG_NAMES].sort(), Object.keys(value.flags).sort());
 
 const request = (method='GET', path='/api/mobile-config/v1') =>
   new Request('https://calltag.pagero.kr'+path,{method});
