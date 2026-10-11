@@ -153,7 +153,14 @@ public final class CallTagRemotePolicy {
 
             SharedPreferences p = prefs(context);
             synchronized (CallTagRemotePolicy.class) {
-                if (revision <= p.getLong("revision", 0L)) return;
+                // Existing clients understand flags but not automationLimits. A
+                // device upgrading from such a client may already have cached
+                // this SAME revision without its limits. Apply it once after
+                // upgrade, but never accept an older revision.
+                long cachedRevision = p.getLong("revision", 0L);
+                boolean limitsInitialized = p.getBoolean("limits_initialized", false);
+                if (revision < cachedRevision
+                        || (revision == cachedRevision && limitsInitialized)) return;
                 SharedPreferences.Editor editor = p.edit();
                 for (String key : new String[]{ SMS, AUTOMATIC_SMS, MMS, LEAD_IMPORT, CLOUD_SYNC }) {
                     editor.putBoolean(PREFIX + key, flags.getBoolean(key));
@@ -162,6 +169,7 @@ public final class CallTagRemotePolicy {
                 editor.putInt(LIMIT_PREFIX + MIN_COOLDOWN_HOURS, cooldown);
                 editor.putInt(LIMIT_PREFIX + MIN_LEAD_DELAY_MINUTES, leadDelay);
                 editor.putInt(LIMIT_PREFIX + MIN_FOLLOWUP_DAYS, followup);
+                editor.putBoolean("limits_initialized", true);
                 editor.putLong("revision", revision);
                 editor.putLong("updated_at", System.currentTimeMillis());
                 if (!editor.commit()) throw new IllegalStateException("policy_persist_failed");
