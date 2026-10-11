@@ -35,7 +35,7 @@ assert 'EXTRA_OWNER_SCOPE' in activity and 'EXTRA_WORK_EPOCH' in activity
 assert 'AccountDataScope.isRestoreReviewPending(context)' in mms
 for item in [
     '"imagesIncluded", true',
-    'MessageAttachmentStore.currentOwnerDirectory(context)',
+    'AccountDataScope.imageRelativePathForOwner(owner)',
     'AccountDataScope.imageRelativePathForOwner(owner)',
     'stats.imageCount = countFiles(imageTarget)',
     'manifest.optBoolean("imagesIncluded", false)',
