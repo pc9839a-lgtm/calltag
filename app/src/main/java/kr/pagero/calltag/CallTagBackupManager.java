@@ -61,7 +61,7 @@ import javax.crypto.spec.SecretKeySpec;
  */
 public final class CallTagBackupManager {
     private static final byte[] MAGIC = new byte[]{'C', 'T', 'B', 'K'};
-    private static final int FORMAT_VERSION = 1;
+    private static final int FORMAT_VERSION = 2;
     private static final int PBKDF2_ITERATIONS = 210_000;
     private static final int SALT_BYTES = 16;
     private static final int IV_BYTES = 12;
@@ -72,21 +72,12 @@ public final class CallTagBackupManager {
     private static final String STATUS_SUMMARY = "last_summary";
     private static final String STATUS_TIME = "last_time";
 
-    private static final String[] BACKUP_PREFS = new String[]{
-            "calltag_settings",
-            "calltag_message_automation",
-            "calltag_message_templates_v1",
-            "calltag_message_exclusions",
-            "calltag_task_message_links_v1"
-    };
-
     private static final Object LOCK = new Object();
 
     private CallTagBackupManager() {}
 
     public static BackupResult createBackup(Context context, Uri target, char[] password)
             throws Exception {
-        blockUnsafeLegacyBackup();
         requirePassword(password);
         if (context == null || target == null) {
             throw new IllegalArgumentException("백업 파일 위치를 선택해주세요.");
@@ -122,7 +113,6 @@ public final class CallTagBackupManager {
 
     public static RestoreResult restoreBackup(Context context, Uri source, char[] password)
             throws Exception {
-        blockUnsafeLegacyBackup();
         requirePassword(password);
         if (context == null || source == null) {
             throw new IllegalArgumentException("복원할 백업 파일을 선택해주세요.");
@@ -200,14 +190,6 @@ public final class CallTagBackupManager {
         }
     }
 
-    private static void blockUnsafeLegacyBackup() {
-        // Version 1 copied/restored every calltag*.db regardless of owner, along
-        // with shared preferences and image files. Fail closed until the new
-        // format can be bound and independently verified against account scope.
-        throw new IllegalStateException(
-                "계정별 보안 백업 형식이 아직 준비되지 않아 백업·복원을 중단했습니다. 이전 기록은 보존됩니다.");
-    }
-
     public static String lastSummary(Context context) {
         SharedPreferences prefs = context.getApplicationContext()
                 .getSharedPreferences(STATUS_PREFS, Context.MODE_PRIVATE);
@@ -231,10 +213,7 @@ public final class CallTagBackupManager {
         ensureDirectory(preferenceDir);
 
         SnapshotStats stats = new SnapshotStats();
-        List<String> databases = new ArrayList<>();
-        for (String name : context.databaseList()) {
-            if (isCallTagDatabaseName(name)) databases.add(name);
-        }
+        List<String> databases = AccountDataScope.currentAccountDatabases(context);
         Collections.sort(databases);
         for (String name : databases) {
             File source = context.getDatabasePath(name);
@@ -244,17 +223,15 @@ public final class CallTagBackupManager {
             stats.databaseCount++;
         }
 
-        for (String preferenceName : BACKUP_PREFS) {
+        for (String preferenceName : AccountDataScope.currentAccountPreferences(context)) {
             JSONObject object = serializePreferences(
                     context.getSharedPreferences(preferenceName, Context.MODE_PRIVATE));
             writeUtf8(new File(preferenceDir, preferenceName + ".json"), object.toString());
             stats.preferenceCount++;
         }
 
-        File imageSource = new File(context.getFilesDir(), "message_images");
-        File imageTarget = new File(stage, "files/message_images");
-        if (imageSource.exists()) copyDirectory(imageSource, imageTarget);
-        stats.imageCount = countFiles(imageTarget);
+        // The old global image directory is not owner tagged: never archive it.
+        stats.imageCount = 0;
         return stats;
     }
 
@@ -277,6 +254,10 @@ public final class CallTagBackupManager {
 
         JSONObject manifest = new JSONObject();
         manifest.put("formatVersion", FORMAT_VERSION);
+        manifest.put("ownerFingerprint", AccountDataScope.fingerprint(
+                AccountDataScope.requireOwner(context)));
+        manifest.put("scope", "owner-sqlite-v2");
+        manifest.put("imagesIncluded", false);
         manifest.put("packageName", context.getPackageName());
         manifest.put("createdAt", System.currentTimeMillis());
         manifest.put("appVersion", appVersionName(context));
@@ -391,7 +372,12 @@ public final class CallTagBackupManager {
     private static void validateManifest(Context context, File root, JSONObject manifest)
             throws Exception {
         if (manifest.optInt("formatVersion", 0) != FORMAT_VERSION) {
-            throw new IOException("지원하지 않는 백업 형식 버전입니다.");
+            throw new IOException("기존 공용 백업(v1)은 계정 소유 정보가 없어 직접 복원할 수 없습니다.");
+        }
+        if (!"owner-sqlite-v2".equals(manifest.optString("scope", ""))
+                || !AccountDataScope.fingerprint(AccountDataScope.requireOwner(context))
+                    .equals(manifest.optString("ownerFingerprint", ""))) {
+            throw new IOException("다른 계정에서 생성된 백업은 복원할 수 없습니다.");
         }
         if (!context.getPackageName().equals(manifest.optString("packageName", ""))) {
             throw new IOException("다른 앱에서 만든 백업 파일입니다.");
@@ -410,11 +396,12 @@ public final class CallTagBackupManager {
             JSONObject entry = entries.optJSONObject(i);
             if (entry == null) throw new IOException("백업 데이터 목록이 손상되었습니다.");
             String path = normalizeEntryPath(entry.optString("path", ""));
-            if (path.isEmpty() || !isAllowedDataPath(path) || expected.put(path, entry) != null) {
+            if (path.isEmpty() || !isAllowedOwnerPath(context, path)
+                    || expected.put(path, entry) != null) {
                 throw new IOException("백업 데이터 경로가 올바르지 않습니다.");
             }
         }
-        if (!expected.containsKey("databases/calltag.db")) {
+        if (!expected.containsKey("databases/" + AccountDataScope.currentCrmName(context))) {
             throw new IOException("고객 데이터베이스가 없는 백업 파일입니다.");
         }
 
@@ -467,7 +454,7 @@ public final class CallTagBackupManager {
         }
 
         File preferenceSource = new File(snapshot, "preferences");
-        for (String preferenceName : BACKUP_PREFS) {
+        for (String preferenceName : AccountDataScope.currentAccountPreferences(context)) {
             SharedPreferences preferences = context.getSharedPreferences(
                     preferenceName, Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = preferences.edit().clear();
@@ -687,8 +674,7 @@ public final class CallTagBackupManager {
 
     private static boolean isAllowedBackupPath(String path) {
         return "manifest.json".equals(path) || isAllowedDataPath(path)
-                || path.equals("databases") || path.equals("preferences")
-                || path.equals("files") || path.equals("files/message_images");
+                || path.equals("databases") || path.equals("preferences");
     }
 
     private static boolean isAllowedDataPath(String path) {
@@ -700,15 +686,27 @@ public final class CallTagBackupManager {
             String name = path.substring("preferences/".length());
             if (!name.endsWith(".json") || name.contains("/")) return false;
             String preferenceName = name.substring(0, name.length() - 5);
-            return Arrays.asList(BACKUP_PREFS).contains(preferenceName);
+            return preferenceName.matches(
+                    "calltag[a-zA-Z0-9_-]*-owner-[0-9a-f]{40}");
         }
-        return path.startsWith("files/message_images/")
-                && !path.substring("files/message_images/".length()).contains("/");
+        return false;
     }
 
     private static boolean isCallTagDatabaseName(String name) {
-        return name != null && name.startsWith("calltag") && name.endsWith(".db")
-                && !name.contains("/") && !name.contains("\\");
+        return name != null && name.matches(
+                "calltag[a-zA-Z0-9_-]*-owner-[0-9a-f]{40}\\.db");
+    }
+
+    private static boolean isAllowedOwnerPath(Context context, String path) {
+        if (path.startsWith("databases/")) {
+            return AccountDataScope.currentAccountDatabases(context).contains(
+                    path.substring("databases/".length()));
+        }
+        if (path.startsWith("preferences/") && path.endsWith(".json")) {
+            return AccountDataScope.currentAccountPreferences(context).contains(
+                    path.substring("preferences/".length(), path.length() - 5));
+        }
+        return false;
     }
 
     private static String normalizeEntryPath(String value) {
