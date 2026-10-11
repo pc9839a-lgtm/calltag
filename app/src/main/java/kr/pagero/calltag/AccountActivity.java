@@ -174,6 +174,7 @@ public final class AccountActivity extends Activity {
             CrashTelemetryStore.record(this, "account_deletion", "sync_cleanup_failed",
                     error.getClass().getSimpleName());
         }
+        MessageAttachmentStore.deleteCurrentOwnerImages(this);
         AuthSessionStore.clear(this);
         for (String databaseName : ownedDatabases) {
             deleteDatabase(databaseName);

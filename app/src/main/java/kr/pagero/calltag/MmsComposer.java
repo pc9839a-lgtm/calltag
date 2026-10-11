@@ -31,7 +31,7 @@ public final class MmsComposer {
                 context, imageRef, "message-" + messageId);
         String stored = snapshot.isEmpty() ? imageRef.trim() : snapshot;
         prefs(context).edit().putString(KEY_PREFIX + messageId, stored).apply();
-        if (!snapshot.isEmpty() && imageRef.startsWith("message_images/draft-")) {
+        if (!snapshot.isEmpty() && imageRef.substring(imageRef.lastIndexOf('/') + 1).startsWith("draft-")) {
             MessageAttachmentStore.delete(context, imageRef);
         }
         return MessageAttachmentStore.exists(context, stored);
@@ -49,7 +49,7 @@ public final class MmsComposer {
         if (context == null || messageId <= 0L) return;
         String imageRef = attachmentRef(context, messageId);
         prefs(context).edit().remove(KEY_PREFIX + messageId).apply();
-        if (imageRef.startsWith("message_images/message-")) {
+        if (imageRef.substring(imageRef.lastIndexOf('/') + 1).startsWith("message-")) {
             MessageAttachmentStore.delete(context, imageRef);
         }
     }
@@ -63,7 +63,8 @@ public final class MmsComposer {
     }
 
     public static boolean openComposer(Context context, long messageId) {
-        if (context == null || messageId <= 0L) return false;
+        if (context == null || messageId <= 0L
+                || AccountDataScope.isRestoreReviewPending(context)) return false;
         MessageLogStore store = new MessageLogStore(context);
         try {
             MessageRecord record = store.find(messageId);
@@ -126,7 +127,13 @@ public final class MmsComposer {
 
         Intent open = new Intent(context, MmsComposeActivity.class)
                 .putExtra(MmsComposeActivity.EXTRA_MESSAGE_ID, messageId)
-                .setData(Uri.parse("calltag://compose-mms/" + messageId));
+                .setData(Uri.parse("calltag://compose-mms/"
+                        + AccountDataScope.fingerprint(AccountDataScope.requireOwner(context))
+                        + "/" + AccountDataScope.workEpoch(context) + "/" + messageId))
+                .putExtra(MmsComposeActivity.EXTRA_OWNER_SCOPE,
+                        AccountDataScope.fingerprint(AccountDataScope.requireOwner(context)))
+                .putExtra(MmsComposeActivity.EXTRA_WORK_EPOCH,
+                        AccountDataScope.workEpoch(context));
         PendingIntent action = PendingIntent.getActivity(context,
                 (int) (messageId ^ (messageId >>> 32)), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -152,18 +159,19 @@ public final class MmsComposer {
                 .setAutoCancel(true)
                 .setCategory(android.app.Notification.CATEGORY_REMINDER)
                 .build();
-        manager.notify(notificationId(messageId), notification);
+        manager.notify(notificationId(context, messageId), notification);
         return true;
     }
 
     public static void cancelNotification(Context context, long messageId) {
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (manager != null) manager.cancel(notificationId(messageId));
+        if (manager != null) manager.cancel(notificationId(context, messageId));
     }
 
     private static SharedPreferences prefs(Context context) {
-        return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        return context.getApplicationContext().getSharedPreferences(
+                AccountDataScope.preferenceName(context, PREFS), Context.MODE_PRIVATE);
     }
 
     private static void ensureChannel(NotificationManager manager) {
@@ -174,7 +182,9 @@ public final class MmsComposer {
         manager.createNotificationChannel(channel);
     }
 
-    private static int notificationId(long messageId) {
-        return 0x4D4D0000 | ((int) messageId & 0xFFFF);
+    private static int notificationId(Context context, long messageId) {
+        return 0x4D4D0000 ^ (int) (messageId ^ (messageId >>> 32))
+                ^ AccountDataScope.fingerprint(AccountDataScope.requireOwner(context)).hashCode()
+                ^ AccountDataScope.workEpoch(context).hashCode();
     }
 }

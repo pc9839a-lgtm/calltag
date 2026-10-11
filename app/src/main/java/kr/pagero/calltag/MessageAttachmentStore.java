@@ -40,7 +40,7 @@ public final class MessageAttachmentStore {
         if (flattened != decoded) decoded.recycle();
 
         File directory = directory(context);
-        String fileName = sanitize(ownerKey) + "-" + System.currentTimeMillis() + ".jpg";
+        String fileName = sanitize(ownerKey) + "-" + java.util.UUID.randomUUID() + ".jpg";
         File target = new File(directory, fileName);
         try {
             byte[] data = encodeWithinLimit(flattened);
@@ -48,7 +48,7 @@ public final class MessageAttachmentStore {
                 output.write(data);
                 output.flush();
             }
-            return DIRECTORY + "/" + fileName;
+            return AccountDataScope.currentImageRelativePath(context) + "/" + fileName;
         } catch (IOException error) {
             if (target.exists()) target.delete();
             throw new IllegalArgumentException("이미지를 저장하지 못했습니다.");
@@ -61,14 +61,14 @@ public final class MessageAttachmentStore {
         File source = resolve(context, imageRef);
         if (source == null || !source.exists()) return "";
         File target = new File(directory(context),
-                sanitize(ownerKey) + "-" + System.currentTimeMillis() + ".jpg");
+                sanitize(ownerKey) + "-" + java.util.UUID.randomUUID() + ".jpg");
         try (InputStream input = new java.io.FileInputStream(source);
              FileOutputStream output = new FileOutputStream(target)) {
             byte[] buffer = new byte[16 * 1024];
             int count;
             while ((count = input.read(buffer)) >= 0) output.write(buffer, 0, count);
             output.flush();
-            return DIRECTORY + "/" + target.getName();
+            return AccountDataScope.currentImageRelativePath(context) + "/" + target.getName();
         } catch (IOException error) {
             if (target.exists()) target.delete();
             return "";
@@ -212,24 +212,41 @@ public final class MessageAttachmentStore {
         }
     }
 
+    /** Files are owner-scoped. No implicit fallback to unowned legacy images. */
+    public static File currentOwnerDirectory(Context context) {
+        return new File(new File(context.getFilesDir(), DIRECTORY),
+                AccountDataScope.currentImageDirectoryName(context));
+    }
+
+    public static void deleteCurrentOwnerImages(Context context) {
+        File directory = currentOwnerDirectory(context);
+        File[] files = directory.listFiles();
+        if (files != null) {
+            for (File file : files) if (file.isFile()) file.delete();
+        }
+        if (directory.isDirectory()) directory.delete();
+    }
+
     private static File directory(Context context) {
-        File directory = new File(context.getFilesDir(), DIRECTORY);
+        File directory = currentOwnerDirectory(context);
         if (!directory.exists() && !directory.mkdirs()) {
-            throw new IllegalArgumentException("이미지 저장 공간을 만들지 못했습니다.");
+            throw new IllegalArgumentException("계정별 이미지 저장 공간을 만들지 못했습니다.");
         }
         return directory;
     }
 
     private static File resolve(Context context, String imageRef) {
-        String value = imageRef == null ? "" : imageRef.trim();
-        if (value.isEmpty() || value.contains("..") || value.startsWith("/")) return null;
-        File file = new File(context.getFilesDir(), value);
+        if (context == null || imageRef == null) return null;
+        String value = imageRef.trim();
+        String prefix = AccountDataScope.currentImageRelativePath(context) + "/";
+        if (!value.startsWith(prefix)) return null;
+        String leaf = value.substring(prefix.length());
+        if (!leaf.matches("[A-Za-z0-9_-]+\\.jpg")) return null;
+        File file = new File(currentOwnerDirectory(context), leaf);
         try {
-            String root = context.getFilesDir().getCanonicalPath() + File.separator;
+            String root = currentOwnerDirectory(context).getCanonicalPath() + File.separator;
             return file.getCanonicalPath().startsWith(root) ? file : null;
-        } catch (IOException ignored) {
-            return null;
-        }
+        } catch (IOException ignored) { return null; }
     }
 
     private static String sanitize(String ownerKey) {
