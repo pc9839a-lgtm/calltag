@@ -71,6 +71,13 @@ public final class MessageTemplateLibraryActivity extends Activity {
         header.addView(title, titleParams);
 
         if (!selectMode) {
+            Button recommended = button("서버 추천", false);
+            recommended.setOnClickListener(v -> loadRecommendedTemplates(recommended));
+            LinearLayout.LayoutParams remoteParams =
+                    new LinearLayout.LayoutParams(dp(86), dp(44));
+            remoteParams.rightMargin = dp(6);
+            header.addView(recommended, remoteParams);
+
             Button add = button("+ 추가", true);
             add.setOnClickListener(v -> openEditor(null));
             header.addView(add, new LinearLayout.LayoutParams(dp(84), dp(44)));
@@ -219,6 +226,52 @@ public final class MessageTemplateLibraryActivity extends Activity {
             card.addView(actions, topMargin(13));
         }
         return card;
+    }
+
+    private void loadRecommendedTemplates(Button button) {
+        if (button == null || !button.isEnabled()) return;
+        button.setEnabled(false);
+        CallTagRemoteTemplates.refreshAsync(this, () -> {
+            if (isFinishing() || isDestroyed()) return;
+            button.setEnabled(true);
+            List<CallTagRemoteTemplates.Item> items = CallTagRemoteTemplates.cached(this);
+            if (items.isEmpty()) {
+                new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                        .setTitle("서버 추천 문구")
+                        .setMessage("현재 가져올 수 있는 추천 문구가 없습니다. 잠시 후 다시 시도해주세요.")
+                        .setPositiveButton("확인",null).show();
+                return;
+            }
+            CharSequence[] labels = new CharSequence[items.size()];
+            for (int i=0;i<items.size();i++) {
+                labels[i]=items.get(i).name;
+            }
+            new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                    .setTitle("서버 추천 문구")
+                    .setItems(labels,(dialog,index) -> previewRecommendedTemplate(items.get(index)))
+                    .setNegativeButton("취소",null)
+                    .show();
+        });
+    }
+
+    private void previewRecommendedTemplate(CallTagRemoteTemplates.Item item) {
+        if (item == null) return;
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                .setTitle(item.name)
+                .setMessage(item.body + "\n\n이 문구는 사용자가 직접 저장하기 전까지 "
+                        + "자동문자에 적용되지 않습니다.")
+                .setNegativeButton("취소",null)
+                .setPositiveButton("내 템플릿에 추가",(dialog,which) -> {
+                    try {
+                        MessageTemplateStore.save(this, MessageTemplateStore.Template.create(
+                                item.name, item.body, "서버 추천", item.purpose));
+                        Toast.makeText(this,"새 템플릿으로 저장했습니다.",Toast.LENGTH_SHORT).show();
+                        renderTemplates();
+                    } catch (IllegalArgumentException error) {
+                        Toast.makeText(this,"템플릿 내용을 확인해주세요.",Toast.LENGTH_LONG).show();
+                    }
+                })
+                .show();
     }
 
     private void showManageDialog(MessageTemplateStore.Template template) {
