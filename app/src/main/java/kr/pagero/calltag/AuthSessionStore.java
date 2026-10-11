@@ -56,6 +56,9 @@ public final class AuthSessionStore {
             FeatureEntitlementStore.clear(context);
             ReferralStateStore.clear(context);
             PageroAccountStatusStore.clear(context);
+            // Even if another owner signs in without a normal logout, Android
+            // must not keep showing previous owner's MMS recipient/image alert.
+            cancelAccountNotifications(context);
         }
 
         boolean saved = current.edit()
@@ -108,7 +111,14 @@ public final class AuthSessionStore {
 
     public static void clear(Context context) {
         CallTagSyncWorkScheduler.cancel(context);
+        cancelAccountNotifications(context);
         prefs(context).edit().clear().commit();
+    }
+
+    private static void cancelAccountNotifications(Context context) {
+        android.app.NotificationManager manager = (android.app.NotificationManager)
+                context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) manager.cancelAll();
     }
 
     private static String encrypt(String value) throws Exception {
