@@ -42,3 +42,59 @@ jobs:
           node scripts/calltag-worker-template-catalog-check.mjs
           node scripts/calltag-worker-automation-limits-check.mjs
           node -e "const p=require('./remote-config/calltag-v1.json');if(p.revision<2||p.automationLimits.minCooldownHours!==0||p.automationLimits.minLeadDelayMinutes!==0||p.automationLimits.minFollowupDays!==0)process.exit(1)"
+
+  smoke-production:
+    name: Verify live Cloudflare API
+    if: github.event_name == 'push'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify actual production endpoint after CDN deploy
+        env:
+          CALLTAG_PRODUCTION_ORIGIN: https://calltag.pagero.kr
+        run: |
+          node --input-type=module <<'NODE'
+          const origin=process.env.CALLTAG_PRODUCTION_ORIGIN;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          const probes=[
+            {path:'/api/mobile-config/v1',valid:j=>j.schemaVersion===1&&
+              j.revision>=2&&j.flags&&j.automationLimits&&
+              j.automationLimits.minCooldownHours===0&&
+              j.automationLimits.minLeadDelayMinutes===0&&
+              j.automationLimits.minFollowupDays===0},
+            {path:'/api/mobile-templates/v1',valid:j=>j.schemaVersion===1&&
+              Array.isArray(j.templates)&&j.templates.length>=4}
+          ];
+          for(const check of probes){
+            let last='';
+            let passed=false;
+            for(let i=0;i<24;i++){
+              try{
+                const response=await fetch(origin+check.path,
+                  {headers:{'cache-control':'no-cache'},signal:AbortSignal.timeout(12000)});
+                const type=response.headers.get('content-type')||'';
+                const cache=response.headers.get('cache-control')||'';
+                const text=await response.text();
+                const payload=JSON.parse(text);
+                if(response.status===200&&type.includes('application/json')&&
+                    cache.includes('no-store')&&check.valid(payload)){
+                  console.log('PRODUCTION PASS',check.path,'HTTP',response.status,'revision',payload.revision);
+                  passed=true; break;
+                }
+                last='HTTP '+response.status+' type='+type+' cache='+cache+
+                  ' json='+JSON.stringify(payload).slice(0,150);
+              }catch(err){last=String(err).slice(0,150)}
+              console.log('Production not ready',check.path,'attempt',i+1,last);
+              if(i<23)await sleep(10000);
+            }
+            if(!passed){
+              console.error('PRODUCTION FAIL',check.path,last);
+              process.exitCode=1; break;
+            }
+          }
+          NODE
