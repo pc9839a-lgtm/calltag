@@ -8,6 +8,7 @@ on:
       - patch/calltag-next-production-20261006
       - patch/calltag-crm-ownership-preflight-20261010
       - patch/calltag-real-crm-account-isolation-20261010
+      - patch/calltag-owner-recovery-and-backup-v2-20261011
   pull_request:
     branches:
       - patch/calltag-next-production-20261006
@@ -40,6 +41,7 @@ jobs:
           python3 scripts/calltag-postcall-memo-sqlite-check.py
           python3 scripts/calltag-crm-ownership-preflight-check.py
           python3 scripts/calltag-crm-account-isolation-check.py
+          python3 scripts/calltag-owner-data-recovery-check.py
           python3 scripts/calltag-release-origin-contract-check.py
           grep -F 'versionCode 2026100701' app/build.gradle
           grep -F "versionName '0.44.61'" app/build.gradle
