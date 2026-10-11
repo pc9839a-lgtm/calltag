@@ -55,6 +55,7 @@ public final class PageroLeadSyncManager {
     private static boolean requestSyncInternal(Context context, boolean force, boolean notifyWhenChanged) {
         if (context == null) return false;
         Context appContext = context.getApplicationContext();
+        if (CallTagSyncManager.isMaintenanceRunning()) return false;
         if (!AuthSessionStore.hasSession(appContext)) {
             if (notifyWhenChanged) NOTIFY_WHEN_CHANGED.set(false);
             String message = "콜태그 로그인이 필요합니다.";
@@ -116,6 +117,9 @@ public final class PageroLeadSyncManager {
     public static boolean isRunning() { return RUNNING.get(); }
 
     private static SyncResult syncNow(Context context) throws Exception {
+        if (CallTagSyncManager.isMaintenanceRunning()) {
+            throw new IllegalStateException("백업·복구 중에는 문의를 수신하지 않습니다.");
+        }
         String session = AuthSessionStore.session(context);
         if (session.isEmpty()) throw new IllegalStateException("콜태그 로그인이 필요합니다.");
         String ownerId = AccountDataScope.requireOwner(context);
@@ -182,6 +186,9 @@ public final class PageroLeadSyncManager {
     }
 
     private static void assertSameAccount(Context context, String session, String ownerId) {
+        if (CallTagSyncManager.isMaintenanceRunning()) {
+            throw new IllegalStateException("백업·복구 중 문의 수신을 중지했습니다.");
+        }
         if (!session.equals(AuthSessionStore.session(context))
                 || !ownerId.equals(AuthSessionStore.ownerId(context))) {
             throw new IllegalStateException("로그인 계정이 바뀌어 페이지로 수신을 중지했습니다.");
