@@ -131,7 +131,11 @@ public final class AccountDataScope {
     }
 
     public static String currentImageRelativePath(Context context) {
-        return "message_images/" + currentImageDirectoryName(context);
+        return imageRelativePathForOwner(requireOwner(context));
+    }
+
+    public static String imageRelativePathForOwner(String verifiedOwnerId) {
+        return "message_images/owner-" + fingerprint(verifiedOwnerId);
     }
 
     public static String fingerprint(String ownerId) {

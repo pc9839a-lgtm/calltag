@@ -27,6 +27,7 @@ assert 'if (!value.startsWith(prefix)) return null;' in media
 assert 'leaf.matches("[A-Za-z0-9_-]+\\\\.jpg")' in media
 assert 'getCanonicalPath()' in media
 assert 'deleteCurrentOwnerImages(Context context)' in media
+assert 'imageRelativePathForOwner(String verifiedOwnerId)' in scope
 assert 'MessageAttachmentStore.deleteCurrentOwnerImages(this)' in account
 assert "AccountDataScope.preferenceName(context, PREFS)" in mms
 assert 'EXTRA_OWNER_SCOPE' in mms and 'EXTRA_WORK_EPOCH' in mms
@@ -35,7 +36,7 @@ assert 'AccountDataScope.isRestoreReviewPending(context)' in mms
 for item in [
     '"imagesIncluded", true',
     'MessageAttachmentStore.currentOwnerDirectory(context)',
-    '"files/"\n                + AccountDataScope.currentImageRelativePath(context)',
+    'AccountDataScope.imageRelativePathForOwner(owner)',
     'stats.imageCount = countFiles(imageTarget)',
     'manifest.optBoolean("imagesIncluded", false)',
     'if (restoreImages)',

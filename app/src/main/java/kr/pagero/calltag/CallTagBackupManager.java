@@ -273,9 +273,9 @@ public final class CallTagBackupManager {
         // Never include ownerless legacy message_images/* attachments.
         // Copy only this owner's canonical subtree, including in rollback snapshots.
         requireSameAccount(context, owner, session);
-        File imageSource = MessageAttachmentStore.currentOwnerDirectory(context);
-        File imageTarget = new File(stage, "files/"
-                + AccountDataScope.currentImageRelativePath(context));
+        String scopedImages = AccountDataScope.imageRelativePathForOwner(owner);
+        File imageSource = new File(context.getFilesDir(), scopedImages);
+        File imageTarget = new File(stage, "files/" + scopedImages);
         if (imageSource.isDirectory()) copyDirectory(imageSource, imageTarget);
         stats.imageCount = countFiles(imageTarget);
         return stats;
@@ -519,9 +519,9 @@ public final class CallTagBackupManager {
         }
         if (restoreImages) {
             requireSameAccount(context, owner, session);
-            File ownerImages = MessageAttachmentStore.currentOwnerDirectory(context);
-            File restoredImages = new File(snapshot, "files/"
-                    + AccountDataScope.currentImageRelativePath(context));
+            String scopedImages = AccountDataScope.imageRelativePathForOwner(owner);
+            File ownerImages = new File(context.getFilesDir(), scopedImages);
+            File restoredImages = new File(snapshot, "files/" + scopedImages);
             // Only this owner subdirectory may be replaced. Never touch root legacy images.
             deleteRecursively(ownerImages);
             if (restoredImages.isDirectory()) copyDirectory(restoredImages, ownerImages);
