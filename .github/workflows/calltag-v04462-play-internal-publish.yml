@@ -148,6 +148,10 @@ jobs:
           PLAY_JSON_A: ${{ secrets.CALLTAG_PLAY_SERVICE_ACCOUNT_JSON }}
           PLAY_JSON_B: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
           PLAY_JSON_C: ${{ secrets.GOOGLE_PLAY_JSON_KEY }}
+          PLAY_CLIENT_EMAIL: ${{ secrets.GOOGLE_PLAY_CLIENT_EMAIL }}
+          PLAY_PRIVATE_KEY: ${{ secrets.GOOGLE_PLAY_PRIVATE_KEY }}
+          CALLTAG_PLAY_CLIENT_EMAIL: ${{ secrets.CALLTAG_GOOGLE_PLAY_CLIENT_EMAIL }}
+          CALLTAG_PLAY_PRIVATE_KEY: ${{ secrets.CALLTAG_GOOGLE_PLAY_PRIVATE_KEY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -157,8 +161,26 @@ jobs:
             printf '%s' "$PLAY_JSON_B" > "$RUNNER_TEMP/calltag-publisher.json"
           elif [ -n "$PLAY_JSON_C" ]; then
             printf '%s' "$PLAY_JSON_C" > "$RUNNER_TEMP/calltag-publisher.json"
+          elif [ -n "$PLAY_CLIENT_EMAIL" ] && [ -n "$PLAY_PRIVATE_KEY" ]; then
+            python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          payload={'type':'service_account','client_email':os.environ['PLAY_CLIENT_EMAIL'],
+                   'private_key':os.environ['PLAY_PRIVATE_KEY'].replace('\\n','\n'),
+                   'token_uri':'https://oauth2.googleapis.com/token'}
+          Path(os.environ['RUNNER_TEMP'],'calltag-publisher.json').write_text(json.dumps(payload))
+          PY
+          elif [ -n "$CALLTAG_PLAY_CLIENT_EMAIL" ] && [ -n "$CALLTAG_PLAY_PRIVATE_KEY" ]; then
+            python3 - <<'PY'
+          import json,os
+          from pathlib import Path
+          payload={'type':'service_account','client_email':os.environ['CALLTAG_PLAY_CLIENT_EMAIL'],
+                   'private_key':os.environ['CALLTAG_PLAY_PRIVATE_KEY'].replace('\\n','\n'),
+                   'token_uri':'https://oauth2.googleapis.com/token'}
+          Path(os.environ['RUNNER_TEMP'],'calltag-publisher.json').write_text(json.dumps(payload))
+          PY
           else
-            echo "::error::Missing Google Play publisher service-account JSON secret. Configure CALLTAG_PLAY_SERVICE_ACCOUNT_JSON in GitHub Actions, with Google Play Console API access."
+            echo "::error::Existing Play signing keystore was validated, but this GitHub Actions job cannot access Play publisher credentials under JSON or split email/private-key names. The server's Cloudflare GOOGLE_PLAY_* environment variables are not automatically available to GitHub Actions."
             exit 1
           fi
           chmod 600 "$RUNNER_TEMP/calltag-publisher.json"
