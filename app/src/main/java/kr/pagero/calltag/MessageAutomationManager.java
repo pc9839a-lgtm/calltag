@@ -21,6 +21,8 @@ public final class MessageAutomationManager {
 
     public static void onCallResolved(Context context, CallRecord record, Customer customer) {
         if (record == null || !FeatureEntitlementStore.hasMessageAccess(context)) return;
+        if (!CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.AUTOMATIC_SMS)
+                || !CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.SMS)) return;
         MessageAutomationStore.ensureDefaults(context);
         MessageTemplateStore.ensureDefaults(context);
         if (!MessageAutomationStore.isEnabled(context)) return;

@@ -1,7 +1,11 @@
 import { handlePageroIntegration } from './worker/pagero-integration.js';
+import { serveMobilePolicy } from './worker/mobile-policy.mjs';
 
 export default {
   async fetch(request, env) {
+    const mobilePolicyResponse = await serveMobilePolicy(request, env);
+    if (mobilePolicyResponse) return mobilePolicyResponse;
+
     const integrationResponse = await handlePageroIntegration(request, env);
     if (integrationResponse) return integrationResponse;
 

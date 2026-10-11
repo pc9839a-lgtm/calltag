@@ -69,6 +69,7 @@ public final class MmsComposer {
 
     public static boolean openComposer(Context context, long messageId) {
         if (context == null || messageId <= 0L
+                || !CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.MMS)
                 || AccountDataScope.isRestoreReviewPending(context)) return false;
         MessageLogStore store = new MessageLogStore(context);
         try {
@@ -112,7 +113,8 @@ public final class MmsComposer {
     }
 
     public static boolean postComposeNotification(Context context, long messageId) {
-        if (context == null || messageId <= 0L) return false;
+        if (context == null || messageId <= 0L
+                || !CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.MMS)) return false;
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return false;
