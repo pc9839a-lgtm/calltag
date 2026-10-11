@@ -17,7 +17,8 @@ public final class AccountDataScope {
     private static final String[] PRIVATE_PREFERENCES = {
             "calltag_message_automation", "calltag_message_templates_v1",
             "calltag_message_exclusions", "calltag_task_message_links_v1",
-            "calltag_post_call_exclusions", "calltag_post_call_recovery"
+            "calltag_post_call_exclusions", "calltag_post_call_recovery",
+            "calltag_mms_compose_v1"
     };
     private AccountDataScope() {}
 
@@ -123,6 +124,18 @@ public final class AccountDataScope {
                 .edit().putBoolean(key, pending).commit()) {
             throw new IllegalStateException("문자 복원 안전 잠금을 저장하지 못했습니다.");
         }
+    }
+
+    public static String currentImageDirectoryName(Context context) {
+        return "owner-" + fingerprint(requireOwner(context));
+    }
+
+    public static String currentImageRelativePath(Context context) {
+        return imageRelativePathForOwner(requireOwner(context));
+    }
+
+    public static String imageRelativePathForOwner(String verifiedOwnerId) {
+        return "message_images/owner-" + fingerprint(verifiedOwnerId);
     }
 
     public static String fingerprint(String ownerId) {
