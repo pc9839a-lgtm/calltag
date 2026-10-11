@@ -32,7 +32,10 @@ public final class MessageScheduler {
                 .setAction(ScheduledMessageReceiver.ACTION_SEND_SCHEDULED)
                 .setData(Uri.parse("calltag://scheduled-message/"
                         + AccountDataScope.fingerprint(AccountDataScope.requireOwner(context))
+                        + "/" + AccountDataScope.workEpoch(context)
                         + "/" + messageId))
+                .putExtra(ScheduledMessageReceiver.EXTRA_WORK_EPOCH,
+                        AccountDataScope.workEpoch(context))
                 .putExtra(ScheduledMessageReceiver.EXTRA_MESSAGE_ID, messageId)
                 .putExtra(ScheduledMessageReceiver.EXTRA_OWNER_SCOPE,
                         AccountDataScope.fingerprint(AccountDataScope.requireOwner(context)));

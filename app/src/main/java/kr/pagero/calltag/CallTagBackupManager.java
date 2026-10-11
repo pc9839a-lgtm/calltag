@@ -151,6 +151,9 @@ public final class CallTagBackupManager {
                 app.stopService(new Intent(app, CallMonitorService.class));
                 snapshotCurrentData(app, rollback, owner, session);
                 cancelAllKnownMessageAlarms(app);
+                // Old carrier callbacks and scheduled alarms can refer to the
+                // same numeric job IDs after restoring a historical snapshot.
+                AccountDataScope.rotateWorkEpoch(app);
 
                 try {
                     replaceFromSnapshot(app, extracted, owner, session);

@@ -109,7 +109,10 @@ public final class SmsSender {
                         .setPackage(context.getPackageName())
                         .setData(Uri.parse("calltag://sms-sent/"
                                 + AccountDataScope.fingerprint(AccountDataScope.requireOwner(context))
+                                + "/" + AccountDataScope.workEpoch(context)
                                 + "/" + messageId + "/" + i))
+                        .putExtra(SmsStatusReceiver.EXTRA_WORK_EPOCH,
+                                AccountDataScope.workEpoch(context))
                         .putExtra(SmsStatusReceiver.EXTRA_OWNER_SCOPE,
                                 AccountDataScope.fingerprint(AccountDataScope.requireOwner(context)))
                         .putExtra(SmsStatusReceiver.EXTRA_MESSAGE_ID, messageId)

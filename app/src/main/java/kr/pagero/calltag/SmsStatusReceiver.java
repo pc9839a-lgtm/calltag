@@ -11,6 +11,7 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
     public static final String ACTION_SENT = "kr.pagero.calltag.SMS_SENT";
     public static final String EXTRA_MESSAGE_ID = "message_id";
     public static final String EXTRA_OWNER_SCOPE = "owner_scope";
+    public static final String EXTRA_WORK_EPOCH = "work_epoch";
     public static final String EXTRA_PART_INDEX = "part_index";
     public static final String EXTRA_PART_COUNT = "part_count";
 
@@ -26,7 +27,9 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
         try {
             String currentScope = AccountDataScope.fingerprint(
                     AccountDataScope.requireOwner(context));
-            if (!currentScope.equals(intent.getStringExtra(EXTRA_OWNER_SCOPE))) return;
+            if (!currentScope.equals(intent.getStringExtra(EXTRA_OWNER_SCOPE))
+                    || !AccountDataScope.workEpoch(context)
+                         .equals(intent.getStringExtra(EXTRA_WORK_EPOCH))) return;
         } catch (IllegalStateException missingSession) {
             return;
         }
@@ -53,7 +56,7 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
             if (resultCode == Activity.RESULT_OK) {
                 synchronized (SmsStatusReceiver.class) {
                     SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-                    String key = "ok_" + messageId;
+                    String key = partStatusKey(context, messageId);
                     int success = prefs.getInt(key, 0) + 1;
                     if (success >= partCount) {
                         prefs.edit().remove(key).apply();
@@ -105,7 +108,12 @@ public final class SmsStatusReceiver extends BroadcastReceiver {
 
     private void clearPartState(Context context, long messageId) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit().remove("ok_" + messageId).apply();
+                .edit().remove(partStatusKey(context, messageId)).apply();
+    }
+
+    private String partStatusKey(Context context, long messageId) {
+        return "ok_" + AccountDataScope.fingerprint(AccountDataScope.requireOwner(context))
+                + "_" + AccountDataScope.workEpoch(context) + "_" + messageId;
     }
 
     private void recordTimeline(Context context, MessageRecord record,
