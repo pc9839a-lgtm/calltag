@@ -47,7 +47,7 @@ assert 'private static final int FORMAT_VERSION = 2;' in backup
 for must in [
     '"ownerFingerprint"',
     '"owner-sqlite-v2"',
-    '"imagesIncluded", false',
+    '"imagesIncluded", true',
     "AccountDataScope.currentAccountDatabases(context)",
     "AccountDataScope.currentAccountPreferences(context)",
     "isAllowedOwnerPath(context, path)",

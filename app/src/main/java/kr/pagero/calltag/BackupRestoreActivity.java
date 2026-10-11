@@ -108,7 +108,7 @@ public final class BackupRestoreActivity extends Activity {
         format.setEllipsize(TextUtils.TruncateAt.END);
         root.addView(format, topMargin(10));
 
-        TextView warning = body("현재 계정의 DB와 설정만 암호화합니다. 다른 계정, 소유자 미확인 구버전(v1) 백업, 공용 이미지 파일은 복원 대상이 아닙니다.");
+        TextView warning = body("현재 계정의 DB·설정·새 계정별 첨부 이미지만 암호화합니다. 소유자가 확인되지 않는 예전 공용 이미지는 보존하지만 백업에 넣지 않습니다.");
         warning.setTextColor(getColor(R.color.danger));
         warning.setGravity(Gravity.CENTER_VERTICAL);
         warning.setPadding(dp(14), dp(11), dp(14), dp(11));
@@ -304,7 +304,7 @@ public final class BackupRestoreActivity extends Activity {
         pendingRestoreUri = null;
         new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("현재 데이터를 교체할까요?")
-                .setMessage("현재 로그인한 계정의 데이터만 교체됩니다. 실패 시 복원 전 데이터로 롤백합니다. 복원 후 클라우드 동기화는 검토한 뒤 직접 다시 켜야 합니다. 이미지는 복원하지 않습니다.")
+                .setMessage("현재 로그인한 계정의 데이터만 교체됩니다. 실패 시 복원 전 데이터로 롤백합니다. 복원 후 클라우드 동기화는 검토한 뒤 직접 다시 켜야 합니다. 계정별 첨부 이미지는 함께 복원됩니다. 예전 공용 이미지는 제외됩니다.")
                 .setNegativeButton("취소", (dialog, which) -> Arrays.fill(password, '\0'))
                 .setPositiveButton("복원 시작", (dialog, which) -> runRestore(source, password))
                 .show();
