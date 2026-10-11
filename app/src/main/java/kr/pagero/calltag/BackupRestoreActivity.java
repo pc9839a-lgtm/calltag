@@ -27,6 +27,7 @@ public final class BackupRestoreActivity extends Activity {
 
     private Button createButton;
     private Button restoreButton;
+    private Button legacyRecoveryButton;
     private TextView statusView;
     private boolean working;
     private char[] pendingBackupPassword;
@@ -90,6 +91,12 @@ public final class BackupRestoreActivity extends Activity {
         restoreButton.setAlpha(0.45f);
         root.addView(restoreButton, fixedHeight(50, 8));
 
+        if (LegacyCrmRecoveryManager.hasLegacyData(this)) {
+            legacyRecoveryButton = button("구버전 고객·상담 기록 복구", false);
+            legacyRecoveryButton.setOnClickListener(v -> confirmLegacyRecovery());
+            root.addView(legacyRecoveryButton, fixedHeight(52, 14));
+        }
+
         TextView format = body("콜태그 전용 .ctbackup · 로그인과 결제 권한은 제외");
         format.setGravity(Gravity.CENTER);
         format.setSingleLine(true);
@@ -103,6 +110,62 @@ public final class BackupRestoreActivity extends Activity {
         warning.setBackgroundResource(R.drawable.bg_soft_panel);
         root.addView(warning, topMargin(18));
         return scroll;
+    }
+
+    private void confirmLegacyRecovery() {
+        if (working) return;
+        String owner = AccountDataScope.requireOwner(this);
+        EditText confirmation = new EditText(this);
+        confirmation.setSingleLine(true);
+        confirmation.setHint("복구 입력");
+        confirmation.setInputType(InputType.TYPE_CLASS_TEXT);
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                .setTitle("구버전 고객 기록 복구")
+                .setMessage("구버전 공용 DB는 고객마다 계정 ID가 없습니다. "
+                        + "이 기기의 이전 고객·상담·일정 기록이 현재 로그인한 계정의 기록이 맞고, "
+                        + "다른 사용자의 기록이 섞이지 않았을 때만 진행하세요. "
+                        + "다른 계정 사용 흔적이나 현재 계정의 기존 고객 기록이 확인되면 차단됩니다. "
+                        + "원본 DB는 삭제하지 않습니다. 진행하려면 '복구'를 입력하세요.")
+                .setView(confirmation)
+                .setNegativeButton("취소", null)
+                .setPositiveButton("내 계정으로 복구", (dialog, which) -> {
+                    if (!"복구".equals(confirmation.getText().toString().trim())) {
+                        Toast.makeText(this, "'복구' 입력이 일치하지 않습니다.",
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    startLegacyRecovery(owner);
+                })
+                .show();
+    }
+
+    private void startLegacyRecovery(String owner) {
+        if (working) return;
+        setWorking(true, "원본을 보존하면서 이전 고객 기록을 복구 중입니다…");
+        new Thread(() -> {
+            try {
+                LegacyCrmRecoveryManager.Result result =
+                        LegacyCrmRecoveryManager.recoverAfterOwnerConfirmation(this, owner);
+                runOnUiThread(() -> {
+                    setWorking(false, "");
+                    if (legacyRecoveryButton != null) legacyRecoveryButton.setEnabled(false);
+                    new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                            .setTitle(result.alreadyRecovered ? "이미 복구된 기록" : "고객 기록 복구 완료")
+                            .setMessage(result.alreadyRecovered
+                                    ? "이 계정의 이전 기록이 이미 복구되었습니다."
+                                    : "고객 " + result.customers + "건, 상담 " + result.interactions
+                                      + "건, 일정 " + result.tasks
+                                      + "건을 복구했습니다. 구버전 원본은 그대로 남아 있습니다.")
+                            .setPositiveButton("앱 다시 시작", (d, w) -> restartApp())
+                            .show();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    setWorking(false, "");
+                    showError("복구 차단", error);
+                });
+            }
+        }, "calltag-legacy-crm-recovery").start();
     }
 
     private void showBackupPasswordDialog() {
@@ -312,6 +375,7 @@ public final class BackupRestoreActivity extends Activity {
         restoreButton.setEnabled(false);
         createButton.setAlpha(0.45f);
         restoreButton.setAlpha(0.45f);
+        if (legacyRecoveryButton != null) legacyRecoveryButton.setEnabled(!value);
         if (value) statusView.setText(label);
     }
 
