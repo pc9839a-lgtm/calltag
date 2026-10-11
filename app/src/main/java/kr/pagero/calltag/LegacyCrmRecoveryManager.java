@@ -97,7 +97,7 @@ public final class LegacyCrmRecoveryManager {
                         target.delete("crm_stages", null, null);
                         for (String table : TABLES) {
                             if (!tableExists(source, table)) continue;
-                            copyRows(source, target, table);
+                            copyRows(source, target, table, ownerId);
                             if (count(target, table) != count(source, table)) {
                                 throw new SQLiteException("복구 레코드 수가 다릅니다: " + table);
                             }
@@ -183,7 +183,8 @@ public final class LegacyCrmRecoveryManager {
         }
     }
 
-    private static void copyRows(SQLiteDatabase source, SQLiteDatabase target, String table) {
+    private static void copyRows(SQLiteDatabase source, SQLiteDatabase target,
+                                 String table, String ownerId) {
         Set<String> destinationColumns = new HashSet<>();
         try (Cursor fields = target.rawQuery("PRAGMA table_info(" + table + ")", null)) {
             while (fields.moveToNext()) {
@@ -207,6 +208,10 @@ public final class LegacyCrmRecoveryManager {
                         case Cursor.FIELD_TYPE_BLOB: values.put(columns[i], rows.getBlob(i)); break;
                         default: values.put(columns[i], rows.getString(i));
                     }
+                }
+                if ("post_call_save_receipts".equals(table)) {
+                    // Preserve old post-call idempotence across the cloud-map v2 epoch.
+                    values.put("account_key", "owner:" + ownerId + "|crm:v2");
                 }
                 target.insertOrThrow(table, null, values);
             }

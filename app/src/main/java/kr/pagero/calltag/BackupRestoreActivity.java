@@ -81,14 +81,12 @@ public final class BackupRestoreActivity extends Activity {
 
         createButton = button("암호화 백업 만들기", true);
         createButton.setOnClickListener(v -> showBackupPasswordDialog());
-        createButton.setEnabled(false);
-        createButton.setAlpha(0.45f);
+        createButton.setEnabled(true);
         root.addView(createButton, fixedHeight(52, 16));
 
         restoreButton = button("백업 파일 복원", false);
         restoreButton.setOnClickListener(v -> chooseRestoreFile());
-        restoreButton.setEnabled(false);
-        restoreButton.setAlpha(0.45f);
+        restoreButton.setEnabled(true);
         root.addView(restoreButton, fixedHeight(50, 8));
 
         if (LegacyCrmRecoveryManager.hasLegacyData(this)) {
@@ -97,13 +95,13 @@ public final class BackupRestoreActivity extends Activity {
             root.addView(legacyRecoveryButton, fixedHeight(52, 14));
         }
 
-        TextView format = body("콜태그 전용 .ctbackup · 로그인과 결제 권한은 제외");
+        TextView format = body("콜태그 계정별 암호화 .ctbackup v2 · 로그인·결제 권한 제외");
         format.setGravity(Gravity.CENTER);
         format.setSingleLine(true);
         format.setEllipsize(TextUtils.TruncateAt.END);
         root.addView(format, topMargin(10));
 
-        TextView warning = body("다른 계정 데이터 보호를 위해 백업·복원을 일시 중단했습니다. 기존 DB와 .ctbackup 파일은 삭제되지 않습니다.");
+        TextView warning = body("현재 계정의 DB와 설정만 암호화합니다. 다른 계정, 소유자 미확인 구버전(v1) 백업, 공용 이미지 파일은 복원 대상이 아닙니다.");
         warning.setTextColor(getColor(R.color.danger));
         warning.setGravity(Gravity.CENTER_VERTICAL);
         warning.setPadding(dp(14), dp(11), dp(14), dp(11));
@@ -280,7 +278,7 @@ public final class BackupRestoreActivity extends Activity {
         pendingRestoreUri = null;
         new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("현재 데이터를 교체할까요?")
-                .setMessage("현재 고객·일정·문자·캠페인 데이터가 백업 시점으로 교체됩니다. 실패하면 복원 전 데이터로 자동 롤백합니다.")
+                .setMessage("현재 로그인한 계정의 데이터만 교체됩니다. 실패 시 복원 전 데이터로 롤백합니다. 복원 후 클라우드 동기화는 검토한 뒤 직접 다시 켜야 합니다. 이미지는 복원하지 않습니다.")
                 .setNegativeButton("취소", (dialog, which) -> Arrays.fill(password, '\0'))
                 .setPositiveButton("복원 시작", (dialog, which) -> runRestore(source, password))
                 .show();
@@ -369,12 +367,10 @@ public final class BackupRestoreActivity extends Activity {
 
     private void setWorking(boolean value, String label) {
         working = value;
-        // The old backup implementation restores all device databases; keep disabled
-        // even if an unrelated spinner finishes or Activity state is restored.
-        createButton.setEnabled(false);
-        restoreButton.setEnabled(false);
-        createButton.setAlpha(0.45f);
-        restoreButton.setAlpha(0.45f);
+        createButton.setEnabled(!value);
+        restoreButton.setEnabled(!value);
+        createButton.setAlpha(value ? 0.5f : 1f);
+        restoreButton.setAlpha(value ? 0.5f : 1f);
         if (legacyRecoveryButton != null) legacyRecoveryButton.setEnabled(!value);
         if (value) statusView.setText(label);
     }
@@ -461,7 +457,7 @@ public final class BackupRestoreActivity extends Activity {
 
     private String defaultBackupName() {
         String time = new SimpleDateFormat("yyyyMMdd-HHmm", Locale.KOREA).format(new Date());
-        return "calltag-backup-" + time + ".ctbackup";
+        return "calltag-owner-v2-" + time + ".ctbackup";
     }
 
     private void clearPendingBackupPassword() {
