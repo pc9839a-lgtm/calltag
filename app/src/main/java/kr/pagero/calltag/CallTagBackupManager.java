@@ -158,6 +158,7 @@ public final class CallTagBackupManager {
                 // Old carrier callbacks and scheduled alarms can refer to the
                 // same numeric job IDs after restoring a historical snapshot.
                 AccountDataScope.rotateWorkEpoch(app);
+                AccountDataScope.setRestoreReviewPending(app, true);
 
                 try {
                     replaceFromSnapshot(app, extracted, owner, session);
@@ -186,7 +187,8 @@ public final class CallTagBackupManager {
                             + "개 · 설정 " + result.preferenceCount
                             + "개 · 이미지 " + result.imageCount
                             + "개 · 이미지 누락 " + result.missingImageCount + "개");
-                    if (SettingsStore.isMonitorEnabled(app)) startMonitor(app);
+                    // Keep restored message jobs quarantined until explicit review.
+                    // Monitoring must not restart while restored jobs are on hold.
                     return result;
                 } catch (Exception restoreError) {
                     Exception rollbackError = null;
@@ -202,7 +204,8 @@ public final class CallTagBackupManager {
                     } catch (Exception error) {
                         rollbackError = error;
                     }
-                    if (monitorEnabledBefore) startMonitor(app);
+                    // After any failed/rolled-back restore, retain SMS quarantine
+                    // until the user reviews scheduled jobs.
                     if (rollbackError != null) {
                         throw new IOException("복원과 자동 롤백에 모두 실패했습니다. 앱 상태 진단을 확인해주세요. 복원 오류: "
                                 + safeError(restoreError) + " · 롤백 오류: " + safeError(rollbackError), rollbackError);

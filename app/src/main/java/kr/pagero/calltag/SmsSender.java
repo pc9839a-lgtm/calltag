@@ -46,6 +46,7 @@ public final class SmsSender {
     }
 
     public static void sendExisting(Context context, long messageId) {
+        if (AccountDataScope.isRestoreReviewPending(context)) return;
         MessageLogStore store = new MessageLogStore(context);
         try {
             MessageRecord record = store.find(messageId);

@@ -28,6 +28,7 @@ public final class BackupRestoreActivity extends Activity {
     private Button createButton;
     private Button restoreButton;
     private Button legacyRecoveryButton;
+    private Button restoreReviewButton;
     private TextView statusView;
     private boolean working;
     private char[] pendingBackupPassword;
@@ -95,6 +96,12 @@ public final class BackupRestoreActivity extends Activity {
             root.addView(legacyRecoveryButton, fixedHeight(52, 14));
         }
 
+        if (AccountDataScope.isRestoreReviewPending(this)) {
+            restoreReviewButton = button("복원된 문자 작업 확인 후 재개", false);
+            restoreReviewButton.setOnClickListener(v -> confirmRestoreReview());
+            root.addView(restoreReviewButton, fixedHeight(52, 12));
+        }
+
         TextView format = body("콜태그 계정별 암호화 .ctbackup v2 · 로그인·결제 권한 제외");
         format.setGravity(Gravity.CENTER);
         format.setSingleLine(true);
@@ -108,6 +115,25 @@ public final class BackupRestoreActivity extends Activity {
         warning.setBackgroundResource(R.drawable.bg_soft_panel);
         root.addView(warning, topMargin(18));
         return scroll;
+    }
+
+    private void confirmRestoreReview() {
+        if (working) return;
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                .setTitle("복원된 문자 예약을 재개할까요?")
+                .setMessage("문자 발송내역과 예약 건을 먼저 확인하세요. "
+                        + "재개하면 이전 백업의 예약 작업 중 조건에 맞는 문자가 "
+                        + "자동 발송될 수 있습니다. 원치 않으면 취소하세요.")
+                .setNegativeButton("계속 잠금", null)
+                .setPositiveButton("검토 완료 · 재개", (dialog, which) -> {
+                    AccountDataScope.setRestoreReviewPending(this, false);
+                    MessageRecoveryManager.recoverAsync(this,
+                            MessageRecoveryManager.TRIGGER_MANUAL);
+                    if (restoreReviewButton != null) restoreReviewButton.setEnabled(false);
+                    Toast.makeText(this, "문자 예약 복구를 다시 허용했습니다.",
+                            Toast.LENGTH_LONG).show();
+                })
+                .show();
     }
 
     private void confirmLegacyRecovery() {
@@ -372,6 +398,7 @@ public final class BackupRestoreActivity extends Activity {
         createButton.setAlpha(value ? 0.5f : 1f);
         restoreButton.setAlpha(value ? 0.5f : 1f);
         if (legacyRecoveryButton != null) legacyRecoveryButton.setEnabled(!value);
+        if (restoreReviewButton != null) restoreReviewButton.setEnabled(!value);
         if (value) statusView.setText(label);
     }
 

@@ -26,6 +26,7 @@ public final class ScheduledMessageReceiver extends BroadcastReceiver {
         } catch (IllegalStateException missingSession) {
             return;
         }
+        if (AccountDataScope.isRestoreReviewPending(context)) return;
         DiagnosticEventStore.record(context, "예약 수신", messageId, "예약 리시버 실행");
 
         MessageLogStore store = new MessageLogStore(context);

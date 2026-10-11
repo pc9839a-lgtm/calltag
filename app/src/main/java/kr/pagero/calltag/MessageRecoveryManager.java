@@ -66,6 +66,14 @@ public final class MessageRecoveryManager {
         long now = System.currentTimeMillis();
         Result result = new Result(safeTrigger, now);
 
+        if (AuthSessionStore.hasSession(app)
+                && !AuthSessionStore.ownerId(app).trim().isEmpty()
+                && AccountDataScope.isRestoreReviewPending(app)) {
+            result.error = "복원된 문자 작업을 검토하기 전까지 예약 재등록을 차단했습니다.";
+            saveResult(app, result);
+            return result;
+        }
+
         if (!FeatureEntitlementStore.hasMessageAccess(app)) {
             result.skippedByEntitlement = true;
             saveResult(app, result);
