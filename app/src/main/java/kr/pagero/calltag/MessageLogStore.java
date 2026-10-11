@@ -152,8 +152,11 @@ public final class MessageLogStore extends SQLiteOpenHelper {
 
         long now = System.currentTimeMillis();
         long safeScheduledAt = Math.max(now, scheduledAt);
-        long duplicateWindowMs = MessageAutomationStore.cooldownHours(appContext)
-                * 60L * 60L * 1000L;
+        // The server may raise the minimum duplicate window, never lower
+        // the cooldown configured by the account owner.
+        int cooldownHours = Math.max(MessageAutomationStore.cooldownHours(appContext),
+                CallTagRemotePolicy.minimumCooldownHours(appContext));
+        long duplicateWindowMs = cooldownHours * 60L * 60L * 1000L;
         MessageDedupeEngine.Metadata metadata = MessageDedupeEngine.metadata(
                 callLogId, scheduleId, campaignId, phone, message, triggerType,
                 safeScheduledAt, duplicateWindowMs);
@@ -199,6 +202,21 @@ public final class MessageLogStore extends SQLiteOpenHelper {
         } finally {
             db.endTransaction();
         }
+    }
+
+    /**
+     * Used only when an already READY automated job must be held back by a
+     * newly received server minimum. Never marks an unsent job as sent.
+     */
+    public boolean deferReadyForRemoteMinimum(long messageId, long nextAttemptAt) {
+        ContentValues changes = new ContentValues();
+        changes.put("status", STATUS_SCHEDULED);
+        changes.put("scheduled_at", nextAttemptAt);
+        changes.put("updated_at", System.currentTimeMillis());
+        changes.put("error", "서버 운영 정책에 따른 최소 지연 시간 적용");
+        return getWritableDatabase().update("message_jobs", changes,
+                "id=? AND status=?",
+                new String[]{String.valueOf(messageId), STATUS_READY}) == 1;
     }
 
     private long insertDuplicateAttempt(SQLiteDatabase db, long customerId,

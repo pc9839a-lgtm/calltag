@@ -57,6 +57,16 @@ public final class SmsSender {
         try {
             MessageRecord record = store.find(messageId);
             if (record == null || !MessageLogStore.STATUS_READY.equals(record.status)) return;
+            // A higher server minimum also fences pre-existing READY jobs:
+            // atomically return them to SCHEDULED rather than dispatching early.
+            long earliest = CallTagRemoteAutomationLimits.earliestAutomatedSendAt(
+                    context, record);
+            if (earliest > System.currentTimeMillis()) {
+                if (store.deferReadyForRemoteMinimum(messageId, earliest)) {
+                    MessageScheduler.schedule(context, messageId, earliest);
+                }
+                return;
+            }
             if (!CampaignRuntimeManager.allowSend(context, record)) return;
 
             MessageExclusionStore.Decision exclusion = MessageExclusionStore.evaluate(

@@ -73,7 +73,10 @@ public final class PageroLeadMessageAutomation {
                 return;
             }
 
-            int delayMinutes = PageroLeadMessageSettings.delayMinutes(context);
+            // Server restrictions only add delay; they never turn on
+            // a user's disabled automatic message.
+            int delayMinutes = Math.max(PageroLeadMessageSettings.delayMinutes(context),
+                    CallTagRemotePolicy.minimumLeadDelayMinutes(context));
             long now = System.currentTimeMillis();
             if (delayMinutes == 0 && !MessageAutomationStore.isWithinBusinessHours(context, now)) {
                 long jobId = createTerminalJob(context, lead, customer, body,

@@ -17,7 +17,8 @@ public final class PageroLeadMessageSettings {
     private PageroLeadMessageSettings() {}
 
     private static SharedPreferences prefs(Context context) {
-        return context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        return context.getApplicationContext().getSharedPreferences(
+                AccountDataScope.preferenceName(context, PREFS), Context.MODE_PRIVATE);
     }
 
     public static boolean enabled(Context context) {
