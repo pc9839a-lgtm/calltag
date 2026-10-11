@@ -31,8 +31,10 @@ assert 'AccountDataScope.currentAccountDatabases(this)' in a
 assert 'for (String databaseName : ownedDatabases)' in a
 assert 'for (String databaseName : databaseList())' not in a
 backup=src("CallTagBackupManager.java")
-assert backup.count("blockUnsafeLegacyBackup();") == 2
-assert backup.count("throw new IllegalStateException(") >= 1
+assert 'private static final int FORMAT_VERSION = 2;' in backup
+assert '"ownerFingerprint"' in backup
+assert '"owner-sqlite-v2"' in backup
+assert "isAllowedOwnerPath(context, path)" in backup
 app=src("CallTagApplication.java")
 assert "LegacyCrmReviewNotice.showOnce(activity);" in app
 assert app.index("AuthSessionStore.hasSession(this)",app.index('new Thread(() ->')) < app.index('MessageRecoveryManager.recoverNow(this,')
