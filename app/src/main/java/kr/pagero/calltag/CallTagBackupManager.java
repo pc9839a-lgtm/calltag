@@ -84,14 +84,24 @@ public final class CallTagBackupManager {
         }
         synchronized (LOCK) {
             Context app = context.getApplicationContext();
+            String owner = AccountDataScope.requireOwner(app);
+            String session = AuthSessionStore.session(app);
+            if (PageroLeadSyncManager.isRunning() || UniversalLeadSyncManager.isRunning()
+                    || !CallTagSyncManager.beginMaintenance()) {
+                throw new IllegalStateException("동기화가 끝난 뒤 백업을 다시 시도해주세요.");
+            }
+            try {
+            requireSameAccount(app, owner, session);
             ensureNoSending(app, "발송 중인 문자가 있어 백업을 시작할 수 없습니다.");
             boolean monitorEnabled = SettingsStore.isMonitorEnabled(app);
             app.stopService(new Intent(app, CallMonitorService.class));
             File stage = new File(app.getCacheDir(), "calltag-backup-stage-" + UUID.randomUUID());
             try {
-                SnapshotStats stats = snapshotCurrentData(app, stage);
+                runDatabaseMigrations(app);
+                SnapshotStats stats = snapshotCurrentData(app, stage, owner, session);
                 JSONObject manifest = buildManifest(app, stage, stats);
                 writeUtf8(new File(stage, "manifest.json"), manifest.toString());
+                requireSameAccount(app, owner, session);
                 encryptDirectory(app, stage, target, password);
                 BackupResult result = new BackupResult(
                         manifest.optLong("createdAt", System.currentTimeMillis()),
@@ -106,7 +116,10 @@ public final class CallTagBackupManager {
                 throw error;
             } finally {
                 deleteRecursively(stage);
-                if (monitorEnabled) startMonitor(app);
+                if (monitorEnabled && owner.equals(AuthSessionStore.ownerId(app))) startMonitor(app);
+            }
+            } finally {
+                CallTagSyncManager.endMaintenance();
             }
         }
     }
@@ -119,20 +132,28 @@ public final class CallTagBackupManager {
         }
         synchronized (LOCK) {
             Context app = context.getApplicationContext();
+            String owner = AccountDataScope.requireOwner(app);
+            String session = AuthSessionStore.session(app);
+            if (PageroLeadSyncManager.isRunning() || UniversalLeadSyncManager.isRunning()
+                    || !CallTagSyncManager.beginMaintenance()) {
+                throw new IllegalStateException("동기화가 끝난 뒤 복원을 다시 시도해주세요.");
+            }
+            try {
             File extracted = new File(app.getCacheDir(), "calltag-restore-stage-" + UUID.randomUUID());
             File rollback = new File(app.getNoBackupFilesDir(), "calltag-restore-rollback-" + UUID.randomUUID());
             boolean monitorEnabledBefore = SettingsStore.isMonitorEnabled(app);
             try {
                 JSONObject manifest = decryptAndExtract(app, source, password, extracted);
+                requireSameAccount(app, owner, session);
                 validateManifest(app, extracted, manifest);
                 ensureNoSending(app, "발송 중인 문자가 있어 복원할 수 없습니다. 발송 결과를 확인한 뒤 다시 시도해주세요.");
 
                 app.stopService(new Intent(app, CallMonitorService.class));
-                snapshotCurrentData(app, rollback);
+                snapshotCurrentData(app, rollback, owner, session);
                 cancelAllKnownMessageAlarms(app);
 
                 try {
-                    replaceFromSnapshot(app, extracted);
+                    replaceFromSnapshot(app, extracted, owner, session);
                     runDatabaseMigrations(app);
                     quickCheckAllDatabases(app);
                     MessageAutomationStore.ensureDefaults(app);
@@ -156,13 +177,14 @@ public final class CallTagBackupManager {
                             + "개 · 설정 " + result.preferenceCount
                             + "개 · 이미지 " + result.imageCount
                             + "개 · 이미지 누락 " + result.missingImageCount + "개");
+                    invalidateOwnerSyncMappings(app);
                     if (SettingsStore.isMonitorEnabled(app)) startMonitor(app);
                     return result;
                 } catch (Exception restoreError) {
                     Exception rollbackError = null;
                     try {
                         cancelAllKnownMessageAlarms(app);
-                        replaceFromSnapshot(app, rollback);
+                        replaceFromSnapshot(app, rollback, owner, session);
                         runDatabaseMigrations(app);
                         quickCheckAllDatabases(app);
                         MessageAutomationStore.ensureDefaults(app);
@@ -187,6 +209,9 @@ public final class CallTagBackupManager {
                 deleteRecursively(extracted);
                 deleteRecursively(rollback);
             }
+            } finally {
+                CallTagSyncManager.endMaintenance();
+            }
         }
     }
 
@@ -204,7 +229,8 @@ public final class CallTagBackupManager {
         return label + "\n" + summary;
     }
 
-    private static SnapshotStats snapshotCurrentData(Context context, File stage) throws Exception {
+    private static SnapshotStats snapshotCurrentData(Context context, File stage,
+                                                     String owner, String session) throws Exception {
         deleteRecursively(stage);
         ensureDirectory(stage);
         File databaseDir = new File(stage, "databases");
@@ -216,6 +242,7 @@ public final class CallTagBackupManager {
         List<String> databases = AccountDataScope.currentAccountDatabases(context);
         Collections.sort(databases);
         for (String name : databases) {
+            requireSameAccount(context, owner, session);
             File source = context.getDatabasePath(name);
             if (!source.exists()) continue;
             checkpointDatabase(source);
@@ -224,6 +251,7 @@ public final class CallTagBackupManager {
         }
 
         for (String preferenceName : AccountDataScope.currentAccountPreferences(context)) {
+            requireSameAccount(context, owner, session);
             JSONObject object = serializePreferences(
                     context.getSharedPreferences(preferenceName, Context.MODE_PRIVATE));
             writeUtf8(new File(preferenceDir, preferenceName + ".json"), object.toString());
@@ -426,49 +454,33 @@ public final class CallTagBackupManager {
         }
     }
 
-    private static void replaceFromSnapshot(Context context, File snapshot) throws Exception {
+    private static void replaceFromSnapshot(Context context, File snapshot,
+                                            String owner, String session) throws Exception {
         File databaseSource = new File(snapshot, "databases");
-        Set<String> names = new HashSet<>();
-        for (String name : context.databaseList()) {
-            if (isCallTagDatabaseName(name)) names.add(name);
-        }
-        File[] backupDatabases = databaseSource.listFiles();
-        if (backupDatabases != null) {
-            for (File file : backupDatabases) {
-                if (file.isFile() && isCallTagDatabaseName(file.getName())) names.add(file.getName());
-            }
-        }
-        for (String name : names) {
+        for (String name : AccountDataScope.currentAccountDatabases(context)) {
+            requireSameAccount(context, owner, session);
             context.deleteDatabase(name);
             deleteIfExists(new File(context.getDatabasePath(name).getPath() + "-wal"));
             deleteIfExists(new File(context.getDatabasePath(name).getPath() + "-shm"));
             deleteIfExists(new File(context.getDatabasePath(name).getPath() + "-journal"));
-        }
-        if (backupDatabases != null) {
-            for (File source : backupDatabases) {
-                if (!source.isFile() || !isCallTagDatabaseName(source.getName())) continue;
-                File target = context.getDatabasePath(source.getName());
+            File source = new File(databaseSource, name);
+            if (source.isFile()) {
+                File target = context.getDatabasePath(name);
                 ensureDirectory(target.getParentFile());
                 copyFile(source, target);
             }
         }
-
         File preferenceSource = new File(snapshot, "preferences");
         for (String preferenceName : AccountDataScope.currentAccountPreferences(context)) {
+            requireSameAccount(context, owner, session);
             SharedPreferences preferences = context.getSharedPreferences(
                     preferenceName, Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = preferences.edit().clear();
             File source = new File(preferenceSource, preferenceName + ".json");
             if (source.exists()) restorePreferences(editor, new JSONObject(readUtf8(source)));
-            if (!editor.commit()) {
-                throw new IOException("설정 복원에 실패했습니다: " + preferenceName);
-            }
+            if (!editor.commit()) throw new IOException("설정 복원 실패: " + preferenceName);
         }
-
-        File currentImages = new File(context.getFilesDir(), "message_images");
-        deleteRecursively(currentImages);
-        File backupImages = new File(snapshot, "files/message_images");
-        if (backupImages.exists()) copyDirectory(backupImages, currentImages);
+        // Global message_images remains untouched: may contain another account's files.
     }
 
     private static void runDatabaseMigrations(Context context) {
@@ -478,6 +490,7 @@ public final class CallTagBackupManager {
         CampaignStore campaigns = new CampaignStore(context);
         TaskTypeStore taskTypes = new TaskTypeStore(context);
         PendingCallStore pendingCalls = new PendingCallStore(context);
+        PageroLeadReceiptStore receipts = new PageroLeadReceiptStore(context);
         try {
             crm.getWritableDatabase();
             messages.getWritableDatabase();
@@ -485,7 +498,9 @@ public final class CallTagBackupManager {
             campaigns.getWritableDatabase();
             taskTypes.getWritableDatabase();
             pendingCalls.getWritableDatabase();
+            receipts.getWritableDatabase();
         } finally {
+            receipts.close();
             pendingCalls.close();
             taskTypes.close();
             campaigns.close();
@@ -496,10 +511,7 @@ public final class CallTagBackupManager {
     }
 
     private static void quickCheckAllDatabases(Context context) throws Exception {
-        List<String> names = new ArrayList<>();
-        for (String name : context.databaseList()) {
-            if (isCallTagDatabaseName(name)) names.add(name);
-        }
+        List<String> names = AccountDataScope.currentAccountDatabases(context);
         Collections.sort(names);
         for (String name : names) {
             File file = context.getDatabasePath(name);
@@ -529,7 +541,8 @@ public final class CallTagBackupManager {
     }
 
     private static void cancelAllKnownMessageAlarms(Context context) {
-        File database = context.getDatabasePath("calltag_messages.db");
+        File database = context.getDatabasePath(
+                AccountDataScope.name(context, "calltag_messages.db"));
         if (!database.exists()) return;
         SQLiteDatabase db = null;
         try {
@@ -707,6 +720,26 @@ public final class CallTagBackupManager {
                     path.substring("preferences/".length(), path.length() - 5));
         }
         return false;
+    }
+
+    private static void requireSameAccount(Context context, String owner, String session) {
+        if (!owner.equals(AccountDataScope.requireOwner(context))
+                || !session.equals(AuthSessionStore.session(context))) {
+            throw new IllegalStateException("백업·복원 중 로그인 계정이 바뀌었습니다.");
+        }
+    }
+
+    private static void invalidateOwnerSyncMappings(Context context) {
+        CallTagSyncPreferenceStore.setEnabled(context, false);
+        try (CallTagSyncLocalStore store = new CallTagSyncLocalStore(context)) {
+            String key = store.accountKey();
+            if (!key.isEmpty()) {
+                store.getWritableDatabase().delete("entity_map", "account_key=?",
+                        new String[]{key});
+                store.getWritableDatabase().delete("sync_meta", "account_key=?",
+                        new String[]{key});
+            }
+        }
     }
 
     private static String normalizeEntryPath(String value) {
