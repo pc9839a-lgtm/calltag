@@ -25,7 +25,7 @@ for fragment in (
     'LIMIT_PREFIX + MIN_FOLLOWUP_DAYS, followup',
     'editor.putLong("revision", revision)',
     'if (!editor.commit())',
-    'if (revision <= p.getLong("revision", 0L)) return;',
+    'revision < cachedRevision',
     'if (cooldown < 0 || leadDelay < 0 || followup < 0) return;',
     "checkedMinimum(limits, MIN_COOLDOWN_HOURS, 720)",
     "checkedMinimum(limits, MIN_LEAD_DELAY_MINUTES, 1440)",
