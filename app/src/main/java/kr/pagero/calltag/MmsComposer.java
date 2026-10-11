@@ -30,7 +30,12 @@ public final class MmsComposer {
         String snapshot = MessageAttachmentStore.duplicate(
                 context, imageRef, "message-" + messageId);
         String stored = snapshot.isEmpty() ? imageRef.trim() : snapshot;
-        prefs(context).edit().putString(KEY_PREFIX + messageId, stored).apply();
+        // Persist the reference before discarding the draft image. Otherwise an
+        // app kill after asynchronous apply() could leave an unreferenced snapshot.
+        if (!prefs(context).edit().putString(KEY_PREFIX + messageId, stored).commit()) {
+            if (!snapshot.isEmpty()) MessageAttachmentStore.delete(context, snapshot);
+            return false;
+        }
         if (!snapshot.isEmpty() && imageRef.substring(imageRef.lastIndexOf('/') + 1).startsWith("draft-")) {
             MessageAttachmentStore.delete(context, imageRef);
         }
