@@ -70,6 +70,13 @@ assert "currentAccountPreferences" in scope
 assert "workEpoch(Context context)" in scope
 assert "rotateWorkEpoch(Context context)" in scope
 assert "AccountDataScope.rotateWorkEpoch(app)" in backup
+assert "AccountDataScope.setRestoreReviewPending(app, true)" in backup
+assert "isRestoreReviewPending(Context context)" in scope
+assert "setRestoreReviewPending(Context context, boolean pending)" in scope
+assert "AccountDataScope.isRestoreReviewPending(context)" in scheduled
+assert "AccountDataScope.isRestoreReviewPending(context)" in sender
+assert "AccountDataScope.isRestoreReviewPending(app)" in text("MessageRecoveryManager.java")
+assert "복원된 문자 작업 확인 후 재개" in ui
 assert 'for (String name : AccountDataScope.currentAccountDatabases(context)) {' in backup
 assert 'for (String preference : AccountDataScope.currentAccountPreferences(context)) {' in backup
 assert "disableAndResetOwnerSync(app, ownerId, session)" in recovery
