@@ -78,6 +78,53 @@ public final class AccountDataScope {
         return names;
     }
 
+    /**
+     * Persisted per-owner generation for Android alarm/SMS callback identity.
+     * Rotating after a destructive restore rejects callbacks created before restore.
+     */
+    public static synchronized String workEpoch(Context context) {
+        String key = fingerprint(requireOwner(context));
+        android.content.SharedPreferences prefs = context.getApplicationContext()
+                .getSharedPreferences("calltag_owner_work_epoch_v1", Context.MODE_PRIVATE);
+        String old = prefs.getString(key, "");
+        if (old != null && !old.isEmpty()) return old;
+        String created = java.util.UUID.randomUUID().toString();
+        if (!prefs.edit().putString(key, created).commit()) {
+            throw new IllegalStateException("문자 작업 식별자 저장 실패");
+        }
+        return created;
+    }
+
+    public static synchronized void rotateWorkEpoch(Context context) {
+        String key = fingerprint(requireOwner(context));
+        String next = java.util.UUID.randomUUID().toString();
+        if (!context.getApplicationContext()
+                .getSharedPreferences("calltag_owner_work_epoch_v1", Context.MODE_PRIVATE)
+                .edit().putString(key, next).commit()) {
+            throw new IllegalStateException("문자 작업 식별자를 갱신하지 못했습니다.");
+        }
+    }
+
+    /**
+     * Fail-closed pause after restoring message-job snapshots. Persistent and
+     * per owner; old pending alarms cannot automatically dispatch messages.
+     */
+    public static boolean isRestoreReviewPending(Context context) {
+        String key = fingerprint(requireOwner(context));
+        return context.getApplicationContext().getSharedPreferences(
+                "calltag_restore_message_review_v1", Context.MODE_PRIVATE)
+                .getBoolean(key, false);
+    }
+
+    public static void setRestoreReviewPending(Context context, boolean pending) {
+        String key = fingerprint(requireOwner(context));
+        if (!context.getApplicationContext().getSharedPreferences(
+                "calltag_restore_message_review_v1", Context.MODE_PRIVATE)
+                .edit().putBoolean(key, pending).commit()) {
+            throw new IllegalStateException("문자 복원 안전 잠금을 저장하지 못했습니다.");
+        }
+    }
+
     public static String fingerprint(String ownerId) {
         if (ownerId == null || ownerId.trim().isEmpty()) {
             throw new IllegalArgumentException("서버 계정 ID가 없습니다.");

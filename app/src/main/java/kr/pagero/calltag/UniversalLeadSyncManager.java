@@ -75,6 +75,7 @@ public final class UniversalLeadSyncManager {
             Context context, boolean force, boolean notifyWhenChanged, boolean pollGoogleForms) {
         if (context == null) return false;
         Context appContext = context.getApplicationContext();
+        if (CallTagSyncManager.isMaintenanceRunning()) return false;
         if (!AuthSessionStore.hasSession(appContext)) {
             if (notifyWhenChanged) NOTIFY_WHEN_CHANGED.set(false);
             sendResult(appContext, false, new SyncResult(),
@@ -155,6 +156,7 @@ public final class UniversalLeadSyncManager {
     public static WorkerSyncResult runWorkerSync(Context context, boolean pollGoogleForms) {
         if (context == null) return WorkerSyncResult.SUCCESS;
         Context appContext = context.getApplicationContext();
+        if (CallTagSyncManager.isMaintenanceRunning()) return WorkerSyncResult.RETRY;
         if (!AuthSessionStore.hasSession(appContext)) return WorkerSyncResult.SUCCESS;
 
         LAST_ATTEMPT_AT.set(System.currentTimeMillis());
@@ -227,6 +229,9 @@ public final class UniversalLeadSyncManager {
     }
 
     private static SyncResult syncNow(Context context, boolean pollGoogleForms) throws Exception {
+        if (CallTagSyncManager.isMaintenanceRunning()) {
+            throw new IllegalStateException("백업·복구 중 외부 문의 수신을 중지했습니다.");
+        }
         String session = AuthSessionStore.session(context);
         String ownerId = AuthSessionStore.ownerId(context);
         if (session.isEmpty() || ownerId.isEmpty()) {
@@ -356,6 +361,9 @@ public final class UniversalLeadSyncManager {
     }
 
     private static void assertSameAccount(Context context, String session, String ownerId) {
+        if (CallTagSyncManager.isMaintenanceRunning()) {
+            throw new IllegalStateException("백업·복구 중 외부 문의 수신을 중지했습니다.");
+        }
         if (!session.equals(AuthSessionStore.session(context))
                 || !ownerId.equals(AuthSessionStore.ownerId(context))) {
             throw new IllegalStateException(

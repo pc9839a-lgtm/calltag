@@ -27,6 +27,8 @@ public final class BackupRestoreActivity extends Activity {
 
     private Button createButton;
     private Button restoreButton;
+    private Button legacyRecoveryButton;
+    private Button restoreReviewButton;
     private TextView statusView;
     private boolean working;
     private char[] pendingBackupPassword;
@@ -80,29 +82,114 @@ public final class BackupRestoreActivity extends Activity {
 
         createButton = button("암호화 백업 만들기", true);
         createButton.setOnClickListener(v -> showBackupPasswordDialog());
-        createButton.setEnabled(false);
-        createButton.setAlpha(0.45f);
+        createButton.setEnabled(true);
         root.addView(createButton, fixedHeight(52, 16));
 
         restoreButton = button("백업 파일 복원", false);
         restoreButton.setOnClickListener(v -> chooseRestoreFile());
-        restoreButton.setEnabled(false);
-        restoreButton.setAlpha(0.45f);
+        restoreButton.setEnabled(true);
         root.addView(restoreButton, fixedHeight(50, 8));
 
-        TextView format = body("콜태그 전용 .ctbackup · 로그인과 결제 권한은 제외");
+        if (LegacyCrmRecoveryManager.hasLegacyData(this)) {
+            legacyRecoveryButton = button("구버전 고객·상담 기록 복구", false);
+            legacyRecoveryButton.setOnClickListener(v -> confirmLegacyRecovery());
+            root.addView(legacyRecoveryButton, fixedHeight(52, 14));
+        }
+
+        if (AccountDataScope.isRestoreReviewPending(this)) {
+            restoreReviewButton = button("복원된 문자 작업 확인 후 재개", false);
+            restoreReviewButton.setOnClickListener(v -> confirmRestoreReview());
+            root.addView(restoreReviewButton, fixedHeight(52, 12));
+        }
+
+        TextView format = body("콜태그 계정별 암호화 .ctbackup v2 · 로그인·결제 권한 제외");
         format.setGravity(Gravity.CENTER);
         format.setSingleLine(true);
         format.setEllipsize(TextUtils.TruncateAt.END);
         root.addView(format, topMargin(10));
 
-        TextView warning = body("다른 계정 데이터 보호를 위해 백업·복원을 일시 중단했습니다. 기존 DB와 .ctbackup 파일은 삭제되지 않습니다.");
+        TextView warning = body("현재 계정의 DB와 설정만 암호화합니다. 다른 계정, 소유자 미확인 구버전(v1) 백업, 공용 이미지 파일은 복원 대상이 아닙니다.");
         warning.setTextColor(getColor(R.color.danger));
         warning.setGravity(Gravity.CENTER_VERTICAL);
         warning.setPadding(dp(14), dp(11), dp(14), dp(11));
         warning.setBackgroundResource(R.drawable.bg_soft_panel);
         root.addView(warning, topMargin(18));
         return scroll;
+    }
+
+    private void confirmRestoreReview() {
+        if (working) return;
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                .setTitle("복원된 문자 예약을 재개할까요?")
+                .setMessage("문자 발송내역과 예약 건을 먼저 확인하세요. "
+                        + "재개하면 이전 백업의 예약 작업 중 조건에 맞는 문자가 "
+                        + "자동 발송될 수 있습니다. 원치 않으면 취소하세요.")
+                .setNegativeButton("계속 잠금", null)
+                .setPositiveButton("검토 완료 · 재개", (dialog, which) -> {
+                    AccountDataScope.setRestoreReviewPending(this, false);
+                    MessageRecoveryManager.recoverAsync(this,
+                            MessageRecoveryManager.TRIGGER_MANUAL);
+                    if (restoreReviewButton != null) restoreReviewButton.setEnabled(false);
+                    Toast.makeText(this, "문자 예약 복구를 다시 허용했습니다.",
+                            Toast.LENGTH_LONG).show();
+                })
+                .show();
+    }
+
+    private void confirmLegacyRecovery() {
+        if (working) return;
+        String owner = AccountDataScope.requireOwner(this);
+        EditText confirmation = new EditText(this);
+        confirmation.setSingleLine(true);
+        confirmation.setHint("복구 입력");
+        confirmation.setInputType(InputType.TYPE_CLASS_TEXT);
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                .setTitle("구버전 고객 기록 복구")
+                .setMessage("구버전 공용 DB는 고객마다 계정 ID가 없습니다. "
+                        + "이 기기의 이전 고객·상담·일정 기록이 현재 로그인한 계정의 기록이 맞고, "
+                        + "다른 사용자의 기록이 섞이지 않았을 때만 진행하세요. "
+                        + "다른 계정 사용 흔적이나 현재 계정의 기존 고객 기록이 확인되면 차단됩니다. "
+                        + "원본 DB는 삭제하지 않습니다. 진행하려면 '복구'를 입력하세요.")
+                .setView(confirmation)
+                .setNegativeButton("취소", null)
+                .setPositiveButton("내 계정으로 복구", (dialog, which) -> {
+                    if (!"복구".equals(confirmation.getText().toString().trim())) {
+                        Toast.makeText(this, "'복구' 입력이 일치하지 않습니다.",
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    startLegacyRecovery(owner);
+                })
+                .show();
+    }
+
+    private void startLegacyRecovery(String owner) {
+        if (working) return;
+        setWorking(true, "원본을 보존하면서 이전 고객 기록을 복구 중입니다…");
+        new Thread(() -> {
+            try {
+                LegacyCrmRecoveryManager.Result result =
+                        LegacyCrmRecoveryManager.recoverAfterOwnerConfirmation(this, owner);
+                runOnUiThread(() -> {
+                    setWorking(false, "");
+                    if (legacyRecoveryButton != null) legacyRecoveryButton.setEnabled(false);
+                    new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                            .setTitle(result.alreadyRecovered ? "이미 복구된 기록" : "고객 기록 복구 완료")
+                            .setMessage(result.alreadyRecovered
+                                    ? "이 계정의 이전 기록이 이미 복구되었습니다."
+                                    : "고객 " + result.customers + "건, 상담 " + result.interactions
+                                      + "건, 일정 " + result.tasks
+                                      + "건을 복구했습니다. 구버전 원본은 그대로 남아 있습니다.")
+                            .setPositiveButton("앱 다시 시작", (d, w) -> restartApp())
+                            .show();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    setWorking(false, "");
+                    showError("복구 차단", error);
+                });
+            }
+        }, "calltag-legacy-crm-recovery").start();
     }
 
     private void showBackupPasswordDialog() {
@@ -217,7 +304,7 @@ public final class BackupRestoreActivity extends Activity {
         pendingRestoreUri = null;
         new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("현재 데이터를 교체할까요?")
-                .setMessage("현재 고객·일정·문자·캠페인 데이터가 백업 시점으로 교체됩니다. 실패하면 복원 전 데이터로 자동 롤백합니다.")
+                .setMessage("현재 로그인한 계정의 데이터만 교체됩니다. 실패 시 복원 전 데이터로 롤백합니다. 복원 후 클라우드 동기화는 검토한 뒤 직접 다시 켜야 합니다. 이미지는 복원하지 않습니다.")
                 .setNegativeButton("취소", (dialog, which) -> Arrays.fill(password, '\0'))
                 .setPositiveButton("복원 시작", (dialog, which) -> runRestore(source, password))
                 .show();
@@ -306,12 +393,12 @@ public final class BackupRestoreActivity extends Activity {
 
     private void setWorking(boolean value, String label) {
         working = value;
-        // The old backup implementation restores all device databases; keep disabled
-        // even if an unrelated spinner finishes or Activity state is restored.
-        createButton.setEnabled(false);
-        restoreButton.setEnabled(false);
-        createButton.setAlpha(0.45f);
-        restoreButton.setAlpha(0.45f);
+        createButton.setEnabled(!value);
+        restoreButton.setEnabled(!value);
+        createButton.setAlpha(value ? 0.5f : 1f);
+        restoreButton.setAlpha(value ? 0.5f : 1f);
+        if (legacyRecoveryButton != null) legacyRecoveryButton.setEnabled(!value);
+        if (restoreReviewButton != null) restoreReviewButton.setEnabled(!value);
         if (value) statusView.setText(label);
     }
 
@@ -397,7 +484,7 @@ public final class BackupRestoreActivity extends Activity {
 
     private String defaultBackupName() {
         String time = new SimpleDateFormat("yyyyMMdd-HHmm", Locale.KOREA).format(new Date());
-        return "calltag-backup-" + time + ".ctbackup";
+        return "calltag-owner-v2-" + time + ".ctbackup";
     }
 
     private void clearPendingBackupPassword() {

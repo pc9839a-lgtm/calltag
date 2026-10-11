@@ -46,6 +46,7 @@ public final class SmsSender {
     }
 
     public static void sendExisting(Context context, long messageId) {
+        if (AccountDataScope.isRestoreReviewPending(context)) return;
         MessageLogStore store = new MessageLogStore(context);
         try {
             MessageRecord record = store.find(messageId);
@@ -109,7 +110,10 @@ public final class SmsSender {
                         .setPackage(context.getPackageName())
                         .setData(Uri.parse("calltag://sms-sent/"
                                 + AccountDataScope.fingerprint(AccountDataScope.requireOwner(context))
+                                + "/" + AccountDataScope.workEpoch(context)
                                 + "/" + messageId + "/" + i))
+                        .putExtra(SmsStatusReceiver.EXTRA_WORK_EPOCH,
+                                AccountDataScope.workEpoch(context))
                         .putExtra(SmsStatusReceiver.EXTRA_OWNER_SCOPE,
                                 AccountDataScope.fingerprint(AccountDataScope.requireOwner(context)))
                         .putExtra(SmsStatusReceiver.EXTRA_MESSAGE_ID, messageId)

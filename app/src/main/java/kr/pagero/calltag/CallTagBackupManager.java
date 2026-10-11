@@ -61,7 +61,7 @@ import javax.crypto.spec.SecretKeySpec;
  */
 public final class CallTagBackupManager {
     private static final byte[] MAGIC = new byte[]{'C', 'T', 'B', 'K'};
-    private static final int FORMAT_VERSION = 1;
+    private static final int FORMAT_VERSION = 2;
     private static final int PBKDF2_ITERATIONS = 210_000;
     private static final int SALT_BYTES = 16;
     private static final int IV_BYTES = 12;
@@ -72,35 +72,38 @@ public final class CallTagBackupManager {
     private static final String STATUS_SUMMARY = "last_summary";
     private static final String STATUS_TIME = "last_time";
 
-    private static final String[] BACKUP_PREFS = new String[]{
-            "calltag_settings",
-            "calltag_message_automation",
-            "calltag_message_templates_v1",
-            "calltag_message_exclusions",
-            "calltag_task_message_links_v1"
-    };
-
     private static final Object LOCK = new Object();
 
     private CallTagBackupManager() {}
 
     public static BackupResult createBackup(Context context, Uri target, char[] password)
             throws Exception {
-        blockUnsafeLegacyBackup();
         requirePassword(password);
         if (context == null || target == null) {
             throw new IllegalArgumentException("백업 파일 위치를 선택해주세요.");
         }
         synchronized (LOCK) {
             Context app = context.getApplicationContext();
+            String owner = AccountDataScope.requireOwner(app);
+            String session = AuthSessionStore.session(app);
+            if (!CallTagSyncManager.beginMaintenance()) {
+                throw new IllegalStateException("다른 데이터 작업이 진행 중입니다.");
+            }
+            try {
+            if (PageroLeadSyncManager.isRunning() || UniversalLeadSyncManager.isRunning()) {
+                throw new IllegalStateException("문의 수신 종료 후 백업을 다시 시도해주세요.");
+            }
+            requireSameAccount(app, owner, session);
             ensureNoSending(app, "발송 중인 문자가 있어 백업을 시작할 수 없습니다.");
             boolean monitorEnabled = SettingsStore.isMonitorEnabled(app);
             app.stopService(new Intent(app, CallMonitorService.class));
             File stage = new File(app.getCacheDir(), "calltag-backup-stage-" + UUID.randomUUID());
             try {
-                SnapshotStats stats = snapshotCurrentData(app, stage);
+                runDatabaseMigrations(app);
+                SnapshotStats stats = snapshotCurrentData(app, stage, owner, session);
                 JSONObject manifest = buildManifest(app, stage, stats);
                 writeUtf8(new File(stage, "manifest.json"), manifest.toString());
+                requireSameAccount(app, owner, session);
                 encryptDirectory(app, stage, target, password);
                 BackupResult result = new BackupResult(
                         manifest.optLong("createdAt", System.currentTimeMillis()),
@@ -115,34 +118,50 @@ public final class CallTagBackupManager {
                 throw error;
             } finally {
                 deleteRecursively(stage);
-                if (monitorEnabled) startMonitor(app);
+                if (monitorEnabled && owner.equals(AuthSessionStore.ownerId(app))) startMonitor(app);
+            }
+            } finally {
+                CallTagSyncManager.endMaintenance();
             }
         }
     }
 
     public static RestoreResult restoreBackup(Context context, Uri source, char[] password)
             throws Exception {
-        blockUnsafeLegacyBackup();
         requirePassword(password);
         if (context == null || source == null) {
             throw new IllegalArgumentException("복원할 백업 파일을 선택해주세요.");
         }
         synchronized (LOCK) {
             Context app = context.getApplicationContext();
+            String owner = AccountDataScope.requireOwner(app);
+            String session = AuthSessionStore.session(app);
+            if (!CallTagSyncManager.beginMaintenance()) {
+                throw new IllegalStateException("다른 데이터 작업이 진행 중입니다.");
+            }
+            try {
+            if (PageroLeadSyncManager.isRunning() || UniversalLeadSyncManager.isRunning()) {
+                throw new IllegalStateException("문의 수신 종료 후 복원을 다시 시도해주세요.");
+            }
             File extracted = new File(app.getCacheDir(), "calltag-restore-stage-" + UUID.randomUUID());
             File rollback = new File(app.getNoBackupFilesDir(), "calltag-restore-rollback-" + UUID.randomUUID());
             boolean monitorEnabledBefore = SettingsStore.isMonitorEnabled(app);
             try {
                 JSONObject manifest = decryptAndExtract(app, source, password, extracted);
+                requireSameAccount(app, owner, session);
                 validateManifest(app, extracted, manifest);
                 ensureNoSending(app, "발송 중인 문자가 있어 복원할 수 없습니다. 발송 결과를 확인한 뒤 다시 시도해주세요.");
 
                 app.stopService(new Intent(app, CallMonitorService.class));
-                snapshotCurrentData(app, rollback);
+                snapshotCurrentData(app, rollback, owner, session);
                 cancelAllKnownMessageAlarms(app);
+                // Old carrier callbacks and scheduled alarms can refer to the
+                // same numeric job IDs after restoring a historical snapshot.
+                AccountDataScope.rotateWorkEpoch(app);
+                AccountDataScope.setRestoreReviewPending(app, true);
 
                 try {
-                    replaceFromSnapshot(app, extracted);
+                    replaceFromSnapshot(app, extracted, owner, session);
                     runDatabaseMigrations(app);
                     quickCheckAllDatabases(app);
                     MessageAutomationStore.ensureDefaults(app);
@@ -161,18 +180,21 @@ public final class CallTagBackupManager {
                             missingImages,
                             integrity == null ? "" : integrity.compactSummary(),
                             recovery == null ? "" : recovery.compactSummary());
-                    deleteRecursively(rollback);
+                    // Rollback staging must remain available until EVERY
+                    // post-restore step, including cloud-map invalidation, succeeds.
+                    invalidateOwnerSyncMappings(app);
                     saveStatus(app, "복원 완료 · DB " + result.databaseCount
                             + "개 · 설정 " + result.preferenceCount
                             + "개 · 이미지 " + result.imageCount
                             + "개 · 이미지 누락 " + result.missingImageCount + "개");
-                    if (SettingsStore.isMonitorEnabled(app)) startMonitor(app);
+                    // Keep restored message jobs quarantined until explicit review.
+                    // Monitoring must not restart while restored jobs are on hold.
                     return result;
                 } catch (Exception restoreError) {
                     Exception rollbackError = null;
                     try {
                         cancelAllKnownMessageAlarms(app);
-                        replaceFromSnapshot(app, rollback);
+                        replaceFromSnapshot(app, rollback, owner, session);
                         runDatabaseMigrations(app);
                         quickCheckAllDatabases(app);
                         MessageAutomationStore.ensureDefaults(app);
@@ -182,7 +204,8 @@ public final class CallTagBackupManager {
                     } catch (Exception error) {
                         rollbackError = error;
                     }
-                    if (monitorEnabledBefore) startMonitor(app);
+                    // After any failed/rolled-back restore, retain SMS quarantine
+                    // until the user reviews scheduled jobs.
                     if (rollbackError != null) {
                         throw new IOException("복원과 자동 롤백에 모두 실패했습니다. 앱 상태 진단을 확인해주세요. 복원 오류: "
                                 + safeError(restoreError) + " · 롤백 오류: " + safeError(rollbackError), rollbackError);
@@ -197,15 +220,10 @@ public final class CallTagBackupManager {
                 deleteRecursively(extracted);
                 deleteRecursively(rollback);
             }
+            } finally {
+                CallTagSyncManager.endMaintenance();
+            }
         }
-    }
-
-    private static void blockUnsafeLegacyBackup() {
-        // Version 1 copied/restored every calltag*.db regardless of owner, along
-        // with shared preferences and image files. Fail closed until the new
-        // format can be bound and independently verified against account scope.
-        throw new IllegalStateException(
-                "계정별 보안 백업 형식이 아직 준비되지 않아 백업·복원을 중단했습니다. 이전 기록은 보존됩니다.");
     }
 
     public static String lastSummary(Context context) {
@@ -222,7 +240,8 @@ public final class CallTagBackupManager {
         return label + "\n" + summary;
     }
 
-    private static SnapshotStats snapshotCurrentData(Context context, File stage) throws Exception {
+    private static SnapshotStats snapshotCurrentData(Context context, File stage,
+                                                     String owner, String session) throws Exception {
         deleteRecursively(stage);
         ensureDirectory(stage);
         File databaseDir = new File(stage, "databases");
@@ -231,12 +250,10 @@ public final class CallTagBackupManager {
         ensureDirectory(preferenceDir);
 
         SnapshotStats stats = new SnapshotStats();
-        List<String> databases = new ArrayList<>();
-        for (String name : context.databaseList()) {
-            if (isCallTagDatabaseName(name)) databases.add(name);
-        }
+        List<String> databases = AccountDataScope.currentAccountDatabases(context);
         Collections.sort(databases);
         for (String name : databases) {
+            requireSameAccount(context, owner, session);
             File source = context.getDatabasePath(name);
             if (!source.exists()) continue;
             checkpointDatabase(source);
@@ -244,17 +261,16 @@ public final class CallTagBackupManager {
             stats.databaseCount++;
         }
 
-        for (String preferenceName : BACKUP_PREFS) {
+        for (String preferenceName : AccountDataScope.currentAccountPreferences(context)) {
+            requireSameAccount(context, owner, session);
             JSONObject object = serializePreferences(
                     context.getSharedPreferences(preferenceName, Context.MODE_PRIVATE));
             writeUtf8(new File(preferenceDir, preferenceName + ".json"), object.toString());
             stats.preferenceCount++;
         }
 
-        File imageSource = new File(context.getFilesDir(), "message_images");
-        File imageTarget = new File(stage, "files/message_images");
-        if (imageSource.exists()) copyDirectory(imageSource, imageTarget);
-        stats.imageCount = countFiles(imageTarget);
+        // The old global image directory is not owner tagged: never archive it.
+        stats.imageCount = 0;
         return stats;
     }
 
@@ -277,6 +293,10 @@ public final class CallTagBackupManager {
 
         JSONObject manifest = new JSONObject();
         manifest.put("formatVersion", FORMAT_VERSION);
+        manifest.put("ownerFingerprint", AccountDataScope.fingerprint(
+                AccountDataScope.requireOwner(context)));
+        manifest.put("scope", "owner-sqlite-v2");
+        manifest.put("imagesIncluded", false);
         manifest.put("packageName", context.getPackageName());
         manifest.put("createdAt", System.currentTimeMillis());
         manifest.put("appVersion", appVersionName(context));
@@ -391,7 +411,12 @@ public final class CallTagBackupManager {
     private static void validateManifest(Context context, File root, JSONObject manifest)
             throws Exception {
         if (manifest.optInt("formatVersion", 0) != FORMAT_VERSION) {
-            throw new IOException("지원하지 않는 백업 형식 버전입니다.");
+            throw new IOException("기존 공용 백업(v1)은 계정 소유 정보가 없어 직접 복원할 수 없습니다.");
+        }
+        if (!"owner-sqlite-v2".equals(manifest.optString("scope", ""))
+                || !AccountDataScope.fingerprint(AccountDataScope.requireOwner(context))
+                    .equals(manifest.optString("ownerFingerprint", ""))) {
+            throw new IOException("다른 계정에서 생성된 백업은 복원할 수 없습니다.");
         }
         if (!context.getPackageName().equals(manifest.optString("packageName", ""))) {
             throw new IOException("다른 앱에서 만든 백업 파일입니다.");
@@ -410,12 +435,22 @@ public final class CallTagBackupManager {
             JSONObject entry = entries.optJSONObject(i);
             if (entry == null) throw new IOException("백업 데이터 목록이 손상되었습니다.");
             String path = normalizeEntryPath(entry.optString("path", ""));
-            if (path.isEmpty() || !isAllowedDataPath(path) || expected.put(path, entry) != null) {
+            if (path.isEmpty() || !isAllowedOwnerPath(context, path)
+                    || expected.put(path, entry) != null) {
                 throw new IOException("백업 데이터 경로가 올바르지 않습니다.");
             }
         }
-        if (!expected.containsKey("databases/calltag.db")) {
-            throw new IOException("고객 데이터베이스가 없는 백업 파일입니다.");
+        // v2 backups must be complete. Do not accept a reduced archive that
+        // could silently erase the active owner's missing database on restore.
+        for (String name : AccountDataScope.currentAccountDatabases(context)) {
+            if (!expected.containsKey("databases/" + name)) {
+                throw new IOException("계정별 DB가 누락된 백업입니다: " + name);
+            }
+        }
+        for (String preference : AccountDataScope.currentAccountPreferences(context)) {
+            if (!expected.containsKey("preferences/" + preference + ".json")) {
+                throw new IOException("계정별 설정 파일이 누락된 백업입니다.");
+            }
         }
 
         List<File> actualFiles = new ArrayList<>();
@@ -439,49 +474,33 @@ public final class CallTagBackupManager {
         }
     }
 
-    private static void replaceFromSnapshot(Context context, File snapshot) throws Exception {
+    private static void replaceFromSnapshot(Context context, File snapshot,
+                                            String owner, String session) throws Exception {
         File databaseSource = new File(snapshot, "databases");
-        Set<String> names = new HashSet<>();
-        for (String name : context.databaseList()) {
-            if (isCallTagDatabaseName(name)) names.add(name);
-        }
-        File[] backupDatabases = databaseSource.listFiles();
-        if (backupDatabases != null) {
-            for (File file : backupDatabases) {
-                if (file.isFile() && isCallTagDatabaseName(file.getName())) names.add(file.getName());
-            }
-        }
-        for (String name : names) {
+        for (String name : AccountDataScope.currentAccountDatabases(context)) {
+            requireSameAccount(context, owner, session);
             context.deleteDatabase(name);
             deleteIfExists(new File(context.getDatabasePath(name).getPath() + "-wal"));
             deleteIfExists(new File(context.getDatabasePath(name).getPath() + "-shm"));
             deleteIfExists(new File(context.getDatabasePath(name).getPath() + "-journal"));
-        }
-        if (backupDatabases != null) {
-            for (File source : backupDatabases) {
-                if (!source.isFile() || !isCallTagDatabaseName(source.getName())) continue;
-                File target = context.getDatabasePath(source.getName());
+            File source = new File(databaseSource, name);
+            if (source.isFile()) {
+                File target = context.getDatabasePath(name);
                 ensureDirectory(target.getParentFile());
                 copyFile(source, target);
             }
         }
-
         File preferenceSource = new File(snapshot, "preferences");
-        for (String preferenceName : BACKUP_PREFS) {
+        for (String preferenceName : AccountDataScope.currentAccountPreferences(context)) {
+            requireSameAccount(context, owner, session);
             SharedPreferences preferences = context.getSharedPreferences(
                     preferenceName, Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = preferences.edit().clear();
             File source = new File(preferenceSource, preferenceName + ".json");
             if (source.exists()) restorePreferences(editor, new JSONObject(readUtf8(source)));
-            if (!editor.commit()) {
-                throw new IOException("설정 복원에 실패했습니다: " + preferenceName);
-            }
+            if (!editor.commit()) throw new IOException("설정 복원 실패: " + preferenceName);
         }
-
-        File currentImages = new File(context.getFilesDir(), "message_images");
-        deleteRecursively(currentImages);
-        File backupImages = new File(snapshot, "files/message_images");
-        if (backupImages.exists()) copyDirectory(backupImages, currentImages);
+        // Global message_images remains untouched: may contain another account's files.
     }
 
     private static void runDatabaseMigrations(Context context) {
@@ -491,6 +510,7 @@ public final class CallTagBackupManager {
         CampaignStore campaigns = new CampaignStore(context);
         TaskTypeStore taskTypes = new TaskTypeStore(context);
         PendingCallStore pendingCalls = new PendingCallStore(context);
+        PageroLeadReceiptStore receipts = new PageroLeadReceiptStore(context);
         try {
             crm.getWritableDatabase();
             messages.getWritableDatabase();
@@ -498,7 +518,9 @@ public final class CallTagBackupManager {
             campaigns.getWritableDatabase();
             taskTypes.getWritableDatabase();
             pendingCalls.getWritableDatabase();
+            receipts.getWritableDatabase();
         } finally {
+            receipts.close();
             pendingCalls.close();
             taskTypes.close();
             campaigns.close();
@@ -509,10 +531,7 @@ public final class CallTagBackupManager {
     }
 
     private static void quickCheckAllDatabases(Context context) throws Exception {
-        List<String> names = new ArrayList<>();
-        for (String name : context.databaseList()) {
-            if (isCallTagDatabaseName(name)) names.add(name);
-        }
+        List<String> names = AccountDataScope.currentAccountDatabases(context);
         Collections.sort(names);
         for (String name : names) {
             File file = context.getDatabasePath(name);
@@ -542,7 +561,8 @@ public final class CallTagBackupManager {
     }
 
     private static void cancelAllKnownMessageAlarms(Context context) {
-        File database = context.getDatabasePath("calltag_messages.db");
+        File database = context.getDatabasePath(
+                AccountDataScope.name(context, "calltag_messages.db"));
         if (!database.exists()) return;
         SQLiteDatabase db = null;
         try {
@@ -687,8 +707,7 @@ public final class CallTagBackupManager {
 
     private static boolean isAllowedBackupPath(String path) {
         return "manifest.json".equals(path) || isAllowedDataPath(path)
-                || path.equals("databases") || path.equals("preferences")
-                || path.equals("files") || path.equals("files/message_images");
+                || path.equals("databases") || path.equals("preferences");
     }
 
     private static boolean isAllowedDataPath(String path) {
@@ -700,15 +719,52 @@ public final class CallTagBackupManager {
             String name = path.substring("preferences/".length());
             if (!name.endsWith(".json") || name.contains("/")) return false;
             String preferenceName = name.substring(0, name.length() - 5);
-            return Arrays.asList(BACKUP_PREFS).contains(preferenceName);
+            return preferenceName.matches(
+                    "calltag[a-zA-Z0-9_-]*-owner-[0-9a-f]{40}");
         }
-        return path.startsWith("files/message_images/")
-                && !path.substring("files/message_images/".length()).contains("/");
+        return false;
     }
 
     private static boolean isCallTagDatabaseName(String name) {
-        return name != null && name.startsWith("calltag") && name.endsWith(".db")
-                && !name.contains("/") && !name.contains("\\");
+        return name != null && name.matches(
+                "calltag[a-zA-Z0-9_-]*-owner-[0-9a-f]{40}\\.db");
+    }
+
+    private static boolean isAllowedOwnerPath(Context context, String path) {
+        if (path.startsWith("databases/")) {
+            return AccountDataScope.currentAccountDatabases(context).contains(
+                    path.substring("databases/".length()));
+        }
+        if (path.startsWith("preferences/") && path.endsWith(".json")) {
+            return AccountDataScope.currentAccountPreferences(context).contains(
+                    path.substring("preferences/".length(), path.length() - 5));
+        }
+        return false;
+    }
+
+    private static void requireSameAccount(Context context, String owner, String session) {
+        if (!owner.equals(AccountDataScope.requireOwner(context))
+                || !session.equals(AuthSessionStore.session(context))) {
+            throw new IllegalStateException("백업·복원 중 로그인 계정이 바뀌었습니다.");
+        }
+    }
+
+    private static void invalidateOwnerSyncMappings(Context context) {
+        CallTagSyncPreferenceStore.setEnabled(context, false);
+        try (CallTagSyncLocalStore store = new CallTagSyncLocalStore(context)) {
+            String key = store.accountKey();
+            if (!key.isEmpty()) {
+                SQLiteDatabase db = store.getWritableDatabase();
+                db.beginTransaction();
+                try {
+                    db.delete("entity_map", "account_key=?", new String[]{key});
+                    db.delete("sync_meta", "account_key=?", new String[]{key});
+                    db.setTransactionSuccessful();
+                } finally {
+                    db.endTransaction();
+                }
+            }
+        }
     }
 
     private static String normalizeEntryPath(String value) {
