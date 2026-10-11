@@ -1,0 +1,44 @@
+name: CallTag Remote API production gate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '_worker.js'
+      - 'worker/mobile-policy.mjs'
+      - 'worker/mobile-templates.mjs'
+      - 'remote-config/**'
+      - 'scripts/calltag-worker-*.mjs'
+      - '.github/workflows/calltag-remote-api-production.yml'
+  push:
+    branches: [main]
+    paths:
+      - '_worker.js'
+      - 'worker/mobile-policy.mjs'
+      - 'worker/mobile-templates.mjs'
+      - 'remote-config/**'
+      - 'scripts/calltag-worker-*.mjs'
+      - '.github/workflows/calltag-remote-api-production.yml'
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate remote API and guard existing gateway
+        run: |
+          set -euo pipefail
+          node --check _worker.js
+          node --check _worker-core.js
+          node --check worker/mobile-policy.mjs
+          node --check worker/mobile-templates.mjs
+          grep -F "import core from './_worker-core.js'" _worker.js
+          grep -F "handleAdminOpsBridge" _worker.js
+          grep -F "handleAdminPayoutBridge" _worker.js
+          grep -F "core.fetch(request,env,context)" _worker.js
+          node scripts/calltag-worker-policy-check.mjs
+          node scripts/calltag-worker-template-catalog-check.mjs
+          node scripts/calltag-worker-automation-limits-check.mjs
+          node -e "const p=require('./remote-config/calltag-v1.json');if(p.revision<2||p.automationLimits.minCooldownHours!==0||p.automationLimits.minLeadDelayMinutes!==0||p.automationLimits.minFollowupDays!==0)process.exit(1)"
