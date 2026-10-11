@@ -161,7 +161,8 @@ public final class CallTagBackupManager {
                 AccountDataScope.setRestoreReviewPending(app, true);
 
                 try {
-                    replaceFromSnapshot(app, extracted, owner, session);
+                    replaceFromSnapshot(app, extracted, owner, session,
+                            manifest.optBoolean("imagesIncluded", false));
                     runDatabaseMigrations(app);
                     quickCheckAllDatabases(app);
                     MessageAutomationStore.ensureDefaults(app);
@@ -194,7 +195,7 @@ public final class CallTagBackupManager {
                     Exception rollbackError = null;
                     try {
                         cancelAllKnownMessageAlarms(app);
-                        replaceFromSnapshot(app, rollback, owner, session);
+                        replaceFromSnapshot(app, rollback, owner, session, true);
                         runDatabaseMigrations(app);
                         quickCheckAllDatabases(app);
                         MessageAutomationStore.ensureDefaults(app);
@@ -269,8 +270,14 @@ public final class CallTagBackupManager {
             stats.preferenceCount++;
         }
 
-        // The old global image directory is not owner tagged: never archive it.
-        stats.imageCount = 0;
+        // Never include ownerless legacy message_images/* attachments.
+        // Copy only this owner's canonical subtree, including in rollback snapshots.
+        requireSameAccount(context, owner, session);
+        File imageSource = MessageAttachmentStore.currentOwnerDirectory(context);
+        File imageTarget = new File(stage, "files/"
+                + AccountDataScope.currentImageRelativePath(context));
+        if (imageSource.isDirectory()) copyDirectory(imageSource, imageTarget);
+        stats.imageCount = countFiles(imageTarget);
         return stats;
     }
 
@@ -296,7 +303,7 @@ public final class CallTagBackupManager {
         manifest.put("ownerFingerprint", AccountDataScope.fingerprint(
                 AccountDataScope.requireOwner(context)));
         manifest.put("scope", "owner-sqlite-v2");
-        manifest.put("imagesIncluded", false);
+        manifest.put("imagesIncluded", true);
         manifest.put("packageName", context.getPackageName());
         manifest.put("createdAt", System.currentTimeMillis());
         manifest.put("appVersion", appVersionName(context));
@@ -447,9 +454,18 @@ public final class CallTagBackupManager {
                 throw new IOException("계정별 DB가 누락된 백업입니다: " + name);
             }
         }
+        boolean hasOwnerImages = manifest.optBoolean("imagesIncluded", false);
+        String mmsPrefs = AccountDataScope.preferenceName(context, "calltag_mms_compose_v1");
         for (String preference : AccountDataScope.currentAccountPreferences(context)) {
             if (!expected.containsKey("preferences/" + preference + ".json")) {
+                // Allow owner-scoped v2 archives generated before MMS/media support.
+                if (!hasOwnerImages && preference.equals(mmsPrefs)) continue;
                 throw new IOException("계정별 설정 파일이 누락된 백업입니다.");
+            }
+        }
+        for (String path : expected.keySet()) {
+            if (path.startsWith("files/message_images/") && !hasOwnerImages) {
+                throw new IOException("이미지 포함 표시가 없는 백업에서 이미지 파일이 발견됐습니다.");
             }
         }
 
@@ -475,7 +491,8 @@ public final class CallTagBackupManager {
     }
 
     private static void replaceFromSnapshot(Context context, File snapshot,
-                                            String owner, String session) throws Exception {
+                                            String owner, String session, boolean restoreImages)
+            throws Exception {
         File databaseSource = new File(snapshot, "databases");
         for (String name : AccountDataScope.currentAccountDatabases(context)) {
             requireSameAccount(context, owner, session);
@@ -500,7 +517,15 @@ public final class CallTagBackupManager {
             if (source.exists()) restorePreferences(editor, new JSONObject(readUtf8(source)));
             if (!editor.commit()) throw new IOException("설정 복원 실패: " + preferenceName);
         }
-        // Global message_images remains untouched: may contain another account's files.
+        if (restoreImages) {
+            requireSameAccount(context, owner, session);
+            File ownerImages = MessageAttachmentStore.currentOwnerDirectory(context);
+            File restoredImages = new File(snapshot, "files/"
+                    + AccountDataScope.currentImageRelativePath(context));
+            // Only this owner subdirectory may be replaced. Never touch root legacy images.
+            deleteRecursively(ownerImages);
+            if (restoredImages.isDirectory()) copyDirectory(restoredImages, ownerImages);
+        }
     }
 
     private static void runDatabaseMigrations(Context context) {
@@ -707,7 +732,9 @@ public final class CallTagBackupManager {
 
     private static boolean isAllowedBackupPath(String path) {
         return "manifest.json".equals(path) || isAllowedDataPath(path)
-                || path.equals("databases") || path.equals("preferences");
+                || path.equals("databases") || path.equals("preferences")
+                || path.equals("files") || path.equals("files/message_images")
+                || path.matches("files/message_images/owner-[0-9a-f]{40}");
     }
 
     private static boolean isAllowedDataPath(String path) {
@@ -722,7 +749,8 @@ public final class CallTagBackupManager {
             return preferenceName.matches(
                     "calltag[a-zA-Z0-9_-]*-owner-[0-9a-f]{40}");
         }
-        return false;
+        return path.matches(
+                "files/message_images/owner-[0-9a-f]{40}/[A-Za-z0-9_-]+\\.jpg");
     }
 
     private static boolean isCallTagDatabaseName(String name) {
@@ -738,6 +766,11 @@ public final class CallTagBackupManager {
         if (path.startsWith("preferences/") && path.endsWith(".json")) {
             return AccountDataScope.currentAccountPreferences(context).contains(
                     path.substring("preferences/".length(), path.length() - 5));
+        }
+        if (path.startsWith("files/message_images/")) {
+            String prefix = "files/" + AccountDataScope.currentImageRelativePath(context) + "/";
+            if (!path.startsWith(prefix)) return false;
+            return path.substring(prefix.length()).matches("[A-Za-z0-9_-]+\\.jpg");
         }
         return false;
     }
