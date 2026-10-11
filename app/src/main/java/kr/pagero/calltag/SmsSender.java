@@ -31,7 +31,11 @@ public final class SmsSender {
                     campaignId, templateId, phone, body, triggerType,
                     MessageLogStore.STATUS_READY, System.currentTimeMillis(),
                     subscriptionId, forceSend);
-            if (store.isSendable(id)) sendExisting(context, id);
+            if (!CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.SMS)) {
+                store.markSkipped(id, "서버 운영 정책으로 문자 발송이 일시 중지됐습니다.");
+            } else if (store.isSendable(id)) {
+                sendExisting(context, id);
+            }
             return id;
         } finally {
             store.close();
@@ -46,6 +50,8 @@ public final class SmsSender {
     }
 
     public static void sendExisting(Context context, long messageId) {
+        // Kill switch: includes manually queued, scheduled and campaign sends.
+        if (!CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.SMS)) return;
         if (AccountDataScope.isRestoreReviewPending(context)) return;
         MessageLogStore store = new MessageLogStore(context);
         try {
@@ -125,6 +131,8 @@ public final class SmsSender {
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
             }
 
+            // Re-check immediately before transport to narrow the in-flight window.
+            if (!CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.SMS)) return;
             store.markSending(messageId);
             if (parts.size() == 1) {
                 manager.sendTextMessage(normalized, null, parts.get(0), sentIntents.get(0), null);

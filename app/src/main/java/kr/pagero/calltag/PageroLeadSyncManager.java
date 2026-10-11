@@ -55,7 +55,8 @@ public final class PageroLeadSyncManager {
     private static boolean requestSyncInternal(Context context, boolean force, boolean notifyWhenChanged) {
         if (context == null) return false;
         Context appContext = context.getApplicationContext();
-        if (CallTagSyncManager.isMaintenanceRunning()) return false;
+        if (CallTagSyncManager.isMaintenanceRunning()
+                || !CallTagRemotePolicy.allowed(appContext, CallTagRemotePolicy.LEAD_IMPORT)) return false;
         if (!AuthSessionStore.hasSession(appContext)) {
             if (notifyWhenChanged) NOTIFY_WHEN_CHANGED.set(false);
             String message = "콜태그 로그인이 필요합니다.";
@@ -186,6 +187,9 @@ public final class PageroLeadSyncManager {
     }
 
     private static void assertSameAccount(Context context, String session, String ownerId) {
+        if (!CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.LEAD_IMPORT)) {
+            throw new IllegalStateException("서버 운영 정책으로 문의 수신이 일시 중지됐습니다.");
+        }
         if (CallTagSyncManager.isMaintenanceRunning()) {
             throw new IllegalStateException("백업·복구 중 문의 수신을 중지했습니다.");
         }

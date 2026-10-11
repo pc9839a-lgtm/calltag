@@ -32,6 +32,9 @@ public final class CallTagApplication extends Application implements Application
         // Default is black. User-selected white/black is applied before any Activity inflates UI.
         CallTagThemeManager.applyApplicationMode(this);
         CrashTelemetryStore.install(this);
+        // Public operational policy only; refresh asynchronously and never block launch.
+        CallTagRemotePolicy.refreshAsync(this, true);
+        CallTagRemotePolicyScheduler.ensureScheduled(this);
         registerActivityLifecycleCallbacks(this);
         if (AuthSessionStore.hasSession(this)
                 && !AuthSessionStore.ownerId(this).trim().isEmpty()) {
@@ -73,6 +76,8 @@ public final class CallTagApplication extends Application implements Application
     }
 
     private void maybeSyncLeads() {
+        // At most one fetch per minute while foreground; no auth token is sent.
+        CallTagRemotePolicy.refreshAsync(this, false);
         if (!AuthSessionStore.hasSession(this)) return;
         CallTagPushStatusStore.Snapshot push = CallTagPushStatusStore.read(this);
         long interval = push.realtime

@@ -17,6 +17,12 @@ public final class PageroLeadMessageAutomation {
         if (lead == null || customer == null || customer.id <= 0L) return;
         PageroLeadReceiptStore receipts = new PageroLeadReceiptStore(context);
         try {
+            if (!CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.AUTOMATIC_SMS)
+                    || !CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.SMS)) {
+                receipts.markSms(lead.eventId, 0L, PageroLeadReceiptStore.SMS_NOT_SENT,
+                        "서버 운영 정책으로 자동문자가 일시 중지됐습니다.");
+                return;
+            }
             if (!PageroLeadMessageSettings.enabled(context)) {
                 receipts.markSms(lead.eventId, 0L, PageroLeadReceiptStore.SMS_NOT_SENT,
                         "페이지로 문의 자동문자가 꺼져 있습니다.");

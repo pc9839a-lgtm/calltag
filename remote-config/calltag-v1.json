@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "revision": 1,
+  "flags": {
+    "smsSending": true,
+    "automaticSms": true,
+    "mmsCompose": true,
+    "leadImport": true,
+    "cloudSync": true
+  }
+}

@@ -106,6 +106,7 @@ public final class CallTagSyncWorkScheduler {
 
     private static boolean eligible(Context context) {
         return AuthSessionStore.hasSession(context)
+                && CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.CLOUD_SYNC)
                 && CallTagSyncPreferenceStore.isEnabled(context)
                 && !CallTagSyncLocalStore.accountKey(context).isEmpty();
     }

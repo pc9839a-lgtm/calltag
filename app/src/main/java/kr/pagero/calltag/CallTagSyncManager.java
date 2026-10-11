@@ -33,6 +33,7 @@ public final class CallTagSyncManager {
 
     public static void request(Context context, boolean force) {
         Context app = context.getApplicationContext();
+        if (!CallTagRemotePolicy.allowed(app, CallTagRemotePolicy.CLOUD_SYNC)) return;
         if (!CallTagSyncPreferenceStore.isEnabled(app)) return;
         if (!AuthSessionStore.hasSession(app)) return;
 
@@ -280,6 +281,9 @@ public final class CallTagSyncManager {
     }
 
     private static void requireSameAccount(Context context, String accountKey, String session) {
+        if (!CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.CLOUD_SYNC)) {
+            throw new IllegalStateException("서버 운영 정책으로 클라우드 동기화를 중지했습니다.");
+        }
         if (accountKey == null || accountKey.isEmpty()
                 || session == null || session.isEmpty()
                 || !accountKey.equals(CallTagSyncLocalStore.accountKey(context))

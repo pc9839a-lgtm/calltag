@@ -75,7 +75,8 @@ public final class UniversalLeadSyncManager {
             Context context, boolean force, boolean notifyWhenChanged, boolean pollGoogleForms) {
         if (context == null) return false;
         Context appContext = context.getApplicationContext();
-        if (CallTagSyncManager.isMaintenanceRunning()) return false;
+        if (CallTagSyncManager.isMaintenanceRunning()
+                || !CallTagRemotePolicy.allowed(appContext, CallTagRemotePolicy.LEAD_IMPORT)) return false;
         if (!AuthSessionStore.hasSession(appContext)) {
             if (notifyWhenChanged) NOTIFY_WHEN_CHANGED.set(false);
             sendResult(appContext, false, new SyncResult(),
@@ -156,6 +157,8 @@ public final class UniversalLeadSyncManager {
     public static WorkerSyncResult runWorkerSync(Context context, boolean pollGoogleForms) {
         if (context == null) return WorkerSyncResult.SUCCESS;
         Context appContext = context.getApplicationContext();
+        if (!CallTagRemotePolicy.allowed(appContext, CallTagRemotePolicy.LEAD_IMPORT))
+            return WorkerSyncResult.SUCCESS;
         if (CallTagSyncManager.isMaintenanceRunning()) return WorkerSyncResult.RETRY;
         if (!AuthSessionStore.hasSession(appContext)) return WorkerSyncResult.SUCCESS;
 
@@ -361,6 +364,9 @@ public final class UniversalLeadSyncManager {
     }
 
     private static void assertSameAccount(Context context, String session, String ownerId) {
+        if (!CallTagRemotePolicy.allowed(context, CallTagRemotePolicy.LEAD_IMPORT)) {
+            throw new IllegalStateException("서버 운영 정책으로 외부 문의 수신이 중지됐습니다.");
+        }
         if (CallTagSyncManager.isMaintenanceRunning()) {
             throw new IllegalStateException("백업·복구 중 외부 문의 수신을 중지했습니다.");
         }
