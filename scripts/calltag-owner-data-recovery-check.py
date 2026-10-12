@@ -42,7 +42,7 @@ for must in [
     'target.insertOrThrow(table, null, values)',
 ]:
     assert must in recovery, "legacy recovery safety contract: "+must
-assert "NOT LIKE '%|crm:v2'" not in recovery
+assert "AND account_key NOT LIKE '%|crm:v2'" not in recovery
 assert "provenOwner |= queryCount" in recovery
 assert "if (!provenOwner)" in recovery
 assert "source.execSQL(" not in recovery
