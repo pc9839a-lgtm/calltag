@@ -320,11 +320,11 @@ require(attachment_store, 'options.inSampleSize = sample;', "preview inSampleSiz
 forbid(attachment_store, 'BitmapFactory.decodeFile(file.getAbsolutePath());', "full-resolution preview decode must not return")
 
 # Play quality release version.
-require(gradle, 'versionCode 2026100701', "Play versionCode must be 2026100701")
-require(gradle, "versionName '0.44.61'", "Play versionName must be 0.44.61")
+require(gradle, 'versionCode 2026101101', "Play versionCode must be 2026101101")
+require(gradle, "versionName '0.44.62'", "Play versionName must be 0.44.62")
 require(gradle, "androidx.browser:browser:1.8.0", "browser dependency required for OAuth custom tabs")
 
 print(
     "CallTag contract OK: external leads + passive post-call + R8 + edge-to-edge + adaptive layouts + "
-    "bitmap downsampling, permission recovery + integration retry + server-controlled referral cash, v0.44.61"
+    "bitmap downsampling, permission recovery + integration retry + server-controlled referral cash, v0.44.62"
 )
