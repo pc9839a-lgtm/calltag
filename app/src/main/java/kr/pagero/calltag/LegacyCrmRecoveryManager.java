@@ -165,31 +165,62 @@ public final class LegacyCrmRecoveryManager {
     }
 
     private static void ensureSingleOwner(Context app, SQLiteDatabase source, String ownerId) {
-        if (tableExists(source, "universal_lead_import_events")
-                && queryCount(source,
-                        "SELECT COUNT(*) FROM universal_lead_import_events WHERE owner_id<>?",
-                        new String[]{ownerId}) > 0) {
-            throw new IllegalStateException("이전 기록에 다른 계정의 문의가 포함돼 복구할 수 없습니다.");
+        // Both account-key encodings were used across CRM generations.
+        // Exact equality is essential: NOT LIKE '%|crm:v2' silently ignored
+        // *other* owners with v2 keys and could migrate their customer records.
+        String oldKey = "owner:" + ownerId;
+        String v2Key = oldKey + "|crm:v2";
+        String[] allowedKeys = {oldKey, v2Key};
+        boolean provenOwner = false;
+
+        if (tableExists(source, "universal_lead_import_events")) {
+            if (queryCount(source,
+                    "SELECT COUNT(*) FROM universal_lead_import_events WHERE owner_id<>?",
+                    new String[]{ownerId}) > 0) {
+                throw new IllegalStateException("이전 기록에 다른 계정의 문의가 포함돼 복구할 수 없습니다.");
+            }
+            provenOwner |= queryCount(source,
+                    "SELECT COUNT(*) FROM universal_lead_import_events WHERE owner_id=?",
+                    new String[]{ownerId}) > 0;
         }
-        if (tableExists(source, "post_call_save_receipts")
-                && queryCount(source,
-                        "SELECT COUNT(*) FROM post_call_save_receipts WHERE account_key<>?",
-                        new String[]{"owner:" + ownerId}) > 0) {
-            throw new IllegalStateException("이전 기록에 다른 계정의 상담 이력이 있어 복구할 수 없습니다.");
+        if (tableExists(source, "post_call_save_receipts")) {
+            if (queryCount(source,
+                    "SELECT COUNT(*) FROM post_call_save_receipts WHERE account_key NOT IN (?,?)",
+                    allowedKeys) > 0) {
+                throw new IllegalStateException("이전 기록에 다른 계정의 상담 이력이 있어 복구할 수 없습니다.");
+            }
+            provenOwner |= queryCount(source,
+                    "SELECT COUNT(*) FROM post_call_save_receipts WHERE account_key IN (?,?)",
+                    allowedKeys) > 0;
         }
+
         File journal = app.getDatabasePath(LEGACY_SYNC);
         if (journal.isFile()) {
             try (SQLiteDatabase db = SQLiteDatabase.openDatabase(
                     journal.getAbsolutePath(), null, SQLiteDatabase.OPEN_READONLY)) {
-                if (tableExists(db, "entity_map") && queryCount(db,
-                        "SELECT COUNT(*) FROM entity_map WHERE account_key<>? " +
-                                "AND account_key NOT LIKE '%|crm:v2' " +
-                                "AND entity_type IN ('customer','interaction','task','stage')",
-                        new String[]{"owner:" + ownerId}) > 0) {
-                    throw new IllegalStateException("이 기기에서 여러 계정이 사용된 흔적이 있습니다. " +
-                            "자동 복구 대신 소유권 확인이 필요합니다.");
+                // Sync metadata itself is an owner marker even if the entity map
+                // was cleared after a successful upload.
+                for (String table : new String[]{"entity_map", "sync_meta"}) {
+                    if (!tableExists(db, table)) continue;
+                    if (queryCount(db,
+                            "SELECT COUNT(*) FROM " + table + " WHERE account_key NOT IN (?,?)",
+                            allowedKeys) > 0) {
+                        throw new IllegalStateException("이 기기에 다른 계정의 동기화 이력이 있습니다. " +
+                                "자동 복구 대신 소유권 확인이 필요합니다.");
+                    }
+                    provenOwner |= queryCount(db,
+                            "SELECT COUNT(*) FROM " + table + " WHERE account_key IN (?,?)",
+                            allowedKeys) > 0;
                 }
             }
+        }
+        // Rows in a pre-account database contain no per-row owner_id.
+        // Mere confirmation by the current signed-in user is not provenance.
+        // Fail closed when there is no positive account-bound evidence.
+        if (!provenOwner) {
+            throw new IllegalStateException(
+                    "구버전 고객 DB의 계정 소유권을 확인할 기록이 없습니다. " +
+                    "원본은 유지됩니다. 소유권 확인 후 별도 복구가 필요합니다.");
         }
     }
 
