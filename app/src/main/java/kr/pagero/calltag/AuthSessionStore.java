@@ -48,8 +48,14 @@ public final class AuthSessionStore {
 
         SharedPreferences current = prefs(context);
         String currentOwnerId = current.getString(KEY_OWNER_ID, "");
-        String incomingOwnerId = profile.has("ownerId")
-                ? profile.optString("ownerId", "").trim() : currentOwnerId;
+        // Never reuse an older account's owner ID when a newly authenticated
+        // server response does not identify its owner. A rotated session with
+        // missing ownership evidence must also fail closed rather than writing
+        // CRM/SMS into the previously signed-in owner's database.
+        String incomingOwnerId = profile.optString("ownerId", "").trim();
+        if (incomingOwnerId.isEmpty()) {
+            throw new IllegalStateException("로그인 응답에 서버 계정 ID가 없습니다. 이전 계정의 고객 정보를 보호하기 위해 저장하지 않았습니다.");
+        }
         if (!currentOwnerId.isEmpty()
                 && !incomingOwnerId.isEmpty()
                 && !currentOwnerId.equals(incomingOwnerId)) {
