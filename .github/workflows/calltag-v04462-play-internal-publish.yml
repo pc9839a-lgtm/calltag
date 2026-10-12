@@ -1,4 +1,4 @@
-name: CallTag 0.44.62 Google Play Internal Publish
+name: CallTag 0.44.62 Google Play Production Publish
 on:
   push:
     branches:
@@ -134,10 +134,10 @@ jobs:
           test -s app/build/outputs/bundle/release/app-release.aab
           jarsigner -verify -certs app/build/outputs/bundle/release/app-release.aab
           keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab | grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256"
-      - name: Archive verified internal-test AAB and mapping before Play publish
+      - name: Archive verified production AAB and mapping before Play publish
         uses: actions/upload-artifact@v4
         with:
-          name: calltag-0.44.62-code2026101101-internal-aab
+          name: calltag-0.44.62-code2026101101-production-aab
           path: |
             app/build/outputs/bundle/release/app-release.aab
             app/build/outputs/mapping/release/mapping.txt
@@ -192,16 +192,16 @@ jobs:
               raise SystemExit('::error::Play publisher credential is not a valid service account JSON.')
           print('Publisher service account schema validated. Identity redacted.')
           PY
-      - name: Upload signed release to Google Play internal testing
+      - name: Upload signed release to Google Play production
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJson: ${{ runner.temp }}/calltag-publisher.json
           packageName: kr.pagero.calltag
           releaseFiles: app/build/outputs/bundle/release/app-release.aab
-          track: internal
+          track: production
           status: completed
           inAppUpdatePriority: 0
-      - name: Record Play internal rollout
+      - name: Record Play production submission
         if: success()
         run: |
-          echo "PLAY INTERNAL PUBLISH ACTION SUCCESS: kr.pagero.calltag 0.44.62 code 2026101101"
+          echo "PLAY PRODUCTION SUBMISSION ACTION SUCCESS: kr.pagero.calltag 0.44.62 code 2026101101"
