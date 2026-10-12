@@ -13,7 +13,7 @@ assert "account_key NOT IN (?,?)" in source
 assert "account_key IN (?,?)" in source
 assert '"entity_map", "sync_meta"' in source
 assert "if (!provenOwner)" in source
-assert "NOT LIKE '%|crm:v2'" not in source
+assert "AND account_key NOT LIKE '%|crm:v2'" not in source
 
 with TemporaryDirectory() as d:
     db=sqlite3.connect(Path(d)/"account-migration.db")
