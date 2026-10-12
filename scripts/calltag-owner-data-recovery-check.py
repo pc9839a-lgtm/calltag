@@ -34,11 +34,17 @@ for must in [
     "ownerId.equals(AuthSessionStore.ownerId(app))",
     "session.equals(AuthSessionStore.session(app))",
     "SELECT COUNT(*) FROM universal_lead_import_events WHERE owner_id<>?",
-    "account_key NOT LIKE '%|crm:v2'",
+    "WHERE account_key NOT IN (?,?)",
+    "WHERE account_key IN (?,?)",
+    "new String[]{\"entity_map\", \"sync_meta\"}",
+    "if (!provenOwner)",
     '"owner:" + ownerId + "|crm:v2"',
     'target.insertOrThrow(table, null, values)',
 ]:
     assert must in recovery, "legacy recovery safety contract: "+must
+assert "NOT LIKE '%|crm:v2'" not in recovery
+assert "provenOwner |= queryCount" in recovery
+assert "if (!provenOwner)" in recovery
 assert "source.execSQL(" not in recovery
 assert "deleteDatabase(" not in recovery and "source.delete(" not in recovery
 assert '복구\".equals(confirmation.getText().toString().trim())' in ui

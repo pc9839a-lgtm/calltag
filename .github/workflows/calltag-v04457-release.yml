@@ -13,6 +13,7 @@ on:
       - patch/calltag-server-policy-foundation-20261011
       - patch/calltag-remote-template-catalog-20261011
       - patch/calltag-remote-automation-limits-20261011
+      - patch/calltag-legacy-owner-proof-20261012
   pull_request:
     branches:
       - patch/calltag-next-production-20261006
@@ -46,6 +47,7 @@ jobs:
           python3 scripts/calltag-crm-ownership-preflight-check.py
           python3 scripts/calltag-crm-account-isolation-check.py
           python3 scripts/calltag-owner-data-recovery-check.py
+          python3 scripts/calltag-legacy-owner-proof-sqlite-check.py
           python3 scripts/calltag-owner-media-backup-check.py
           python3 scripts/calltag-remote-policy-contract-check.py
           node scripts/calltag-worker-policy-check.mjs
@@ -54,8 +56,8 @@ jobs:
           python3 scripts/calltag-remote-automation-limits-check.py
           node scripts/calltag-worker-automation-limits-check.mjs
           python3 scripts/calltag-release-origin-contract-check.py
-          grep -F 'versionCode 2026100701' app/build.gradle
-          grep -F "versionName '0.44.61'" app/build.gradle
+          grep -F 'versionCode 2026101101' app/build.gradle
+          grep -F "versionName '0.44.62'" app/build.gradle
           grep -F 'minifyEnabled true' app/build.gradle
           grep -F 'shrinkResources true' app/build.gradle
           grep -F 'androidx.core:core:1.17.0' app/build.gradle
