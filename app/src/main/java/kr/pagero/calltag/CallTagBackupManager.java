@@ -146,6 +146,7 @@ public final class CallTagBackupManager {
             File extracted = new File(app.getCacheDir(), "calltag-restore-stage-" + UUID.randomUUID());
             File rollback = new File(app.getNoBackupFilesDir(), "calltag-restore-rollback-" + UUID.randomUUID());
             boolean monitorEnabledBefore = SettingsStore.isMonitorEnabled(app);
+            boolean preserveRollback = false;
             try {
                 JSONObject manifest = decryptAndExtract(app, source, password, extracted);
                 requireSameAccount(app, owner, session);
@@ -208,7 +209,11 @@ public final class CallTagBackupManager {
                     // After any failed/rolled-back restore, retain SMS quarantine
                     // until the user reviews scheduled jobs.
                     if (rollbackError != null) {
-                        throw new IOException("복원과 자동 롤백에 모두 실패했습니다. 앱 상태 진단을 확인해주세요. 복원 오류: "
+                        // Preserve the owner's last pre-restore plaintext snapshot
+                        // inside the app-private no-backup directory for assisted
+                        // recovery. Never silently erase the only rescue copy.
+                        preserveRollback = true;
+                        throw new IOException("복원과 자동 롤백에 모두 실패했습니다. 기존 데이터 임시 복구본을 앱 내부에 보관했습니다. 앱 삭제·데이터 초기화를 하지 마세요. 복원 오류: "
                                 + safeError(restoreError) + " · 롤백 오류: " + safeError(rollbackError), rollbackError);
                     }
                     throw new IOException("백업 복원에 실패해 기존 데이터로 자동 복구했습니다. "
@@ -219,7 +224,7 @@ public final class CallTagBackupManager {
                 throw friendlyCryptoError(error);
             } finally {
                 deleteRecursively(extracted);
-                deleteRecursively(rollback);
+                if (!preserveRollback) deleteRecursively(rollback);
             }
             } finally {
                 CallTagSyncManager.endMaintenance();
@@ -319,6 +324,33 @@ public final class CallTagBackupManager {
 
     private static void encryptDirectory(Context context, File stage, Uri target, char[] password)
             throws Exception {
+        // Construct and seal the whole encrypted archive before touching the
+        // SAF-selected destination. An encryption, ZIP or disk failure must
+        // not truncate the user's previously selected backup document.
+        File sealed = new File(context.getCacheDir(),
+                "calltag-encrypted-backup-" + UUID.randomUUID() + ".ctbackup");
+        try {
+            encryptDirectoryToFile(stage, sealed, password);
+            if (!sealed.isFile() || sealed.length() == 0L) {
+                throw new IOException("암호화 백업 파일이 비어 있습니다.");
+            }
+            OutputStream opened = context.getContentResolver().openOutputStream(target, "wt");
+            if (opened == null) throw new IOException("백업 대상 파일을 열지 못했습니다.");
+            // A document provider can still fail halfway through this final
+            // copy. Local pre-sealing reduces, but cannot remove, that risk.
+            try (InputStream input = new BufferedInputStream(new FileInputStream(sealed));
+                 OutputStream output = new BufferedOutputStream(opened)) {
+                byte[] buffer = new byte[BUFFER_SIZE];
+                int size;
+                while ((size = input.read(buffer)) != -1) output.write(buffer, 0, size);
+            }
+        } finally {
+            deleteIfExists(sealed);
+        }
+    }
+
+    private static void encryptDirectoryToFile(File stage, File sealed, char[] password)
+            throws Exception {
         SecureRandom random = new SecureRandom();
         byte[] salt = new byte[SALT_BYTES];
         byte[] iv = new byte[IV_BYTES];
@@ -328,9 +360,8 @@ public final class CallTagBackupManager {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(128, iv));
 
-        OutputStream opened = context.getContentResolver().openOutputStream(target, "w");
-        if (opened == null) throw new IOException("백업 파일을 열지 못했습니다.");
-        try (DataOutputStream header = new DataOutputStream(new BufferedOutputStream(opened))) {
+        try (DataOutputStream header = new DataOutputStream(
+                new BufferedOutputStream(new FileOutputStream(sealed)))) {
             header.write(MAGIC);
             header.writeInt(FORMAT_VERSION);
             header.writeInt(PBKDF2_ITERATIONS);
