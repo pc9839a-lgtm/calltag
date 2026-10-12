@@ -43,7 +43,7 @@ public final class MessageAutomationStore {
     public static void ensureDefaults(Context context) {
         SharedPreferences p = prefs(context);
         SharedPreferences.Editor editor = p.edit();
-        if (!p.contains(KEY_ENABLED)) editor.putBoolean(KEY_ENABLED, true);
+        if (!p.contains(KEY_ENABLED)) editor.putBoolean(KEY_ENABLED, false);
         if (!p.contains(KEY_CONNECTED_ENABLED)) editor.putBoolean(KEY_CONNECTED_ENABLED, false);
         if (!p.contains(KEY_MISSED_ENABLED)) editor.putBoolean(KEY_MISSED_ENABLED, false);
         if (!p.contains(KEY_DELAYED_ENABLED)) editor.putBoolean(KEY_DELAYED_ENABLED, false);
@@ -74,7 +74,7 @@ public final class MessageAutomationStore {
 
     public static boolean isEnabled(Context context) {
         ensureDefaults(context);
-        return prefs(context).getBoolean(KEY_ENABLED, true);
+        return prefs(context).getBoolean(KEY_ENABLED, false);
     }
 
     public static void setEnabled(Context context, boolean enabled) {

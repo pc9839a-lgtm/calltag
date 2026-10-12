@@ -87,6 +87,11 @@ public final class MessageAutomationSettingsActivity extends Activity {
         enabled = switchCard("자동문자 사용");
         root.addView(enabled, topMargin(14));
 
+        TextView consent = title("사용자가 켠 조건에서만 전화번호로 SMS를 발송합니다. 통화 후·부재중·예약 후속 발송을 각각 선택하며, 통신사 문자 요금이 발생할 수 있습니다. 언제든 자동문자를 끌 수 있습니다.", 13f);
+        consent.setTextColor(getColor(R.color.text_secondary));
+        consent.setLineSpacing(0f, 1.18f);
+        root.addView(consent, topMargin(10));
+
         root.addView(sectionLabel("발송 시점"), topMargin(20));
         connected = new Switch(this);
         connectedTemplate = addScenario(
@@ -413,6 +418,23 @@ public final class MessageAutomationSettingsActivity extends Activity {
             Toast.makeText(this, "문자 기능 이용 권한이 필요합니다.", Toast.LENGTH_LONG).show();
             return;
         }
+        boolean wantsAutomaticSms = enabled.isChecked()
+                && (connected.isChecked() || missed.isChecked() || delayed.isChecked());
+        if (wantsAutomaticSms && checkSelfPermission(Manifest.permission.SEND_SMS)
+                != PackageManager.PERMISSION_GRANTED) {
+            new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                    .setTitle("통화 조건에 따른 SMS 자동 발송")
+                    .setMessage("사용자가 직접 켠 통화 후·부재중·후속 예약 조건에 따라 지정된 번호에 SMS를 발송합니다. 문자 발송은 통신사 요금이 발생할 수 있습니다. 권한이 없으면 발송하지 않으며 설정에서 언제든 해제할 수 있습니다.\n\nSMS 발송 권한을 요청할까요?")
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("SMS 권한 요청", (dialog, which) ->
+                            requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS))
+                    .show();
+            return;
+        }
+        saveApprovedSettings();
+    }
+
+    private void saveApprovedSettings() {
         MessageAutomationStore.setEnabled(this, enabled.isChecked());
         MessageAutomationStore.setConnectedEnabled(this, connected.isChecked());
         MessageAutomationStore.setMissedEnabled(this, missed.isChecked());
@@ -422,13 +444,19 @@ public final class MessageAutomationSettingsActivity extends Activity {
         MessageAutomationStore.setCooldownHours(this, cooldownHoursValue);
         MessageAutomationStore.setBusinessHours(this, startHourValue, endHourValue);
         MessageAutomationStore.setSelectedSubscriptionId(this, selectedSubscriptionId);
-        if ((connected.isChecked() || missed.isChecked() || delayed.isChecked())
-                && checkSelfPermission(Manifest.permission.SEND_SMS)
-                != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS);
-        }
         Toast.makeText(this, "저장했습니다.", Toast.LENGTH_SHORT).show();
         finish();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_SMS) return;
+        if (checkSelfPermission(Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) {
+            saveApprovedSettings();
+        } else {
+            Toast.makeText(this, "SMS 권한이 없어 자동문자 설정을 활성화하지 않았습니다.", Toast.LENGTH_LONG).show();
+        }
     }
 
     private Switch switchCard(String text) {

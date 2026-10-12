@@ -15,6 +15,7 @@ on:
       - patch/calltag-remote-automation-limits-20261011
       - patch/calltag-legacy-owner-proof-20261012
       - patch/calltag-backup-restore-auth-safety-20261012
+      - patch/calltag-play-permissions-20261012
   pull_request:
     branches:
       - patch/calltag-next-production-20261006
@@ -50,6 +51,7 @@ jobs:
           python3 scripts/calltag-owner-data-recovery-check.py
           python3 scripts/calltag-legacy-owner-proof-sqlite-check.py
           python3 scripts/calltag-backup-restore-auth-safety-check.py
+          python3 scripts/calltag-play-policy-permissions-check.py
           python3 scripts/calltag-owner-media-backup-check.py
           python3 scripts/calltag-remote-policy-contract-check.py
           node scripts/calltag-worker-policy-check.mjs
