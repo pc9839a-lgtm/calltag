@@ -11,6 +11,8 @@ const LANDING_STABILIZER='/assets/calltag-landing-stabilizer-v1.js?v=20260918-st
 
 export default {
   async fetch(request,env,context){
+    const sitemapPath=new URL(request.url).pathname;
+    if(/^\/sitemap\/?$/i.test(sitemapPath))return Response.redirect(new URL('/sitemap.xml',request.url).toString(),301);
     // Independent remote policy routes. Preserve all existing admin and
     // settlement/landing handlers for other paths.
     const remotePolicy=await serveMobilePolicy(request,env);
