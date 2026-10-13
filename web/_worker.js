@@ -99,6 +99,8 @@ const serveStyleBundle=async(request,env)=>{
 
 export default {
   async fetch(request,env){
+    const sitemapPath=new URL(request.url).pathname;
+    if(/^\/sitemap\/?$/i.test(sitemapPath))return Response.redirect(new URL('/sitemap.xml',request.url).toString(),301);
     const url=new URL(request.url);
     if(url.pathname===STYLE_BUNDLE_PATH){
       if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method Not Allowed',{status:405,headers:{allow:'GET, HEAD'}});
