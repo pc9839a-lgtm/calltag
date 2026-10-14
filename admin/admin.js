@@ -84,6 +84,9 @@ function renderOverview(data) {
   el.revenueNet.textContent = `${money(revenue.netAfterPlayFeeEstimateKrw)}원`;
 
   el.generated.textContent = data?.generatedAt ? `갱신 ${dateTime(data.generatedAt)}` : '민감정보는 서버에서 마스킹 후 표시';
+  // The searchable member-ops module owns the member table and grant actions.
+  // Never overwrite it with legacy overview rows (which omit Google-only users).
+  if (document.getElementById('memberSearchInput')) return;
   const rows = Array.isArray(data?.recentMembers) ? data.recentMembers : [];
   el.rows.replaceChildren();
   el.empty.hidden = rows.length > 0;
