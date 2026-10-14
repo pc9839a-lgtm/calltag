@@ -98,7 +98,7 @@
     <div class="drawerhead"><div><strong id="detailTitle">상세</strong><small id="detailOwnerId"></small></div><button id="detailClose" type="button" aria-label="닫기">×</button></div>
     <div id="detailBody" class="drawerbody"></div>
   </aside>
-  <script src="/admin/admin.js?v=20260813-2" defer></script>
+  <script src="/admin/admin.js?v=20261014-member-fix1" defer></script>
   <script src="/admin/payout-request.js?v=20260813-payout1" defer></script>
   <script src="/admin/play-finance-monthly.js?v=20260813-month1" defer></script>
   <script src="/admin/member-ops.js?v=20260813-ops1" defer></script>
