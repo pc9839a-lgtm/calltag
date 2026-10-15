@@ -87,16 +87,20 @@ public final class MessageAutomationSettingsActivity extends Activity {
         enabled = switchCard("자동문자 사용");
         root.addView(enabled, topMargin(14));
 
+        TextView guide = body("통화 후·부재중·후속 예약 중 사용할 항목을 각각 켠 뒤 저장하세요. 자동발송 권한은 저장할 때 요청합니다.");
+        guide.setTextColor(getColor(R.color.text_secondary));
+        root.addView(guide, topMargin(8));
+
         root.addView(sectionLabel("발송 시점"), topMargin(20));
         connected = new Switch(this);
         connectedTemplate = addScenario(
-                root, "통화 후", "수신·발신 통화 안내", connected, REQUEST_CONNECTED, false);
+                root, "통화 후", "수신·발신 통화 종료 후 문자 자동발송", connected, REQUEST_CONNECTED, false);
         missed = new Switch(this);
         missedTemplate = addScenario(
-                root, "부재중", "부재중 안내", missed, REQUEST_MISSED, false);
+                root, "부재중", "부재중·거절 전화에 문자 자동발송", missed, REQUEST_MISSED, false);
         delayed = new Switch(this);
         followTemplate = addScenario(
-                root, "후속 예약", "후속문자 발송", delayed, REQUEST_FOLLOW_UP, true);
+                root, "후속 예약", "통화 후 설정한 날짜에 자동발송", delayed, REQUEST_FOLLOW_UP, true);
 
         root.addView(sectionLabel("공통 설정"), topMargin(20));
         LinearLayout common = new LinearLayout(this);
