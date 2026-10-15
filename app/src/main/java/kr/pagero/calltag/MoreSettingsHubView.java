@@ -57,6 +57,8 @@ public final class MoreSettingsHubView extends LinearLayout {
                 v -> start(BillingEntitlementActivity.class));
 
         Section work = section("업무 관리");
+        work.addMenu("통화 후 자동문자", "수신 발신 부재중 자동 문자 SMS 발송 설정",
+                v -> start(MessageAutomationSettingsActivity.class));
         work.addMenu("문자 관리", "통화 후 자동문자 템플릿 그룹 단체문자 발송 관리",
                 v -> start(SettingsGroupActivity.intent(getContext(), SettingsGroupActivity.GROUP_MESSAGE)));
         work.addMenu("고객 관리", "고객 상태 일정 종류 통화 후 팝업 제외",
