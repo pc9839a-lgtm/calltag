@@ -928,6 +928,8 @@ public final class MainActivity extends Activity {
 
     private void renderMoreMenu() {
         moreMenuList.removeAllViews();
+        addMenuRow("통화 후 자동문자", "수신·발신·부재중 전화 이후 문자 자동발송 설정",
+                v -> startActivity(new Intent(this, MessageAutomationSettingsActivity.class)));
         addMenuRow("고객 상태 편집", "고객 상태 이름과 색상 변경", v -> openStageSettings());
         addMenuRow("일정 종류 편집", "전화·미팅·자료 보내기 이름과 색상 변경", v -> openTaskTypeSettings());
     }
