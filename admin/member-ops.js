@@ -184,6 +184,33 @@
     return sectionEl;
   }
 
+  function legacyEntitlementSection(record) {
+    const el = document.createElement('section');
+    el.className = 'section';
+    el.append(heading('이전 방식 이용권 기록 · 조회 전용'));
+    if (!record) {
+      el.append(emptyLine('이전 시스템의 현재 저장 레코드가 없습니다. 과거 지급 이력 부재를 뜻하지는 않습니다.'));
+      return el;
+    }
+    const baseline = record.planCode === 'beta_free' && record.source === 'beta';
+    el.append(
+      detailRow('기록 유형', baseline ? '기본 베타 기록' : '이전 이용권 레코드'),
+      detailRow('상태', record.status || '-'),
+      detailRow('이용권 코드', record.planCode || '-'),
+      detailRow('등록 경로', record.source || '-'),
+      detailRow('기록상 종료일', dateTime(record.paidUntil)),
+      detailRow('최초 저장', dateTime(record.createdAt)),
+      detailRow('최근 변경', dateTime(record.updatedAt)),
+    );
+    const note = document.createElement('small');
+    note.className = 'payment-note';
+    note.textContent = baseline
+      ? '기본 베타 값만으로 기존 수동 지급을 확인할 수 없습니다. 이력이 변경됐는지는 백업 대조가 필요합니다.'
+      : '현재 레거시 테이블에 저장된 값입니다. 기존 앱의 이용권 적용 여부와 전체 지급 이력을 보증하지 않습니다.';
+    el.append(note);
+    return el;
+  }
+
   async function runEntitlementAction(button, payload) {
     const oldText = button.textContent;
     button.disabled = true;
