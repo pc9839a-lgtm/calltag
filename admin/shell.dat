@@ -27,7 +27,7 @@
         <article><span>전체 회원</span><strong id="metricTotal">—</strong></article>
         <article><span>7일 신규</span><strong id="metricNew">—</strong></article>
         <article><span>체험 중</span><strong id="metricTrial">—</strong></article>
-        <article><span>유료 활성</span><strong id="metricPaid">—</strong></article>
+        <article><span>유료 구독 활성</span><strong id="metricPaid">—</strong><small>관리자 지급·이전 기록 제외</small></article>
         <article><span>결제 확인 필요</span><strong id="metricPaymentReview">—</strong></article>
         <article><span>파트너 적립 대기</span><strong id="metricPartner">—</strong></article>
       </section>
@@ -101,7 +101,7 @@
   <script src="/admin/admin.js?v=20261014-member-fix1" defer></script>
   <script src="/admin/payout-request.js?v=20260813-payout1" defer></script>
   <script src="/admin/play-finance-monthly.js?v=20260813-month1" defer></script>
-  <script src="/admin/member-ops.js?v=20261016-legacy-audit1" defer></script>
+  <script src="/admin/member-ops.js?v=20261016-legacy-list2" defer></script>
   <script src="/admin/member-ops-sync.js?v=20260813-ops1" defer></script>
   <script src="/admin/admin-theme.js?v=20260813-theme1" defer></script>
   <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
