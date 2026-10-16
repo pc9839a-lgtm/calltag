@@ -119,7 +119,15 @@ public final class BillingEntitlementActivity extends Activity
 
         refreshButton = button("새로고침", false);
         refreshButton.setOnClickListener(v -> {
+            // Refreshing the server entitlement alone cannot detect Play renewals.
+            // Explicit refresh also asks BillingClient for currently owned purchases,
+            // which are verified by the server before any paid feature is restored.
             startPlayLoad();
+            if (billing != null && billing.isReady()) {
+                billing.restore();
+            } else {
+                restoreRequested = true;
+            }
             refreshEntitlement(true);
         });
         header.addView(refreshButton, new LinearLayout.LayoutParams(dp(86), dp(40)));
