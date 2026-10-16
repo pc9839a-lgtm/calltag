@@ -323,7 +323,11 @@
 
   function purchaseHistoryLabel(item) {
     const verified = item?.purchaseHistory;
-    if (verified?.recorded === true) return verified.refunded === true ? '구매 확인 · 환불' : '구매 확인';
+    if (verified?.recorded === true) {
+      if (verified.evidence === 'confirmed_charge') return '유료 결제 기록 확인';
+      if (verified.refunded === true) return '구독 검증 · 환불 상태';
+      return '구독 검증 · 결제 미확인';
+    }
     if (item?.legacyEntitlement?.source === 'pagero_payment') return '이전 결제 표기 · 미검증';
     return '확인 안 됨';
   }
