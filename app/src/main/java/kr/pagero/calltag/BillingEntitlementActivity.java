@@ -77,6 +77,14 @@ public final class BillingEntitlementActivity extends Activity
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // A purchase can renew while the user is outside the app. Re-query Play
+        // rather than treating an old server expiry as proof of non-payment.
+        PlaySubscriptionReconcileManager.reconcileIfDue(this);
+    }
+
+    @Override
     protected void onDestroy() {
         mainHandler.removeCallbacks(billingTimeout);
         if (billing != null) billing.close();
@@ -111,7 +119,15 @@ public final class BillingEntitlementActivity extends Activity
 
         refreshButton = button("새로고침", false);
         refreshButton.setOnClickListener(v -> {
+            // Refreshing the server entitlement alone cannot detect Play renewals.
+            // Explicit refresh also asks BillingClient for currently owned purchases,
+            // which are verified by the server before any paid feature is restored.
             startPlayLoad();
+            if (billing != null && billing.isReady()) {
+                billing.restore();
+            } else {
+                restoreRequested = true;
+            }
             refreshEntitlement(true);
         });
         header.addView(refreshButton, new LinearLayout.LayoutParams(dp(86), dp(40)));

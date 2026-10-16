@@ -298,7 +298,8 @@ public final class PlayBillingManager implements PurchasesUpdatedListener {
             JSONArray supportedProducts = new JSONArray();
             for (String product : purchase.getProducts()) {
                 if (FeatureEntitlementStore.PLAN_PHONE.equals(product)
-                        || FeatureEntitlementStore.PLAN_MESSAGE.equals(product)) {
+                        || FeatureEntitlementStore.PLAN_MESSAGE.equals(product)
+                        || FeatureEntitlementStore.PLAN_BUNDLE.equals(product)) {
                     supportedProducts.put(product);
                 }
             }

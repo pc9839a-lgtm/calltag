@@ -30,11 +30,21 @@ public final class PlaySubscriptionReconcileManager {
     private static final String KEY_OWNER_ID = "owner_id";
     private static final long MIN_INTERVAL_MS = 6L * 60L * 60L * 1000L;
     private static final long RETRY_INTERVAL_MS = 5L * 60L * 1000L;
+    private static final long MANUAL_MIN_INTERVAL_MS = 30L * 1000L;
     private static final AtomicBoolean RUNNING = new AtomicBoolean(false);
 
     private PlaySubscriptionReconcileManager() {}
 
     public static void reconcileIfDue(Context context) {
+        reconcile(context, false);
+    }
+
+    /** Check Play on explicit user refresh without waiting for the six-hour background window. */
+    public static void reconcileOnDemand(Context context) {
+        reconcile(context, true);
+    }
+
+    private static void reconcile(Context context, boolean onDemand) {
         if (context == null) return;
         Context app = context.getApplicationContext();
         String session = AuthSessionStore.session(app);
@@ -55,7 +65,7 @@ public final class PlaySubscriptionReconcileManager {
         long lastSuccess = prefs.getLong(KEY_LAST_SUCCESS_AT, 0L);
         long interval = lastAttempt > 0L && lastSuccess >= lastAttempt
                 ? MIN_INTERVAL_MS : RETRY_INTERVAL_MS;
-        if (now - lastAttempt < interval) {
+        if (now - lastAttempt < (onDemand ? MANUAL_MIN_INTERVAL_MS : interval)) {
             RUNNING.set(false);
             return;
         }
@@ -92,13 +102,16 @@ public final class PlaySubscriptionReconcileManager {
                         return;
                     }
                     JSONArray payload = purchasePayload(purchases);
-                    finish(client);
                     if (payload.length() == 0) {
+                        finish(client);
                         if (matchesAccount(app, ownerId, session)) {
                             prefs.edit().putLong(KEY_LAST_SUCCESS_AT, System.currentTimeMillis()).apply();
                         }
                         return;
                     }
+                    // Keep RUNNING until server verification also finishes. Otherwise a
+                    // second resume can submit the same token while the first is in flight.
+                    closeClient(client);
                     new Thread(() -> {
                         try {
                             // A logout or account switch can happen while Play is querying.
@@ -152,7 +165,8 @@ public final class PlaySubscriptionReconcileManager {
             JSONArray products = new JSONArray();
             for (String product : purchase.getProducts()) {
                 if (FeatureEntitlementStore.PLAN_PHONE.equals(product)
-                        || FeatureEntitlementStore.PLAN_MESSAGE.equals(product)) {
+                        || FeatureEntitlementStore.PLAN_MESSAGE.equals(product)
+                        || FeatureEntitlementStore.PLAN_BUNDLE.equals(product)) {
                     products.put(product);
                 }
             }
@@ -170,10 +184,14 @@ public final class PlaySubscriptionReconcileManager {
     }
 
     private static void finish(BillingClient client) {
+        closeClient(client);
+        RUNNING.set(false);
+    }
+
+    private static void closeClient(BillingClient client) {
         try {
             if (client != null && client.isReady()) client.endConnection();
         } catch (RuntimeException ignored) {
         }
-        RUNNING.set(false);
     }
 }
