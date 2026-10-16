@@ -4,13 +4,14 @@ const PREFIX='/admin/api/';
 export async function handleAdminOpsBridge(request){
   const url=new URL(request.url);
   const route=url.pathname;
-  if(![`${PREFIX}members`,`${PREFIX}member-payments`,`${PREFIX}payment-proof`,`${PREFIX}play-finance-monthly`,`${PREFIX}entitlement`].includes(route))return null;
+  if(![`${PREFIX}members`,`${PREFIX}payer-audit`,`${PREFIX}member-payments`,`${PREFIX}payment-proof`,`${PREFIX}play-finance-monthly`,`${PREFIX}entitlement`].includes(route))return null;
   const assertion=String(request.headers.get('CF-Access-Jwt-Assertion')||'').trim();
   if(!assertion)return json({ok:false,error:'운영 데이터 접근이 잠겨 있습니다.',code:'CALLTAG_ADMIN_ACCESS_REQUIRED'},401);
 
   if(route===`${PREFIX}entitlement`)return handleEntitlement(request,url,assertion);
   if(request.method!=='GET')return json({ok:false,error:'Method not allowed.',code:'METHOD_NOT_ALLOWED'},405,{allow:'GET'});
 
+  if(route===`${PREFIX}payer-audit`)return proxy(assertion,'/api/call/admin/payer-audit',sanitizePayerAudit);
   if(route===`${PREFIX}members`){
     const q=safeQuery(url.searchParams.get('q'));
     const page=pageNumber(url.searchParams.get('page'));
@@ -87,6 +88,30 @@ async function proxyWrite(assertion,path,body,sanitize){
   }catch{return json({ok:false,error:'관리자 API에 연결하지 못했습니다.',code:'ADMIN_UPSTREAM_UNAVAILABLE'},502)}
 }
 
+function sanitizePayerAudit(data){
+  const c=Array.isArray(data?.candidates)?data.candidates.slice(0,500):[];
+  const types=['charge_recorded','subscription_verified','legacy_unverified','other'];
+  const row=x=>({
+    ownerId:owner(x?.ownerId),email:safeText(x?.email,320),memberListed:x?.memberListed===true,
+    hasVerifiedSubscription:x?.hasVerifiedSubscription===true,
+    hasCurrentSubscription:x?.hasCurrentSubscription===true,
+    autoRenewing:x?.autoRenewing===true,
+    hasPurchaseReference:x?.hasPurchaseReference===true,
+    recordedCharge:x?.recordedCharge===true,recordedRefund:x?.recordedRefund===true,
+    legacyPaymentMarker:x?.legacyPaymentMarker===true,
+    lastSubscriptionStatus:token(x?.lastSubscriptionStatus,32),lastProductCode:token(x?.lastProductCode,64),
+    lastVerifiedAt:date(x?.lastVerifiedAt),
+    category:types.includes(x?.category)?x.category:'other',suspectedOmission:x?.suspectedOmission===true
+  });
+  const m=data?.summary||{},sources=data?.sources||{};
+  return{ok:true,available:data?.available===true,truncated:data?.truncated===true,
+    code:token(data?.code,80),generatedAt:date(data?.generatedAt),
+    summary:{candidates:num(m.candidates),chargeRecorded:num(m.chargeRecorded),
+      verifiedSubscription:num(m.verifiedSubscription),notInMemberList:num(m.notInMemberList),
+      awaitingProviderProof:num(m.awaitingProviderProof),legacyOnly:num(m.legacyOnly)},
+    sources:{subscriptions:num(sources.subscriptions),payments:num(sources.payments),legacy:num(sources.legacy)},
+    candidates:c.map(row).filter(x=>x.ownerId)};
+}
 function sanitizeMembers(data){
   const rows=Array.isArray(data?.members)?data.members.slice(0,40):[];
   return{
