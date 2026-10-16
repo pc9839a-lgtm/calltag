@@ -124,14 +124,14 @@
     }
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.app-screen,.step-item,.today-card,.timeline-row,.calendar-day{transition:none}.done-ring,.option.active,.save-bar::after,.saved-toast,.web-sync-toast{animation:none}}
   
-    /* Minimal Google Play CTA */
-    body.ct-fixed-install-enabled{padding-bottom:calc(80px + env(safe-area-inset-bottom,0px))}
-    .ct-fixed-install{position:fixed;right:24px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:950}
-    .ct-fixed-install__link{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:50px;padding:0 20px;border:1px solid rgba(124,153,255,.35);border-radius:13px;background:rgba(18,20,26,.96);box-shadow:0 10px 32px rgba(0,0,0,.34);-webkit-backdrop-filter:blur(15px);backdrop-filter:blur(15px);color:var(--text,#f7f8fb)!important;font-size:14px;font-weight:800;letter-spacing:-.025em;line-height:1.2;text-decoration:none!important;white-space:nowrap;transition:border-color .18s ease,background-color .18s ease}
-    .ct-fixed-install__link img{display:block;width:21px;height:21px;flex:0 0 21px;object-fit:contain}
-    .ct-fixed-install__link:hover{background:#20242d;border-color:var(--blue-2,#7c99ff)}
-    .ct-fixed-install__link:focus-visible{outline:3px solid var(--blue-2,#7c99ff);outline-offset:3px}
-    @media(max-width:640px){.ct-fixed-install{right:auto;left:50%;bottom:calc(12px + env(safe-area-inset-bottom,0px));transform:translateX(-50%)}.ct-fixed-install__link{min-height:50px;padding:0 19px}}
+    /* Visible, single-message Google Play install CTA */
+    body.ct-fixed-install-enabled{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+    .ct-fixed-install{position:fixed;right:24px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:9999;display:block;max-width:calc(100vw - 24px)}
+    .ct-fixed-install__link{display:flex;align-items:center;justify-content:center;gap:10px;min-height:56px;padding:0 23px;border:1px solid rgba(255,255,255,.14);border-radius:14px;background:var(--blue,#3b6fff);box-shadow:0 12px 32px rgba(0,0,0,.40),0 8px 24px rgba(59,111,255,.22);color:#fff!important;font-size:16px;font-weight:850;letter-spacing:-.035em;line-height:1.25;text-align:center;white-space:nowrap;text-decoration:none!important;transition:background-color .18s ease,transform .18s ease}
+    .ct-fixed-install__link img{display:block;width:23px;height:23px;flex:0 0 23px;object-fit:contain}
+    .ct-fixed-install__link:hover{background:#315fdc;transform:translateY(-2px)}
+    .ct-fixed-install__link:focus-visible{outline:3px solid #b6c7ff;outline-offset:3px}
+    @media(max-width:640px){.ct-fixed-install{right:auto;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:calc(100% - 32px);max-width:360px}.ct-fixed-install__link{width:100%;min-height:56px}}
   </style>
 </head>
 <body class="ct-fixed-install-enabled">
@@ -270,11 +270,11 @@
   </main>
 
   <footer class="footer"><div class="wrap footer-inner"><div><strong>콜태그</strong> · 페이지로</div><div>© 2026 Pagero</div></div></footer>
-  <!-- Minimal fixed Google Play CTA -->
-  <aside class="ct-fixed-install" aria-label="콜태그 앱 다운로드">
-    <a class="ct-fixed-install__link" href="https://play.google.com/store/apps/details?id=kr.pagero.calltag" target="_blank" rel="noopener noreferrer" aria-label="Google Play에서 콜태그 다운로드">
-      <img src="/assets/google-play-mark.svg" alt="" aria-hidden="true" width="21" height="21" />
-      <span>Google Play 다운로드</span>
+  <!-- Download CTA: one clear action -->
+  <aside class="ct-fixed-install" aria-label="콜태그 설치">
+    <a class="ct-fixed-install__link" href="https://play.google.com/store/apps/details?id=kr.pagero.calltag" target="_blank" rel="noopener noreferrer" aria-label="Google Play에서 콜태그 지금 다운로드하세요">
+      <img src="/assets/google-play-mark.svg" alt="" aria-hidden="true" width="23" height="23" />
+      <span>지금 다운로드하세요</span>
     </a>
   </aside>
 
