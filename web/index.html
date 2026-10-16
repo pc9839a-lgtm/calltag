@@ -123,9 +123,17 @@
       .section{padding:88px 0}.section-title{font-size:43px}.feature-copy h3{font-size:42px}.feature-copy p{font-size:16px}.feature-points{margin-top:26px}.point-card{min-height:70px;padding:11px 13px}.point-icon{width:44px;height:44px}.product-panel{padding:15px;border-radius:21px;overflow-x:auto}.today-content,.calendar-content{min-width:700px}.customer-detail{min-width:650px}.task-toast,.calendar-detail{right:24px;bottom:24px}.price-card{padding:28px}.price strong{font-size:58px}.faq-question{font-size:18px}.audience h2{font-size:43px}.footer-inner{flex-direction:column}
     }
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.app-screen,.step-item,.today-card,.timeline-row,.calendar-day{transition:none}.done-ring,.option.active,.save-bar::after,.saved-toast,.web-sync-toast{animation:none}}
+  
+    /* Fixed Google Play download CTA – 2026-10-16 */
+    body.ct-fixed-install-enabled{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+    .ct-fixed-install{position:fixed;inset:auto 0 0;z-index:950;display:block;padding:10px max(16px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));background:rgba(9,10,13,.96);border-top:1px solid rgba(255,255,255,.13);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+    .ct-fixed-install__link{display:flex;align-items:center;justify-content:center;gap:10px;max-width:420px;min-height:52px;margin:0 auto;padding:0 20px;border-radius:12px;background:#4389ff;color:#fff!important;font-size:16px;font-weight:800;line-height:1.25;text-align:center;letter-spacing:-.025em;text-decoration:none!important;transition:background-color .2s ease}
+    .ct-fixed-install__link:hover{background:#2f73e8}.ct-fixed-install__link:focus-visible{outline:3px solid #a7c6ff;outline-offset:3px}
+    .ct-fixed-install__link img{display:block;width:24px;height:24px;object-fit:contain;flex:none}
+    @media(max-width:640px){.ct-fixed-install__link{max-width:none;width:100%;min-height:52px}}
   </style>
 </head>
-<body>
+<body class="ct-fixed-install-enabled">
   <header class="header" id="header">
     <div class="wrap header-inner">
       <a class="logo" href="#top" aria-label="콜태그 홈"><span class="logo-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 4h14v10a5 5 0 0 1-5 5h-2l-4 3v-3H5V4Z" fill="white"/><circle cx="9.5" cy="11" r="1.2" fill="#3b6fff"/><circle cx="14.5" cy="11" r="1.2" fill="#3b6fff"/></svg></span>콜태그</a>
@@ -261,6 +269,14 @@
   </main>
 
   <footer class="footer"><div class="wrap footer-inner"><div><strong>콜태그</strong> · 페이지로</div><div>© 2026 Pagero</div></div></footer>
+  <!-- Persistent Google Play installation CTA -->
+  <aside class="ct-fixed-install" aria-label="콜태그 앱 다운로드">
+    <a class="ct-fixed-install__link" href="https://play.google.com/store/apps/details?id=kr.pagero.calltag" target="_blank" rel="noopener noreferrer" aria-label="Google Play에서 콜태그 다운로드">
+      <img src="/assets/google-play-mark.svg" alt="" aria-hidden="true" width="24" height="24" loading="eager" />
+      <span>Google Play에서 다운로드</span>
+    </a>
+  </aside>
+
 
   <script>
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
