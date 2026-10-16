@@ -59,4 +59,17 @@ jobs:
             previewJs:preview.find(x=>x.path==='/admin/member-ops.js')?.hasNewStatus||false,
             samePublicHomeContent:!!prod.find(x=>x.path==='/')?.htmlHash&&prod.find(x=>x.path==='/')?.htmlHash===preview.find(x=>x.path==='/')?.htmlHash,
           }));
+          for(const origin of ['https://inlet-8mr.pages.dev','https://pagero.kr']){
+            try{
+              const r=await fetch(origin+'/api/call/admin/subscription-reconcile?__probe=20261016',{
+                redirect:'manual',signal:AbortSignal.timeout(10000)
+              });
+              console.log('RENEWAL_BACKEND_PROBE',JSON.stringify({
+                origin,status:r.status,location:new URL(r.headers.get('location')||'/',origin).hostname,
+                expectedMethodGuard:r.status===405
+              }));
+            }catch(e){
+              console.log('RENEWAL_BACKEND_PROBE',JSON.stringify({origin,error:String(e).slice(0,100)}));
+            }
+          }
           NODE
