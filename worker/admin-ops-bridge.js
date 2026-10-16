@@ -95,6 +95,7 @@ function sanitizeMembers(data){
       trialEndsAt:date(x?.trialEndsAt),referralBonusDays:num(x?.referralBonusDays),
       subscriptions:(Array.isArray(x?.subscriptions)?x.subscriptions.slice(0,6):[]).map(sub).filter(Boolean),
       adminEntitlement:adminGrant(x?.adminEntitlement),
+      legacyEntitlement:legacyRecord(x?.legacyEntitlement),
     })).filter(x=>x.ownerId),
     generatedAt:date(data?.generatedAt),
   };
@@ -154,6 +155,7 @@ function adminGrant(e){
   };
 }
 
+function legacyRecord(x){if(!x||typeof x!=='object')return null;return{status:token(x.status,24),planCode:token(x.planCode,80),source:token(x.source,80),paidUntil:date(x.paidUntil),updatedAt:date(x.updatedAt),nonDefaultRecord:x.nonDefaultRecord===true}}
 function sub(x){if(!x||typeof x!=='object')return null;return{productCode:token(x?.productCode,80),channel:token(x?.channel,32),status:token(x?.status,32),verificationState:token(x?.verificationState,32),startedAt:date(x?.startedAt),nextBillingAt:date(x?.nextBillingAt),expiresAt:date(x?.expiresAt),lastVerifiedAt:date(x?.lastVerifiedAt),autoRenewing:x?.autoRenewing===true}}
 function sanitizeError(data){return{ok:false,error:safeMessage(data?.error,'관리자 요청에 실패했습니다.'),code:safeCode(data?.code||'ADMIN_REQUEST_FAILED')}}
 async function safeJson(response){const text=await response.text().catch(()=> '');if(!text||text.length>1048576)return{};try{return JSON.parse(text)}catch{return{}}}
