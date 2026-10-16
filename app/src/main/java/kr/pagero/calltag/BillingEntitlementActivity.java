@@ -77,6 +77,14 @@ public final class BillingEntitlementActivity extends Activity
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // A purchase can renew while the user is outside the app. Re-query Play
+        // rather than treating an old server expiry as proof of non-payment.
+        PlaySubscriptionReconcileManager.reconcileIfDue(this);
+    }
+
+    @Override
     protected void onDestroy() {
         mainHandler.removeCallbacks(billingTimeout);
         if (billing != null) billing.close();
