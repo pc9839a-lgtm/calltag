@@ -3,6 +3,7 @@
   const emptyEl = document.getElementById('emptyMembers');
   const searchInput = document.getElementById('memberSearchInput');
   const searchButton = document.getElementById('memberSearchButton');
+  const evidenceFilter = document.getElementById('memberEvidenceFilter');
   const resultCount = document.getElementById('memberResultCount');
   const prevButton = document.getElementById('memberPrev');
   const nextButton = document.getElementById('memberNext');
@@ -25,9 +26,10 @@
   };
   const channels = { google_play: 'Google Play', play: 'Google Play', web: '웹 결제', admin: '관리자 지급' };
   const entitlementScopes = { all: '전체 이용권', call: '통화관리', message: '문자자동화' };
-  const state = { page: 1, totalPages: 1, query: '', loading: false };
+  const state = { page: 1, totalPages: 1, query: '', filter: 'all', loading: false };
 
   searchButton.addEventListener('click', () => runSearch());
+  evidenceFilter?.addEventListener('change', () => { state.filter = evidenceFilter.value; loadMembers(1); });
   searchInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch(); });
   prevButton?.addEventListener('click', () => { if (state.page > 1) loadMembers(state.page - 1); });
   nextButton?.addEventListener('click', () => { if (state.page < state.totalPages) loadMembers(state.page + 1); });
@@ -45,7 +47,7 @@
     state.loading = true;
     searchButton.disabled = true;
     try {
-      const url = `/admin/api/members?page=${Math.max(1, page)}${state.query ? `&q=${encodeURIComponent(state.query)}` : ''}`;
+      const url = `/admin/api/members?page=${Math.max(1, page)}&filter=${encodeURIComponent(state.filter)}${state.query ? `&q=${encodeURIComponent(state.query)}` : ''}`;
       const response = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'same-origin', headers: { accept: 'application/json' } });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data?.ok === false) throw new Error(data?.error || '회원 목록을 불러오지 못했습니다.');
@@ -79,6 +81,8 @@
         cell(legacyAwareLabel(item, subscriptions)),
         pill(usageStatus(item, subscriptions)),
         pill(verificationLabel(subscriptions)),
+        pill(grantHistoryLabel(item)),
+        pill(purchaseHistoryLabel(item)),
         actionButton(item?.adminEntitlement?.active ? '이용권 관리' : item?.legacyEntitlement?.nonDefaultRecord ? '기존 기록 확인' : '이용권 지급', () => openMember(item.ownerId)),
       );
       rowsEl.append(tr);
@@ -308,6 +312,21 @@
     } catch { return { ok: false, data: {}, error: '' }; }
   }
 
+  function grantHistoryLabel(item) {
+    if (item?.adminEntitlement?.active) return '지급 중';
+    const history = item?.grantHistory;
+    if (history?.recorded !== true) return '확인 안 됨';
+    if (history.source === 'legacy_manual') return '과거 수동 지급';
+    if (history.source === 'audit') return '지급 감사 기록';
+    return '관리자 지급 이력';
+  }
+
+  function purchaseHistoryLabel(item) {
+    const verified = item?.purchaseHistory;
+    if (verified?.recorded === true) return verified.refunded === true ? '구매 확인 · 환불' : '구매 확인';
+    if (item?.legacyEntitlement?.source === 'pagero_payment') return '이전 결제 표기 · 미검증';
+    return '확인 안 됨';
+  }
   function legacyAwareLabel(item, subscriptions) {
     const current = entitlementLabel(item, subscriptions);
     const prior = item?.legacyEntitlement;
