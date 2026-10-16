@@ -346,7 +346,7 @@
         btn.textContent = '재확인';
       } else if (proof?.providerHttpStatus === 403 || proof?.providerHttpStatus === 401) {
         status.textContent = '구독 확인 · Play 주문 조회 권한 없음';
-      } else if (proof?.result === 'order_id_missing') {
+      } else if (proof?.result === 'play_reference_missing') {
         status.textContent = '구독 확인 · 주문번호 누락';
       } else if (proof?.result === 'PLAY_ORDER_NOT_PROCESSED' || proof?.result === 'PLAY_ORDER_AMOUNT_INVALID') {
         status.textContent = '구독 확인 · 결제 처리 미확인';
