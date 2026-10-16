@@ -330,12 +330,14 @@
     const current = subscriptions.filter(s => s.verificationState === 'verified'
       && ['active','grace','cancelled'].includes(String(s.status || '').toLowerCase())
       && isCurrentSubscription(s));
-    if (current.some(s => s.status === 'active' && s.autoRenewing === true))
+    if (current.some(s => s.status === 'active' && (s.autoRenewing === true || s.channel === 'web')))
       return { label: '결제중', badgeClass: 'member-billing-active', rowClass: 'member-billing-row' };
     if (current.some(s => s.status === 'grace'))
       return { label: '결제 유예 · 이용중', badgeClass: 'member-billing-grace', rowClass: 'member-billing-row' };
     if (current.length)
       return { label: '해지 예정 · 이용중', badgeClass: 'member-billing-ending', rowClass: 'member-billing-ending-row' };
+    if (subscriptions.some(s => ['active','grace','cancelled'].includes(s.status) && isCurrentSubscription(s)))
+      return { label: '구독 이용중 · 검증 확인필요', badgeClass: 'member-billing-review', rowClass: 'member-billing-ending-row' };
     if (subscriptions.some(s => s.status === 'pending'))
       return { label: '구독 검증중', badgeClass: 'member-billing-review' };
     if (item?.purchaseHistory?.evidence === 'confirmed_charge')
