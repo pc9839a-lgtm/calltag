@@ -124,14 +124,14 @@
     }
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.app-screen,.step-item,.today-card,.timeline-row,.calendar-day{transition:none}.done-ring,.option.active,.save-bar::after,.saved-toast,.web-sync-toast{animation:none}}
   
-    /* Visible, single-message Google Play install CTA */
-    body.ct-fixed-install-enabled{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
-    .ct-fixed-install{position:fixed;right:24px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:9999;display:block;max-width:calc(100vw - 24px)}
-    .ct-fixed-install__link{display:flex;align-items:center;justify-content:center;gap:10px;min-height:56px;padding:0 23px;border:1px solid rgba(255,255,255,.14);border-radius:14px;background:var(--blue,#3b6fff);box-shadow:0 12px 32px rgba(0,0,0,.40),0 8px 24px rgba(59,111,255,.22);color:#fff!important;font-size:16px;font-weight:850;letter-spacing:-.035em;line-height:1.25;text-align:center;white-space:nowrap;text-decoration:none!important;transition:background-color .18s ease,transform .18s ease}
-    .ct-fixed-install__link img{display:block;width:23px;height:23px;flex:0 0 23px;object-fit:contain}
-    .ct-fixed-install__link:hover{background:#315fdc;transform:translateY(-2px)}
-    .ct-fixed-install__link:focus-visible{outline:3px solid #b6c7ff;outline-offset:3px}
-    @media(max-width:640px){.ct-fixed-install{right:auto;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:calc(100% - 32px);max-width:360px}.ct-fixed-install__link{width:100%;min-height:56px}}
+    /* Centered high-visibility install CTA, matching the landing page's white Play button */
+    body.ct-fixed-install-enabled{padding-bottom:calc(116px + env(safe-area-inset-bottom,0px))}
+    .ct-fixed-install{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:9999;width:min(600px,calc(100% - 32px));transform:translateX(-50%)}
+    .ct-fixed-install__link{display:flex;width:100%;min-height:68px;align-items:center;justify-content:center;gap:12px;padding:14px 24px;border:1px solid rgba(255,255,255,.16);border-radius:16px;background:#fff;color:#111318!important;box-shadow:0 18px 50px rgba(0,0,0,.48);font-size:19px;font-weight:900;letter-spacing:-.035em;line-height:1.25;text-align:center;white-space:nowrap;text-decoration:none!important;transition:background-color .2s ease,transform .2s ease}
+    .ct-fixed-install__link img{display:block;width:26px;height:26px;flex:0 0 26px;object-fit:contain}
+    .ct-fixed-install__link:hover{background:#eef1f6;transform:translateY(-2px)}
+    .ct-fixed-install__link:focus-visible{outline:3px solid rgba(124,153,255,.8);outline-offset:3px}
+    @media(max-width:640px){.ct-fixed-install{bottom:calc(12px + env(safe-area-inset-bottom,0px))}.ct-fixed-install__link{min-height:64px;font-size:18px;border-radius:15px}body.ct-fixed-install-enabled{padding-bottom:calc(108px + env(safe-area-inset-bottom,0px))}}
   </style>
 </head>
 <body class="ct-fixed-install-enabled">
