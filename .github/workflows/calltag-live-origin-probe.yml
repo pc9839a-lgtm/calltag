@@ -22,6 +22,7 @@ jobs:
             'https://calltag.pages.dev',
           ];
           const paths=['/','/admin/','/admin/shell.dat','/admin/member-ops.js','/admin/admin-ops.css'];
+          const {createHash}=await import('node:crypto');
           const results=[];
           for(const host of hosts){
             for(const path of paths){
@@ -36,7 +37,8 @@ jobs:
                   hasNewShell:t.includes('subscriber-parity6'),
                   hasNewStatus:t.includes('구독·결제 상태')||t.includes('classifySubscription'),
                   hasNewCss:t.includes('member-billing-active'),
-                  hasOldHtml:t.includes('결제 미확인')
+                  hasOldHtml:t.includes('결제 미확인'),
+                  htmlHash:path==='/'&&r.status===200?createHash('sha256').update(t).digest('hex'):''
                 };
                 results.push(out);
                 console.log(JSON.stringify(out));
@@ -55,5 +57,6 @@ jobs:
             previewAdminHTTP:previewShell?.status||0,previewCurrentShell:previewShell?.hasNewShell||false,
             prodJs:prod.find(x=>x.path==='/admin/member-ops.js')?.hasNewStatus||false,
             previewJs:preview.find(x=>x.path==='/admin/member-ops.js')?.hasNewStatus||false,
+            samePublicHomeContent:!!prod.find(x=>x.path==='/')?.htmlHash&&prod.find(x=>x.path==='/')?.htmlHash===preview.find(x=>x.path==='/')?.htmlHash,
           }));
           NODE
