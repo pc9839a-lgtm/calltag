@@ -129,7 +129,7 @@ function sanitizeMemberPayments(data){
 
 function sanitizePaymentProof(data){
   const paid=data?.confirmed===true && data?.result==='play_order_paid';
-  const reasons=['no_verified_play_order','order_id_missing','provider_unavailable','PLAY_ORDER_INPUT_INCOMPLETE','PLAY_ORDER_NETWORK_FAILED','PLAY_ORDER_LOOKUP_FAILED','PLAY_ORDER_NOT_PROCESSED','PLAY_ORDER_PRODUCT_TOTAL_MISSING','PLAY_ORDER_NON_KRW','PLAY_ORDER_AMOUNT_INVALID'];
+  const reasons=['no_verified_play_order','play_reference_missing','provider_unavailable','PLAY_ORDER_INPUT_INCOMPLETE','PLAY_ORDER_NETWORK_FAILED','PLAY_ORDER_LOOKUP_FAILED','PLAY_ORDER_NOT_PROCESSED','PLAY_ORDER_PRODUCT_TOTAL_MISSING','PLAY_ORDER_NON_KRW','PLAY_ORDER_AMOUNT_INVALID'];
   return{ok:true,ownerId:owner(data?.ownerId),confirmed:paid,result:paid?'play_order_paid':reasons.includes(data?.result)?data.result:'provider_unavailable',amountKrw:paid?num(data?.amountKrw):0,productCode:token(data?.productCode,80),providerHttpStatus:[401,403,404].includes(Number(data?.providerHttpStatus||0))?Number(data.providerHttpStatus):0,source:paid?'google_play_orders_api':''};
 }
 
