@@ -3,8 +3,8 @@ import { handlePartnerAdminSecurity } from './worker/partner-admin-security.js';
 import { handlePartnerApi } from './worker/partner.js';
 
 const CANONICAL='https://calltag.pagero.kr/';
-const SEO_TITLE='고객관리 앱 콜태그 | 전화상담·상담기록·재연락 CRM';
-const SEO_DESCRIPTION='전화 상담 고객의 상태·상담기록·재연락 일정을 통화 직후 정리하는 Android 고객관리 앱·CRM 콜태그. PC 웹 관리와 PageRo·Meta Lead Ads·Google Forms·Webhook 문의 연동을 지원합니다.';
+const SEO_TITLE='고객관리 앱 콜태그 | 통화 후 상담기록·재연락 CRM';
+const SEO_DESCRIPTION='통화 직후 고객 분류, 상담기록, 재연락 일정과 오늘 할 일을 관리하세요. 신규 문의 알림·문자 자동화·PC 웹 연동을 지원하는 Android 고객관리 앱 콜태그.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
 const WORKER_VERSION='v153-partner-totp3';
 const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260918-runtime61';
