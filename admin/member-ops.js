@@ -99,6 +99,7 @@
     detailBody.replaceChildren(
       section('계정', [['이메일', member.email || '-'], ['전화번호', member.phone || '-'], ['가입일', dateTime(member.createdAt)], ['수정일', dateTime(member.updatedAt)]]),
       entitlementSection(member.ownerId, entitlementResult.ok ? entitlementResult.data : null),
+      legacyEntitlementSection(data.legacyEntitlement),
       section('체험', data.trial ? [['시작', dateTime(data.trial.startedAt)], ['종료', dateTime(data.trial.endsAt)], ['추천 보너스', `${number(data.trial.referralBonusDays)}일`]] : [['상태', '없음']]),
       section('추천', [['추천 인원', `${number(data.referral?.referredCount)}명`], ['추천받음', data.referral?.wasReferred ? '예' : '아니오']]),
       section('파트너', [['적립 건수', `${number(data.partner?.commissionCount)}건`], ['적립 대기', `${money(data.partner?.pendingAmountKrw)}원`], ['확정', `${money(data.partner?.confirmedAmountKrw)}원`]]),
@@ -181,6 +182,33 @@
     note.textContent = '관리자 이용권은 결제·매출·파트너 정산에 포함되지 않습니다.';
     sectionEl.append(note);
     return sectionEl;
+  }
+
+  function legacyEntitlementSection(record) {
+    const el = document.createElement('section');
+    el.className = 'section';
+    el.append(heading('이전 방식 이용권 기록 · 조회 전용'));
+    if (!record) {
+      el.append(emptyLine('이전 시스템의 현재 저장 레코드가 없습니다. 과거 지급 이력 부재를 뜻하지는 않습니다.'));
+      return el;
+    }
+    const baseline = record.planCode === 'beta_free' && record.source === 'beta';
+    el.append(
+      detailRow('기록 유형', baseline ? '기본 베타 기록' : '이전 이용권 레코드'),
+      detailRow('상태', record.status || '-'),
+      detailRow('이용권 코드', record.planCode || '-'),
+      detailRow('등록 경로', record.source || '-'),
+      detailRow('기록상 종료일', dateTime(record.paidUntil)),
+      detailRow('최초 저장', dateTime(record.createdAt)),
+      detailRow('최근 변경', dateTime(record.updatedAt)),
+    );
+    const note = document.createElement('small');
+    note.className = 'payment-note';
+    note.textContent = baseline
+      ? '기본 베타 값만으로 기존 수동 지급을 확인할 수 없습니다. 이력이 변경됐는지는 백업 대조가 필요합니다.'
+      : '현재 레거시 테이블에 저장된 값입니다. 기존 앱의 이용권 적용 여부와 전체 지급 이력을 보증하지 않습니다.';
+    el.append(note);
+    return el;
   }
 
   async function runEntitlementAction(button, payload) {
