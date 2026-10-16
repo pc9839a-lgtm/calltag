@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /web/
 
 Sitemap: https://calltag.pagero.kr/sitemap.xml
