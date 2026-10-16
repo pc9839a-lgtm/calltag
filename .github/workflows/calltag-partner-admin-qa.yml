@@ -6,6 +6,9 @@ on:
       - '_worker.js'
       - '_worker-core.js'
       - 'admin/**'
+      - 'web/admin/**'
+      - 'web/worker/**'
+      - 'web/_worker.js'
       - 'worker/admin.js'
       - 'worker/admin-payout-bridge.js'
       - 'worker/admin-ops-bridge.js'
@@ -27,6 +30,9 @@ on:
       - '_worker.js'
       - '_worker-core.js'
       - 'admin/**'
+      - 'web/admin/**'
+      - 'web/worker/**'
+      - 'web/_worker.js'
       - 'worker/admin.js'
       - 'worker/admin-payout-bridge.js'
       - 'worker/admin-ops-bridge.js'
@@ -55,6 +61,14 @@ jobs:
         run: |
           set -euo pipefail
           node --check _worker.js
+          node --check web/_worker.js
+          node --check web/worker/admin.js
+          node --check web/worker/admin-ops-bridge.js
+          node --check web/worker/admin-payout-bridge.js
+          node --check web/worker/partner-admin-security.js
+          node --check web/worker/partner.js
+          node --check web/admin/member-ops.js
+          node --check web/admin/payer-audit.js
           node --check _worker-core.js
           node --check worker/admin.js
           node --check worker/admin-payout-bridge.js
@@ -70,6 +84,22 @@ jobs:
           node --check web/settlement-security.js
           node --check web/settlement-finalize.js
           node --check web/settlement-polish.js
+      - name: Verify production web/admin bundle parity
+        run: |
+          set -euo pipefail
+          grep -q 'handleCalltagAdmin' web/_worker.js
+          grep -q 'handleAdminOpsBridge' web/_worker.js
+          grep -q 'handleAdminPayoutBridge' web/_worker.js
+          grep -q 'subscriber-parity6' web/admin/shell.dat
+          grep -q 'classifySubscription' web/admin/member-ops.js
+          for file in admin/*; do
+            test -f "web/$file"
+            cmp "$file" "web/$file"
+          done
+          for file in worker/admin.js worker/admin-ops-bridge.js worker/admin-payout-bridge.js worker/partner-admin-security.js worker/partner.js; do
+            test -f "web/$file"
+            cmp "$file" "web/$file"
+          done
       - name: Enforce gateway contract
         run: |
           set -euo pipefail
