@@ -27,6 +27,7 @@
   const channels = { google_play: 'Google Play', play: 'Google Play', web: '웹 결제', admin: '관리자 지급' };
   const entitlementScopes = { all: '전체 이용권', call: '통화관리', message: '문자자동화' };
   const state = { page: 1, totalPages: 1, query: '', filter: 'all', loading: false };
+  const proofCache = new Map();
 
   searchButton.addEventListener('click', () => runSearch());
   evidenceFilter?.addEventListener('change', () => { state.filter = evidenceFilter.value; loadMembers(1); });
@@ -70,6 +71,7 @@
   function renderMembers(items) {
     rowsEl.replaceChildren();
     if (emptyEl) { emptyEl.hidden = items.length > 0; emptyEl.textContent = state.query ? '검색 결과가 없습니다.' : '회원 데이터가 없습니다.'; }
+    let autoChecks = 0;
     for (const item of items) {
       const subscriptions = Array.isArray(item.subscriptions) ? item.subscriptions : [];
       const tr = document.createElement('tr');
@@ -82,10 +84,11 @@
         pill(usageStatus(item, subscriptions)),
         pill(verificationLabel(subscriptions)),
         pill(grantHistoryLabel(item)),
-        pill(purchaseHistoryLabel(item)),
+        proofCell(item, autoChecks < 4),
         actionButton(item?.adminEntitlement?.active ? '이용권 관리' : item?.legacyEntitlement?.nonDefaultRecord ? '기존 기록 확인' : '이용권 지급', () => openMember(item.ownerId)),
       );
       rowsEl.append(tr);
+      if (item?.purchaseHistory?.evidence === 'subscription_verified' && item?.purchaseHistory?.channel === 'google_play' && !proofCache.has(item.ownerId) && autoChecks < 4) autoChecks++;
     }
   }
 
@@ -319,6 +322,57 @@
     if (history.source === 'legacy_manual') return '과거 수동 지급';
     if (history.source === 'audit') return '지급 감사 기록';
     return '관리자 지급 이력';
+  }
+
+  function proofCell(item, mayAutoCheck) {
+    const cellEl = document.createElement('td');
+    const status = document.createElement('span');
+    status.textContent = purchaseHistoryLabel(item);
+    status.className = 'pill';
+    cellEl.append(status);
+    const current = item?.purchaseHistory;
+    if (current?.evidence !== 'subscription_verified' || current.channel !== 'google_play') return cellEl;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'row-action';
+    btn.style.marginLeft = '7px';
+    btn.style.fontSize = '11px';
+    btn.textContent = 'Play 결제조회';
+    cellEl.append(btn);
+    const update = (proof) => {
+      if (proof?.confirmed && proof?.result === 'play_order_paid') {
+        status.textContent = 'Google Play 실결제 확인 · ' + money(proof.amountKrw) + '원';
+        status.className = 'pill good';
+        btn.textContent = '재확인';
+      } else if (proof?.providerHttpStatus === 403 || proof?.providerHttpStatus === 401) {
+        status.textContent = '구독 확인 · Play 주문 조회 권한 없음';
+      } else if (proof?.result === 'order_id_missing') {
+        status.textContent = '구독 확인 · 주문번호 누락';
+      } else if (proof?.result === 'PLAY_ORDER_NOT_PROCESSED' || proof?.result === 'PLAY_ORDER_AMOUNT_INVALID') {
+        status.textContent = '구독 확인 · 결제 처리 미확인';
+      } else {
+        status.textContent = '구독 확인 · Play 결제액 조회 불가';
+      }
+    };
+    btn.addEventListener('click', () => checkProviderOrder(item.ownerId, status, btn, update));
+    if (proofCache.has(item.ownerId)) update(proofCache.get(item.ownerId));
+    else if (mayAutoCheck) Promise.resolve().then(() => checkProviderOrder(item.ownerId, status, btn, update));
+    return cellEl;
+  }
+
+  async function checkProviderOrder(ownerId, status, button, update) {
+    if (button.disabled) return;
+    button.disabled = true;
+    button.textContent = '조회중';
+    const result = await fetchJson('/admin/api/payment-proof?ownerId=' + encodeURIComponent(ownerId));
+    if (result.ok && result.data?.ok !== false) {
+      proofCache.set(ownerId, result.data);
+      update(result.data);
+    } else {
+      status.textContent = '구독 확인 · Play 주문 API 연결 실패';
+    }
+    button.disabled = false;
+    if (button.textContent === '조회중') button.textContent = '재확인';
   }
 
   function purchaseHistoryLabel(item) {
