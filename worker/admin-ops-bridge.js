@@ -93,7 +93,7 @@ async function proxyWrite(assertion,path,body,sanitize){
 }
 
 function sanitizeSubscriptionReconcile(data){
-  const allowed=['verified_current','verified_not_current','record_incomplete','provider_unavailable','play_token_unavailable','purchase_token_mismatch','product_mismatch','account_changed','subscription_verification_failed'];
+  const allowed=['verified_current','verified_not_current','record_incomplete','provider_unavailable','play_token_unavailable','owner_binding_mismatch','product_mismatch','account_changed','subscription_verification_failed'];
   return {ok:true,examined:num(data?.examined),providerVerified:num(data?.providerVerified),
     activeNow:num(data?.activeNow),needsReview:num(data?.needsReview),
     results:(Array.isArray(data?.results)?data.results.slice(0,5):[]).map(x=>({
