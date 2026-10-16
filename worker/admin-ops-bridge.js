@@ -99,7 +99,7 @@ function sanitizeMembers(data){
       adminEntitlement:adminGrant(x?.adminEntitlement),
       legacyEntitlement:legacyRecord(x?.legacyEntitlement),
       grantHistory:{recorded:x?.grantHistory?.recorded===true,source:token(x?.grantHistory?.source,32)},
-      purchaseHistory:{recorded:x?.purchaseHistory?.recorded===true,refunded:x?.purchaseHistory?.refunded===true,channel:token(x?.purchaseHistory?.channel,32),productCode:token(x?.purchaseHistory?.productCode,80),verifiedAt:date(x?.purchaseHistory?.verifiedAt)},
+      purchaseHistory:{recorded:x?.purchaseHistory?.recorded===true,refunded:x?.purchaseHistory?.refunded===true,evidence:['subscription_verified','confirmed_charge'].includes(x?.purchaseHistory?.evidence)?x.purchaseHistory.evidence:'',channel:token(x?.purchaseHistory?.channel,32),productCode:token(x?.purchaseHistory?.productCode,80),verifiedAt:date(x?.purchaseHistory?.verifiedAt)},
     })).filter(x=>x.ownerId),
     generatedAt:date(data?.generatedAt),
   };
