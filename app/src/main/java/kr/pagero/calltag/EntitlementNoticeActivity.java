@@ -1,7 +1,9 @@
 package kr.pagero.calltag;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.IntentFilter;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
@@ -12,6 +14,8 @@ import android.view.Gravity;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.core.content.ContextCompat;
+
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -21,15 +25,33 @@ public final class EntitlementNoticeActivity extends Activity {
     private static final String PREFS = "calltag_entitlement_notices";
     private static final String KEY_LAST_CODE = "last_code";
     private static final String KEY_LAST_DATE = "last_date";
+    private static final String KEY_RETURNED_FROM_BILLING = "returned_from_billing";
+    public static final String ACTION_ENTITLEMENT_VERIFIED =
+            "kr.pagero.calltag.ENTITLEMENT_VERIFIED";
     private static final int BLUE = Color.rgb(37, 99, 235);
     private static final int TEXT = Color.rgb(15, 23, 42);
     private static final int SUBTEXT = Color.rgb(71, 85, 105);
     private static final int BORDER = Color.rgb(226, 232, 240);
+    private boolean returnedFromBilling;
+    private boolean restoredByPlayReconcile;
+    private boolean receiverRegistered;
+    private final BroadcastReceiver purchaseVerificationReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // A verification can complete after the user has already returned from Play.
+            // Only a server-verified active entitlement allows leaving the expired notice.
+            restoredByPlayReconcile = true;
+            routeToCrmIfEntitled();
+        }
+    };
 
     public static boolean shouldOpen(Context context) {
         FeatureEntitlementStore.Snapshot value = FeatureEntitlementStore.snapshot(context);
         String code = noticeCode(value);
         if (code.isEmpty()) return false;
+        // Expired users must see the renewal path on every cold app launch,
+        // not merely once per calendar day. The reminder remains daily for ending-soon trials.
+        if ("TRIAL_EXPIRED".equals(code)) return true;
         SharedPreferences prefs = context.getApplicationContext()
                 .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String date = serverDate(value.estimatedServerNow);
@@ -40,6 +62,9 @@ public final class EntitlementNoticeActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (savedInstanceState != null) {
+            returnedFromBilling = savedInstanceState.getBoolean(KEY_RETURNED_FROM_BILLING, false);
+        }
         FeatureEntitlementStore.Snapshot value = FeatureEntitlementStore.snapshot(this);
         String code = noticeCode(value);
         if (code.isEmpty()) {
@@ -48,6 +73,54 @@ public final class EntitlementNoticeActivity extends Activity {
         }
         markShown(code, value.estimatedServerNow);
         setContentView(buildScreen(value, code));
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        ContextCompat.registerReceiver(this, purchaseVerificationReceiver,
+                new IntentFilter(ACTION_ENTITLEMENT_VERIFIED),
+                ContextCompat.RECEIVER_NOT_EXPORTED);
+        receiverRegistered = true;
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        routeToCrmIfEntitled();
+        if (!isFinishing() && "TRIAL_EXPIRED".equals(
+                noticeCode(FeatureEntitlementStore.snapshot(this)))) {
+            // Expired users cannot reach MainActivity, where the normal Play renewal
+            // reconciler runs. Try restoring a verified active subscription here too.
+            PlaySubscriptionReconcileManager.reconcileIfDue(this);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        if (receiverRegistered) {
+            unregisterReceiver(purchaseVerificationReceiver);
+            receiverRegistered = false;
+        }
+        super.onStop();
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putBoolean(KEY_RETURNED_FROM_BILLING, returnedFromBilling);
+        super.onSaveInstanceState(outState);
+    }
+
+    private void routeToCrmIfEntitled() {
+        if ((!returnedFromBilling && !restoredByPlayReconcile)
+                || isFinishing() || isDestroyed()) return;
+        FeatureEntitlementStore.Snapshot current = FeatureEntitlementStore.snapshot(this);
+        if (!EntitlementNoticeActivity.shouldOpen(this)
+                && (returnedFromBilling || current.phoneSubscribed || current.messageSubscribed)) {
+            returnedFromBilling = false;
+            restoredByPlayReconcile = false;
+            openMain();
+        }
     }
 
     private LinearLayout buildScreen(FeatureEntitlementStore.Snapshot value, String code) {
@@ -96,8 +169,11 @@ public final class EntitlementNoticeActivity extends Activity {
 
         TextView billing = button("이용권 확인", true);
         billing.setOnClickListener(v -> {
-            startActivity(new Intent(this, BillingEntitlementActivity.class));
-            finish();
+            // Keep the expired notice in the back stack. Otherwise returning from
+            // Play purchase/restore can leave the user at a blank/exiting task.
+            returnedFromBilling = true;
+            startActivity(new Intent(this, BillingEntitlementActivity.class)
+                    .putExtra(BillingEntitlementActivity.EXTRA_RETURN_AFTER_VERIFICATION, true));
         });
         LinearLayout.LayoutParams billingParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
@@ -115,6 +191,17 @@ public final class EntitlementNoticeActivity extends Activity {
 
     private static String noticeCode(FeatureEntitlementStore.Snapshot value) {
         if (!value.serverChecked) return "";
+        // A verified paid phone or message subscription supersedes the expired trial.
+        // Do not trap paying users behind an old TRIAL_EXPIRED server notice.
+        if (value.phoneSubscribed || value.messageSubscribed) return "";
+        // The server explicitly reports TRIAL_EXPIRED even when the top-level status is
+        // "inactive", so prefer the server lifecycle notice over legacy status matching.
+        if (!value.active && "TRIAL_EXPIRED".equalsIgnoreCase(value.noticeCode)) {
+            return "TRIAL_EXPIRED";
+        }
+        if (value.isTrial() && "TRIAL_ENDING_24H".equalsIgnoreCase(value.noticeCode)) {
+            return "TRIAL_ENDING_24H";
+        }
         if (value.isTrialEndingSoon()) return "TRIAL_ENDING_24H";
         if (value.isExpired()) return "TRIAL_EXPIRED";
         return "";

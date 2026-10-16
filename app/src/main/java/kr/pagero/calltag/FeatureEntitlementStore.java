@@ -445,7 +445,7 @@ public final class FeatureEntitlementStore {
         }
 
         public boolean isTrialEndingSoon() {
-            return isTrial() && remainingDays <= 1;
+            return isTrial() && remainingDays >= 0 && remainingDays <= 1;
         }
 
         public boolean isWebSubscription() {

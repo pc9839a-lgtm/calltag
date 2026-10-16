@@ -87,16 +87,20 @@ public final class MessageAutomationSettingsActivity extends Activity {
         enabled = switchCard("자동문자 사용");
         root.addView(enabled, topMargin(14));
 
+        TextView guide = body("통화 후·부재중·후속 예약 중 사용할 항목을 각각 켠 뒤 저장하세요. 자동발송 권한은 저장할 때 요청합니다.");
+        guide.setTextColor(getColor(R.color.text_secondary));
+        root.addView(guide, topMargin(8));
+
         root.addView(sectionLabel("발송 시점"), topMargin(20));
         connected = new Switch(this);
         connectedTemplate = addScenario(
-                root, "통화 후", "수신·발신 통화 안내", connected, REQUEST_CONNECTED, false);
+                root, "통화 후", "수신·발신 통화 종료 후 문자 자동발송", connected, REQUEST_CONNECTED, false);
         missed = new Switch(this);
         missedTemplate = addScenario(
-                root, "부재중", "부재중 안내", missed, REQUEST_MISSED, false);
+                root, "부재중", "부재중·거절 전화에 문자 자동발송", missed, REQUEST_MISSED, false);
         delayed = new Switch(this);
         followTemplate = addScenario(
-                root, "후속 예약", "후속문자 발송", delayed, REQUEST_FOLLOW_UP, true);
+                root, "후속 예약", "통화 후 설정한 날짜에 자동발송", delayed, REQUEST_FOLLOW_UP, true);
 
         root.addView(sectionLabel("공통 설정"), topMargin(20));
         LinearLayout common = new LinearLayout(this);
@@ -403,6 +407,30 @@ public final class MessageAutomationSettingsActivity extends Activity {
             Toast.makeText(this, "문자 기능 이용 권한이 필요합니다.", Toast.LENGTH_LONG).show();
             return;
         }
+        boolean needsSms = enabled.isChecked()
+                && (connected.isChecked() || missed.isChecked() || delayed.isChecked());
+        if (needsSms && checkSelfPermission(Manifest.permission.SEND_SMS)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS);
+            return;
+        }
+        persistSettingsAndClose();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_SMS) return;
+        if (checkSelfPermission(Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED) {
+            save();
+        } else {
+            Toast.makeText(this,
+                    "문자 권한을 허용하지 않아 자동발송 설정을 저장하지 않았습니다. 앱 권한 설정을 확인해주세요.",
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void persistSettingsAndClose() {
         MessageAutomationStore.setEnabled(this, enabled.isChecked());
         MessageAutomationStore.setConnectedEnabled(this, connected.isChecked());
         MessageAutomationStore.setMissedEnabled(this, missed.isChecked());
@@ -412,12 +440,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
         MessageAutomationStore.setCooldownHours(this, cooldownHoursValue);
         MessageAutomationStore.setBusinessHours(this, startHourValue, endHourValue);
         MessageAutomationStore.setSelectedSubscriptionId(this, selectedSubscriptionId);
-        if ((connected.isChecked() || missed.isChecked() || delayed.isChecked())
-                && checkSelfPermission(Manifest.permission.SEND_SMS)
-                != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS);
-        }
-        Toast.makeText(this, "저장했습니다.", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "자동문자 설정을 저장했습니다.", Toast.LENGTH_SHORT).show();
         finish();
     }
 

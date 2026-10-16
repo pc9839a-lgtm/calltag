@@ -15,10 +15,7 @@ import java.nio.charset.StandardCharsets;
 /** Signed CallTag integration API client used by the native Android integration hub. */
 public final class ExternalLeadIntegrationApiClient {
     private static final String[] BASE_URLS = {
-            "https://pagero.kr",
-            "https://inlet-8mr.pages.dev",
-            "https://calltag.pagero.kr",
-            "https://agent-calltag-foundation.calltag.pages.dev"
+            "https://pagero.kr"
     };
     public static final String META_ANDROID_RETURN_PATH =
             "/api/calltag/v1/meta/oauth/android-return";

@@ -52,7 +52,10 @@ public final class AuthGateActivity extends Activity {
             try {
                 JSONObject response = AuthApiClient.refresh(session);
                 AuthSessionStore.save(this, response);
-                refreshEntitlement(session);
+                // The refresh endpoint may rotate the session token. Never query billing
+                // with the pre-refresh token after the new one has been persisted.
+                String currentSession = AuthSessionStore.session(this);
+                refreshEntitlement(currentSession);
                 CallTagSyncManager.request(this, false);
                 runOnUiThread(() -> routeAfterLoading(this::openDestination));
             } catch (Exception error) {
@@ -90,6 +93,15 @@ public final class AuthGateActivity extends Activity {
     }
 
     private void openDestination() {
+        // An expired trial must show the renewal / record-access screen even when phone
+        // permissions have not been completed or were later revoked. Payment never requires
+        // becoming the default phone app or granting unrelated phone permissions.
+        if (EntitlementNoticeActivity.shouldOpen(this)) {
+            startActivity(new Intent(this, EntitlementNoticeActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+            finish();
+            return;
+        }
         if (!SetupRequirements.isReady(this)) {
             startActivity(SetupRequirements.requiredSetupIntent(this)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -109,9 +121,7 @@ public final class AuthGateActivity extends Activity {
             return;
         }
 
-        Class<?> destination = EntitlementNoticeActivity.shouldOpen(this)
-                ? EntitlementNoticeActivity.class : MainActivity.class;
-        startActivity(new Intent(this, destination)
+        startActivity(new Intent(this, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
         finish();
     }

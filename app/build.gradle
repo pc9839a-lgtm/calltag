@@ -26,9 +26,9 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // Play quality: R8, edge-to-edge, adaptive layouts, bitmap downsampling 2026-09-16
-        versionCode 2026091601
-        versionName '0.44.59'
+        // 2026-10-16: new Play upload build including SMS permission and review-path fixes
+        versionCode 2026101602
+        versionName '0.44.62'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
