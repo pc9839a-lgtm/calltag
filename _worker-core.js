@@ -81,7 +81,7 @@ const stripSeo=body=>body
   .replace(/<meta\s+(?:name|property)=["'](?:description|robots|googlebot|bingbot|author|application-name|og:[^"']+|twitter:[^"']+)["'][^>]*>\s*/gi,'')
   .replace(/<link\s+rel=["']canonical["'][^>]*>\s*/gi,'')
   .replace(/<link\s+rel=["']alternate["'][^>]*hreflang=[^>]*>\s*/gi,'')
-  .replace(/<script\s+type=["']application\/ld\+json["'][^>]*id=["']ct-seo-schema["'][^>]*>[\s\S]*?<\/script>\s*/gi,'');
+  .replace(/<script\s+type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>\s*/gi,'');
 
 const serveStyleBundle=async(request,env)=>{
   const requestUrl=new URL(request.url);
@@ -136,6 +136,9 @@ export default {
     const isGuide=/^\/guide(?:\/|$)/.test(url.pathname);if(isGuide){headers.set('cache-control','public, max-age=300, must-revalidate');return new Response(await response.text(),{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});}
     const isLegal=/^\/(terms|privacy|refund|support)(?:\.html)?(?:\/|$)/.test(url.pathname);if(isLegal)return new Response(await response.text(),{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
     const isSettlement=/^\/web\/settlement(?:\.html)?\/?$/.test(url.pathname);
+    // Preserve the original metadata on non-home HTML pages.
+    const isHome=url.pathname==='/';
+    if(!isHome&&!isSettlement)return new Response(await response.text(),{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
     const securityScript=isSettlement?`<script src="${PARTNER_SECURITY_SRC}"></script>`:'';
     let body=await response.text();body=stripSeo(body).replace(/<title>[\s\S]*?<\/title>/i,`<title>${SEO_TITLE}</title>`).replace('</head>',`${SEO_HEAD}</head>`).replace('</body>',`${securityScript}<script src="${RUNTIME_SRC}" defer></script></body>`);return new Response(body,{status:response.status,statusText:response.statusText,headers,encodeBody:'automatic'});
   }
