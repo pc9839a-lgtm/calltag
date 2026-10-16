@@ -55,6 +55,8 @@
             <input id="memberSearchInput" type="search" maxlength="80" autocomplete="off" placeholder="회원ID · 이메일 · 전화번호 검색" aria-label="회원 검색" />
             <button id="memberSearchButton" type="button">검색</button>
             <button id="payerAuditRefresh" type="button">전체 결제 누락 점검</button>
+            <button id="playRenewalReconcile" type="button">Google Play 구독 갱신 확인</button>
+            <span id="playRenewalStatus" class="member-result-count" role="status"></span>
             <span id="memberResultCount" class="member-result-count">—</span>
           </div>
         </div>
@@ -113,6 +115,7 @@
   <script src="/admin/play-finance-monthly.js?v=20260813-month1" defer></script>
   <script src="/admin/member-ops.js?v=20261016-subscriber-parity6" defer></script>
   <script src="/admin/payer-audit.js?v=20261016-payer-audit1" defer></script>
+  <script src="/admin/play-renewal-reconcile.js?v=20261016-playrenewal1" defer></script>
   <script src="/admin/member-ops-sync.js?v=20260813-ops1" defer></script>
   <script src="/admin/admin-theme.js?v=20260813-theme1" defer></script>
   <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
