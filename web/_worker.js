@@ -1,3 +1,8 @@
+import { handlePartnerAdminSecurity } from './worker/partner-admin-security.js';
+import { handleAdminOpsBridge } from './worker/admin-ops-bridge.js';
+import { handleAdminPayoutBridge } from './worker/admin-payout-bridge.js';
+import { handleCalltagAdmin } from './worker/admin.js';
+import { handlePartnerApi } from './worker/partner.js';
 const CANONICAL='https://calltag.pagero.kr/';
 const SEO_TITLE='콜태그 | 통화 후 고객관리·자동문자·페이지로 문의 연동';
 const SEO_DESCRIPTION='통화가 끝나면 고객을 태그하고 상담 상태·다음 할 일·재연락 일정을 관리하세요. 페이지로 랜딩페이지 문의 자동등록과 안내·후속문자까지 연결하는 Android 고객관리 서비스입니다.';
@@ -99,6 +104,18 @@ const serveStyleBundle=async(request,env)=>{
 
 export default {
   async fetch(request,env){
+    // Match root Pages runtime: protected operations routes must be tested
+    // before general admin assets/proxy or public landing handling.
+    const partnerSecurity = await handlePartnerAdminSecurity(request);
+    if (partnerSecurity) return partnerSecurity;
+    const ops = await handleAdminOpsBridge(request);
+    if (ops) return ops;
+    const payouts = await handleAdminPayoutBridge(request);
+    if (payouts) return payouts;
+    const admin = await handleCalltagAdmin(request,env);
+    if (admin) return admin;
+    const partnerApi = await handlePartnerApi(request);
+    if (partnerApi) return partnerApi;
     const sitemapPath=new URL(request.url).pathname;
     if(/^\/sitemap\/?$/i.test(sitemapPath))return Response.redirect(new URL('/sitemap.xml',request.url).toString(),301);
     const url=new URL(request.url);
