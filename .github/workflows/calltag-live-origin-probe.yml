@@ -1,0 +1,75 @@
+name: CallTag Live Origin Probe
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/calltag-live-origin-probe.yml'
+  pull_request:
+    paths:
+      - '.github/workflows/calltag-live-origin-probe.yml'
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect actual live admin assets without credentials
+        run: |
+          node --input-type=module <<'NODE'
+          const hosts=[
+            'https://calltag.pagero.kr',
+            'https://b73bc2b0.calltag.pages.dev',
+            'https://calltag.pages.dev',
+          ];
+          const paths=['/','/admin/','/admin/shell.dat','/admin/member-ops.js','/admin/admin-ops.css'];
+          const {createHash}=await import('node:crypto');
+          const results=[];
+          for(const host of hosts){
+            for(const path of paths){
+              const url=host+path+'?__origin_probe=20261016_141';
+              try{
+                const r=await fetch(url,{redirect:'manual',headers:{'cache-control':'no-cache'},signal:AbortSignal.timeout(10000)});
+                const type=r.headers.get('content-type')||'';
+                const t=type.includes('text/')||type.includes('javascript')?await r.text():'';
+                const out={
+                  host,path,status:r.status,type:type.slice(0,50),
+                  redirect:new URL(r.headers.get('location')||'/',host).hostname.slice(0,100),
+                  hasNewShell:t.includes('subscriber-parity6'),
+                  hasNewStatus:t.includes('구독·결제 상태')||t.includes('classifySubscription'),
+                  hasNewCss:t.includes('member-billing-active'),
+                  hasOldHtml:t.includes('결제 미확인'),
+                  htmlHash:path==='/'&&r.status===200?createHash('sha256').update(t).digest('hex'):''
+                };
+                results.push(out);
+                console.log(JSON.stringify(out));
+              }catch(e){
+                const out={host,path,error:String(e).slice(0,130)};
+                results.push(out);console.log(JSON.stringify(out));
+              }
+            }
+          }
+          const prod=results.filter(x=>x.host==='https://calltag.pagero.kr');
+          const preview=results.filter(x=>x.host==='https://b73bc2b0.calltag.pages.dev');
+          const prodShell=prod.find(x=>x.path==='/admin/');
+          const previewShell=preview.find(x=>x.path==='/admin/');
+          console.log('SUMMARY',JSON.stringify({
+            prodAdminHTTP:prodShell?.status||0,prodCurrentShell:prodShell?.hasNewShell||false,
+            previewAdminHTTP:previewShell?.status||0,previewCurrentShell:previewShell?.hasNewShell||false,
+            prodJs:prod.find(x=>x.path==='/admin/member-ops.js')?.hasNewStatus||false,
+            previewJs:preview.find(x=>x.path==='/admin/member-ops.js')?.hasNewStatus||false,
+            samePublicHomeContent:!!prod.find(x=>x.path==='/')?.htmlHash&&prod.find(x=>x.path==='/')?.htmlHash===preview.find(x=>x.path==='/')?.htmlHash,
+          }));
+          for(const origin of ['https://inlet-8mr.pages.dev','https://pagero.kr']){
+            try{
+              const r=await fetch(origin+'/api/call/admin/subscription-reconcile?__probe=20261016',{
+                redirect:'manual',signal:AbortSignal.timeout(10000)
+              });
+              console.log('RENEWAL_BACKEND_PROBE',JSON.stringify({
+                origin,status:r.status,location:new URL(r.headers.get('location')||'/',origin).hostname,
+                expectedMethodGuard:r.status===405
+              }));
+            }catch(e){
+              console.log('RENEWAL_BACKEND_PROBE',JSON.stringify({origin,error:String(e).slice(0,100)}));
+            }
+          }
+          NODE
