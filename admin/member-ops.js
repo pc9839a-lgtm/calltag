@@ -27,7 +27,7 @@
   const channels = { google_play: 'Google Play', play: 'Google Play', web: '웹 결제', admin: '관리자 지급' };
   const entitlementScopes = { all: '전체 이용권', call: '통화관리', message: '문자자동화' };
   const state = { page: 1, totalPages: 1, query: '', filter: 'all', loading: false };
-  const proofCache = new Map();
+
 
   searchButton.addEventListener('click', () => runSearch());
   evidenceFilter?.addEventListener('change', () => { state.filter = evidenceFilter.value; loadMembers(1); });
@@ -71,10 +71,11 @@
   function renderMembers(items) {
     rowsEl.replaceChildren();
     if (emptyEl) { emptyEl.hidden = items.length > 0; emptyEl.textContent = state.query ? '검색 결과가 없습니다.' : '회원 데이터가 없습니다.'; }
-    let autoChecks = 0;
     for (const item of items) {
       const subscriptions = Array.isArray(item.subscriptions) ? item.subscriptions : [];
       const tr = document.createElement('tr');
+      const payStatus = classifySubscription(item, subscriptions);
+      if (payStatus.rowClass) tr.classList.add(payStatus.rowClass);
       tr.append(
         cell(shortId(item.ownerId)),
         cell(item.email || '-'),
@@ -84,11 +85,10 @@
         pill(usageStatus(item, subscriptions)),
         pill(verificationLabel(subscriptions)),
         pill(grantHistoryLabel(item)),
-        proofCell(item, autoChecks < 4),
+        paymentStatusCell(payStatus),
         actionButton(item?.adminEntitlement?.active ? '이용권 관리' : item?.legacyEntitlement?.nonDefaultRecord ? '기존 기록 확인' : '이용권 지급', () => openMember(item.ownerId)),
       );
       rowsEl.append(tr);
-      if (item?.purchaseHistory?.evidence === 'subscription_verified' && item?.purchaseHistory?.channel === 'google_play' && !proofCache.has(item.ownerId) && autoChecks < 4) autoChecks++;
     }
   }
 
@@ -324,66 +324,42 @@
     return '관리자 지급 이력';
   }
 
-  function proofCell(item, mayAutoCheck) {
-    const cellEl = document.createElement('td');
-    const status = document.createElement('span');
-    status.textContent = purchaseHistoryLabel(item);
-    status.className = 'pill';
-    cellEl.append(status);
-    const current = item?.purchaseHistory;
-    if (current?.evidence !== 'subscription_verified' || current.channel !== 'google_play') return cellEl;
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'row-action';
-    btn.style.marginLeft = '7px';
-    btn.style.fontSize = '11px';
-    btn.textContent = 'Play 결제조회';
-    cellEl.append(btn);
-    const update = (proof) => {
-      if (proof?.confirmed && proof?.result === 'play_order_paid') {
-        status.textContent = 'Google Play 실결제 확인 · ' + money(proof.amountKrw) + '원';
-        status.className = 'pill good';
-        btn.textContent = '재확인';
-      } else if (proof?.providerHttpStatus === 403 || proof?.providerHttpStatus === 401) {
-        status.textContent = '구독 확인 · Play 주문 조회 권한 없음';
-      } else if (proof?.result === 'play_reference_missing') {
-        status.textContent = '구독 확인 · 주문번호 누락';
-      } else if (proof?.result === 'PLAY_ORDER_NOT_PROCESSED' || proof?.result === 'PLAY_ORDER_AMOUNT_INVALID') {
-        status.textContent = '구독 확인 · 결제 처리 미확인';
-      } else {
-        status.textContent = '구독 확인 · Play 결제액 조회 불가';
-      }
-    };
-    btn.addEventListener('click', () => checkProviderOrder(item.ownerId, status, btn, update));
-    if (proofCache.has(item.ownerId)) update(proofCache.get(item.ownerId));
-    else if (mayAutoCheck) Promise.resolve().then(() => checkProviderOrder(item.ownerId, status, btn, update));
-    return cellEl;
+  // Admin uses the same current-subscription conditions as app access.
+  // Paid amount verification is a financial ledger question, not an access-status test.
+  function classifySubscription(item, subscriptions) {
+    const current = subscriptions.filter(s => s.verificationState === 'verified'
+      && ['active','grace','cancelled'].includes(String(s.status || '').toLowerCase())
+      && isCurrentSubscription(s));
+    if (current.some(s => s.status === 'active' && (s.autoRenewing === true || s.channel === 'web')))
+      return { label: '결제중', badgeClass: 'member-billing-active', rowClass: 'member-billing-row' };
+    if (current.some(s => s.status === 'grace'))
+      return { label: '결제 유예 · 이용중', badgeClass: 'member-billing-grace', rowClass: 'member-billing-row' };
+    if (current.length)
+      return { label: '해지 예정 · 이용중', badgeClass: 'member-billing-ending', rowClass: 'member-billing-ending-row' };
+    if (subscriptions.some(s => ['active','grace','cancelled'].includes(s.status) && isCurrentSubscription(s)))
+      return { label: '구독 이용중 · 검증 확인필요', badgeClass: 'member-billing-review', rowClass: 'member-billing-ending-row' };
+    if (subscriptions.some(s => s.status === 'pending'))
+      return { label: '구독 검증중', badgeClass: 'member-billing-review' };
+    if (item?.purchaseHistory?.evidence === 'confirmed_charge')
+      return { label: '과거 결제 · 현재 미구독', badgeClass: 'member-billing-history' };
+    if (item?.purchaseHistory?.recorded === true)
+      return { label: '구독 이력 · 현재 미구독', badgeClass: 'member-billing-history' };
+    if (item?.legacyEntitlement?.source === 'pagero_payment')
+      return { label: '과거 결제 표기 · 확인필요', badgeClass: 'member-billing-review' };
+    if (item?.adminEntitlement?.active === true)
+      return { label: '관리자 지급 · 결제 아님', badgeClass: 'member-billing-admin' };
+    if (isTrial(item?.trialEndsAt))
+      return { label: '무료체험 · 결제 아님', badgeClass: 'member-billing-trial' };
+    return { label: '결제 확인 자료 없음', badgeClass: 'member-billing-muted' };
   }
 
-  async function checkProviderOrder(ownerId, status, button, update) {
-    if (button.disabled) return;
-    button.disabled = true;
-    button.textContent = '조회중';
-    const result = await fetchJson('/admin/api/payment-proof?ownerId=' + encodeURIComponent(ownerId));
-    if (result.ok && result.data?.ok !== false) {
-      proofCache.set(ownerId, result.data);
-      update(result.data);
-    } else {
-      status.textContent = '구독 확인 · Play 주문 API 연결 실패';
-    }
-    button.disabled = false;
-    if (button.textContent === '조회중') button.textContent = '재확인';
-  }
-
-  function purchaseHistoryLabel(item) {
-    const verified = item?.purchaseHistory;
-    if (verified?.recorded === true) {
-      if (verified.evidence === 'confirmed_charge') return '유료 결제 기록 확인';
-      if (verified.refunded === true) return '구독 검증 · 환불 상태';
-      return '구독 검증 · 결제 미확인';
-    }
-    if (item?.legacyEntitlement?.source === 'pagero_payment') return '이전 결제 표기 · 미검증';
-    return '확인 안 됨';
+  function paymentStatusCell(status) {
+    const td = document.createElement('td');
+    const mark = document.createElement('span');
+    mark.className = `member-billing-badge ${status.badgeClass}`;
+    mark.textContent = status.label;
+    td.append(mark);
+    return td;
   }
   function legacyAwareLabel(item, subscriptions) {
     const current = entitlementLabel(item, subscriptions);
