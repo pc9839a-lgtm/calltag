@@ -4,11 +4,15 @@ const PREFIX='/admin/api/';
 export async function handleAdminOpsBridge(request){
   const url=new URL(request.url);
   const route=url.pathname;
-  if(![`${PREFIX}members`,`${PREFIX}payer-audit`,`${PREFIX}member-payments`,`${PREFIX}payment-proof`,`${PREFIX}play-finance-monthly`,`${PREFIX}entitlement`].includes(route))return null;
+  if(![`${PREFIX}members`,`${PREFIX}payer-audit`,`${PREFIX}subscription-reconcile`,`${PREFIX}member-payments`,`${PREFIX}payment-proof`,`${PREFIX}play-finance-monthly`,`${PREFIX}entitlement`].includes(route))return null;
   const assertion=String(request.headers.get('CF-Access-Jwt-Assertion')||'').trim();
   if(!assertion)return json({ok:false,error:'운영 데이터 접근이 잠겨 있습니다.',code:'CALLTAG_ADMIN_ACCESS_REQUIRED'},401);
 
   if(route===`${PREFIX}entitlement`)return handleEntitlement(request,url,assertion);
+  if(route===`${PREFIX}subscription-reconcile`){
+    if(request.method!=='POST')return json({ok:false,code:'METHOD_NOT_ALLOWED'},405,{allow:'POST'});
+    return proxyWrite(assertion,'/api/call/admin/subscription-reconcile',{},sanitizeSubscriptionReconcile);
+  }
   if(request.method!=='GET')return json({ok:false,error:'Method not allowed.',code:'METHOD_NOT_ALLOWED'},405,{allow:'GET'});
 
   if(route===`${PREFIX}payer-audit`)return proxy(assertion,'/api/call/admin/payer-audit',sanitizePayerAudit);
@@ -88,6 +92,17 @@ async function proxyWrite(assertion,path,body,sanitize){
   }catch{return json({ok:false,error:'관리자 API에 연결하지 못했습니다.',code:'ADMIN_UPSTREAM_UNAVAILABLE'},502)}
 }
 
+function sanitizeSubscriptionReconcile(data){
+  const allowed=['verified_current','verified_not_current','record_incomplete','provider_unavailable','play_token_unavailable','purchase_token_mismatch','product_mismatch','account_changed','subscription_verification_failed'];
+  return {ok:true,examined:num(data?.examined),providerVerified:num(data?.providerVerified),
+    activeNow:num(data?.activeNow),needsReview:num(data?.needsReview),
+    results:(Array.isArray(data?.results)?data.results.slice(0,5):[]).map(x=>({
+      ownerId:owner(x?.ownerId),productCode:token(x?.productCode,80),
+      verified:x?.verified===true,active:x?.active===true,
+      state:allowed.includes(x?.state)?x.state:'provider_unavailable',
+      providerHttpStatus:[401,403,404].includes(Number(x?.providerHttpStatus||0))?Number(x.providerHttpStatus):0,
+    })).filter(x=>x.ownerId)};
+}
 function sanitizePayerAudit(data){
   const c=Array.isArray(data?.candidates)?data.candidates.slice(0,500):[];
   const types=['charge_recorded','subscription_verified','legacy_unverified','other'];
