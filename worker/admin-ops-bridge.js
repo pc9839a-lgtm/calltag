@@ -4,7 +4,7 @@ const PREFIX='/admin/api/';
 export async function handleAdminOpsBridge(request){
   const url=new URL(request.url);
   const route=url.pathname;
-  if(![`${PREFIX}members`,`${PREFIX}member-payments`,`${PREFIX}play-finance-monthly`,`${PREFIX}entitlement`].includes(route))return null;
+  if(![`${PREFIX}members`,`${PREFIX}member-payments`,`${PREFIX}payment-proof`,`${PREFIX}play-finance-monthly`,`${PREFIX}entitlement`].includes(route))return null;
   const assertion=String(request.headers.get('CF-Access-Jwt-Assertion')||'').trim();
   if(!assertion)return json({ok:false,error:'운영 데이터 접근이 잠겨 있습니다.',code:'CALLTAG_ADMIN_ACCESS_REQUIRED'},401);
 
@@ -17,6 +17,11 @@ export async function handleAdminOpsBridge(request){
     const filter=['granted','purchased'].includes(url.searchParams.get('filter'))?url.searchParams.get('filter'):'all';
     const path=`/api/call/admin/members?page=${page}&filter=${filter}${q?`&q=${encodeURIComponent(q)}`:''}`;
     return proxy(assertion,path,sanitizeMembers);
+  }
+  if(route===`${PREFIX}payment-proof`){
+    const ownerId=validOwner(url.searchParams.get('ownerId'));
+    if(!ownerId)return json({ok:false,error:'회원 식별자가 올바르지 않습니다.',code:'CALLTAG_ADMIN_MEMBER_ID_INVALID'},400);
+    return proxy(assertion,`/api/call/admin/payment-proof?ownerId=${encodeURIComponent(ownerId)}`,sanitizePaymentProof);
   }
   if(route===`${PREFIX}member-payments`){
     const ownerId=validOwner(url.searchParams.get('ownerId'));
@@ -120,6 +125,12 @@ function sanitizeMemberPayments(data){
     })),
     generatedAt:date(data?.generatedAt),
   };
+}
+
+function sanitizePaymentProof(data){
+  const paid=data?.confirmed===true && data?.result==='play_order_paid';
+  const reasons=['no_verified_play_order','play_reference_missing','provider_unavailable','PLAY_ORDER_INPUT_INCOMPLETE','PLAY_ORDER_NETWORK_FAILED','PLAY_ORDER_LOOKUP_FAILED','PLAY_ORDER_NOT_PROCESSED','PLAY_ORDER_PRODUCT_TOTAL_MISSING','PLAY_ORDER_NON_KRW','PLAY_ORDER_AMOUNT_INVALID'];
+  return{ok:true,ownerId:owner(data?.ownerId),confirmed:paid,result:paid?'play_order_paid':reasons.includes(data?.result)?data.result:'provider_unavailable',amountKrw:paid?num(data?.amountKrw):0,productCode:token(data?.productCode,80),providerHttpStatus:[401,403,404].includes(Number(data?.providerHttpStatus||0))?Number(data.providerHttpStatus):0,source:paid?'google_play_orders_api':''};
 }
 
 function sanitizePlayFinanceMonthly(data){
