@@ -26,8 +26,8 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // Production patch: 20% referral cash commission + renewal reconciliation 2026-10-07
-        versionCode 2026100701
+        // 2026-10-16: new Play upload build including SMS permission and review-path fixes
+        versionCode 2026101601
         versionName '0.44.61'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
