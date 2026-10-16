@@ -80,7 +80,7 @@ const stripSeo=body=>body
   .replace(/<meta\s+(?:name|property)=["'](?:description|robots|googlebot|bingbot|author|application-name|og:[^"']+|twitter:[^"']+)["'][^>]*>\s*/gi,'')
   .replace(/<link\s+rel=["']canonical["'][^>]*>\s*/gi,'')
   .replace(/<link\s+rel=["']alternate["'][^>]*hreflang=[^>]*>\s*/gi,'')
-  .replace(/<script\s+type=["']application\/ld\+json["'][^>]*id=["']ct-seo-schema["'][^>]*>[\s\S]*?<\/script>\s*/gi,'');
+  .replace(/<script\s+type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>\s*/gi,'');
 
 const serveStyleBundle=async(request,env)=>{
   const requestUrl=new URL(request.url);
