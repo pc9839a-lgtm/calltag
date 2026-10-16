@@ -76,10 +76,10 @@
         cell(item.email || '-'),
         cell(item.phone || '-'),
         cell(dateOnly(item.createdAt)),
-        cell(entitlementLabel(item, subscriptions)),
+        cell(legacyAwareLabel(item, subscriptions)),
         pill(usageStatus(item, subscriptions)),
         pill(verificationLabel(subscriptions)),
-        actionButton(item?.adminEntitlement?.active ? '이용권 관리' : '이용권 지급', () => openMember(item.ownerId)),
+        actionButton(item?.adminEntitlement?.active ? '이용권 관리' : item?.legacyEntitlement?.nonDefaultRecord ? '기존 기록 확인' : '이용권 지급', () => openMember(item.ownerId)),
       );
       rowsEl.append(tr);
     }
@@ -308,6 +308,13 @@
     } catch { return { ok: false, data: {}, error: '' }; }
   }
 
+  function legacyAwareLabel(item, subscriptions) {
+    const current = entitlementLabel(item, subscriptions);
+    const prior = item?.legacyEntitlement;
+    if (!prior?.nonDefaultRecord) return current;
+    // This is historical evidence, not confirmation of live app access.
+    return current === '-' ? '이전 이용권 기록' : `${current} · 이전 이용권 기록`;
+  }
   function entitlementLabel(item, subscriptions) {
     const active = subscriptions.filter(isCurrentSubscription);
     const codes = [...new Set(active.map((x) => x.productCode).filter(Boolean))];
