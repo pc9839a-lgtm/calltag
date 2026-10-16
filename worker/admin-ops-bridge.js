@@ -14,7 +14,8 @@ export async function handleAdminOpsBridge(request){
   if(route===`${PREFIX}members`){
     const q=safeQuery(url.searchParams.get('q'));
     const page=pageNumber(url.searchParams.get('page'));
-    const path=`/api/call/admin/members?page=${page}${q?`&q=${encodeURIComponent(q)}`:''}`;
+    const filter=['granted','purchased'].includes(url.searchParams.get('filter'))?url.searchParams.get('filter'):'all';
+    const path=`/api/call/admin/members?page=${page}&filter=${filter}${q?`&q=${encodeURIComponent(q)}`:''}`;
     return proxy(assertion,path,sanitizeMembers);
   }
   if(route===`${PREFIX}member-payments`){
@@ -86,6 +87,7 @@ function sanitizeMembers(data){
   return{
     ok:true,
     query:safeQuery(data?.query),
+    filter:['granted','purchased'].includes(data?.filter)?data.filter:'all',
     page:pageNumber(data?.page),
     pageSize:Math.min(40,Math.max(1,num(data?.pageSize)||40)),
     total:num(data?.total),
@@ -96,6 +98,8 @@ function sanitizeMembers(data){
       subscriptions:(Array.isArray(x?.subscriptions)?x.subscriptions.slice(0,6):[]).map(sub).filter(Boolean),
       adminEntitlement:adminGrant(x?.adminEntitlement),
       legacyEntitlement:legacyRecord(x?.legacyEntitlement),
+      grantHistory:{recorded:x?.grantHistory?.recorded===true,source:token(x?.grantHistory?.source,32)},
+      purchaseHistory:{recorded:x?.purchaseHistory?.recorded===true,refunded:x?.purchaseHistory?.refunded===true,channel:token(x?.purchaseHistory?.channel,32),productCode:token(x?.purchaseHistory?.productCode,80),verifiedAt:date(x?.purchaseHistory?.verifiedAt)},
     })).filter(x=>x.ownerId),
     generatedAt:date(data?.generatedAt),
   };
