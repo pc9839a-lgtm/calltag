@@ -73,6 +73,9 @@ public final class MessageAutomationStore {
     }
 
     public static boolean isEnabled(Context context) {
+        // A session without a verified owner must never dispatch automatic SMS.
+        if (!AuthSessionStore.hasSession(context)
+                || AuthSessionStore.ownerId(context).trim().isEmpty()) return false;
         ensureDefaults(context);
         return prefs(context).getBoolean(KEY_ENABLED, false);
     }
