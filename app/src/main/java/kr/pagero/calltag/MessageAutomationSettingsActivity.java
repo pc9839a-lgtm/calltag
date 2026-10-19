@@ -393,17 +393,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
                 ? startHourValue + ":00–" + endHourValue + ":00"
                 : "시간 제한 없음")
                 + " · " + cooldownHoursValue + "시간 중복 방지"
-                + "\n" + selectedLineLabel()
-                + serverMinimumNotice());
-    }
-
-    private String serverMinimumNotice() {
-        int cooldown = CallTagRemotePolicy.minimumCooldownHours(this);
-        int followup = CallTagRemotePolicy.minimumFollowupDays(this);
-        int leadDelay = CallTagRemotePolicy.minimumLeadDelayMinutes(this);
-        if (cooldown == 0 && followup == 0 && leadDelay == 0) return "";
-        return "\n서버 안전 기준: 중복 " + cooldown + "시간 · 후속 "
-                + followup + "일 · 문의 " + leadDelay + "분 (더 긴 조건 우선)";
+                + "\n" + selectedLineLabel());
     }
 
     private String selectedLineLabel() {
