@@ -34,7 +34,10 @@ public final class InitialPermissionActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(buildContent());
-        getWindow().getDecorView().postDelayed(this::startPermissionFlow, 300L);
+        // Restricted Call Log access must never be requested by an automatic
+        // post-launch timer. Let users read the in-app rationale first and
+        // explicitly choose to activate call-based automation.
+        if (SetupRequirements.hasCoreRuntimePermissions(this)) complete();
     }
 
     @Override
@@ -57,7 +60,7 @@ public final class InitialPermissionActivity extends Activity {
         root.setBackgroundColor(getColor(R.color.background));
 
         TextView title = new TextView(this);
-        title.setText("전화 고객관리 권한");
+        title.setText("통화 후 고객관리 자동화");
         title.setTextColor(getColor(R.color.text_primary));
         title.setTextSize(23f);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -65,14 +68,14 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(title, wrap());
 
         detail = new TextView(this);
-        detail.setText("콜태그는 기본 전화 앱이 아닌 고객관리 앱입니다. 아래 요청은 기본 전화 앱 변경이 아니라 고객 확인과 통화 이력 연결을 위한 권한 허용입니다. 문자·알림 권한은 해당 기능 사용 시 별도로 요청합니다.");
+        detail.setText("사용자가 켠 통화 후 고객관리 기능은 통화가 끝난 시각·발신/수신 여부·전화번호를 확인해 상담 이력과 후속 업무를 등록합니다. 이를 위해 전화 상태, 연락처, 통화기록(READ_CALL_LOG)에 접근합니다.\n\n자동문자는 기본 OFF이며, 별도 설정에서 발송 조건·템플릿·회선을 직접 켠 경우에만 SMS 발송 권한(SEND_SMS)을 요청합니다. 기본 전화 앱은 변경되지 않습니다.");
         detail.setTextColor(getColor(R.color.text_secondary));
         detail.setTextSize(14f);
         detail.setGravity(Gravity.CENTER);
         detail.setLineSpacing(0f, 1.25f);
         root.addView(detail, top(12));
 
-        requestButton = action("필수 권한 허용", true);
+        requestButton = action("통화 후 자동관리 권한 허용", true);
         requestButton.setOnClickListener(v -> startPermissionFlow());
         root.addView(requestButton, fixedTop(52, 24));
 
@@ -82,7 +85,7 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(settingsButton, fixedTop(50, 9));
 
         TextView note = new TextView(this);
-        note.setText("현재 사용 중인 전화 앱은 그대로 유지됩니다. 콜태그는 연락처 내용을 수정하지 않으며, 통화기록은 고객 이력 연결에만 사용합니다.");
+        note.setText("권한 허용 버튼을 눌러야 Android 권한 요청창이 열립니다. 통화기록은 통화 후 업무 생성 및 중복 처리 방지에 사용하며, 통화 내역을 변경하지 않습니다. 현재 전화 앱은 그대로 사용합니다.");
         note.setTextColor(getColor(R.color.text_muted));
         note.setTextSize(12f);
         note.setGravity(Gravity.CENTER);
@@ -126,7 +129,7 @@ public final class InitialPermissionActivity extends Activity {
         requestButton.setAlpha(0.6f);
         requestButton.setText("권한 요청 중…");
         settingsButton.setVisibility(View.GONE);
-        detail.setText("연락처 · 전화 · 전화번호 · 통화기록 권한을 확인하고 있습니다. 표시되는 항목을 허용해주세요.");
+        detail.setText("사용자가 요청한 통화 후 고객관리 기능에 필요한 연락처 · 전화 상태 · 전화번호 · 통화기록 권한을 요청합니다. 자동문자(SEND_SMS)는 문자 규칙을 켤 때 별도로 요청합니다.");
         requestPermissions(missing.toArray(new String[0]), REQUEST_PERMISSIONS);
     }
 
