@@ -99,6 +99,22 @@ public final class MessageAutomationStore {
         prefs(context).edit().putBoolean(KEY_MISSED_ENABLED, enabled).apply();
     }
 
+    /** Recheck consent when a queued automatic call SMS is actually sent. */
+    public static boolean allowsAutomaticTrigger(Context context, String trigger) {
+        if (MessageAutomationManager.TRIGGER_CONNECTED.equals(trigger)
+                || MessageAutomationManager.TRIGGER_INCOMING.equals(trigger)
+                || MessageAutomationManager.TRIGGER_OUTGOING.equals(trigger)) {
+            return isEnabled(context) && connectedEnabled(context);
+        }
+        if (MessageAutomationManager.TRIGGER_MISSED.equals(trigger)) {
+            return isEnabled(context) && missedEnabled(context);
+        }
+        if (MessageAutomationManager.TRIGGER_DELAYED.equals(trigger)) {
+            return isEnabled(context) && delayedEnabled(context);
+        }
+        return true;
+    }
+
     public static boolean delayedEnabled(Context context) {
         ensureDefaults(context);
         return prefs(context).getBoolean(KEY_DELAYED_ENABLED, false);
