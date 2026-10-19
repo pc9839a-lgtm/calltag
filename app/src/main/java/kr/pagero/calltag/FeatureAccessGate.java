@@ -19,7 +19,10 @@ public final class FeatureAccessGate {
             showPlanRequired(context, feature);
             return;
         }
-        if (MESSAGE.equals(feature) && !SetupRequirements.hasSms(context)) {
+        // Automation settings explains the rule first and requests SEND_SMS only on save.
+        if (MESSAGE.equals(feature)
+                && destination != MessageAutomationSettingsActivity.class
+                && !SetupRequirements.hasSms(context)) {
             requestSmsPermission(context);
             return;
         }

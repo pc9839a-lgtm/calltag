@@ -36,13 +36,14 @@ public final class MessageAutomationStore {
 
     private static SharedPreferences prefs(Context context) {
         return context.getApplicationContext()
-                .getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+                .getSharedPreferences(AccountDataScope.preferenceName(context, PREFS),
+                        Context.MODE_PRIVATE);
     }
 
     public static void ensureDefaults(Context context) {
         SharedPreferences p = prefs(context);
         SharedPreferences.Editor editor = p.edit();
-        if (!p.contains(KEY_ENABLED)) editor.putBoolean(KEY_ENABLED, true);
+        if (!p.contains(KEY_ENABLED)) editor.putBoolean(KEY_ENABLED, false);
         if (!p.contains(KEY_CONNECTED_ENABLED)) editor.putBoolean(KEY_CONNECTED_ENABLED, false);
         if (!p.contains(KEY_MISSED_ENABLED)) editor.putBoolean(KEY_MISSED_ENABLED, false);
         if (!p.contains(KEY_DELAYED_ENABLED)) editor.putBoolean(KEY_DELAYED_ENABLED, false);
@@ -72,8 +73,11 @@ public final class MessageAutomationStore {
     }
 
     public static boolean isEnabled(Context context) {
+        // A session without a verified owner must never dispatch automatic SMS.
+        if (!AuthSessionStore.hasSession(context)
+                || AuthSessionStore.ownerId(context).trim().isEmpty()) return false;
         ensureDefaults(context);
-        return prefs(context).getBoolean(KEY_ENABLED, true);
+        return prefs(context).getBoolean(KEY_ENABLED, false);
     }
 
     public static void setEnabled(Context context, boolean enabled) {
@@ -96,6 +100,22 @@ public final class MessageAutomationStore {
 
     public static void setMissedEnabled(Context context, boolean enabled) {
         prefs(context).edit().putBoolean(KEY_MISSED_ENABLED, enabled).apply();
+    }
+
+    /** Recheck consent when a queued automatic call SMS is actually sent. */
+    public static boolean allowsAutomaticTrigger(Context context, String trigger) {
+        if (MessageAutomationManager.TRIGGER_CONNECTED.equals(trigger)
+                || MessageAutomationManager.TRIGGER_INCOMING.equals(trigger)
+                || MessageAutomationManager.TRIGGER_OUTGOING.equals(trigger)) {
+            return isEnabled(context) && connectedEnabled(context);
+        }
+        if (MessageAutomationManager.TRIGGER_MISSED.equals(trigger)) {
+            return isEnabled(context) && missedEnabled(context);
+        }
+        if (MessageAutomationManager.TRIGGER_DELAYED.equals(trigger)) {
+            return isEnabled(context) && delayedEnabled(context);
+        }
+        return true;
     }
 
     public static boolean delayedEnabled(Context context) {

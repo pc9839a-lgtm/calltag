@@ -26,9 +26,9 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // 2026-10-16: new Play upload build including SMS permission and review-path fixes
-        versionCode 2026101602
-        versionName '0.44.62'
+        // 2026-10-19: explicit Call Log opt-in and call-triggered SMS review flow
+        versionCode 2026101901
+        versionName '0.44.63'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
