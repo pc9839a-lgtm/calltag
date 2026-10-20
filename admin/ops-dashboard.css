@@ -27,3 +27,82 @@
 .ops-health button:focus-visible{outline:3px solid #4479e8;outline-offset:2px}
 @media(max-width:820px){.ops-health{padding:16px}.ops-health-grid{grid-template-columns:1fr}.ops-health-bottom{grid-template-columns:1fr}.ops-actions{flex-direction:row;flex-wrap:wrap}.ops-health-header{flex-direction:column;gap:5px}}
 @media(min-width:821px) and (max-width:1060px){.ops-health-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* Minimal overview: 3 KPIs, a searchable member list, and expandable advanced tools. */
+.topbar{background:#0a0a0a!important;color:#f5f5f5!important;border-color:#232323!important;box-shadow:none!important}
+.topbar .brand strong{color:#f5f5f5}
+.topbar .tabs .tab{color:#a1a1aa}
+.topbar .tabs .tab.active{background:#292929;color:#fff}
+.topbar .actions span{color:#a1a1aa}
+.topbar .actions button{background:#1e1e1e;color:#fff;border-color:#393939}
+.wrap{max-width:1180px}
+.statusbar{max-width:1180px;font-size:12px;padding:8px 12px}
+.ops-health{padding:20px 22px;margin-bottom:16px;border-radius:14px;border-color:#e7e9ed;box-shadow:none}
+.ops-health-header{margin-bottom:14px}
+.ops-health-heading h1{font-size:17px}
+.ops-health-heading p{font-size:12px}
+.ops-health-grid{gap:12px;margin-bottom:0}
+.ops-indicator{padding:18px 18px 16px;background:#fff;border-color:#e9ebef;border-radius:10px}
+.ops-indicator>span{font-size:12px}
+.ops-indicator>strong{font-size:29px}
+.ops-indicator>small{line-height:1.45;min-height:0}
+.ops-indicator:first-child{background:#0a0a0a;border-color:#0a0a0a}
+.ops-indicator:first-child>span{color:#d3d3d3}
+.ops-indicator:first-child>strong,.ops-indicator:first-child>strong[data-state="ok"]{color:#d4f527}
+.ops-indicator:first-child>small{color:#a3a3a3}
+.ops-health-bottom{display:none;grid-template-columns:minmax(0,1fr);padding-top:13px;margin-top:14px}
+.ops-health.ops-has-alerts .ops-health-bottom{display:grid}
+.ops-health-bottom h2{font-size:12px;margin:0 0 9px}
+.ops-issues{gap:7px}
+.ops-issue{padding:9px 0;border-bottom:1px solid #edf0f3}
+.ops-issue:last-child{border-bottom:0}
+.ops-issue button{min-width:70px}
+.ops-source-help{margin-top:12px;color:#707886;font-size:11px}
+.ops-source-help summary{cursor:pointer;width:max-content;font-size:11px}
+.ops-source-note{margin:6px 0 0;border-top:0;padding:0;font-size:11px}
+.admin-fold{margin-top:12px;border:1px solid #e5e7eb;border-radius:11px;background:#fff;overflow:hidden}
+.admin-fold>summary{display:flex;align-items:center;justify-content:space-between;min-height:46px;padding:12px 17px;font-size:13px;font-weight:700;color:#303846;cursor:pointer;list-style:none}
+.admin-fold>summary::-webkit-details-marker{display:none}
+.admin-fold>summary:after{content:"+";font-weight:400;font-size:20px;color:#6b7280;line-height:1}
+.admin-fold[open]>summary:after{content:"−"}
+.admin-fold>summary span{margin-left:auto;margin-right:12px;color:#9ca3af;font-size:11px;font-weight:400}
+.admin-fold[open]>summary{border-bottom:1px solid #e9ebef}
+.admin-fold-content{padding:16px}
+.admin-fold .metrics{margin-bottom:12px}
+.admin-fold .metrics article{min-height:84px;padding:14px}
+.admin-fold .metrics strong{font-size:22px}
+.admin-fold-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 12px}
+.admin-fold-tools button{border-radius:8px;background:#fff;border:1px solid #dde2e8;color:#202833;padding:9px 12px;font:inherit;font-weight:700;font-size:12px;cursor:pointer}
+.admin-fold-tools button:disabled{opacity:.5;cursor:default}
+.admin-secondary{margin:18px 0 24px}
+.admin-secondary>.admin-fold{margin-top:9px}
+#membersPanel .panelhead{display:flex;justify-content:space-between;align-items:center;gap:14px}
+#membersPanel .member-tools{justify-content:flex-end;gap:7px}
+#membersPanel .member-tools input{min-width:220px}
+#membersPanel .tablewrap{overflow-x:auto}
+#membersPanel table{width:100%}
+.audit-fold{margin-top:12px}
+.audit-fold .payer-audit{margin:0}
+@media(max-width:820px){
+ .topbar{padding:10px 14px;gap:10px}
+ .ops-health{padding:16px}
+ .ops-health-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+ .ops-indicator{padding:13px 10px}
+ .ops-indicator>strong{font-size:22px}
+ .ops-indicator>span{font-size:11px}
+ .ops-indicator>small{font-size:10px;line-height:1.4}
+ .admin-fold-content{padding:10px}
+ #membersPanel .panelhead{display:block}
+ #membersPanel .member-tools{justify-content:flex-start;margin-top:10px}
+ #membersPanel .member-tools input{min-width:150px;flex:1}
+ .admin-fold .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:430px){
+ .ops-health-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .ops-indicator>strong{font-size:19px}
+ .ops-indicator>small{display:none}
+ .ops-indicator>span{font-size:10px;min-height:26px}
+ .ops-health-heading p{font-size:11px}
+ .ops-last-checked{font-size:10px}
+}

@@ -42,4 +42,25 @@ assert(ops.includes('조회 상한에 도달했습니다.'),'truncated audit mus
 assert(!/\bfetch\s*\(|XMLHttpRequest|localStorage|sessionStorage/.test(ops),'no new admin network or persistent tokens');
 assert(!/\b(ownerId|email|purchaseToken|orderId|privateKey)\b/.test(ops),'no direct customer/billing identifiers');
 assert(!/PUT|PATCH|DELETE|POST\s*\(/.test(ops),'never mutate production records via overview');
-console.log(JSON.stringify({ ok:true, name:'calltag-admin-ops-dashboard', checks:32, productionDataWrites:false }));
+const memberListPos=html.indexOf('id="membersPanel"');
+const healthPos=html.indexOf('id="opsHealthPanel"');
+const auditPos=html.indexOf('id="payerAuditDetails"');
+const extraPos=html.indexOf('id="extraStatsDetails"');
+const financePos=html.indexOf('id="financeDetails"');
+assert(healthPos>0 && healthPos<memberListPos,'three KPI overview comes before member table');
+assert(memberListPos<auditPos && auditPos<extraPos && extraPos<financePos,
+  'searchable member table before collapsed billing details');
+for(const name of ['payerAuditDetails','extraStatsDetails','financeDetails']){
+  assert(html.includes('<details id="'+name+'"'),'advanced controls must use native expandable details');
+  assert(!new RegExp('<details id="'+name+'"[^>]*\sopen(?:\s|>)').test(html),
+    'advanced panels must be collapsed by default');
+}
+const kpiStart=html.indexOf('<div class="ops-health-grid">');
+const kpiEnd=html.indexOf('</div>',html.indexOf('</div>',html.indexOf('</div>',kpiStart)+6)+6);
+assert(kpiStart>0 && kpiEnd>kpiStart,'primary KPI panel exists');
+assert((html.slice(kpiStart,html.indexOf('<div class="ops-health-bottom">',kpiStart)).match(/class="ops-indicator"/g)||[]).length===3,
+  'show only three primary KPI cards');
+assert(ops.includes("panel.classList.toggle('ops-has-alerts', warnings.length > 0)"),
+  'healthy audit warnings should not occupy screen');
+assert(ops.includes("details.open = true"),'navigation must open folded billing details');
+console.log(JSON.stringify({ ok:true, name:'calltag-admin-simple-layout', checks:43, productionDataWrites:false }));

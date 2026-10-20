@@ -117,6 +117,7 @@
       action: 'finance',
     });
 
+    panel.classList.toggle('ops-has-alerts', warnings.length > 0);
     parts.attention.replaceChildren();
     if (!state.overview && !state.audit && !state.finance) {
       const item = document.createElement('li');
@@ -150,11 +151,15 @@
 
   function navigate(action) {
     if (action === 'audit') {
+      const details = $('payerAuditDetails');
+      if (details) details.open = true;
       $('payerAuditPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       parts.payerAuditButton?.click();
       return;
     }
     if (action === 'finance') {
+      const details = $('financeDetails');
+      if (details) details.open = true;
       $('playFinancePanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
