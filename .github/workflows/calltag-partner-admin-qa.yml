@@ -78,6 +78,9 @@ jobs:
           node --check admin/payout-request.js
           node --check admin/play-finance.js
           node --check admin/play-finance-monthly.js
+          node --check admin/ops-dashboard.js
+          node --check web/admin/ops-dashboard.js
+          node scripts/calltag-admin-ops-dashboard-quality-check.mjs
           node --check admin/member-ops.js
           node --check web/settlement.js
           node --check web/settlement-core.js
