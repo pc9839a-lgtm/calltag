@@ -84,6 +84,7 @@ jobs:
           node --check admin/member-ops.js
           node --check web/admin/member-ops.js
           node scripts/calltag-admin-members-compact-quality-check.mjs
+          node scripts/calltag-admin-member-detail-design-quality-check.mjs
           node --check admin/member-ops.js
           node --check web/settlement.js
           node --check web/settlement-core.js

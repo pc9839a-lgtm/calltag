@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/admin/admin-ops.css?v=20261016-subscriber-parity6" />
   <link rel="stylesheet" href="/admin/admin-theme.css?v=20260813-theme1" />
   <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261020-compact3" />
+  <link rel="stylesheet" href="/admin/member-detail.css?v=20261020-detail-v2" />
 </head>
 <body>
   <header class="topbar">
@@ -168,7 +169,7 @@
   <script src="/admin/admin.js?v=20261014-member-fix1" defer></script>
   <script src="/admin/payout-request.js?v=20260813-payout1" defer></script>
   <script src="/admin/play-finance-monthly.js?v=20260813-month1" defer></script>
-  <script src="/admin/member-ops.js?v=20261020-compact3" defer></script>
+  <script src="/admin/member-ops.js?v=20261020-detail-v2" defer></script>
   <script src="/admin/payer-audit.js?v=20261016-payer-audit1" defer></script>
   <script src="/admin/play-renewal-reconcile.js?v=20261016-playrenewal1" defer></script>
   <script src="/admin/member-ops-sync.js?v=20260813-ops1" defer></script>
