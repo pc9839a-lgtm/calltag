@@ -41,7 +41,10 @@
         }, 900);
       }
     } catch (error) {
-      if (!warmOnly) unavailable(String(error?.message || '실정산 데이터 연결을 확인해주세요.'));
+      if (!warmOnly) {
+        unavailable(String(error?.message || '실정산 데이터 연결을 확인해주세요.'));
+        document.dispatchEvent(new CustomEvent('calltag:ops-finance', { detail: { status: 'error' } }));
+      }
     }
   }
 
@@ -74,6 +77,9 @@
         ? 'Google Play 서비스계정에 재무 데이터 보기 권한 필요'
         : '아직 확정 수익보고서가 없습니다.';
       unavailable(message);
+      document.dispatchEvent(new CustomEvent('calltag:ops-finance', {
+        detail: { status: data?.status === 'permission_required' ? 'permission_required' : 'no_report' },
+      }));
       return;
     }
     const report = data.report;
@@ -86,6 +92,9 @@
     const sync = report.syncedAt ? ` · 동기화 ${dateTime(report.syncedAt)}` : '';
     const backfill = Number(data.backfillRemaining || 0) > 0 ? ` · 과거월 ${Number(data.backfillRemaining)}개 동기화 중` : '';
     meta.textContent = `${report.month || '-'} Play 수익보고서 · ${payout}${sync}${backfill}`;
+    document.dispatchEvent(new CustomEvent('calltag:ops-finance', {
+      detail: { status: 'ready', month: report.month || '', syncedAt: report.syncedAt || '' },
+    }));
   }
 
   function unavailable(message) {
