@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/admin/payout-request.css?v=20260813-payout1" />
   <link rel="stylesheet" href="/admin/admin-ops.css?v=20261016-subscriber-parity6" />
   <link rel="stylesheet" href="/admin/admin-theme.css?v=20260813-theme1" />
-  <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261020-simple2" />
+  <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261020-compact3" />
 </head>
 <body>
   <header class="topbar">
@@ -47,18 +47,31 @@
         <details class="ops-source-help"><summary>집계 기준 안내</summary><p class="ops-source-note">유료 회원은 계정 수, 결제 기록은 원장이 확인된 계정 수입니다. 둘은 다를 수 있으며 Google Play 전체 구매자 수를 뜻하지 않습니다. 보고서 미조회는 매출 0원이 아닙니다.</p></details>
       </section>
       <section id="membersPanel" class="panel">
-        <div class="panelhead">
-          <div><h1>회원 목록</h1><p id="generatedAt">민감정보는 서버에서 마스킹 후 표시</p></div>
-          <div class="member-tools">
-            <select id="memberEvidenceFilter" aria-label="회원 지급 구매 이력 필터"><option value="all">전체 회원</option><option value="granted">지급 이력만</option><option value="purchased">결제·구독 검증</option></select>
-            <input id="memberSearchInput" type="search" maxlength="80" autocomplete="off" placeholder="회원ID · 이메일 · 전화번호 검색" aria-label="회원 검색" />
-            <button id="memberSearchButton" type="button">검색</button>
-            <span id="memberResultCount" class="member-result-count">—</span>
+        <div class="panelhead compact-members-head">
+          <div class="member-heading"><div><h1>회원 목록</h1><p id="generatedAt">민감정보는 서버에서 마스킹 후 표시</p></div><strong id="memberResultCount" class="member-result-count" aria-live="polite">—</strong></div>
+          <div class="member-tools member-tools-compact">
+            <div id="memberQuickFilters" class="member-quick-filters" role="group" aria-label="회원 빠른 필터">
+              <button type="button" class="member-filter-chip is-active" data-member-filter="all" aria-pressed="true">전체</button>
+              <button type="button" class="member-filter-chip" data-member-filter="paid" aria-pressed="false">유료</button>
+              <button type="button" class="member-filter-chip" data-member-filter="trial" aria-pressed="false">체험중</button>
+              <button type="button" class="member-filter-chip" data-member-filter="review" aria-pressed="false">확인필요</button>
+              <button type="button" class="member-filter-chip" data-member-filter="admin" aria-pressed="false">관리자지급</button>
+            </div>
+            <div class="member-search-inline">
+              <input id="memberSearchInput" type="search" maxlength="80" autocomplete="off" placeholder="회원ID · 이메일 · 전화번호" aria-label="회원 검색" />
+              <button id="memberSearchButton" type="button">검색</button>
+              <details class="member-extra-filter">
+                <summary aria-label="상세 필터">상세</summary>
+                <label for="memberEvidenceFilter">기존 지급·구매 기록</label>
+                <select id="memberEvidenceFilter" aria-label="회원 지급 구매 이력 필터"><option value="all">전체 회원</option><option value="granted">지급 이력만</option><option value="purchased">결제·구독 검증</option></select>
+              </details>
+            </div>
           </div>
         </div>
-        <div class="tablewrap">
-          <table>
-            <thead><tr><th>회원 ID</th><th>이메일</th><th>전화번호</th><th>가입일</th><th>이용권</th><th>이용 상태</th><th>결제 검증</th><th>지급 기록</th><th>구독·결제 상태</th><th></th></tr></thead>
+        <div class="tablewrap member-tablewrap">
+          <table class="member-compact-table">
+            <colgroup><col class="col-member"><col class="col-email"><col class="col-date"><col class="col-plan"><col class="col-usage"><col class="col-proof"><col class="col-billing"><col class="col-action"></colgroup>
+            <thead><tr><th>회원 ID</th><th>이메일</th><th>가입일</th><th>이용권</th><th>이용 상태</th><th>결제 검증</th><th>구독·결제</th><th>관리</th></tr></thead>
             <tbody id="memberRows"></tbody>
           </table>
         </div>
@@ -155,7 +168,7 @@
   <script src="/admin/admin.js?v=20261014-member-fix1" defer></script>
   <script src="/admin/payout-request.js?v=20260813-payout1" defer></script>
   <script src="/admin/play-finance-monthly.js?v=20260813-month1" defer></script>
-  <script src="/admin/member-ops.js?v=20261016-subscriber-parity6" defer></script>
+  <script src="/admin/member-ops.js?v=20261020-compact3" defer></script>
   <script src="/admin/payer-audit.js?v=20261016-payer-audit1" defer></script>
   <script src="/admin/play-renewal-reconcile.js?v=20261016-playrenewal1" defer></script>
   <script src="/admin/member-ops-sync.js?v=20260813-ops1" defer></script>
