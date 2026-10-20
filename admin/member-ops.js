@@ -26,16 +26,46 @@
   };
   const channels = { google_play: 'Google Play', play: 'Google Play', web: '웹 결제', admin: '관리자 지급' };
   const entitlementScopes = { all: '전체 이용권', call: '통화관리', message: '문자자동화' };
-  const state = { page: 1, totalPages: 1, query: '', filter: 'all', loading: false };
-
+  const quickFilterGroup = document.getElementById('memberQuickFilters');
+  const LOCAL_PAGE_SIZE = 20;
+  const MAX_SERVER_PAGES = 80;
+  const state = {
+    page: 1, totalPages: 1, query: '', filter: 'all',
+    quick: 'all', localItems: [], localIncomplete: false, requestId: 0,
+  };
 
   searchButton.addEventListener('click', () => runSearch());
-  evidenceFilter?.addEventListener('change', () => { state.filter = evidenceFilter.value; loadMembers(1); });
-  searchInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') runSearch(); });
-  prevButton?.addEventListener('click', () => { if (state.page > 1) loadMembers(state.page - 1); });
-  nextButton?.addEventListener('click', () => { if (state.page < state.totalPages) loadMembers(state.page + 1); });
+  evidenceFilter?.addEventListener('change', () => {
+    state.filter = evidenceFilter.value;
+    loadMembers(1);
+  });
+  searchInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') runSearch();
+  });
+  quickFilterGroup?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-member-filter]');
+    if (!button || !quickFilterGroup.contains(button)) return;
+    const mode = button.dataset.memberFilter || 'all';
+    if (!['all', 'paid', 'trial', 'review', 'admin'].includes(mode) || state.quick === mode) return;
+    state.quick = mode;
+    for (const chip of quickFilterGroup.querySelectorAll('[data-member-filter]')) {
+      const selected = chip === button;
+      chip.classList.toggle('is-active', selected);
+      chip.setAttribute('aria-pressed', String(selected));
+    }
+    loadMembers(1);
+  });
+  prevButton?.addEventListener('click', () => {
+    if (state.page <= 1) return;
+    if (state.quick === 'all') loadMembers(state.page - 1);
+    else renderQuickPage(state.page - 1);
+  });
+  nextButton?.addEventListener('click', () => {
+    if (state.page >= state.totalPages) return;
+    if (state.quick === 'all') loadMembers(state.page + 1);
+    else renderQuickPage(state.page + 1);
+  });
   refreshButton?.addEventListener('click', () => setTimeout(() => loadMembers(state.page), 80));
-
   setTimeout(() => loadMembers(1), 60);
 
   function runSearch() {
@@ -43,50 +73,145 @@
     loadMembers(1);
   }
 
-  async function loadMembers(page) {
-    if (state.loading) return;
-    state.loading = true;
-    searchButton.disabled = true;
-    try {
-      const url = `/admin/api/members?page=${Math.max(1, page)}&filter=${encodeURIComponent(state.filter)}${state.query ? `&q=${encodeURIComponent(state.query)}` : ''}`;
-      const response = await fetch(url, { method: 'GET', cache: 'no-store', credentials: 'same-origin', headers: { accept: 'application/json' } });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok || data?.ok === false) throw new Error(data?.error || '회원 목록을 불러오지 못했습니다.');
-      state.page = Number(data.page || 1);
-      state.totalPages = Math.max(1, Number(data.totalPages || 1));
-      renderMembers(Array.isArray(data.members) ? data.members : []);
-      if (resultCount) resultCount.textContent = `${number(data.total)}명`;
-      if (pageInfo) pageInfo.textContent = `${state.page} / ${state.totalPages}`;
-      if (prevButton) prevButton.disabled = state.page <= 1;
-      if (nextButton) nextButton.disabled = state.page >= state.totalPages;
-    } catch (error) {
-      rowsEl.replaceChildren();
-      if (emptyEl) { emptyEl.hidden = false; emptyEl.textContent = String(error?.message || '회원 목록을 불러오지 못했습니다.'); }
-    } finally {
-      state.loading = false;
-      searchButton.disabled = false;
+  async function getMemberPage(page) {
+    const url = '/admin/api/members?page=' + Math.max(1, page)
+      + '&filter=' + encodeURIComponent(state.filter)
+      + (state.query ? '&q=' + encodeURIComponent(state.query) : '');
+    const response = await fetch(url, {
+      method: 'GET', cache: 'no-store', credentials: 'same-origin',
+      headers: { accept: 'application/json' },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.ok === false) throw new Error(data?.error || '회원 목록을 불러오지 못했습니다.');
+    return data;
+  }
+
+  // Current verified subscription status is not financial ledger proof.
+  function verifiedActiveSubscription(item) {
+    return (Array.isArray(item?.subscriptions) ? item.subscriptions : []).some(sub =>
+      sub?.verificationState === 'verified'
+      && ['active', 'grace', 'cancelled'].includes(String(sub.status || '').toLowerCase())
+      && isCurrentSubscription(sub));
+  }
+  function quickFilterMatch(item) {
+    const subscriptions = Array.isArray(item?.subscriptions) ? item.subscriptions : [];
+    switch (state.quick) {
+      case 'paid': return verifiedActiveSubscription(item);
+      case 'trial':
+        return isTrial(item?.trialEndsAt) && !verifiedActiveSubscription(item)
+          && item?.adminEntitlement?.active !== true;
+      case 'review': {
+        const status = classifySubscription(item, subscriptions);
+        return status.badgeClass === 'member-billing-review'
+          || subscriptions.some(sub =>
+            ['failed', 'invalid', 'rejected'].includes(String(sub?.verificationState || '').toLowerCase())
+            || String(sub?.status || '').toLowerCase() === 'pending');
+      }
+      case 'admin': return item?.adminEntitlement?.active === true;
+      default: return true;
     }
+  }
+
+  function updatePageControls() {
+    if (pageInfo) pageInfo.textContent = state.page + ' / ' + state.totalPages;
+    if (prevButton) prevButton.disabled = state.page <= 1;
+    if (nextButton) nextButton.disabled = state.page >= state.totalPages;
+  }
+  function renderQuickPage(page) {
+    state.totalPages = Math.max(1, Math.ceil(state.localItems.length / LOCAL_PAGE_SIZE));
+    state.page = Math.min(Math.max(1, page), state.totalPages);
+    const start = (state.page - 1) * LOCAL_PAGE_SIZE;
+    renderMembers(state.localItems.slice(start, start + LOCAL_PAGE_SIZE));
+    if (resultCount) resultCount.textContent = number(state.localItems.length)
+      + '명' + (state.localIncomplete ? ' · 일부만 확인됨' : '');
+    updatePageControls();
+  }
+
+  async function loadMembers(page) {
+    const requestId = ++state.requestId;
+    searchButton.disabled = true;
+    if (resultCount) resultCount.textContent = '조회 중';
+    try {
+      const data = await getMemberPage(state.quick === 'all' ? page : 1);
+      if (requestId !== state.requestId) return;
+      if (state.quick === 'all') {
+        state.page = Number(data.page || 1);
+        state.totalPages = Math.max(1, Number(data.totalPages || 1));
+        renderMembers(Array.isArray(data.members) ? data.members : []);
+        if (resultCount) resultCount.textContent = number(data.total) + '명';
+        updatePageControls();
+        return;
+      }
+      // Apply quick filters over server pages, not only the first 40 members.
+      const all = Array.isArray(data.members) ? [...data.members] : [];
+      const pages = Math.max(1, Number(data.totalPages || 1));
+      for (let index = 2; index <= Math.min(pages, MAX_SERVER_PAGES); index++) {
+        const batch = await getMemberPage(index);
+        if (requestId !== state.requestId) return;
+        all.push(...(Array.isArray(batch.members) ? batch.members : []));
+      }
+      if (requestId !== state.requestId) return;
+      state.localItems = all.filter(quickFilterMatch);
+      state.localIncomplete = pages > MAX_SERVER_PAGES;
+      renderQuickPage(1);
+    } catch (error) {
+      if (requestId !== state.requestId) return;
+      rowsEl.replaceChildren();
+      if (resultCount) resultCount.textContent = '조회 실패';
+      if (emptyEl) {
+        emptyEl.hidden = false;
+        emptyEl.textContent = String(error?.message || '회원 목록을 불러오지 못했습니다.');
+      }
+    } finally {
+      if (requestId === state.requestId) searchButton.disabled = false;
+    }
+  }
+
+  function compactBillingText(status) {
+    const text = String(status.label || '-');
+    const names = {
+      '결제 유예 · 이용중': '유예 · 이용중',
+      '해지 예정 · 이용중': '해지 예정',
+      '구독 이용중 · 검증 확인필요': '구독 검증필요',
+      '과거 결제 · 현재 미구독': '과거 결제',
+      '구독 이력 · 현재 미구독': '이전 구독',
+      '과거 결제 표기 · 확인필요': '과거 결제 확인필요',
+      '관리자 지급 · 결제 아님': '관리자 지급',
+      '무료체험 · 결제 아님': '무료체험',
+      '결제 확인 자료 없음': '결제 자료 없음',
+    };
+    return names[text] || text;
   }
 
   function renderMembers(items) {
     rowsEl.replaceChildren();
-    if (emptyEl) { emptyEl.hidden = items.length > 0; emptyEl.textContent = state.query ? '검색 결과가 없습니다.' : '회원 데이터가 없습니다.'; }
+    if (emptyEl) {
+      emptyEl.hidden = items.length > 0;
+      emptyEl.textContent = state.query || state.quick !== 'all'
+        ? '조건에 맞는 회원이 없습니다.' : '회원 데이터가 없습니다.';
+    }
     for (const item of items) {
       const subscriptions = Array.isArray(item.subscriptions) ? item.subscriptions : [];
-      const tr = document.createElement('tr');
       const payStatus = classifySubscription(item, subscriptions);
+      const tr = document.createElement('tr');
       if (payStatus.rowClass) tr.classList.add(payStatus.rowClass);
+      const billingCell = paymentStatusCell({ ...payStatus, label: compactBillingText(payStatus) });
+      billingCell.title = payStatus.label;
+      const ownerCell = cell(shortId(item.ownerId));
+      ownerCell.title = String(item.ownerId || '');
+      const emailCell = cell(item.email || '-');
+      emailCell.title = String(item.email || '-');
+      const planCell = cell(legacyAwareLabel(item, subscriptions));
+      planCell.title = planCell.textContent;
       tr.append(
-        cell(shortId(item.ownerId)),
-        cell(item.email || '-'),
-        cell(item.phone || '-'),
+        ownerCell,
+        emailCell,
         cell(dateOnly(item.createdAt)),
-        cell(legacyAwareLabel(item, subscriptions)),
+        planCell,
         pill(usageStatus(item, subscriptions)),
         pill(verificationLabel(subscriptions)),
-        pill(grantHistoryLabel(item)),
-        paymentStatusCell(payStatus),
-        actionButton(item?.adminEntitlement?.active ? '이용권 관리' : item?.legacyEntitlement?.nonDefaultRecord ? '기존 기록 확인' : '이용권 지급', () => openMember(item.ownerId)),
+        billingCell,
+        actionButton('상세', () => openMember(item.ownerId)),
       );
       rowsEl.append(tr);
     }
