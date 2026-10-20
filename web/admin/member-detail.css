@@ -1,0 +1,198 @@
+/* CallTag member detail v2 — scoped, preserves partner drawer and payment logic. */
+#memberDetail:has(.member-detail-layout) {
+  width: min(690px, 100%);
+  background: #f5f6f8;
+  border-left: 1px solid #e3e6eb;
+  box-shadow: -20px 0 55px rgba(10,10,10,.12);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+#memberDetail:has(.member-detail-layout) .drawerhead {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  min-height: 72px;
+  padding: 15px 25px;
+  background: rgba(255,255,255,.98);
+  border-bottom: 1px solid #e6e9ed;
+}
+#memberDetail:has(.member-detail-layout) .drawerhead strong {
+  font-size: 16px;
+  color: #0a0a0a;
+  font-weight: 800;
+  letter-spacing: -.025em;
+}
+#memberDetail:has(.member-detail-layout) .drawerhead small {
+  font-size: 11px;
+  letter-spacing: 0;
+  color: #8b949e;
+}
+#memberDetail:has(.member-detail-layout) #detailClose {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 25px;
+  line-height: 1;
+  color: #657182;
+}
+#memberDetail:has(.member-detail-layout) #detailClose:hover {
+  color: #111827;
+  background: #f1f3f5;
+}
+#memberDetail:has(.member-detail-layout) .drawerbody {
+  padding: 20px 22px 32px;
+}
+.member-detail-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  font-family: Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  font-size: 13px;
+  color: #1b2533;
+}
+.member-detail-layout .member-summary-card,
+.member-detail-layout > .section,
+.member-detail-layout .member-history-fold {
+  border: 1px solid #e7e9ed;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(24,36,55,.025);
+}
+.member-summary-card {padding: 20px 21px}
+.member-summary-head {display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.member-summary-name {display:flex;flex-direction:column;gap:7px;min-width:0;flex:1}
+.member-detail-eyebrow {font-size:11px;font-weight:700;color:#8a95a4;letter-spacing:-.01em}
+.member-summary-email {font-size:18px;font-weight:800;line-height:1.4;color:#121820;letter-spacing:-.035em;overflow-wrap:anywhere}
+.member-summary-badge {flex:0 0 auto;display:inline-flex;align-items:center;max-width:190px;border:1px solid #e4e8ed;border-radius:6px;padding:7px 9px;font-size:11px;font-weight:750;color:#4d5968;background:#f4f6f8;text-align:center;line-height:1.35}
+.member-summary-badge.member-billing-active{background:#ebf7ee;color:#20633d;border-color:#cce8d4}
+.member-summary-badge.member-billing-review,
+.member-summary-badge.member-billing-grace,
+.member-summary-badge.member-billing-ending{background:#fff7e9;color:#895a13;border-color:#f5e1bc}
+.member-summary-badge.member-billing-trial{background:#f1f3f6;color:#596577;border-color:#e3e7ee}
+.member-summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;margin-top:19px;padding-top:15px;border-top:1px solid #eef0f3}
+.member-summary-stat{display:flex;flex-direction:column;min-width:0;gap:6px;padding:9px 10px 9px 0}
+.member-summary-stat:nth-child(2n){padding-left:14px;border-left:1px solid #f0f1f3}
+.member-summary-stat span{font-size:11px;color:#8994a1;font-weight:600}
+.member-summary-stat strong{font-size:12px;color:#253143;font-weight:720;overflow-wrap:anywhere;line-height:1.55}
+.member-detail-layout > .section{padding:18px 20px;margin:0;min-width:0}
+.member-detail-layout > .section > h2,
+.member-history-content .section > h2{
+  margin:0 0 14px;
+  font-size:14px;
+  line-height:1.4;
+  font-weight:800;
+  color:#192331;
+  letter-spacing:-.02em;
+}
+.member-detail-layout .detailrow{
+  display:grid;
+  grid-template-columns:minmax(112px,35%) minmax(0,1fr);
+  gap:14px;
+  align-items:start;
+  min-width:0;
+  padding:10px 0;
+  border-bottom:1px solid #eff1f4;
+  font-size:12px;
+  line-height:1.55;
+}
+.member-detail-layout .detailrow:last-of-type{border-bottom:0}
+.member-detail-layout .detailrow > span{color:#7a8594;font-weight:500}
+.member-detail-layout .detailrow > strong{color:#252f3d;font-size:12px;font-weight:680;overflow-wrap:anywhere;word-break:break-word}
+.member-detail-layout .empty-line{margin:0;padding:10px 0;color:#88919e;font-size:12px;line-height:1.55}
+.member-detail-layout .payment-note{margin-top:12px;color:#85909e;font-size:11px;line-height:1.6}
+.member-detail-layout .admin-entitlement{border-color:#dce1e8}
+.member-detail-layout .entitlement-controls{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  align-items:end;
+  gap:12px;
+  margin-top:16px;
+}
+.member-entitlement-field{display:flex;flex-direction:column;gap:7px;min-width:0}
+.member-entitlement-field:nth-child(3){grid-column:1/-1}
+.member-entitlement-field > span{font-size:11px;color:#637083;font-weight:700}
+.member-detail-layout .entitlement-controls select,
+.member-detail-layout .entitlement-controls input{
+  width:100%;
+  min-width:0;
+  height:40px;
+  padding:0 11px;
+  border:1px solid #dbe0e7;
+  border-radius:7px;
+  background:#fff;
+  font-size:12px;
+  color:#202939;
+  outline-offset:2px;
+}
+.member-detail-layout .entitlement-controls select:focus-visible,
+.member-detail-layout .entitlement-controls input:focus-visible{
+  outline:2px solid #b9cc37;
+  border-color:#98b21d;
+}
+.member-entitlement-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}
+.member-detail-layout .member-entitlement-actions .row-action{
+  flex:1;
+  min-width:0;
+  height:41px;
+  padding:0 12px;
+  border-radius:7px;
+  font-size:12px;
+  font-weight:750;
+}
+.member-detail-layout .entitlement-primary{
+  border:1px solid #0a0a0a;
+  background:#0a0a0a;
+  color:#d4f527;
+}
+.member-detail-layout .entitlement-primary:hover{background:#222}
+.member-detail-layout .entitlement-revoke{
+  background:#fff;
+  color:#a13232;
+  border:1px solid #eed2d2;
+}
+.member-detail-layout .entitlement-revoke:hover{background:#fff5f5}
+.member-detail-layout .member-subscription-record{padding:2px 0 7px}
+.member-detail-layout .member-subscription-record + .member-subscription-record{margin-top:12px;padding-top:16px;border-top:2px solid #e8ebf0}
+.member-detail-layout .payment-history{display:block}
+.member-detail-layout .payment-item{display:grid;grid-template-columns:80px minmax(0,1fr) 105px 67px;gap:7px;align-items:center;padding:12px 0;border-bottom:1px solid #eef0f3;font-size:11px;line-height:1.5}
+.member-detail-layout .payment-item span:nth-child(2){white-space:normal;overflow-wrap:anywhere;font-weight:650}
+.member-detail-layout .payment-item .payment-amount{color:#17212e;font-weight:800;text-align:right}
+.member-detail-layout .payment-item span:last-child{text-align:right;color:#606b7a}
+.member-detail-layout .member-history-fold{overflow:hidden}
+.member-detail-layout .member-history-fold > summary{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:17px 20px;
+  font-size:13px;
+  font-weight:750;
+  color:#465163;
+  cursor:pointer;
+  list-style:none;
+}
+.member-detail-layout .member-history-fold > summary::-webkit-details-marker{display:none}
+.member-detail-layout .member-history-fold > summary::after{content:"+";font-size:20px;line-height:1;font-weight:400;color:#9099a5}
+.member-detail-layout .member-history-fold[open] > summary::after{content:"−"}
+.member-detail-layout .member-history-fold[open] > summary{border-bottom:1px solid #edf0f3}
+.member-history-content{padding:8px 20px 20px}
+.member-history-content .section{margin:0;padding:13px 0 16px;border-bottom:1px solid #edf0f3}
+.member-history-content .section:last-child{border-bottom:0;padding-bottom:0}
+.member-history-content .detailrow{grid-template-columns:minmax(112px,35%) minmax(0,1fr)}
+@media (max-width:650px){
+  #memberDetail:has(.member-detail-layout){width:100%;scrollbar-gutter:auto}
+  #memberDetail:has(.member-detail-layout) .drawerhead{min-height:60px;padding:12px 17px}
+  #memberDetail:has(.member-detail-layout) .drawerbody{padding:14px 13px 28px}
+  .member-summary-card{padding:16px}
+  .member-summary-head{flex-direction:column;gap:9px}
+  .member-summary-email{font-size:16px}
+  .member-summary-badge{max-width:100%}
+  .member-detail-layout > .section{padding:16px}
+  .member-detail-layout .payment-item{grid-template-columns:72px minmax(0,1fr) 80px;gap:7px}
+  .member-detail-layout .payment-item span:last-child{grid-column:2/-1;text-align:right}
+}
+@media (prefers-reduced-motion: reduce){
+  #memberDetail:has(.member-detail-layout) *{scroll-behavior:auto}
+}
