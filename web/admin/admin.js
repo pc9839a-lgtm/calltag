@@ -62,6 +62,7 @@ async function loadOverview() {
     setStatus(result.error || '운영 데이터 접근이 잠겨 있습니다.', false);
     el.identity.textContent = '';
     el.empty.hidden = false;
+    document.dispatchEvent(new CustomEvent('calltag:ops-overview', { detail: { ok: false } }));
     return;
   }
   renderOverview(result.data);
@@ -84,6 +85,15 @@ function renderOverview(data) {
   el.revenueNet.textContent = `${money(revenue.netAfterPlayFeeEstimateKrw)}원`;
 
   el.generated.textContent = data?.generatedAt ? `갱신 ${dateTime(data.generatedAt)}` : '민감정보는 서버에서 마스킹 후 표시';
+  document.dispatchEvent(new CustomEvent('calltag:ops-overview', {
+    detail: { ok: true, metrics: {
+      totalMembers: numberRaw(metrics.totalMembers),
+      newMembers7d: numberRaw(metrics.newMembers7d),
+      trialMembers: numberRaw(metrics.trialMembers),
+      activePaid: numberRaw(metrics.activePaid),
+      paymentReview: numberRaw(metrics.paymentReview),
+    }, generatedAt: data?.generatedAt || '' },
+  }));
   // The searchable member-ops module owns the member table and grant actions.
   // Never overwrite it with legacy overview rows (which omit Google-only users).
   if (document.getElementById('memberSearchInput')) return;

@@ -80,6 +80,16 @@
       body.append(tr);
     }
     wrap.hidden=rows.length===0;
+    document.dispatchEvent(new CustomEvent('calltag:ops-payer-audit', {
+      detail: { available: true, truncated: data.truncated === true,
+        summary: {
+          chargeRecorded: data.summary?.chargeRecorded,
+          verifiedSubscription: data.summary?.verifiedSubscription,
+          notInMemberList: data.summary?.notInMemberList,
+          awaitingProviderProof: data.summary?.awaitingProviderProof,
+        }, sources: { subscriptions: data.sources?.subscriptions, payments: data.sources?.payments },
+      },
+    }));
     if (data.truncated) status.textContent='저장 기록 500건 상한에 도달해 일부 기록만 검사했습니다. 결과가 불완전할 수 있습니다.';
     else status.textContent=rows.length ? '저장된 구독·결제 원장 전수 대조 완료 · '+new Date().toLocaleString('ko-KR') : '현재 저장된 관련 구독·결제 기록이 없습니다.';
   }
@@ -91,7 +101,10 @@
       const data=await response.json().catch(()=>({}));
       if (!response.ok||data.ok===false||!data.available) throw new Error(data.error||'구독 원장에 접근할 수 없습니다.');
       show(data);
-    } catch(e) {status.textContent='점검 실패: '+String(e.message||'요청 실패');}
+    } catch(e) {
+      status.textContent='점검 실패: '+String(e.message||'요청 실패');
+      document.dispatchEvent(new CustomEvent('calltag:ops-payer-audit', { detail: { available: false } }));
+    }
     finally {busy=false;button.disabled=false;button.textContent='전체 결제 누락 점검';}
   }
   button.addEventListener('click',run);
