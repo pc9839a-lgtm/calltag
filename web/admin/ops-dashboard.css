@@ -106,3 +106,58 @@
  .ops-health-heading p{font-size:11px}
  .ops-last-checked{font-size:10px}
 }
+
+
+/* 2026-10-20 compact members: one-screen table with five explicit quick filters. */
+#membersPanel{overflow:hidden}
+#membersPanel .compact-members-head{display:flex;flex-direction:column;align-items:stretch;gap:13px;padding:17px 18px 14px}
+#membersPanel .member-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%}
+#membersPanel .member-heading h1{font-size:16px;letter-spacing:-.025em}
+#membersPanel .member-heading p{margin:3px 0 0;font-size:11px}
+#membersPanel .member-heading .member-result-count{font-size:12px;font-weight:700;white-space:nowrap}
+#membersPanel .member-tools-compact{display:flex;flex-wrap:wrap;align-items:center;gap:9px;width:100%;min-width:0;justify-content:space-between;margin:0}
+.member-quick-filters{display:flex;gap:5px;align-items:center;flex-wrap:wrap;min-width:0}
+#membersPanel .member-filter-chip{height:33px;min-width:0;padding:0 12px;border:1px solid #e4e7ed;border-radius:7px;background:#f8f9fa;color:#475467;font:inherit;font-size:12px;font-weight:700;white-space:nowrap}
+#membersPanel .member-filter-chip.is-active{background:#0a0a0a;border-color:#0a0a0a;color:#d4f527}
+#membersPanel .member-filter-chip:hover:not(.is-active){background:#eceff3}
+#membersPanel .member-filter-chip:focus-visible,#membersPanel .member-extra-filter summary:focus-visible{outline:2px solid #64748b;outline-offset:2px}
+.member-search-inline{display:flex;gap:6px;align-items:center;flex:1 1 310px;max-width:470px;min-width:220px}
+#membersPanel .member-search-inline input{height:34px;flex:1;min-width:0;width:100%;border-radius:7px;font-size:12px;padding:0 10px}
+#membersPanel .member-search-inline>button{height:34px;padding:0 13px;background:#111827;color:#fff;border-color:#111827;border-radius:7px;font-size:12px}
+#membersPanel .member-extra-filter{position:relative;flex:none}
+#membersPanel .member-extra-filter summary{display:flex;align-items:center;justify-content:center;height:34px;min-width:49px;padding:0 9px;background:#fff;border:1px solid #dce1e7;border-radius:7px;cursor:pointer;font-size:12px;font-weight:700;color:#526071;list-style:none}
+#membersPanel .member-extra-filter summary::-webkit-details-marker{display:none}
+#membersPanel .member-extra-filter[open]{z-index:5}
+#membersPanel .member-extra-filter label{position:absolute;right:0;top:38px;width:192px;padding:12px 12px 0;background:#fff;border:1px solid #dce1e7;border-bottom:0;border-radius:9px 9px 0 0;font-size:11px;color:#6b7280;box-shadow:0 8px 22px rgba(15,23,42,.08)}
+#membersPanel .member-extra-filter select{position:absolute;right:0;top:66px;width:192px;min-width:0;height:37px;background:#fff;border:1px solid #dce1e7;border-top:0;border-radius:0 0 9px 9px;font-size:12px;box-shadow:0 8px 22px rgba(15,23,42,.08)}
+#membersPanel .member-tablewrap{width:100%;max-width:100%;overflow-x:hidden}
+#membersPanel .member-compact-table{table-layout:fixed;width:100%;min-width:0;border-collapse:collapse;font-size:12px}
+#membersPanel .member-compact-table col.col-member{width:11%}
+#membersPanel .member-compact-table col.col-email{width:19%}
+#membersPanel .member-compact-table col.col-date{width:9%}
+#membersPanel .member-compact-table col.col-plan{width:15%}
+#membersPanel .member-compact-table col.col-usage{width:12%}
+#membersPanel .member-compact-table col.col-proof{width:11%}
+#membersPanel .member-compact-table col.col-billing{width:16%}
+#membersPanel .member-compact-table col.col-action{width:7%}
+#membersPanel .member-compact-table th,#membersPanel .member-compact-table td{padding:10px 8px;max-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+#membersPanel .member-compact-table th{font-size:11px;font-weight:700;color:#596677;background:#f7f8fa}
+#membersPanel .member-compact-table tbody tr{height:48px}
+#membersPanel .member-compact-table td:nth-child(1){font-variant-numeric:tabular-nums}
+#membersPanel .member-compact-table .pill,#membersPanel .member-compact-table .member-billing-badge{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle;border-radius:6px;padding:5px 7px;font-size:11px}
+#membersPanel .member-compact-table .row-action{height:29px;min-height:29px;padding:0 8px;border-radius:6px;font-size:11px;white-space:nowrap}
+#membersPanel .member-pagination{padding:10px 14px}
+@media(max-width:900px){
+ #membersPanel .compact-members-head{padding:13px}
+ #membersPanel .member-tools-compact{align-items:stretch}
+ #membersPanel .member-search-inline{max-width:none;flex:1 1 100%}
+ #membersPanel .member-compact-table{font-size:11px}
+ #membersPanel .member-compact-table th,#membersPanel .member-compact-table td{padding:9px 5px}
+ #membersPanel .member-compact-table .pill,#membersPanel .member-compact-table .member-billing-badge{padding:4px 5px;font-size:10px}
+}
+@media(max-width:600px){
+ #membersPanel .member-quick-filters{flex-wrap:nowrap;overflow-x:auto;max-width:100%;padding-bottom:3px}
+ #membersPanel .member-filter-chip{font-size:11px;padding:0 9px}
+ #membersPanel .member-tablewrap{overflow-x:auto}
+ #membersPanel .member-compact-table{min-width:710px}
+}
