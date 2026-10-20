@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/admin/payout-request.css?v=20260813-payout1" />
   <link rel="stylesheet" href="/admin/admin-ops.css?v=20261016-subscriber-parity6" />
   <link rel="stylesheet" href="/admin/admin-theme.css?v=20260813-theme1" />
-  <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261020-ops1" />
+  <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261020-simple2" />
 </head>
 <body>
   <header class="topbar">
@@ -27,29 +27,66 @@
       <section id="opsHealthPanel" class="ops-health" aria-label="운영 현황">
         <div class="ops-health-header">
           <div class="ops-health-heading">
-            <h1>운영 현황</h1>
-            <p>유료 이용 · 결제 원장 · 실제 정산을 각각 구분해 확인합니다.</p>
+            <h1>한눈에 보기</h1>
+            <p>중요한 숫자만 먼저 확인하세요.</p>
           </div>
           <span id="opsCheckedAt" class="ops-last-checked">운영 데이터 확인 중</span>
         </div>
         <div class="ops-health-grid">
-          <div class="ops-indicator"><span>유료 이용 회원</span><strong id="opsVerifiedSubscribers">확인 전</strong><small id="opsVerifiedSubscribersNote">서버 구독 상태 확인 중</small></div>
-          <div class="ops-indicator"><span>결제 원장 확인 계정</span><strong id="opsLedgerAccounts">확인 전</strong><small id="opsLedgerAccountsNote">결제 기록 대조 중</small></div>
-          <div class="ops-indicator"><span>Google Play 실정산</span><strong id="opsFinanceStatus">확인 전</strong><small id="opsFinanceStatusNote">정산 보고서 연결 확인 중</small></div>
+          <div class="ops-indicator"><span>유료 회원</span><strong id="opsVerifiedSubscribers">확인 전</strong><small id="opsVerifiedSubscribersNote">서버 구독 상태 확인 중</small></div>
+          <div class="ops-indicator"><span>결제 기록</span><strong id="opsLedgerAccounts">확인 전</strong><small id="opsLedgerAccountsNote">결제 기록 대조 중</small></div>
+          <div class="ops-indicator"><span>실정산 연결</span><strong id="opsFinanceStatus">확인 전</strong><small id="opsFinanceStatusNote">정산 보고서 연결 확인 중</small></div>
         </div>
         <div class="ops-health-bottom">
           <div>
             <h2>확인할 항목</h2>
             <ul id="opsAttention" class="ops-issues" aria-live="polite"><li>운영 지표를 불러오는 중입니다.</li></ul>
           </div>
-          <div class="ops-actions">
-            <button type="button" data-ops-nav="audit">결제 누락 점검</button>
-            <button type="button" data-ops-nav="members">회원 찾아보기</button>
-            <button type="button" data-ops-nav="finance">실정산 보기</button>
+
+        </div>
+        <details class="ops-source-help"><summary>집계 기준 안내</summary><p class="ops-source-note">유료 회원은 계정 수, 결제 기록은 원장이 확인된 계정 수입니다. 둘은 다를 수 있으며 Google Play 전체 구매자 수를 뜻하지 않습니다. 보고서 미조회는 매출 0원이 아닙니다.</p></details>
+      </section>
+      <section id="membersPanel" class="panel">
+        <div class="panelhead">
+          <div><h1>회원 목록</h1><p id="generatedAt">민감정보는 서버에서 마스킹 후 표시</p></div>
+          <div class="member-tools">
+            <select id="memberEvidenceFilter" aria-label="회원 지급 구매 이력 필터"><option value="all">전체 회원</option><option value="granted">지급 이력만</option><option value="purchased">결제·구독 검증</option></select>
+            <input id="memberSearchInput" type="search" maxlength="80" autocomplete="off" placeholder="회원ID · 이메일 · 전화번호 검색" aria-label="회원 검색" />
+            <button id="memberSearchButton" type="button">검색</button>
+            <span id="memberResultCount" class="member-result-count">—</span>
           </div>
         </div>
-        <p class="ops-source-note">숫자 기준: 유료 회원은 고유 계정 수, 결제 원장은 결제 기록이 확인된 계정 수입니다. 유료 구독 상품 건수·Google Play 전체 결제자 수와 다를 수 있으며, 보고서 미확인은 매출 0원을 의미하지 않습니다.</p>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>회원 ID</th><th>이메일</th><th>전화번호</th><th>가입일</th><th>이용권</th><th>이용 상태</th><th>결제 검증</th><th>지급 기록</th><th>구독·결제 상태</th><th></th></tr></thead>
+            <tbody id="memberRows"></tbody>
+          </table>
+        </div>
+        <div id="emptyMembers" class="empty">운영 데이터 접근이 잠겨 있습니다.</div>
+        <div class="member-pagination"><button id="memberPrev" type="button">이전</button><span id="memberPageInfo">1 / 1</span><button id="memberNext" type="button">다음</button></div>
       </section>
+        <details id="payerAuditDetails" class="admin-fold audit-fold">
+          <summary>결제·구독 점검 <span>필요할 때만 열기</span></summary>
+          <div class="admin-fold-content">
+            <div class="admin-fold-tools">
+            <button id="payerAuditRefresh" type="button">전체 결제 누락 점검</button>
+            <button id="playRenewalReconcile" type="button">Google Play 구독 갱신 확인</button>
+            <span id="playRenewalStatus" class="member-result-count" role="status"></span>
+            </div>
+        <section id="payerAuditPanel" class="payer-audit" aria-live="polite">
+          <div class="payer-audit-heading"><strong>전체 결제 이력 대조</strong><span id="payerAuditStatus">전체 구독·결제 원장을 검사합니다.</span></div>
+          <div id="payerAuditSummary" class="payer-audit-summary"></div>
+          <div class="tablewrap payer-audit-table" id="payerAuditTableWrap" hidden>
+            <table><thead><tr><th>회원 ID</th><th>이메일</th><th>회원 목록</th><th>기록 판정</th><th>구독 상태</th><th>Google Play 확인</th></tr></thead><tbody id="payerAuditRows"></tbody></table>
+          </div>
+          <p class="payer-audit-note">결제 확인과 구독 활성은 다릅니다. 구독 검증만으로 결제됐다고 확정하지 않으며, 오래된 삭제 기록은 별도 백업 확인이 필요합니다.</p>
+        </section>
+          </div>
+        </details>
+      <div class="admin-secondary">
+        <details id="extraStatsDetails" class="admin-fold">
+          <summary>회원 세부 통계 · 예상 매출</summary>
+          <div class="admin-fold-content">
       <section class="metrics">
         <article><span>전체 회원</span><strong id="metricTotal">—</strong></article>
         <article><span>7일 신규</span><strong id="metricNew">—</strong></article>
@@ -63,6 +100,11 @@
         <article><span>Play 15% 예상 수수료</span><strong id="metricPlayFee">—</strong><small>Google Play 구독만 계산</small></article>
         <article><span>수수료 제외 예상매출</span><strong id="metricRevenueNet">—</strong><small>실제 정산액과 차이날 수 있음</small></article>
       </section>
+          </div>
+        </details>
+        <details id="financeDetails" class="admin-fold">
+          <summary>Google Play 실제 정산</summary>
+          <div class="admin-fold-content">
       <div id="playFinancePanel" class="viewbar">
         <div><strong>Google Play 확정 정산</strong><span id="playFinanceMeta">수익보고서 연결 확인 중</span></div>
         <label class="play-monthpick"><span>정산 월</span><select id="playFinanceMonth" aria-label="Google Play 정산 월"><option value="">불러오는 중</option></select></label>
@@ -74,36 +116,9 @@
         <article><span>파트너 발생액</span><strong id="playActualPartner">—</strong></article>
         <article><span>최종 남는 금액</span><strong id="playActualFinal">—</strong></article>
       </section>
-      <section id="membersPanel" class="panel">
-        <div class="panelhead">
-          <div><h1>회원 목록</h1><p id="generatedAt">민감정보는 서버에서 마스킹 후 표시</p></div>
-          <div class="member-tools">
-            <select id="memberEvidenceFilter" aria-label="회원 지급 구매 이력 필터"><option value="all">전체 회원</option><option value="granted">지급 이력만</option><option value="purchased">결제·구독 검증</option></select>
-            <input id="memberSearchInput" type="search" maxlength="80" autocomplete="off" placeholder="회원ID · 이메일 · 전화번호 검색" aria-label="회원 검색" />
-            <button id="memberSearchButton" type="button">검색</button>
-            <button id="payerAuditRefresh" type="button">전체 결제 누락 점검</button>
-            <button id="playRenewalReconcile" type="button">Google Play 구독 갱신 확인</button>
-            <span id="playRenewalStatus" class="member-result-count" role="status"></span>
-            <span id="memberResultCount" class="member-result-count">—</span>
           </div>
-        </div>
-        <section id="payerAuditPanel" class="payer-audit" aria-live="polite">
-          <div class="payer-audit-heading"><strong>전체 결제 이력 대조</strong><span id="payerAuditStatus">전체 구독·결제 원장을 검사합니다.</span></div>
-          <div id="payerAuditSummary" class="payer-audit-summary"></div>
-          <div class="tablewrap payer-audit-table" id="payerAuditTableWrap" hidden>
-            <table><thead><tr><th>회원 ID</th><th>이메일</th><th>회원 목록</th><th>기록 판정</th><th>구독 상태</th><th>Google Play 확인</th></tr></thead><tbody id="payerAuditRows"></tbody></table>
-          </div>
-          <p class="payer-audit-note">결제 확인과 구독 활성은 다릅니다. 구독 검증만으로 결제됐다고 확정하지 않으며, 오래된 삭제 기록은 별도 백업 확인이 필요합니다.</p>
-        </section>
-        <div class="tablewrap">
-          <table>
-            <thead><tr><th>회원 ID</th><th>이메일</th><th>전화번호</th><th>가입일</th><th>이용권</th><th>이용 상태</th><th>결제 검증</th><th>지급 기록</th><th>구독·결제 상태</th><th></th></tr></thead>
-            <tbody id="memberRows"></tbody>
-          </table>
-        </div>
-        <div id="emptyMembers" class="empty">운영 데이터 접근이 잠겨 있습니다.</div>
-        <div class="member-pagination"><button id="memberPrev" type="button">이전</button><span id="memberPageInfo">1 / 1</span><button id="memberNext" type="button">다음</button></div>
-      </section>
+        </details>
+      </div>
     </section>
 
     <section id="partnersView" hidden>
@@ -146,6 +161,6 @@
   <script src="/admin/member-ops-sync.js?v=20260813-ops1" defer></script>
   <script src="/admin/admin-theme.js?v=20260813-theme1" defer></script>
   <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
-  <script src="/admin/ops-dashboard.js?v=20261020-ops1" defer></script>
+  <script src="/admin/ops-dashboard.js?v=20261020-simple2" defer></script>
 </body>
 </html>
