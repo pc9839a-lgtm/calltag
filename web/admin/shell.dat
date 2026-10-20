@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/admin/payout-request.css?v=20260813-payout1" />
   <link rel="stylesheet" href="/admin/admin-ops.css?v=20261016-subscriber-parity6" />
   <link rel="stylesheet" href="/admin/admin-theme.css?v=20260813-theme1" />
+  <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261020-ops1" />
 </head>
 <body>
   <header class="topbar">
@@ -23,6 +24,32 @@
 
   <main class="wrap">
     <section id="membersView">
+      <section id="opsHealthPanel" class="ops-health" aria-label="운영 현황">
+        <div class="ops-health-header">
+          <div class="ops-health-heading">
+            <h1>운영 현황</h1>
+            <p>유료 이용 · 결제 원장 · 실제 정산을 각각 구분해 확인합니다.</p>
+          </div>
+          <span id="opsCheckedAt" class="ops-last-checked">운영 데이터 확인 중</span>
+        </div>
+        <div class="ops-health-grid">
+          <div class="ops-indicator"><span>유료 이용 회원</span><strong id="opsVerifiedSubscribers">확인 전</strong><small id="opsVerifiedSubscribersNote">서버 구독 상태 확인 중</small></div>
+          <div class="ops-indicator"><span>결제 원장 확인 계정</span><strong id="opsLedgerAccounts">확인 전</strong><small id="opsLedgerAccountsNote">결제 기록 대조 중</small></div>
+          <div class="ops-indicator"><span>Google Play 실정산</span><strong id="opsFinanceStatus">확인 전</strong><small id="opsFinanceStatusNote">정산 보고서 연결 확인 중</small></div>
+        </div>
+        <div class="ops-health-bottom">
+          <div>
+            <h2>확인할 항목</h2>
+            <ul id="opsAttention" class="ops-issues" aria-live="polite"><li>운영 지표를 불러오는 중입니다.</li></ul>
+          </div>
+          <div class="ops-actions">
+            <button type="button" data-ops-nav="audit">결제 누락 점검</button>
+            <button type="button" data-ops-nav="members">회원 찾아보기</button>
+            <button type="button" data-ops-nav="finance">실정산 보기</button>
+          </div>
+        </div>
+        <p class="ops-source-note">숫자 기준: 유료 회원은 고유 계정 수, 결제 원장은 결제 기록이 확인된 계정 수입니다. 유료 구독 상품 건수·Google Play 전체 결제자 수와 다를 수 있으며, 보고서 미확인은 매출 0원을 의미하지 않습니다.</p>
+      </section>
       <section class="metrics">
         <article><span>전체 회원</span><strong id="metricTotal">—</strong></article>
         <article><span>7일 신규</span><strong id="metricNew">—</strong></article>
@@ -36,7 +63,7 @@
         <article><span>Play 15% 예상 수수료</span><strong id="metricPlayFee">—</strong><small>Google Play 구독만 계산</small></article>
         <article><span>수수료 제외 예상매출</span><strong id="metricRevenueNet">—</strong><small>실제 정산액과 차이날 수 있음</small></article>
       </section>
-      <div class="viewbar">
+      <div id="playFinancePanel" class="viewbar">
         <div><strong>Google Play 확정 정산</strong><span id="playFinanceMeta">수익보고서 연결 확인 중</span></div>
         <label class="play-monthpick"><span>정산 월</span><select id="playFinanceMonth" aria-label="Google Play 정산 월"><option value="">불러오는 중</option></select></label>
       </div>
@@ -47,7 +74,7 @@
         <article><span>파트너 발생액</span><strong id="playActualPartner">—</strong></article>
         <article><span>최종 남는 금액</span><strong id="playActualFinal">—</strong></article>
       </section>
-      <section class="panel">
+      <section id="membersPanel" class="panel">
         <div class="panelhead">
           <div><h1>회원 목록</h1><p id="generatedAt">민감정보는 서버에서 마스킹 후 표시</p></div>
           <div class="member-tools">
@@ -119,5 +146,6 @@
   <script src="/admin/member-ops-sync.js?v=20260813-ops1" defer></script>
   <script src="/admin/admin-theme.js?v=20260813-theme1" defer></script>
   <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
+  <script src="/admin/ops-dashboard.js?v=20261020-ops1" defer></script>
 </body>
 </html>
