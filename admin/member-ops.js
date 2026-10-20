@@ -228,19 +228,109 @@
     const member = data.member || {};
     detailTitle.textContent = '회원 상세';
     detailId.textContent = shortId(member.ownerId);
-    detailBody.replaceChildren(
-      section('계정', [['이메일', member.email || '-'], ['전화번호', member.phone || '-'], ['가입일', dateTime(member.createdAt)], ['수정일', dateTime(member.updatedAt)]]),
-      entitlementSection(member.ownerId, entitlementResult.ok ? entitlementResult.data : null),
-      legacyEntitlementSection(data.legacyEntitlement),
-      section('체험', data.trial ? [['시작', dateTime(data.trial.startedAt)], ['종료', dateTime(data.trial.endsAt)], ['추천 보너스', `${number(data.trial.referralBonusDays)}일`]] : [['상태', '없음']]),
-      section('추천', [['추천 인원', `${number(data.referral?.referredCount)}명`], ['추천받음', data.referral?.wasReferred ? '예' : '아니오']]),
-      section('파트너', [['적립 건수', `${number(data.partner?.commissionCount)}건`], ['적립 대기', `${money(data.partner?.pendingAmountKrw)}원`], ['확정', `${money(data.partner?.confirmedAmountKrw)}원`]]),
-      subscriptionSection(Array.isArray(data.subscriptions) ? data.subscriptions : []),
+    const subscriptions = Array.isArray(data.subscriptions) ? data.subscriptions : [];
+    const entitlement = entitlementResult.ok ? entitlementResult.data : null;
+    const content = document.createElement('div');
+    content.className = 'member-detail-layout';
+    content.append(
+      memberSummary(member, data.trial, entitlement, subscriptions),
+      entitlementSection(member.ownerId, entitlement),
+      subscriptionSection(subscriptions),
       paymentSection(paymentResult.ok ? paymentResult.data : null),
+      foldedDetail('기타 이력 · 이전 기록', [
+        legacyEntitlementSection(data.legacyEntitlement),
+        section('체험 기록', data.trial ? [
+          ['시작', dateTime(data.trial.startedAt)],
+          ['종료', dateTime(data.trial.endsAt)],
+          ['추천 보너스', `${number(data.trial.referralBonusDays)}일`],
+        ] : [['상태', '없음']]),
+        section('추천', [
+          ['추천 인원', `${number(data.referral?.referredCount)}명`],
+          ['추천받음', data.referral?.wasReferred ? '예' : '아니오'],
+        ]),
+        section('파트너', [
+          ['적립 건수', `${number(data.partner?.commissionCount)}건`],
+          ['적립 대기', `${money(data.partner?.pendingAmountKrw)}원`],
+          ['확정', `${money(data.partner?.confirmedAmountKrw)}원`],
+        ]),
+      ]),
     );
+    detailBody.replaceChildren(content);
     if (backdrop) backdrop.hidden = false;
     if (drawer) drawer.hidden = false;
     document.body.classList.add('drawer-open');
+  }
+
+  function memberSummary(member, trial, entitlement, subscriptions) {
+    const panel = document.createElement('section');
+    panel.className = 'member-summary-card';
+    const intro = document.createElement('div');
+    intro.className = 'member-summary-head';
+    const name = document.createElement('div');
+    name.className = 'member-summary-name';
+    const caption = document.createElement('span');
+    caption.className = 'member-detail-eyebrow';
+    caption.textContent = '회원 계정';
+    const email = document.createElement('strong');
+    email.className = 'member-summary-email';
+    email.textContent = member.email || '이메일 미등록';
+    name.append(caption, email);
+
+    const report = classifySubscription({
+      ...member,
+      trialEndsAt: trial?.endsAt || member.trialEndsAt,
+      adminEntitlement: entitlement?.entitlement,
+    }, subscriptions);
+    const badge = document.createElement('span');
+    badge.className = 'member-summary-badge ' + report.badgeClass;
+    badge.textContent = report.label;
+    intro.append(name, badge);
+
+    const list = document.createElement('div');
+    list.className = 'member-summary-grid';
+    list.append(
+      summaryStat('전화번호', member.phone || '미등록'),
+      summaryStat('가입일', dateOnly(member.createdAt)),
+      summaryStat('현재 이용권', entitlementLabel({
+        ...member, adminEntitlement: entitlement?.entitlement,
+        trialEndsAt: trial?.endsAt || member.trialEndsAt,
+      }, subscriptions)),
+      summaryStat('최근 변경', dateOnly(member.updatedAt)),
+    );
+    panel.append(intro, list);
+    return panel;
+  }
+
+  function summaryStat(label, value) {
+    const item = document.createElement('div');
+    item.className = 'member-summary-stat';
+    const name = document.createElement('span');
+    name.textContent = label;
+    const content = document.createElement('strong');
+    content.textContent = String(value || '-');
+    item.append(name, content);
+    return item;
+  }
+
+  function foldedDetail(label, sections) {
+    const details = document.createElement('details');
+    details.className = 'member-history-fold';
+    const summary = document.createElement('summary');
+    summary.textContent = label;
+    const content = document.createElement('div');
+    content.className = 'member-history-content';
+    content.append(...sections);
+    details.append(summary, content);
+    return details;
+  }
+
+  function controlField(label, input) {
+    const field = document.createElement('label');
+    field.className = 'member-entitlement-field';
+    const title = document.createElement('span');
+    title.textContent = label;
+    field.append(title, input);
+    return field;
   }
 
   function entitlementSection(ownerId, data) {
@@ -295,7 +385,14 @@
         note: noteInput.value,
       });
     });
-    controls.append(scopeSelect, daysSelect, noteInput, grantButton);
+    controls.append(
+      controlField('이용권 범위', scopeSelect),
+      controlField('기간', daysSelect),
+      controlField('지급 사유 (선택)', noteInput),
+    );
+    const actionBar = document.createElement('div');
+    actionBar.className = 'member-entitlement-actions';
+    actionBar.append(grantButton);
 
     if (entitlement?.active) {
       const revokeButton = document.createElement('button');
@@ -306,9 +403,9 @@
         if (!window.confirm('이 회원의 관리자 이용권을 회수하시겠습니까? 유료 구독이나 남은 무료체험은 유지됩니다.')) return;
         await runEntitlementAction(revokeButton, { ownerId, action: 'revoke' });
       });
-      controls.append(revokeButton);
+      actionBar.append(revokeButton);
     }
-    sectionEl.append(controls);
+    sectionEl.append(controls, actionBar);
     const note = document.createElement('small');
     note.className = 'payment-note';
     note.textContent = '관리자 이용권은 결제·매출·파트너 정산에 포함되지 않습니다.';
@@ -370,15 +467,18 @@
     const sectionEl = document.createElement('section');
     sectionEl.className = 'section';
     sectionEl.append(heading('구독'));
-    if (!items.length) sectionEl.append(detailRow('이용 상태', '구독 내역 없음'));
+    if (!items.length) sectionEl.append(emptyLine('연결된 구독 내역이 없습니다.'));
     for (const item of items) {
-      sectionEl.append(
+      const record = document.createElement('div');
+      record.className = 'member-subscription-record';
+      record.append(
         detailRow('상품', products[item.productCode] || '기타 이용권'),
         detailRow('채널', channels[String(item.channel || '').toLowerCase()] || (item.channel ? '기타' : '-')),
         detailRow('이용 상태', subscriptionStatus(item.status, item.expiresAt)),
         detailRow('결제 검증', item.verificationState === 'verified' ? '정상' : item.verificationState ? '확인필요' : '해당없음'),
         detailRow('만료', dateTime(item.expiresAt)),
       );
+      sectionEl.append(record);
     }
     return sectionEl;
   }
