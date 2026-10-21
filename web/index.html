@@ -98,6 +98,7 @@
     .hero-kicker{margin:0 0 20px;color:var(--blue-2);font-size:18px;font-weight:900;letter-spacing:-.03em}
     .hero h1{margin:0;font-size:clamp(62px,8.2vw,118px);line-height:.94;letter-spacing:-.085em}.hero h1 span{color:var(--blue-2)}
     .hero-heading>p{margin:26px auto 0;max-width:720px;color:var(--muted);font-size:clamp(17px,1.75vw,22px);line-height:1.55;letter-spacing:-.025em}
+    .hero-actions{display:flex;justify-content:center;margin-top:28px}.play-button{min-height:54px;display:inline-flex;align-items:center;justify-content:center;padding:0 24px;border:1px solid rgba(255,255,255,.16);border-radius:14px;background:#fff;color:#111318;font-size:15px;font-weight:900;letter-spacing:-.025em;transition:.2s ease}.play-button:hover{transform:translateY(-2px);background:#eef1f6}.play-button:focus-visible{outline:3px solid rgba(124,153,255,.55);outline-offset:3px}
 
     .phone-stage{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1fr) 430px;gap:56px;align-items:center;margin-top:72px;padding:32px;border:1px solid var(--line-strong);border-radius:32px;background:linear-gradient(145deg,rgba(24,27,34,.95),rgba(13,15,19,.97));box-shadow:0 42px 120px rgba(0,0,0,.46);overflow:hidden}
     .phone-stage::before{content:"";position:absolute;width:520px;height:520px;left:-240px;bottom:-300px;border-radius:50%;background:radial-gradient(circle,rgba(59,111,255,.18),rgba(59,111,255,0) 67%)}
@@ -151,7 +152,7 @@
 
     .faq-list{margin-top:52px;border-top:1px solid var(--line)}.faq-item{border-bottom:1px solid var(--line)}.faq-question{width:100%;min-height:86px;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0;border:0;background:transparent;color:#fff;text-align:left;font-size:21px;font-weight:850;cursor:pointer}.faq-question svg{width:22px;height:22px;transition:transform .25s ease}.faq-item.open .faq-question svg{transform:rotate(45deg)}.faq-answer{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s ease}.faq-answer>div{overflow:hidden}.faq-answer p{margin:0;padding:0 44px 28px 0;max-width:850px;color:var(--muted);font-size:16px;line-height:1.7}.faq-item.open .faq-answer{grid-template-rows:1fr}
 
-    .audience{padding:120px 0 150px;border-top:1px solid var(--line)}.audience h2{margin:0;font-size:clamp(42px,5.5vw,74px);line-height:1.06;letter-spacing:-.07em}.audience-list{display:flex;flex-wrap:wrap;gap:10px;margin-top:42px}.audience-list span{min-height:47px;display:inline-flex;align-items:center;padding:0 17px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:#c5c9d1;font-size:14px;font-weight:750}
+    .audience{padding:120px 0 150px;border-top:1px solid var(--line)}.audience h2{margin:0;font-size:clamp(42px,5.5vw,74px);line-height:1.06;letter-spacing:-.07em}.audience-list{display:flex;flex-wrap:wrap;gap:10px;margin-top:42px}.audience-list span,.audience-list a{min-height:47px;display:inline-flex;align-items:center;padding:0 17px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:#c5c9d1;font-size:14px;font-weight:750}.audience-list a{transition:.2s ease}.audience-list a:hover,.audience-list a:focus-visible{border-color:rgba(59,111,255,.5);color:#fff;background:var(--blue-soft)}
     .footer{padding:30px 0 46px;border-top:1px solid var(--line);color:var(--muted-2);font-size:12px}.footer-inner{display:flex;justify-content:space-between;gap:20px}.footer strong{color:#b8bcc5}.reveal{opacity:0;transform:translateY(24px);transition:opacity .65s ease,transform .65s ease}.reveal.visible{opacity:1;transform:none}
 
     @keyframes ringPulse{0%,100%{box-shadow:0 0 0 14px var(--blue-soft)}50%{box-shadow:0 0 0 22px rgba(59,111,255,.06)}}
@@ -178,6 +179,7 @@
       .section{padding:88px 0}.section-title{font-size:43px}.feature-copy h3{font-size:42px}.feature-copy p{font-size:16px}.feature-points{margin-top:26px}.point-card{min-height:70px;padding:11px 13px}.point-icon{width:44px;height:44px}.product-panel{padding:15px;border-radius:21px;overflow-x:auto}.today-content,.calendar-content{min-width:700px}.customer-detail{min-width:650px}.task-toast,.calendar-detail{right:24px;bottom:24px}.price-card{padding:28px}.price strong{font-size:58px}.faq-question{font-size:18px}.audience h2{font-size:43px}.footer-inner{flex-direction:column}
     }
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.reveal{opacity:1;transform:none;transition:none}.app-screen,.step-item,.today-card,.timeline-row,.calendar-day{transition:none}.done-ring,.option.active,.save-bar::after,.saved-toast,.web-sync-toast{animation:none}}
+
   
     /* Centered high-visibility install CTA, matching the landing page's white Play button */
     body.ct-fixed-install-enabled{padding-bottom:calc(116px + env(safe-area-inset-bottom,0px))}
@@ -193,17 +195,18 @@
   <header class="header" id="header">
     <div class="wrap header-inner">
       <a class="logo" href="#top" aria-label="콜태그 홈"><span class="logo-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 4h14v10a5 5 0 0 1-5 5h-2l-4 3v-3H5V4Z" fill="white"/><circle cx="9.5" cy="11" r="1.2" fill="#3b6fff"/><circle cx="14.5" cy="11" r="1.2" fill="#3b6fff"/></svg></span>콜태그</a>
-      <nav class="nav" aria-label="주요 메뉴"><a href="#app">앱</a><a href="#web">웹</a><a href="#tasks">기능</a><a href="#reviews">후기</a><a href="#pricing">요금</a><a href="#faq">FAQ</a></nav>
+      <nav class="nav" aria-label="주요 메뉴"><a href="#app">앱</a><a href="#web">웹</a><a href="#integrations">연동</a><a href="#tasks">기능</a><a href="/guide/">가이드</a><a href="#pricing">요금</a><a href="#faq">FAQ</a></nav>
     </div>
   </header>
 
   <main id="top">
     <section class="hero hero-app" id="app">
       <div class="wrap">
-        <div class="hero-heading reveal">
+        <div class="hero-heading ct-original-hero-heading" data-ct-hero-final="1">
           <p class="hero-kicker">전화 상담·신규 문의·문자 관리</p>
           <h1>통화 후 고객관리,<br><span>콜태그 하나로.</span></h1>
           <p>통화 후 상담 메모와 재연락부터 신규 문의 알림, 설정형 후속문자까지. Android 앱과 PC 웹에서 함께 관리하세요.</p>
+          <div class="hero-actions"><a class="play-button" href="https://play.google.com/store/apps/details?id=kr.pagero.calltag" target="_blank" rel="noopener noreferrer" aria-label="Google Play에서 콜태그 설치">Google Play에서 설치</a></div>
         </div>
 
         <div class="phone-stage reveal">
@@ -271,6 +274,22 @@
       </div>
     </section>
 
+    <section class="section" id="integrations">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="section-kicker">외부 문의 연동</p>
+          <h2 class="section-title">전화 오기 전 문의부터<br>고객으로 이어집니다.</h2>
+          <p class="section-copy">광고와 신청폼에서 들어온 문의를 다시 복사해 입력하지 않고 콜태그 고객관리 흐름으로 연결합니다. <a href="/guide/external-inquiry-integration/"><strong>4개 연동 방식 비교 보기</strong></a></p>
+        </div>
+        <div class="fact-strip reveal">
+          <a class="fact" href="/guide/meta-lead-ads-customer-management/"><b>Meta Lead Ads</b><span>광고 리드폼 문의 수신</span></a>
+          <a class="fact" href="/guide/google-forms-customer-management/"><b>Google Forms</b><span>폼 응답 고객 수신</span></a>
+          <a class="fact" href="/guide/pagero-inquiry-customer-management/"><b>PageRo</b><span>페이지로 문의 연결</span></a>
+          <a class="fact" href="/guide/webhook-customer-inquiry-integration/"><b>Webhook</b><span>외부 서비스 문의 연결</span></a>
+        </div>
+      </div>
+    </section>
+
     <section class="section" id="tasks">
       <div class="wrap">
         <article class="feature-block reveal">
@@ -290,21 +309,10 @@
       </div>
     </section>
 
-    <section class="section" id="reviews">
-      <div class="wrap">
-        <div class="section-head reveal"><p class="section-kicker">후기</p><h2 class="section-title">실제로 써본 뒤의 말만<br>여기에 남깁니다.</h2><p class="section-copy">현재 베타 테스트 전입니다. 실제 사용 후기는 테스트가 시작되는 대로 순차 공개합니다.</p></div>
-        <div class="reviews-grid reveal">
-          <article class="review-card"><span class="review-label">보험 상담</span><blockquote>베타 테스트 참여자 후기를 준비하고 있습니다.</blockquote><div class="review-meta">실제 후기 공개 예정</div></article>
-          <article class="review-card"><span class="review-label">부동산 상담</span><blockquote>사용자 이름과 업종을 확인한 후기만 게시합니다.</blockquote><div class="review-meta">실제 후기 공개 예정</div></article>
-          <article class="review-card"><span class="review-label">예약·방문 상담</span><blockquote>과장된 후기 대신 실제 사용 경험을 공개합니다.</blockquote><div class="review-meta">실제 후기 공개 예정</div></article>
-        </div>
-      </div>
-    </section>
-
     <section class="section" id="pricing">
       <div class="wrap pricing-wrap">
-        <div class="section-head reveal"><p class="section-kicker">요금 안내</p><h2 class="section-title">3일 동안 써보고<br>결정하세요.</h2><p class="section-copy">페이지로 + 콜태그 통합권은 월 6,000원입니다.</p></div>
-        <div class="price-card reveal"><span class="trial-badge">3일 무료체험</span><h3>페이지로 + 콜태그 통합권</h3><div class="price"><strong>6,000원</strong><span>/ 월</span></div><div class="price-list"><div><i></i>페이지로 랜딩페이지와 고객 접수</div><div><i></i>콜태그 통화 후 고객관리</div><div><i></i>안내·후속문자 자동화</div><div><i></i>페이지로 문의 고객 자동등록</div></div><a class="price-button" href="https://pagero.kr/app" target="_blank" rel="noopener">3일 무료체험 신청</a><p class="price-note">무료체험 종료 후 통합권 월 6,000원</p></div>
+        <div class="section-head reveal"><p class="section-kicker">요금 안내</p><h2 class="section-title">7일 써보고<br>결정하세요.</h2><p class="section-copy">페이지로 + 콜태그 통합권은 월 6,000원입니다.</p></div>
+        <div class="price-card reveal"><span class="trial-badge">7일 무료</span><h3>페이지로 + 콜태그 통합권</h3><div class="price"><strong>6,000원</strong><span>/ 월</span></div><div class="price-list"><div><i></i>페이지로 랜딩페이지와 고객 접수</div><div><i></i>콜태그 통화 후 고객관리</div><div><i></i>안내·후속문자 자동화</div><div><i></i>페이지로 문의 고객 자동등록</div></div><a class="price-button" href="https://pagero.kr/app" target="_blank" rel="noopener">7일 무료 신청</a><p class="price-note">7일 무료 사용 후 통합권 월 6,000원 · <a href="https://play.google.com/store/apps/details?id=kr.pagero.calltag" target="_blank" rel="noopener noreferrer"><strong>Android 앱 설치</strong></a></p></div>
       </div>
     </section>
 
@@ -316,15 +324,17 @@
           <article class="faq-item"><button class="faq-question" type="button" aria-expanded="false">개인 전화도 고객으로 등록되나요?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button><div class="faq-answer"><div><p>개인통화, 거래처, 제외번호를 따로 선택할 수 있습니다. 연락처에 저장된 번호라고 해서 자동으로 고객으로 확정하지 않습니다.</p></div></div></article>
           <article class="faq-item"><button class="faq-question" type="button" aria-expanded="false">아이폰에서도 사용할 수 있나요?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button><div class="faq-answer"><div><p>현재 콜태그 앱은 Android 전용으로 개발하고 있습니다. 웹 화면은 PC와 모바일 브라우저에서 확인할 수 있습니다.</p></div></div></article>
           <article class="faq-item"><button class="faq-question" type="button" aria-expanded="false">웹에서는 무엇을 볼 수 있나요?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button><div class="faq-answer"><div><p>오늘 해야 할 업무, 기한이 지난 업무, 고객별 상담 이력, 재연락·자료 발송·방문 일정을 확인할 수 있습니다.</p></div></div></article>
-          <article class="faq-item"><button class="faq-question" type="button" aria-expanded="false">요금제는 어떻게 구성되나요?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button><div class="faq-answer"><div><p>3일 무료체험 후 페이지로 + 콜태그 통합권은 월 6,000원입니다.</p></div></div></article>
+          <article class="faq-item"><button class="faq-question" type="button" aria-expanded="false">Meta 광고 문의도 콜태그로 받을 수 있나요?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button><div class="faq-answer"><div><p>Meta Lead Ads의 리드폼 문의를 콜태그 고객관리 흐름으로 연결할 수 있습니다. 연동 방식과 수신 시점은 설정과 채널 상태에 따라 달라질 수 있습니다.</p></div></div></article>
+          <article class="faq-item"><button class="faq-question" type="button" aria-expanded="false">Google Forms 문의도 연결할 수 있나요?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button><div class="faq-answer"><div><p>Google Forms 응답을 콜태그의 고객관리 흐름으로 연결할 수 있습니다. PageRo 문의와 Webhook 기반 외부 문의 연결도 지원합니다.</p></div></div></article>
+          <article class="faq-item"><button class="faq-question" type="button" aria-expanded="false">요금제는 어떻게 구성되나요?<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button><div class="faq-answer"><div><p>7일 무료 후 페이지로 + 콜태그 통합권은 월 6,000원입니다.</p></div></div></article>
         </div>
       </div>
     </section>
 
-    <section class="audience"><div class="wrap reveal"><h2>전화 상담이<br>업무의 시작이라면.</h2><div class="audience-list"><span>보험</span><span>부동산</span><span>자동차 영업</span><span>학원 상담</span><span>광고·홈페이지 제작</span><span>인테리어</span><span>이사·방문서비스</span><span>예약 상담</span></div></div></section>
+    <section class="audience"><div class="wrap reveal"><h2>전화 상담이<br>업무의 시작이라면.</h2><div class="audience-list"><a href="/guide/insurance-agent-customer-management/">보험</a><a href="/guide/real-estate-customer-management/">부동산</a><a href="/guide/car-sales-customer-management/">자동차 영업</a><a href="/guide/academy-consultation-customer-management/">학원 상담</a><span>광고·홈페이지 제작</span><a href="/guide/interior-consultation-customer-management/">인테리어</a><span>이사·방문서비스</span><span>예약 상담</span></div></div></section>
   </main>
 
-  <footer class="footer"><div class="wrap footer-inner"><div><strong>콜태그</strong> · 페이지로</div><div>© 2026 Pagero</div></div></footer>
+  <footer class="footer"><div class="wrap footer-inner"><div><strong>콜태그</strong> · 페이지로</div><div><a href="https://play.google.com/store/apps/details?id=kr.pagero.calltag" target="_blank" rel="noopener noreferrer">Google Play</a> · <a href="/guide/">고객관리 가이드</a> · <a href="/privacy/">개인정보처리방침</a> · <a href="/terms/">이용약관</a> · <a href="/account-deletion/">계정 삭제</a></div></div></footer>
   <!-- Download CTA: one clear action -->
   <aside class="ct-fixed-install" aria-label="콜태그 설치">
     <a class="ct-fixed-install__link" href="https://play.google.com/store/apps/details?id=kr.pagero.calltag" target="_blank" rel="noopener noreferrer" aria-label="Google Play에서 콜태그 지금 다운로드하세요">
@@ -372,5 +382,6 @@
 
     if('IntersectionObserver'in window){const observer=new IntersectionObserver(entries=>{entries.forEach(entry=>{if(entry.isIntersecting){entry.target.classList.add('visible');observer.unobserve(entry.target)}})},{threshold:.1,rootMargin:'0px 0px -35px'});document.querySelectorAll('.reveal').forEach(el=>observer.observe(el))}else{document.querySelectorAll('.reveal').forEach(el=>el.classList.add('visible'))}
   </script>
+  
 </body>
 </html>
