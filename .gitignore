@@ -9,3 +9,7 @@ app/build
 *.jks
 *.keystore
 private/play-upload-reset/
+
+# Firebase Android project identifiers are supplied at build time, not committed.
+app/google-services.json
+app/src/*/google-services.json

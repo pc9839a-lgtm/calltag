@@ -2,6 +2,15 @@ plugins {
     id 'com.android.application'
 }
 
+// The production FCM integration can still build without a Firebase Analytics config.
+// Enable the Google Services plugin only after the matching Android config is supplied.
+def analyticsConfigPresent = file('google-services.json').isFile()
+if (analyticsConfigPresent) {
+    apply plugin: 'com.google.gms.google-services'
+}
+def analyticsEnabled = analyticsConfigPresent
+        && 'true'.equalsIgnoreCase(System.getenv('CALLTAG_ENABLE_ANALYTICS') ?: 'false')
+
 def envString = { String key ->
     String value = System.getenv(key) ?: ''
     return value.replace('\\', '\\\\').replace('"', '\\"')
@@ -30,6 +39,8 @@ android {
         versionCode 2026091001
         versionName '0.44.56'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        manifestPlaceholders += [calltagAnalyticsEnabled: analyticsEnabled.toString()]
+        buildConfigField 'boolean', 'CALLTAG_ANALYTICS_ENABLED', analyticsEnabled.toString()
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
         buildConfigField 'String', 'FIREBASE_API_KEY', '"' + envString('CALLTAG_FIREBASE_API_KEY') + '"'
@@ -92,7 +103,10 @@ dependencies {
     implementation 'androidx.credentials:credentials-play-services-auth:1.6.0'
     implementation 'com.google.android.libraries.identity.googleid:googleid:1.2.0'
     implementation 'com.google.android.gms:play-services-auth:21.6.0'
+    // Keep Firebase Cloud Messaging and Analytics on the same compatible BoM.
+    implementation platform('com.google.firebase:firebase-bom:34.19.0')
     implementation 'com.google.firebase:firebase-messaging:25.1.1'
+    implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.android.billingclient:billing:9.1.0'
 
     androidTestImplementation 'androidx.test:core:1.6.1'
