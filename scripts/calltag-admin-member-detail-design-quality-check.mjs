@@ -10,7 +10,7 @@ const html=fs.readFileSync('admin/shell.dat','utf8');
 const css=fs.readFileSync('admin/member-detail.css','utf8');
 const source=fs.readFileSync('admin/member-ops.js','utf8');
 assert(html.includes('/admin/member-detail.css?v=20261020-detail-v2'));
-assert(html.includes('/admin/member-ops.js?v=20261021-clean1'));
+assert(html.includes('/admin/member-ops.js?v=20261021-filters1'));
 assert(css.includes('.member-detail-layout .detailrow') && css.includes('display:grid'),'labels and values must be separated');
 assert(css.includes('grid-template-columns:repeat(2,minmax(0,1fr))'),'two-column summary');
 assert(css.includes('member-entitlement-actions'),'distinct grant/revoke action row');
