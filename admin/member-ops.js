@@ -406,19 +406,15 @@
       actionBar.append(revokeButton);
     }
     sectionEl.append(controls, actionBar);
-    const note = document.createElement('small');
-    note.className = 'payment-note';
-    note.textContent = '관리자 이용권은 결제·매출·파트너 정산에 포함되지 않습니다.';
-    sectionEl.append(note);
     return sectionEl;
   }
 
   function legacyEntitlementSection(record) {
     const el = document.createElement('section');
     el.className = 'section';
-    el.append(heading('이전 방식 이용권 기록 · 조회 전용'));
+    el.append(heading('이전 이용권 기록'));
     if (!record) {
-      el.append(emptyLine('이전 시스템의 현재 저장 레코드가 없습니다. 과거 지급 이력 부재를 뜻하지는 않습니다.'));
+      el.append(emptyLine('표시할 이전 기록이 없습니다.'));
       return el;
     }
     const baseline = record.planCode === 'beta_free' && record.source === 'beta';
@@ -431,12 +427,6 @@
       detailRow('최초 저장', dateTime(record.createdAt)),
       detailRow('최근 변경', dateTime(record.updatedAt)),
     );
-    const note = document.createElement('small');
-    note.className = 'payment-note';
-    note.textContent = baseline
-      ? '기본 베타 값만으로 기존 수동 지급을 확인할 수 없습니다. 이력이 변경됐는지는 백업 대조가 필요합니다.'
-      : '현재 레거시 테이블에 저장된 값입니다. 기존 앱의 이용권 적용 여부와 전체 지급 이력을 보증하지 않습니다.';
-    el.append(note);
     return el;
   }
 
@@ -502,10 +492,12 @@
         );
         sectionEl.append(row);
       }
-      const note = document.createElement('small');
-      note.className = 'payment-note';
-      note.textContent = data.exactHistoryAvailable ? '확정 결제 원장 기준' : '일부 금액은 추정치일 수 있습니다.';
-      sectionEl.append(note);
+      if (!data.exactHistoryAvailable) {
+        const note = document.createElement('small');
+        note.className = 'payment-note';
+        note.textContent = '추정 금액 포함';
+        sectionEl.append(note);
+      }
       return sectionEl;
     }
 
@@ -514,10 +506,7 @@
       sectionEl.append(emptyLine('결제 이력이 없습니다.'));
       return sectionEl;
     }
-    const warning = document.createElement('small');
-    warning.className = 'payment-note';
-    warning.textContent = '기존 결제 원장 생성 전 데이터라 금액은 정가 기준 추정입니다.';
-    sectionEl.append(warning);
+
     for (const item of snapshots) {
       const row = document.createElement('div');
       row.className = 'payment-item estimated';

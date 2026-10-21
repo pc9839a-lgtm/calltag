@@ -69,7 +69,7 @@ async function loadOverview() {
 }
 
 function renderOverview(data) {
-  setStatus('보안 게이트 통과 · 최소정보 운영 데이터', true);
+  setStatus('회원 조회 완료', true);
   el.identity.textContent = data?.admin?.email || '';
   const metrics = data?.metrics || {};
   el.total.textContent = number(metrics.totalMembers);
@@ -84,7 +84,7 @@ function renderOverview(data) {
   el.playFee.textContent = `${money(revenue.googlePlayFeeEstimateKrw)}원`;
   el.revenueNet.textContent = `${money(revenue.netAfterPlayFeeEstimateKrw)}원`;
 
-  el.generated.textContent = data?.generatedAt ? `갱신 ${dateTime(data.generatedAt)}` : '민감정보는 서버에서 마스킹 후 표시';
+  el.generated.textContent = data?.generatedAt ? `갱신 ${dateTime(data.generatedAt)}` : '';
   document.dispatchEvent(new CustomEvent('calltag:ops-overview', {
     detail: { ok: true, metrics: {
       totalMembers: numberRaw(metrics.totalMembers),
@@ -133,14 +133,14 @@ async function loadPartners() {
 function renderPartners(data) {
   state.financeWriteEnabled = data.financeWriteEnabled === true;
   el.badge.textContent = state.financeWriteEnabled ? 'FINANCE' : 'READ ONLY';
-  setStatus(state.financeWriteEnabled ? '정산 변경 권한 활성 · 지급 전 금액 재검증' : '파트너 정산 조회 전용', true);
+  setStatus(state.financeWriteEnabled ? '정산 관리 가능' : '정산 조회 전용', true);
   const totals = data.totals || {};
   el.partnerCount.textContent = number(totals.partnerCount);
   el.partnerGross.textContent = `${money(totals.grossSalesKrw)}원`;
   el.partnerEarned.textContent = `${money(totals.earnedCommissionKrw)}원`;
   el.partnerPayable.textContent = `${money(totals.payableAmountKrw)}원`;
   el.partnerPaid.textContent = `${money(totals.paidAmountKrw)}원`;
-  el.partnerGenerated.textContent = data.generatedAt ? `갱신 ${dateTime(data.generatedAt)} · 수수료 20% / 50%` : '수수료 20% / 50%';
+  el.partnerGenerated.textContent = data.generatedAt ? `갱신 ${dateTime(data.generatedAt)}` : '';
 
   const rows = Array.isArray(data.partners) ? data.partners : [];
   el.partnerRows.replaceChildren();
@@ -245,7 +245,7 @@ function rateControl(partner, financeEnabled) {
   }
   const note = document.createElement('div');
   note.className = 'rate-note';
-  note.textContent = financeEnabled ? '변경한 비율은 다음 신규 결제 커미션부터 적용됩니다.' : '정산 변경 권한이 있는 관리자만 수정할 수 있습니다.';
+  note.textContent = financeEnabled ? '다음 신규 결제부터 적용' : '수정 권한 없음';
   box.append(title, controls, note);
   return box;
 }
@@ -254,7 +254,7 @@ function payControl(ownerId, month, financeEnabled) {
   const box = document.createElement('div');
   box.className = 'paybox';
   const note = document.createElement('p');
-  note.textContent = '실제 송금을 확인한 뒤 지급 처리하세요. 버튼은 은행 송금을 실행하지 않고 지급완료 원장을 기록합니다.';
+  note.textContent = '송금 기능 없음 · 실제 송금 후 지급완료 처리';
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'paybtn';

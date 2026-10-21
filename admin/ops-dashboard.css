@@ -11,6 +11,7 @@
 .ops-indicator>strong[data-state="ok"]{color:#16653e}
 .ops-indicator>strong[data-state="warn"]{color:#9b5d03}
 .ops-indicator>small{display:block;color:#777f89;font-size:11px;line-height:1.5;margin-top:7px}
+.ops-indicator>small:empty{display:none}
 .ops-health-bottom{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:16px;padding-top:15px;border-top:1px solid #edf0f3}
 .ops-health-bottom h2{font-size:13px;margin:0 0 10px;color:#26303d}
 .ops-issues{list-style:none;padding:0;margin:0;display:grid;gap:8px}
