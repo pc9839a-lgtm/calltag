@@ -141,7 +141,17 @@ if (live) {
         if (path === '/') {
           log(title(body) === title(deployHome), 'LIVE homepage title is current deployed title');
           log(description(body) === description(deployHome), 'LIVE homepage description is current deployed description');
-          log(response.headers.get('x-calltag-worker') === workerVersion, 'LIVE homepage uses current deployed Worker');
+          const servedWorker = response.headers.get('x-calltag-worker');
+          const rootWorker = sourceWorker.match(/const WORKER_VERSION='([^']+)'/)?.[1];
+          const stabilizer = response.headers.get('x-calltag-landing-stabilizer');
+          console.log('LIVE Worker diagnostic: ' + JSON.stringify({
+            expectedWeb: workerVersion,
+            expectedRoot: rootWorker,
+            servedWorker: servedWorker ?? '(missing)',
+            stabilizer: stabilizer ?? '(missing)',
+            site: response.url
+          }));
+          log(servedWorker === workerVersion, 'LIVE homepage uses current deployed Worker');
         }
       } catch (error) { log(false, 'LIVE request ' + path + ': ' + error.message); }
     }));
