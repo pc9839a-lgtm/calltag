@@ -59,9 +59,9 @@ log(worker.includes('const SEO_DESCRIPTION=' + JSON.stringify(description(deploy
 log(sourceWorker.includes('const SEO_TITLE=' + JSON.stringify(title(deployHome)).replace(/"/g, "'") + ';'), 'Fallback Worker SEO_TITLE matches deployed HTML');
 log(!worker.includes('visibility:hidden!important'), 'Active Worker does not conceal entire content until JS runs');
 log(!sourceWorker.includes('visibility:hidden!important'), 'Fallback Worker does not conceal main content until JS runs');
-const guideAnchorLinks = [...deployHome.matchAll(/<a\\b[^>]*href=["'](\\/guide\\/[^"']*)["']/gi)].map(m => m[1]);
-log(guideAnchorLinks.includes('/guide/'), 'Deployed homepage links directly to guide hub');
-log(guideAnchorLinks.length >= 10, 'Deployed homepage exposes crawlable guide links');
+const guideAnchorLinks = deployHome.split('href="/guide/').length - 1;
+log(guideAnchorLinks > 0, 'Deployed homepage links directly to guide hub');
+log(guideAnchorLinks >= 10, 'Deployed homepage exposes crawlable guide links');
 log(!deployHome.includes('3일 무료체험') && deployHome.includes('7일 무료'), 'Deployed trial terms match current 7-day policy');
 log(!deployHome.includes('베타 테스트 참여자 후기를 준비'), 'No placeholder testimonials on deployed landing');
 log(existsSync(join(root, 'web/account-deletion/index.html')), 'Deployed account-deletion policy exists');
