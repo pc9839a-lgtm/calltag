@@ -56,3 +56,27 @@ Firebase/GA4 사용 측정이 실기기에서 확인되면 별도 서버측 GA4 
 ## 데이터 최소화
 
 고객 이름, 휴대전화번호, 이메일, 계정 owner ID, 통화기록, 상담 메모, 문자내용, 위치와 Firebase 푸시 토큰을 Analytics 파라미터로 전송하지 않는다. 광고 ID 수집은 manifest에서 비활성화한다. Firestore, Realtime Database, Cloud Functions는 본 작업 범위에 포함하지 않는다.
+
+## 구독자 분석 — 2026-10-21 추가
+
+- `calltag_app_open` 이벤트에 `subscriber_status`와 `subscriber_plan`을 함께 기록한다.
+- GA4 User Property에도 동일한 저카디널리티 그룹을 설정하고 서버 entitlement 응답이 저장될 때 갱신한다.
+- `subscriber_status`: `subscriber`(구독 이용), `trial`(무료체험), `granted`(별도 지급), `free`(무료/비활성), `unknown`(검증 전/오래된 정보).
+- `subscriber_plan`: `call`, `message`, `both`, `web_bundle`, `none`.
+- 서버 확인 기록이 24시간을 넘었으면 `unknown`으로 보내, 오래된 유료 권한 상태가 최근 유료 이용으로 과장되지 않게 한다.
+- 사용자가 로그아웃/계정을 전환하면 기존 유저 프로퍼티를 즉시 삭제한다. 계정의 고유 ID, 이메일 및 결제 토큰은 Firebase Analytics로 전송하지 않는다.
+- **이 분류는 서버 entitlement의 구독 접근 상태이지, 확정 주문/실매출/실제 유료 결제자 원장이 아니다.** 공식 유료 결제자 수·신규 결제자·해지자·환불·정산은 결제 원장을 기준으로 집계한다.
+- DAU/WAU/MAU와 D1/D7/D30을 `subscriber_status`별로 구분하되, 그 시점의 구독 상태(event parameter)와 현재 구독 상태(user property)를 혼동하지 않는다. 정확한 유료 전환 코호트는 원장의 최초 결제일/상태전이와 GA4 이용 코호트를 연계하는 별도 데이터 파이프라인이 있어야 한다.
+- GA4의 커스텀 디멘션에 `subscriber_status`와 `subscriber_plan`을 등록하고, DebugView에서 구독/체험/지급 시나리오의 이벤트 값을 검증한다. 소규모 코호트는 Google Analytics 개인정보 보호 기준에 따라 표시가 제한될 수 있다.
+
+### 구독자 지표 설계
+| 지표 | 권위 있는 데이터/측정 |
+|---|---|
+| 현재 유료 구독자 | 관리자 서버 `activePaid` (계정 중복 제거) |
+| 신규 유료 구독자 | 결제 원장의 최초 검증 결제일에 따른 계정 집계 (서버 API 추가 필요) |
+| 해지/만료 계정 | 서버 구독 상태 전이 이력 (서버 API 추가 필요) |
+| 무료체험→유료 전환율 | 무료체험 시작 코호트 중 특정 기간 내 최초 검증 결제 계정 / 전체 적격 체험 코호트 (별도 API) |
+| 유료 구독자 활동/유지율 | `calltag_app_open` + `subscriber_status=subscriber` 조건의 GA4 분석 |
+| 비구독자와 비교 | `trial`, `free`, `granted`, `subscriber`를 구분해 계산 |
+
+관리자 대시보드의 단순 `activePaid/totalMembers`는 **유료 회원 비중**이지 무료체험→유료 전환율이 아니다.
