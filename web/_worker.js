@@ -1,5 +1,6 @@
 import { handlePartnerAdminSecurity } from './worker/partner-admin-security.js';
 import { handleAdminOpsBridge } from './worker/admin-ops-bridge.js';
+import { handleAdminAppAnalytics } from './worker/admin-app-analytics.js';
 import { handleAdminPayoutBridge } from './worker/admin-payout-bridge.js';
 import { handleCalltagAdmin } from './worker/admin.js';
 import { handlePartnerApi } from './worker/partner.js';
@@ -109,6 +110,8 @@ export default {
     // before general admin assets/proxy or public landing handling.
     const partnerSecurity = await handlePartnerAdminSecurity(request);
     if (partnerSecurity) return partnerSecurity;
+    const appAnalyticsResponse=await handleAdminAppAnalytics(request,env);
+    if(appAnalyticsResponse)return appAnalyticsResponse;
     const ops = await handleAdminOpsBridge(request);
     if (ops) return ops;
     const payouts = await handleAdminPayoutBridge(request);
