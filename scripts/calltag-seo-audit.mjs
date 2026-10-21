@@ -73,7 +73,7 @@ const runtimeCore = read('web/assets/calltag-core-runtime.js');
 log(runtimeLoader.includes("href='/guide/'"), 'Client runtime retains guide navigation after hydration');
 log(!runtimeCore.includes("heroTitle.innerHTML="), 'Client runtime does not replace the server-rendered H1');
 log(!runtimeCore.includes("통합권 3일 무료체험") && runtimeCore.includes("통합권 7일 무료체험"), 'Client runtime offer matches 7-day policy');
-log(worker.includes('20261021-seo1') && runtimeLoader.includes('20261021-seo1'), 'Updated runtime assets use new cache-busting versions');
+log(worker.includes('20261021-seo2') && runtimeLoader.includes('20261021-seo2'), 'Updated runtime assets use new cache-busting versions');
 log(worker.includes('stripSeo(body)'), 'Active Worker strips old homepage metadata before injection');
 log(worker.includes('SEO_HEAD'), 'Active Worker includes generated homepage SEO metadata');
 const workerSchema = text => text.split('const SEO_SCHEMA=')[1]?.split('\n\nconst SEO_HEAD=')[0] ?? '';
