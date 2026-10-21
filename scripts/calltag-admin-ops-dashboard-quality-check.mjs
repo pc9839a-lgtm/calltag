@@ -25,7 +25,7 @@ for (const removed of ['opsFinanceStatus','opsFinanceStatusNote','opsAttention',
   assert(!ops.includes(removed),'removed finance/alert logic in dashboard: ' + removed);
 }
 assert.equal((html.slice(html.indexOf('<div class="ops-health-grid">'),
-  html.indexOf('id="membersPanel"')).match(/class="ops-indicator"/g)||[]).length,6,
+  html.indexOf('id="appAnalyticsPanel"')).match(/class="ops-indicator"/g)||[]).length,6,
   'six member/subscriber KPI cards required');
 assert(html.includes('/admin/ops-dashboard.js?v=20261021-subscribers1'));
 assert(html.includes('/admin/ops-dashboard.css?v=20261021-subscribers1'));
