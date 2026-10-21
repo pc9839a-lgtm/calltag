@@ -6,10 +6,7 @@
     const kicker=q('.hero-kicker'),heroTitle=q('.hero-heading h1'),description=q('.hero-heading > p:last-of-type');
     // Keep the server-rendered H1, kicker and product description intact.
     qa('.hero-heading .ad-actions,.hero-heading .ad-offer,.ad-copy').forEach(el=>el.remove());
-    qa('.ad-target p,.ad-benefit p,.ad-strength p,.ad-plan-copy').forEach(el=>el.remove());
-    qa('.section-copy').forEach((el,index)=>{if(index>0)el.remove();});
-    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let textNode;
-    while((textNode=walker.nextNode()))textNode.nodeValue=textNode.nodeValue.replaceAll('이어집니다.','').replaceAll('흐름입니다.','').replaceAll('정리됩니다.','').replaceAll('한눈에 볼 수 있습니다.','');
+    // Preserve authored product copy and guide snippets; never rewrite all page text.
     const stage=q('#app .phone-stage');
     if(stage){
       const items=qa('.step-item',stage),screens=qa('.app-screen',stage),progress=q('#phoneProgress',stage),visibleCount=3;
