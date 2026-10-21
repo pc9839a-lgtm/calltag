@@ -28,7 +28,7 @@ assert.equal((html.slice(html.indexOf('<div class="ops-health-grid">'),
   html.indexOf('id="appAnalyticsPanel"')).match(/class="ops-indicator"/g)||[]).length,6,
   'six member/subscriber KPI cards required');
 assert(html.includes('/admin/ops-dashboard.js?v=20261021-subscribers1'));
-assert(html.includes('/admin/ops-dashboard.css?v=20261021-subscribers1'));
+assert(html.includes('/admin/ops-dashboard.css?v=20261022-ga4-1'));
 assert(css.includes('.ops-member-dashboard .ops-health-grid'),'dashboard responsive grid styles required');
 for (const key of ['totalMembers','newMembers7d','trialMembers','activePaid']) {
   assert(ops.includes(key),'missing member KPI: ' + key);
