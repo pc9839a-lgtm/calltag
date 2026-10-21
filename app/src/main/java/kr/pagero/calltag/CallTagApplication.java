@@ -161,6 +161,7 @@ public final class CallTagApplication extends Application implements Application
             ExternalLeadMenuInstaller.install((MainActivity) activity);
         }
         if (startedActivities == 1) {
+            CallTagAppAnalytics.recordUserOpen(this, activity);
             handler.removeCallbacks(periodicForegroundWork);
             handler.post(periodicForegroundWork);
         }
