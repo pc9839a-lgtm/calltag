@@ -38,7 +38,9 @@ const sourcePath = (url, base = '') => {
 
 const sitemap = read('web/sitemap.xml');
 const urls = sitemapUrls(sitemap);
-log(urls.length === 17, 'Deployed sitemap lists 17 intended public URLs');
+const allLocs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map(m => m[1]);
+log(urls.length >= 17, 'Deployed sitemap keeps the 17 baseline public URLs');
+log(allLocs.length === urls.length, 'Every sitemap URL uses the intended HTTPS host');
 log(urls.length === new Set(urls).size, 'Deployed sitemap URLs are unique');
 log(read('sitemap.xml') === sitemap, 'Root and deployed sitemap are identical');
 log(read('robots.txt') === read('web/robots.txt'), 'Root and deployed robots are identical');
@@ -74,6 +76,17 @@ log(!runtimeCore.includes("통합권 3일 무료체험") && runtimeCore.includes
 log(worker.includes('20261021-seo1') && runtimeLoader.includes('20261021-seo1'), 'Updated runtime assets use new cache-busting versions');
 log(worker.includes('stripSeo(body)'), 'Active Worker strips old homepage metadata before injection');
 log(worker.includes('SEO_HEAD'), 'Active Worker includes generated homepage SEO metadata');
+const workerSchema = text => text.split('const SEO_SCHEMA=')[1]?.split('\n\nconst SEO_HEAD=')[0] ?? '';
+log(workerSchema(worker) === workerSchema(sourceWorker), 'Active and fallback Worker publish the same structured data');
+log(workerSchema(worker).includes('installUrl:') && workerSchema(worker).includes("WebPage"), 'Structured data describes app installation and canonical page');
+log(workerSchema(worker).includes('기본 7일 무료체험 후 월 6,000원'), 'Structured data pricing uses approved trial terms');
+log(!runtimeCore.includes("qa('.section-copy').forEach"), 'Runtime preserves every section description');
+log(!runtimeCore.includes("document.createTreeWalker(document.body"), 'Runtime never rewrites all page text');
+log(!runtimeCore.includes("qa('.ad-target p,.ad-benefit p"), 'Runtime preserves feature explanations');
+const fallbackRuntimeCore = read('assets/calltag-core-runtime.js');
+log(!fallbackRuntimeCore.includes("document.createTreeWalker(document.body") && !fallbackRuntimeCore.includes("qa('.section-copy').forEach"), 'Fallback runtime also preserves content');
+const workerVersion = worker.match(/const WORKER_VERSION='([^']+)'/)?.[1];
+log(Boolean(workerVersion), 'Worker has a traceable release version');
 
 for (const url of urls) {
   const path = pathOf(url);
@@ -128,6 +141,7 @@ if (live) {
         if (path === '/') {
           log(title(body) === title(deployHome), 'LIVE homepage title is current deployed title');
           log(description(body) === description(deployHome), 'LIVE homepage description is current deployed description');
+          log(response.headers.get('x-calltag-worker') === workerVersion, 'LIVE homepage uses current deployed Worker');
         }
       } catch (error) { log(false, 'LIVE request ' + path + ': ' + error.message); }
     }));
