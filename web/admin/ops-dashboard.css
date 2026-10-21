@@ -212,3 +212,12 @@
 .ops-member-dashboard .ops-health-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:900px){.ops-member-dashboard .ops-health-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:680px){.ops-member-dashboard .ops-health-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* GA4 report is absent entirely until server-side reporting is connected. */
+.app-analytics-dashboard[hidden]{display:none!important}
+.app-analytics-dashboard .ops-health-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.app-analytics-dashboard .ops-indicator:first-child{background:#f8f9fb;border-color:#e9ecf1}
+.app-analytics-dashboard .ops-indicator:first-child>span{color:#566176}
+.app-analytics-dashboard .ops-indicator:first-child>strong{color:#111827}
+.app-analytics-dashboard .app-analytics-source{font-size:11px;color:#697586;margin:12px 0 0}
+@media(max-width:680px){.app-analytics-dashboard .ops-health-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

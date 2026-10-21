@@ -2,6 +2,7 @@ import core from './_worker-core.js';
 import { serveMobilePolicy } from './worker/mobile-policy.mjs';
 import { serveMobileTemplates } from './worker/mobile-templates.mjs';
 import { handleAdminOpsBridge } from './worker/admin-ops-bridge.js';
+import { handleAdminAppAnalytics } from './worker/admin-app-analytics.js';
 import { handleAdminPayoutBridge } from './worker/admin-payout-bridge.js';
 
 const SETTLEMENT_FINALIZER='/web/settlement-finalize.js?v=20260813-final1';
@@ -19,6 +20,8 @@ export default {
     if(remotePolicy)return remotePolicy;
     const remoteTemplates=await serveMobileTemplates(request,env);
     if(remoteTemplates)return remoteTemplates;
+    const appAnalyticsResponse=await handleAdminAppAnalytics(request,env);
+    if(appAnalyticsResponse)return appAnalyticsResponse;
     const adminOpsResponse=await handleAdminOpsBridge(request);
     if(adminOpsResponse)return adminOpsResponse;
 

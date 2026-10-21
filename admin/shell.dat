@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/admin/payout-request.css?v=20260813-payout1" />
   <link rel="stylesheet" href="/admin/admin-ops.css?v=20261016-subscriber-parity6" />
   <link rel="stylesheet" href="/admin/admin-theme.css?v=20260813-theme1" />
-  <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261021-subscribers1" />
+  <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261022-ga4-1" />
   <link rel="stylesheet" href="/admin/member-detail.css?v=20261020-detail-v2" />
 </head>
 <body>
@@ -39,6 +39,24 @@
           <div class="ops-indicator"><span>비유료 회원</span><strong id="opsNonPaidMembers">—</strong></div>
           <div class="ops-indicator"><span>유료 구독 비중</span><strong id="opsPaidShare">—</strong></div>
         </div>
+      </section>
+      <section id="appAnalyticsPanel" class="ops-health ops-member-dashboard app-analytics-dashboard" aria-label="앱 이용 분석" hidden>
+        <div class="ops-health-header">
+          <div class="ops-health-heading"><h1>앱 이용 현황</h1></div>
+          <span class="ops-last-checked">Firebase Analytics · 전일 마감 기준</span>
+        </div>
+        <div class="ops-health-grid">
+          <div class="ops-indicator"><span>앱 실행 · 7일</span><strong id="appOpens7d">—</strong></div>
+          <div class="ops-indicator"><span>신규 사용자 · 7일</span><strong id="appNewUsers7d">—</strong></div>
+          <div class="ops-indicator"><span>DAU</span><strong id="appDau">—</strong></div>
+          <div class="ops-indicator"><span>WAU</span><strong id="appWau">—</strong></div>
+          <div class="ops-indicator"><span>MAU</span><strong id="appMau">—</strong></div>
+          <div class="ops-indicator"><span>유료 이용자 · 7일</span><strong id="appSubscriberActive7d">—</strong></div>
+          <div class="ops-indicator"><span>D1 유지율</span><strong id="appRetentionD1">—</strong></div>
+          <div class="ops-indicator"><span>D7 유지율</span><strong id="appRetentionD7">—</strong></div>
+          <div class="ops-indicator"><span>D30 유지율</span><strong id="appRetentionD30">—</strong></div>
+        </div>
+        <p id="appRetentionBasis" class="app-analytics-source"></p>
       </section>
       <section id="membersPanel" class="panel">
         <div class="panelhead compact-members-head">
@@ -236,5 +254,6 @@
   <script src="/admin/admin-theme.js?v=20260813-theme1" defer></script>
   <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
   <script src="/admin/ops-dashboard.js?v=20261021-subscribers1" defer></script>
+  <script src="/admin/app-analytics.js?v=20261022-ga4-1" defer></script>
 </body>
 </html>
