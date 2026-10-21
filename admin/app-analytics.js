@@ -28,9 +28,15 @@
         if(node)node.textContent=percentage(data.retention?.['d'+n]);
       }
       const note=document.getElementById('appRetentionBasis');
-      if(note)note.textContent=data.retention?.cohortDate
-        ? '유지율: '+data.retention.cohortDate+' 최초 사용자 코호트 · D1/D7/D30 | 구독자 활동은 수집 구간의 유료 상태 기준'
-        : '전일 마감 데이터';
+      if(note) {
+        const days=[1,7,30].map(n=>{
+          const date=data.retention?.cohortDates?.['d'+n];
+          return date?'D'+n+' '+date:'';
+        }).filter(Boolean);
+        note.textContent=days.length
+          ? '최초 사용 코호트: '+days.join(' · ')+' | 구독자 활동은 수집 구간의 유료 상태 기준'
+          : '전일 마감 데이터';
+      }
       panel.hidden=false;
     } catch {
       panel.hidden=true;
