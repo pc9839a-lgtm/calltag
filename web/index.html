@@ -153,6 +153,16 @@
     .faq-list{margin-top:52px;border-top:1px solid var(--line)}.faq-item{border-bottom:1px solid var(--line)}.faq-question{width:100%;min-height:86px;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:0;border:0;background:transparent;color:#fff;text-align:left;font-size:21px;font-weight:850;cursor:pointer}.faq-question svg{width:22px;height:22px;transition:transform .25s ease}.faq-item.open .faq-question svg{transform:rotate(45deg)}.faq-answer{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s ease}.faq-answer>div{overflow:hidden}.faq-answer p{margin:0;padding:0 44px 28px 0;max-width:850px;color:var(--muted);font-size:16px;line-height:1.7}.faq-item.open .faq-answer{grid-template-rows:1fr}
 
     .audience{padding:120px 0 150px;border-top:1px solid var(--line)}.audience h2{margin:0;font-size:clamp(42px,5.5vw,74px);line-height:1.06;letter-spacing:-.07em}.audience-list{display:flex;flex-wrap:wrap;gap:10px;margin-top:42px}.audience-list span,.audience-list a{min-height:47px;display:inline-flex;align-items:center;padding:0 17px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:#c5c9d1;font-size:14px;font-weight:750}.audience-list a{transition:.2s ease}.audience-list a:hover,.audience-list a:focus-visible{border-color:rgba(59,111,255,.5);color:#fff;background:var(--blue-soft)}
+    .ct-search-guide{padding:72px 0 84px;border-top:1px solid var(--line);background:#0d0e12}
+    .ct-search-guide__head{max-width:790px}.ct-search-guide__eyebrow{margin:0 0 12px;color:var(--muted);font-size:13px;font-weight:800;letter-spacing:.04em}
+    .ct-search-guide__head h2{margin:0;font-size:clamp(26px,3.2vw,42px);line-height:1.23;letter-spacing:-.055em}
+    .ct-search-guide__head>p:last-child{margin:16px 0 0;color:var(--muted);font-size:15px;line-height:1.7}
+    .ct-search-guide__links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:30px}
+    .ct-search-guide__links a{display:flex;flex-direction:column;gap:8px;min-height:105px;padding:22px 24px;border:1px solid var(--line);border-radius:14px;background:var(--surface);transition:border-color .2s ease,background .2s ease}
+    .ct-search-guide__links a:hover,.ct-search-guide__links a:focus-visible{border-color:var(--line-strong);background:var(--surface-2);outline-offset:3px}
+    .ct-search-guide__links strong{font-size:16px;letter-spacing:-.035em}.ct-search-guide__links span{color:var(--muted);font-size:13px;line-height:1.5}
+    .ct-search-guide__all{display:inline-block;margin-top:22px;color:var(--text);font-size:14px;font-weight:800;text-decoration:underline;text-underline-offset:5px}
+    @media(max-width:640px){.ct-search-guide{padding:56px 0 66px}.ct-search-guide__links{grid-template-columns:minmax(0,1fr)}.ct-search-guide__links a{min-height:92px;padding:19px}}
     .footer{padding:30px 0 46px;border-top:1px solid var(--line);color:var(--muted-2);font-size:12px}.footer-inner{display:flex;justify-content:space-between;gap:20px}.footer strong{color:#b8bcc5}.reveal{opacity:0;transform:translateY(24px);transition:opacity .65s ease,transform .65s ease}.reveal.visible{opacity:1;transform:none}
 
     @keyframes ringPulse{0%,100%{box-shadow:0 0 0 14px var(--blue-soft)}50%{box-shadow:0 0 0 22px rgba(59,111,255,.06)}}
@@ -332,6 +342,23 @@
     </section>
 
     <section class="audience"><div class="wrap reveal"><h2>전화 상담이<br>업무의 시작이라면.</h2><div class="audience-list"><a href="/guide/insurance-agent-customer-management/">보험</a><a href="/guide/real-estate-customer-management/">부동산</a><a href="/guide/car-sales-customer-management/">자동차 영업</a><a href="/guide/academy-consultation-customer-management/">학원 상담</a><span>광고·홈페이지 제작</span><a href="/guide/interior-consultation-customer-management/">인테리어</a><span>이사·방문서비스</span><span>예약 상담</span></div></div></section>
+    <section class="ct-search-guide" aria-labelledby="ct-search-guide-title">
+      <div class="wrap">
+        <div class="ct-search-guide__head">
+          <p class="ct-search-guide__eyebrow">고객관리 실무 가이드</p>
+          <h2 id="ct-search-guide-title">필요한 고객관리 방법부터 확인하세요.</h2>
+          <p>엑셀과 CRM 선택부터 통화 기록, 재연락 일정까지. 업무별로 기준과 예시를 정리했습니다.</p>
+        </div>
+        <div class="ct-search-guide__links">
+          <a href="/guide/customer-management-app/"><strong>고객관리 프로그램 선택</strong><span>엑셀·1인 CRM·팀 CRM 비교</span></a>
+          <a href="/guide/after-call-customer-management/"><strong>통화 후 고객관리</strong><span>통화 메모와 고객 분류, 콜백 문자</span></a>
+          <a href="/guide/phone-consultation-record/"><strong>전화 상담일지 작성</strong><span>상담기록 항목과 엑셀·CRM 관리</span></a>
+          <a href="/guide/follow-up-schedule-management/"><strong>재연락·팔로업 일정 관리</strong><span>후속 업무와 오늘 연락할 고객 정리</span></a>
+          <a href="/guide/sales-customer-management/"><strong>영업 CRM 선택</strong><span>혼자 관리할 때와 팀으로 관리할 때</span></a>
+        </div>
+        <a class="ct-search-guide__all" href="/guide/">고객관리 실무 가이드 전체 보기 →</a>
+      </div>
+    </section>
   </main>
 
   <footer class="footer"><div class="wrap footer-inner"><div><strong>콜태그</strong> · 페이지로</div><div><a href="https://play.google.com/store/apps/details?id=kr.pagero.calltag" target="_blank" rel="noopener noreferrer">Google Play</a> · <a href="/guide/">고객관리 가이드</a> · <a href="/privacy/">개인정보처리방침</a> · <a href="/terms/">이용약관</a> · <a href="/account-deletion/">계정 삭제</a></div></div></footer>
