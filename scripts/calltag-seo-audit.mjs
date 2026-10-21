@@ -66,7 +66,17 @@ log(!worker.includes('visibility:hidden!important'), 'Active Worker does not con
 log(!sourceWorker.includes('visibility:hidden!important'), 'Fallback Worker does not conceal main content until JS runs');
 const guideAnchorLinks = deployHome.split('href="/guide/').length - 1;
 log(guideAnchorLinks > 0, 'Deployed homepage links directly to guide hub');
+const priorityGuidePaths = [
+  '/guide/customer-management-app/',
+  '/guide/after-call-customer-management/',
+  '/guide/phone-consultation-record/',
+  '/guide/follow-up-schedule-management/',
+  '/guide/sales-customer-management/'
+];
 log(guideAnchorLinks >= 10, 'Deployed homepage exposes crawlable guide links');
+log(priorityGuidePaths.every(p => deployHome.includes('href="' + p + '"')), 'Homepage directly links all five foundational CRM guides');
+log(deployHome.includes('aria-labelledby="ct-search-guide-title"'), 'Editorial guide links are rendered in semantic HTML');
+
 log(!deployHome.includes('3일 무료체험') && deployHome.includes('7일 무료'), 'Deployed trial terms match current 7-day policy');
 log(!deployHome.includes('베타 테스트 참여자 후기를 준비'), 'No placeholder testimonials on deployed landing');
 log(existsSync(join(root, 'web/account-deletion/index.html')), 'Deployed account-deletion policy exists');
@@ -144,6 +154,7 @@ if (live) {
         if (path === '/') {
           log(title(body) === title(deployHome), 'LIVE homepage title is current deployed title');
           log(description(body) === description(deployHome), 'LIVE homepage description is current deployed description');
+          log(priorityGuidePaths.every(p => body.includes('href="' + p + '"')), 'LIVE homepage renders five foundational guide links');
           const servedWorker = response.headers.get('x-calltag-worker');
           const rootWorker = sourceWorker.match(/const WORKER_VERSION='([^']+)'/)?.[1];
           const stabilizer = response.headers.get('x-calltag-landing-stabilizer');
