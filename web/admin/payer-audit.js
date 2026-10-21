@@ -90,12 +90,12 @@
         }, sources: { subscriptions: data.sources?.subscriptions, payments: data.sources?.payments },
       },
     }));
-    if (data.truncated) status.textContent='저장 기록 500건 상한에 도달해 일부 기록만 검사했습니다. 결과가 불완전할 수 있습니다.';
-    else status.textContent=rows.length ? '저장된 구독·결제 원장 전수 대조 완료 · '+new Date().toLocaleString('ko-KR') : '현재 저장된 관련 구독·결제 기록이 없습니다.';
+    if (data.truncated) status.textContent='일부 기록 미확인 (500건 한도)';
+    else status.textContent=rows.length ? '결제 기록 확인 완료 · '+new Date().toLocaleString('ko-KR') : '결제 기록 없음';
   }
   async function run() {
     if (busy) return;busy=true;button.disabled=true;button.textContent='검사 중';
-    status.textContent='전체 결제 기록을 조회 중입니다.';
+    status.textContent='결제 기록 확인 중';
     try {
       const response=await fetch('/admin/api/payer-audit',{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
       const data=await response.json().catch(()=>({}));
