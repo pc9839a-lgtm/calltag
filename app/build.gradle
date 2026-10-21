@@ -105,7 +105,7 @@ dependencies {
     implementation 'com.google.android.gms:play-services-auth:21.6.0'
     // Keep Firebase Cloud Messaging and Analytics on the same compatible BoM.
     implementation platform('com.google.firebase:firebase-bom:34.19.0')
-    implementation 'com.google.firebase:firebase-messaging'
+    implementation 'com.google.firebase:firebase-messaging:25.1.1'
     implementation 'com.google.firebase:firebase-analytics'
     implementation 'com.android.billingclient:billing:9.1.0'
 
