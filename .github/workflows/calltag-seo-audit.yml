@@ -1,0 +1,47 @@
+name: CallTag SEO Indexability Audit
+
+on:
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'guide/**'
+      - 'robots.txt'
+      - 'sitemap.xml'
+      - 'scripts/calltag-seo-audit.mjs'
+      - '.github/workflows/calltag-seo-audit.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'guide/**'
+      - 'robots.txt'
+      - 'sitemap.xml'
+      - 'scripts/calltag-seo-audit.mjs'
+      - '.github/workflows/calltag-seo-audit.yml'
+  schedule:
+    - cron: '17 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  source-seo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check sitemap, source canonicals, robots and headings
+        run: node scripts/calltag-seo-audit.mjs
+
+  production-seo:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify public URLs, served canonicals and indexing headers
+        run: node scripts/calltag-seo-audit.mjs --live
