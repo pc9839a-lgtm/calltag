@@ -66,6 +66,12 @@ log(!deployHome.includes('3일 무료체험') && deployHome.includes('7일 무�
 log(!deployHome.includes('베타 테스트 참여자 후기를 준비'), 'No placeholder testimonials on deployed landing');
 log(existsSync(join(root, 'web/account-deletion/index.html')), 'Deployed account-deletion policy exists');
 log(deployHome.includes('href="/account-deletion/"'), 'Deployed account-deletion policy is linked');
+const runtimeLoader = read('web/assets/calltag-runtime-loader.js');
+const runtimeCore = read('web/assets/calltag-core-runtime.js');
+log(runtimeLoader.includes("href='/guide/'"), 'Client runtime retains guide navigation after hydration');
+log(!runtimeCore.includes("heroTitle.innerHTML="), 'Client runtime does not replace the server-rendered H1');
+log(!runtimeCore.includes("통합권 3일 무료체험") && runtimeCore.includes("통합권 7일 무료체험"), 'Client runtime offer matches 7-day policy');
+log(worker.includes('20261021-seo1') && runtimeLoader.includes('20261021-seo1'), 'Updated runtime assets use new cache-busting versions');
 log(worker.includes('stripSeo(body)'), 'Active Worker strips old homepage metadata before injection');
 log(worker.includes('SEO_HEAD'), 'Active Worker includes generated homepage SEO metadata');
 
