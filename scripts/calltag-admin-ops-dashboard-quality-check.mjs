@@ -33,10 +33,12 @@ for(const event of ['calltag:ops-overview','calltag:ops-payer-audit','calltag:op
 assert(admin.includes("new CustomEvent('calltag:ops-overview'"),'overview aggregate event missing');
 assert(audit.includes("new CustomEvent('calltag:ops-payer-audit'"),'payer audit aggregate event missing');
 assert(finance.includes("new CustomEvent('calltag:ops-finance'"),'Play finance availability event missing');
-assert(ops.includes('실매출 0원이 아닌'),'unavailable earnings must not become zero sales');
-assert(ops.includes('서버에서 인식한 유료 이용 회원'),'subscriber scope must be explicit');
-assert(ops.includes('결제 원장 추가확인 필요'),'unverified ledger differences must be visible');
-assert(ops.includes('조회 상한에 도달했습니다.'),'truncated audit must not imply completeness');
+assert(ops.includes("status(parts.finance, '보고서 없음'"),'unavailable earnings must remain unavailable, not zero sales');
+assert(ops.includes('countText(metrics.activePaid)'),'verified subscriber count must remain visible');
+assert(ops.includes('결제 확인 필요'),'unverified ledger differences must remain visible');
+assert(ops.includes('일부 결제 기록 미확인'),'truncated audit must remain clearly labeled');
+assert(!ops.includes('구독 상태가 검증됐어도'),'redundant technical copy must not return');
+assert(!html.includes('ops-source-help'),'long operational explanation must stay removed');
 // The health panel may only navigate or present existing protected endpoint data.
 // No privileged writes, credential storage, or raw customer/payment identifiers.
 assert(!/\bfetch\s*\(|XMLHttpRequest|localStorage|sessionStorage/.test(ops),'no new admin network or persistent tokens');
