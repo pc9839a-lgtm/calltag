@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/admin/payout-request.css?v=20260813-payout1" />
   <link rel="stylesheet" href="/admin/admin-ops.css?v=20261016-subscriber-parity6" />
   <link rel="stylesheet" href="/admin/admin-theme.css?v=20260813-theme1" />
-  <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261021-clean1" />
+  <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261021-filters1" />
   <link rel="stylesheet" href="/admin/member-detail.css?v=20261020-detail-v2" />
 </head>
 <body>
@@ -59,13 +59,81 @@
             <div class="member-search-inline">
               <input id="memberSearchInput" type="search" maxlength="80" autocomplete="off" placeholder="회원ID · 이메일 · 전화번호" aria-label="회원 검색" />
               <button id="memberSearchButton" type="button">검색</button>
-              <details class="member-extra-filter">
-                <summary aria-label="상세 필터">상세</summary>
-                <label for="memberEvidenceFilter">기존 지급·구매 기록</label>
-                <select id="memberEvidenceFilter" aria-label="회원 지급 구매 이력 필터"><option value="all">전체 회원</option><option value="granted">지급 이력만</option><option value="purchased">결제·구독 검증</option></select>
-              </details>
+              <button id="memberFilterToggle" type="button" aria-controls="memberAdvancedPanel" aria-expanded="false">상세 필터</button>
             </div>
           </div>
+          <section id="memberAdvancedPanel" class="member-advanced-panel" aria-label="회원 상세 필터" hidden>
+            <div class="member-advanced-grid">
+              <label>가입일
+                <select id="memberDateRange">
+                  <option value="all">전체 기간</option><option value="today">오늘</option>
+                  <option value="7">최근 7일</option><option value="30">최근 30일</option>
+                  <option value="custom">기간 직접 선택</option>
+                </select>
+              </label>
+              <label>시작일 <input id="memberDateFrom" type="date" disabled /></label>
+              <label>종료일 <input id="memberDateTo" type="date" disabled /></label>
+              <label>이용권
+                <select id="memberPlanFilter">
+                  <option value="all">전체</option><option value="trial">무료체험</option>
+                  <option value="call_monthly">전화관리</option><option value="message_monthly">문자자동화</option>
+                  <option value="all_monthly">통합권</option><option value="pagero_monthly">페이지로 클래식</option>
+                  <option value="pagero_pro_monthly">페이지로 프로</option><option value="pagero_domain_monthly">SSL</option>
+                  <option value="admin">관리자 지급</option><option value="other">기타 이용권</option>
+                </select>
+              </label>
+              <label>이용 상태
+                <select id="memberUsageFilter">
+                  <option value="all">전체</option><option value="trial">체험중</option>
+                  <option value="active">활성</option><option value="cancelled">취소예정</option>
+                  <option value="expired">만료</option><option value="suspended">정지</option>
+                  <option value="review">확인필요</option>
+                </select>
+              </label>
+              <label>결제 검증
+                <select id="memberVerificationFilter">
+                  <option value="all">전체</option><option value="normal">정상</option>
+                  <option value="review">확인필요</option><option value="failed">실패</option>
+                  <option value="none">해당없음</option>
+                </select>
+              </label>
+              <label>구독·결제
+                <select id="memberBillingFilter">
+                  <option value="all">전체</option><option value="paid">유료구독</option>
+                  <option value="trial">무료체험</option><option value="admin">관리자 지급</option>
+                  <option value="past">과거 결제</option><option value="missing">결제 자료 없음</option>
+                  <option value="review">구독 검증필요</option>
+                </select>
+              </label>
+              <label>결제 채널
+                <select id="memberChannelFilter">
+                  <option value="all">전체</option><option value="google_play">Google Play</option>
+                  <option value="web">웹 결제</option><option value="admin">관리자 지급</option>
+                </select>
+              </label>
+              <label>결제 이력
+                <select id="memberHistoryFilter">
+                  <option value="all">전체</option><option value="yes">확인 기록 있음</option>
+                  <option value="no">확인 기록 없음</option>
+                </select>
+              </label>
+              <label>기존 지급·구매 기록
+                <select id="memberEvidenceFilter">
+                  <option value="all">전체 회원</option><option value="granted">지급 이력만</option>
+                  <option value="purchased">결제·구독 검증</option>
+                </select>
+              </label>
+              <label>정렬
+                <select id="memberSort">
+                  <option value="newest">최신 가입순</option><option value="oldest">오래된 가입순</option>
+                  <option value="paid">유료 우선</option><option value="review">확인필요 우선</option>
+                </select>
+              </label>
+            </div>
+            <p id="memberFilterError" class="member-filter-error" role="alert" hidden></p>
+            <div class="member-advanced-actions"><button id="memberFilterReset" type="button">초기화</button><button id="memberFilterApply" type="button">필터 적용</button></div>
+          </section>
+          <div id="memberFilterChips" class="member-active-filters" aria-label="적용된 필터" hidden></div>
         </div>
         <div class="tablewrap member-tablewrap">
           <table class="member-compact-table">
@@ -166,7 +234,7 @@
   <script src="/admin/admin.js?v=20261021-clean1" defer></script>
   <script src="/admin/payout-request.js?v=20260813-payout1" defer></script>
   <script src="/admin/play-finance-monthly.js?v=20260813-month1" defer></script>
-  <script src="/admin/member-ops.js?v=20261021-clean1" defer></script>
+  <script src="/admin/member-ops.js?v=20261021-filters1" defer></script>
   <script src="/admin/payer-audit.js?v=20261021-clean1" defer></script>
   <script src="/admin/play-renewal-reconcile.js?v=20261016-playrenewal1" defer></script>
   <script src="/admin/member-ops-sync.js?v=20260813-ops1" defer></script>
