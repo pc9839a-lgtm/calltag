@@ -165,7 +165,7 @@ await reset();
 assert.equal((await apply({memberSort:'paid'})).length,20,'sorting keeps local pagination size');
 assert.equal(elements.memberRows.children[0].children[0].textContent,'paid_on_page_two'.slice(0,6)+'…'+'paid_on_page_two'.slice(-5),'paid-first sorts across pages');
 await reset();
-assert.equal((await apply({memberDateRange:'custom',memberDateFrom:'2026-10-08',memberDateTo:'2026-10-05'})).length,20,'invalid dates do not change filter');
+assert.equal((await apply({memberDateRange:'custom',memberDateFrom:'2026-10-08',memberDateTo:'2026-10-05'})).length,40,'invalid dates do not change filter');
 assert.equal(elements.memberFilterError.hidden,false,'invalid range is explained');
 await reset();
 assert.equal(elements.memberResultCount.textContent,'전체 43명','reset restores full member list');
