@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/admin/payout-request.css?v=20260813-payout1" />
   <link rel="stylesheet" href="/admin/admin-ops.css?v=20261016-subscriber-parity6" />
   <link rel="stylesheet" href="/admin/admin-theme.css?v=20260813-theme1" />
-  <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261021-filters1" />
+  <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261021-dashboard1" />
   <link rel="stylesheet" href="/admin/member-detail.css?v=20261020-detail-v2" />
 </head>
 <body>
@@ -25,24 +25,17 @@
 
   <main class="wrap">
     <section id="membersView">
-      <section id="opsHealthPanel" class="ops-health" aria-label="운영 현황">
+
+      <section id="opsHealthPanel" class="ops-health ops-member-dashboard" aria-label="회원 현황 대시보드">
         <div class="ops-health-header">
-          <div class="ops-health-heading">
-            <h1>한눈에 보기</h1>
-          </div>
-          <span id="opsCheckedAt" class="ops-last-checked">운영 데이터 확인 중</span>
+          <div class="ops-health-heading"><h1>회원 현황</h1></div>
+          <span id="opsCheckedAt" class="ops-last-checked" aria-live="polite">불러오는 중</span>
         </div>
         <div class="ops-health-grid">
-          <div class="ops-indicator"><span>유료 회원</span><strong id="opsVerifiedSubscribers">확인 전</strong><small id="opsVerifiedSubscribersNote"></small></div>
-          <div class="ops-indicator"><span>결제 기록</span><strong id="opsLedgerAccounts">확인 전</strong><small id="opsLedgerAccountsNote"></small></div>
-          <div class="ops-indicator"><span>실정산 연결</span><strong id="opsFinanceStatus">확인 전</strong><small id="opsFinanceStatusNote"></small></div>
-        </div>
-        <div class="ops-health-bottom">
-          <div>
-            <h2>확인할 항목</h2>
-            <ul id="opsAttention" class="ops-issues" aria-live="polite"><li>운영 지표를 불러오는 중입니다.</li></ul>
-          </div>
-
+          <div class="ops-indicator"><span>전체 회원</span><strong id="opsTotalMembers">—</strong></div>
+          <div class="ops-indicator"><span>7일 신규</span><strong id="opsNewMembers">—</strong></div>
+          <div class="ops-indicator"><span>체험 중</span><strong id="opsTrialMembers">—</strong></div>
+          <div class="ops-indicator"><span>유료 회원</span><strong id="opsVerifiedSubscribers">—</strong></div>
         </div>
       </section>
       <section id="membersPanel" class="panel">
@@ -240,6 +233,6 @@
   <script src="/admin/member-ops-sync.js?v=20260813-ops1" defer></script>
   <script src="/admin/admin-theme.js?v=20260813-theme1" defer></script>
   <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
-  <script src="/admin/ops-dashboard.js?v=20261021-clean1" defer></script>
+  <script src="/admin/ops-dashboard.js?v=20261021-dashboard1" defer></script>
 </body>
 </html>
