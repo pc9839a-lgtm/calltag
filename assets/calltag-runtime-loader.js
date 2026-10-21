@@ -7,7 +7,7 @@
     document.documentElement.dataset.ctAdBootstrapV7='1';
     const q=(s,r=document)=>r.querySelector(s);
     const make=html=>{const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstElementChild;};
-    const nav=q('.nav');if(nav)nav.innerHTML="<a href='#app'>기능</a><a href='#targets'>추천 업종</a><a href='#messages'>문자</a><a href='#strengths'>강점</a><a href='#pricing'>요금</a><a href='#faq'>FAQ</a>";
+    const nav=q('.nav');if(nav)nav.innerHTML="<a href='#app'>기능</a><a href='#targets'>추천 업종</a><a href='#messages'>문자</a><a href='#integrations'>외부 문의 연동</a><a href='/guide/'>고객관리 가이드</a><a href='#pricing'>요금</a><a href='#faq'>FAQ</a>";
     const step=q('.step-title');if(step)step.innerHTML='통화가 끝난 직후<br><span>고객 정보를 남기세요.</span>';
     const sub=q('.step-sub');if(sub)sub.textContent='고객 구분, 상담 상태, 다음 할 일, 재연락 날짜를 한 번에 입력합니다.';
     const app=q('#app'),web=q('#web');let what=q('#what');
