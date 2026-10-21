@@ -25,6 +25,7 @@ public final class UniversalLeadSyncManager {
     public static final String EXTRA_CUSTOMER_IDS = "customer_ids";
     public static final String EXTRA_MESSAGE = "message";
     public static final String EXTRA_ERROR_CODE = "error_code";
+    public static final String EXTRA_PROVIDER_WARNING = "provider_warning";
 
     private static final String TAG = "UniversalLeadSync";
     private static final long MIN_SYNC_INTERVAL_MS = 30_000L;
@@ -40,6 +41,12 @@ public final class UniversalLeadSyncManager {
     private static final AtomicBoolean NOTIFY_WHEN_CHANGED = new AtomicBoolean(false);
     private static final AtomicLong LAST_ATTEMPT_AT = new AtomicLong(0L);
 
+    public enum WorkerSyncResult {
+        SUCCESS,
+        RETRY,
+        FAILURE
+    }
+
     private UniversalLeadSyncManager() {}
 
     public static boolean requestSync(Context context) {
@@ -51,7 +58,9 @@ public final class UniversalLeadSyncManager {
     }
 
     public static boolean requestRealtimeSync(Context context) {
-        return requestSyncInternal(context, true, true);
+        // The FCM lead is already present in the canonical queue. Polling Google Forms
+        // first adds provider latency and can prevent timely delivery of other leads.
+        return requestSyncInternal(context, true, true, false);
     }
 
     public static boolean requestSyncAndNotify(Context context, boolean force) {
@@ -59,6 +68,11 @@ public final class UniversalLeadSyncManager {
     }
 
     private static boolean requestSyncInternal(Context context, boolean force, boolean notifyWhenChanged) {
+        return requestSyncInternal(context, force, notifyWhenChanged, true);
+    }
+
+    private static boolean requestSyncInternal(
+            Context context, boolean force, boolean notifyWhenChanged, boolean pollGoogleForms) {
         if (context == null) return false;
         Context appContext = context.getApplicationContext();
         if (!AuthSessionStore.hasSession(appContext)) {
@@ -83,7 +97,7 @@ public final class UniversalLeadSyncManager {
         EXECUTOR.execute(() -> {
             boolean changed = false;
             try {
-                SyncResult result = syncNow(appContext);
+                SyncResult result = syncNow(appContext, pollGoogleForms);
                 changed = result.imported > 0 || result.updated > 0;
                 if (changed) {
                     ContactNameSyncManager.requestSyncAll(appContext);
@@ -92,7 +106,21 @@ public final class UniversalLeadSyncManager {
                                 appContext, result.imported, result.updated, result.customerIds());
                     }
                 }
-                sendResult(appContext, true, result, successMessage(result), "");
+                if (result.morePagesPending) {
+                    // A bounded batch is complete, but more than 200 queued leads remain.
+                    // Continue through a durable worker rather than waiting 15 minutes.
+                    ExternalLeadSyncWorkScheduler.enqueueImmediate(appContext);
+                }
+                if (result.ackPending) {
+                    sendResult(appContext, false, result,
+                            "문의는 기기에 저장됐지만 서버 수신 확인을 완료하지 못했습니다.",
+                            "ACK_PENDING");
+                    if (result.ackRetryRecommended) {
+                        ExternalLeadSyncWorkScheduler.enqueueImmediate(appContext);
+                    }
+                } else {
+                    sendResult(appContext, true, result, successMessage(result), "");
+                }
             } catch (UniversalLeadApiClient.ApiException error) {
                 String message = safeMessage(error);
                 Log.w(TAG, "Universal lead API unavailable: " + error.code);
@@ -105,7 +133,7 @@ public final class UniversalLeadSyncManager {
             } finally {
                 boolean rerun = PENDING_FORCE.getAndSet(false);
                 RUNNING.set(false);
-                if (rerun) requestSyncInternal(appContext, true, NOTIFY_WHEN_CHANGED.get());
+                if (rerun) requestSyncInternal(appContext, true, NOTIFY_WHEN_CHANGED.get(), pollGoogleForms);
                 else if (!changed) NOTIFY_WHEN_CHANGED.set(false);
             }
         });
@@ -116,64 +144,223 @@ public final class UniversalLeadSyncManager {
         return RUNNING.get();
     }
 
-    private static SyncResult syncNow(Context context) throws Exception {
-        String session = AuthSessionStore.session(context);
-        if (session.isEmpty()) throw new IllegalStateException("콜태그 로그인이 필요합니다.");
+    /**
+     * WorkManager entry point. Unlike requestSync(), this method returns the real execution result
+     * so transient network/provider failures can trigger WorkManager retry/backoff.
+     */
+    public static WorkerSyncResult runWorkerSync(Context context) {
+        return runWorkerSync(context, true);
+    }
 
-        // Google Forms is provider-pulled. Refresh it before reading the canonical lead queue.
-        // A provider outage must never block Meta/Webhook/PageRo lead delivery.
+    public static WorkerSyncResult runWorkerSync(Context context, boolean pollGoogleForms) {
+        if (context == null) return WorkerSyncResult.SUCCESS;
+        Context appContext = context.getApplicationContext();
+        if (!AuthSessionStore.hasSession(appContext)) return WorkerSyncResult.SUCCESS;
+
+        LAST_ATTEMPT_AT.set(System.currentTimeMillis());
+        if (!RUNNING.compareAndSet(false, true)) return WorkerSyncResult.RETRY;
+
+        boolean changed = false;
         try {
-            ExternalLeadIntegrationApiClient.syncGoogleForms(session);
-        } catch (ExternalLeadIntegrationApiClient.ApiException error) {
-            Log.w(TAG, "Google Forms pre-sync skipped: " + error.code);
+            SyncResult result = syncNow(appContext, pollGoogleForms);
+            changed = result.imported > 0 || result.updated > 0;
+            if (changed) {
+                ContactNameSyncManager.requestSyncAll(appContext);
+                // A WorkManager fallback may finish after Android has terminated the
+                // original Firebase service. Users still need a visible new-lead notice.
+                UniversalLeadNotificationManager.showImported(
+                        appContext, result.imported, result.updated, result.customerIds());
+                NOTIFY_WHEN_CHANGED.set(false);
+            }
+            if (result.ackPending) {
+                sendResult(appContext, false, result,
+                        "문의는 기기에 저장됐지만 서버 수신 확인을 완료하지 못했습니다.",
+                        "ACK_PENDING");
+                return result.ackRetryRecommended
+                        ? WorkerSyncResult.RETRY : WorkerSyncResult.FAILURE;
+            }
+            sendResult(appContext, true, result, successMessage(result), "");
+            return (result.providerRetryRecommended || result.morePagesPending)
+                    ? WorkerSyncResult.RETRY : WorkerSyncResult.SUCCESS;
+        } catch (UniversalLeadApiClient.ApiException error) {
+            String message = safeMessage(error);
+            Log.w(TAG, "Universal lead worker API unavailable: " + error.code);
+            sendResult(appContext, false, new SyncResult(), message, error.code);
+            return isRetryableApiError(error)
+                    ? WorkerSyncResult.RETRY : WorkerSyncResult.FAILURE;
         } catch (Exception error) {
-            Log.w(TAG, "Google Forms pre-sync failed: " + error.getClass().getSimpleName());
+            String message = safeMessage(error);
+            Log.e(TAG, "Universal lead worker failed: " + error.getClass().getSimpleName());
+            sendResult(appContext, false, new SyncResult(), message,
+                    error.getClass().getSimpleName());
+            return WorkerSyncResult.RETRY;
+        } finally {
+            boolean rerun = PENDING_FORCE.getAndSet(false);
+            RUNNING.set(false);
+            if (rerun) requestSyncInternal(appContext, true, NOTIFY_WHEN_CHANGED.get());
+            else if (!changed) NOTIFY_WHEN_CHANGED.set(false);
+        }
+    }
+
+    private static boolean isRetryableApiError(UniversalLeadApiClient.ApiException error) {
+        return error != null
+                && (error.status == 408
+                || error.status == 429
+                || error.status >= 500
+                || "NON_JSON_RESPONSE".equals(error.code));
+    }
+
+    private static boolean isRetryableProviderError(
+            ExternalLeadIntegrationApiClient.ApiException error) {
+        return error != null
+                && (error.status == 408
+                || error.status == 429
+                || error.status >= 500
+                || "NON_JSON_RESPONSE".equals(error.code));
+    }
+
+    private static boolean isRetryableAckError(Exception error) {
+        if (error instanceof UniversalLeadApiClient.ApiException) {
+            return isRetryableApiError((UniversalLeadApiClient.ApiException) error);
+        }
+        return true;
+    }
+
+    private static SyncResult syncNow(Context context, boolean pollGoogleForms) throws Exception {
+        String session = AuthSessionStore.session(context);
+        String ownerId = AuthSessionStore.ownerId(context);
+        if (session.isEmpty() || ownerId.isEmpty()) {
+            throw new IllegalStateException("콜태그 로그인 계정을 확인해주세요.");
         }
 
         SyncResult result = new SyncResult();
+
+        // Scheduled/manual sync refreshes Google Forms before pulling canonical leads.
+        // FCM-triggered sync skips the provider call: the FCM event is already queued,
+        // and slow provider requests must not delay Meta / Webhook / Direct API delivery.
+        if (pollGoogleForms) {
+            try {
+                ExternalLeadIntegrationApiClient.syncGoogleForms(session);
+            } catch (ExternalLeadIntegrationApiClient.ApiException error) {
+                Log.w(TAG, "Google Forms pre-sync skipped: " + error.code);
+                result.providerRetryRecommended = isRetryableProviderError(error);
+                result.providerWarning = result.providerRetryRecommended
+                        ? "Google Forms 확인이 지연되고 있습니다. 다른 문의는 계속 확인합니다."
+                        : "Google Forms 연결 상태를 확인해주세요. 다른 문의는 계속 확인합니다.";
+            } catch (Exception error) {
+                Log.w(TAG, "Google Forms pre-sync failed: " + error.getClass().getSimpleName());
+                result.providerRetryRecommended = true;
+                result.providerWarning =
+                        "Google Forms 확인이 지연되고 있습니다. 다른 문의는 계속 확인합니다.";
+            }
+        }
+
+        // Provider polling is remote and can take time. A different user might have signed in.
+        assertSameAccount(context, session, ownerId);
         long after = 0L;
         try (CallTagDbHelper db = new CallTagDbHelper(context);
              UniversalLeadReceiptStore receipts = new UniversalLeadReceiptStore(context)) {
             for (int pageIndex = 0; pageIndex < MAX_PAGES_PER_RUN; pageIndex++) {
+                assertSameAccount(context, session, ownerId);
                 UniversalLeadApiClient.Page page = UniversalLeadApiClient.list(session, after, PAGE_SIZE);
+                assertSameAccount(context, session, ownerId);
                 if (page.leads.isEmpty()) break;
 
                 List<Long> acknowledged = new ArrayList<>();
                 for (UniversalLead lead : page.leads) {
-                    if (receipts.isImported(lead.eventId)) {
+                    // Never store a previous user's remote lead after an account switch.
+                    assertSameAccount(context, session, ownerId);
+                    if (receipts.isImported(ownerId, lead.eventId)) {
                         acknowledged.add(lead.id);
                         continue;
                     }
                     try {
-                        ImportResult imported = importLead(db, lead);
-                        receipts.markImported(lead.eventId, lead.id, imported.customerId);
-                        acknowledged.add(lead.id);
-                        result.record(imported);
+                        // Commit the customer, LEAD_INQUIRY interaction and event journal
+                        // atomically inside calltag.db. A crash before the separate ACK
+                        // receipt write must never create a second consultation entry.
+                        SQLiteDatabase crm = db.getWritableDatabase();
+                        ImportResult imported = null;
+                        long customerId;
+                        crm.beginTransaction();
+                        try {
+                            customerId = db.importedUniversalLeadCustomerId(
+                                    ownerId, lead.eventId);
+                            if (customerId <= 0L) {
+                                imported = importLead(db, lead);
+                                customerId = imported.customerId;
+                                db.recordUniversalLeadImported(
+                                        ownerId, lead.eventId, lead.id, customerId);
+                            }
+                            crm.setTransactionSuccessful();
+                        } finally {
+                            crm.endTransaction();
+                        }
+
+                        // This other DB is only an ACK/receipt cache now. If writing it
+                        // fails, the CRM journal above still prevents a duplicate import.
+                        if (imported != null) result.record(imported);
+                        try {
+                            receipts.markImported(ownerId, lead.eventId, lead.id, customerId);
+                            acknowledged.add(lead.id);
+                        } catch (RuntimeException receiptError) {
+                            // The transactional CRM journal has already committed:
+                            // report the new customer, retain its notification, and
+                            // retry the separate receipt/ACK database on the next run.
+                            result.ackPending = true;
+                            result.ackRetryRecommended = true;
+                            Log.w(TAG, "Lead receipt cache write pending");
+                            break;
+                        }
                     } catch (IllegalArgumentException invalid) {
                         result.rejected++;
                         try {
+                            assertSameAccount(context, session, ownerId);
                             UniversalLeadApiClient.acknowledgeRejected(
                                     session, lead.id, safeMessage(invalid));
                         } catch (Exception ackError) {
+                            result.ackPending = true;
+                            result.ackRetryRecommended |= isRetryableAckError(ackError);
                             Log.w(TAG, "Unable to reject invalid universal lead");
                         }
                     }
                 }
 
                 if (!acknowledged.isEmpty()) {
-                    UniversalLeadApiClient.acknowledgeImported(
-                            session,
-                            acknowledged,
-                            "신규 고객 " + result.imported + "건, 기존 고객 갱신 "
-                                    + result.updated + "건");
-                    for (Long id : acknowledged) receipts.markAcked(id);
+                    assertSameAccount(context, session, ownerId);
+                    try {
+                        UniversalLeadApiClient.acknowledgeImported(
+                                session,
+                                acknowledged,
+                                "신규 고객 " + result.imported + "건, 기존 고객 갱신 "
+                                        + result.updated + "건");
+                        for (Long id : acknowledged) receipts.markAcked(ownerId, id);
+                    } catch (Exception ackError) {
+                        // Data is already persisted locally. Preserve the imported counts
+                        // and retry ACK; never claim the full sync succeeded.
+                        result.ackPending = true;
+                        result.ackRetryRecommended |= isRetryableAckError(ackError);
+                        Log.w(TAG, "Universal lead ACK is pending");
+                        break;
+                    }
                 }
 
                 after = page.nextAfter;
                 if (!page.hasMore) break;
+                if (pageIndex == MAX_PAGES_PER_RUN - 1) {
+                    // WorkManager retries another bounded batch until the queue drains.
+                    result.morePagesPending = true;
+                }
             }
         }
         return result;
+    }
+
+    private static void assertSameAccount(Context context, String session, String ownerId) {
+        if (!session.equals(AuthSessionStore.session(context))
+                || !ownerId.equals(AuthSessionStore.ownerId(context))) {
+            throw new IllegalStateException(
+                    "로그인 계정이 변경되어 외부 문의 동기화를 중단했습니다.");
+        }
     }
 
     private static ImportResult importLead(CallTagDbHelper db, UniversalLead lead) {
@@ -276,7 +463,9 @@ public final class UniversalLeadSyncManager {
                 .putExtra(EXTRA_REJECTED, result.rejected)
                 .putExtra(EXTRA_CUSTOMER_IDS, result.customerIds())
                 .putExtra(EXTRA_MESSAGE, message == null ? "" : message)
-                .putExtra(EXTRA_ERROR_CODE, errorCode == null ? "" : errorCode);
+                .putExtra(EXTRA_ERROR_CODE, errorCode == null ? "" : errorCode)
+                .putExtra(EXTRA_PROVIDER_WARNING,
+                        result.providerWarning == null ? "" : result.providerWarning);
         context.sendBroadcast(intent);
     }
 
@@ -294,6 +483,11 @@ public final class UniversalLeadSyncManager {
         int imported;
         int updated;
         int rejected;
+        boolean providerRetryRecommended;
+        boolean ackPending;
+        boolean ackRetryRecommended;
+        boolean morePagesPending;
+        String providerWarning = "";
         final Set<Long> changedCustomerIds = new LinkedHashSet<>();
 
         void record(ImportResult importedResult) {

@@ -57,6 +57,8 @@ public final class MoreSettingsHubView extends LinearLayout {
                 v -> start(BillingEntitlementActivity.class));
 
         Section work = section("업무 관리");
+        work.addMenu("통화 후 자동문자", "수신 발신 부재중 자동 문자 SMS 발송 설정",
+                v -> start(MessageAutomationSettingsActivity.class));
         work.addMenu("문자 관리", "통화 후 자동문자 템플릿 그룹 단체문자 발송 관리",
                 v -> start(SettingsGroupActivity.intent(getContext(), SettingsGroupActivity.GROUP_MESSAGE)));
         work.addMenu("고객 관리", "고객 상태 일정 종류 통화 후 팝업 제외",
@@ -71,7 +73,7 @@ public final class MoreSettingsHubView extends LinearLayout {
                 v -> start(DirectApiIntegrationActivity.class));
         service.addMenu("페이지로", "페이지로 연결 연동 문의 고객 자동등록",
                 v -> start(PageroConnectionCompactActivity.class));
-        service.addMenu("친구 초대", "추천인 추천코드 친구 초대 무료체험 5일 추천 가입 5일",
+        service.addMenu("친구 추천 수익", "추천인 추천코드 친구 초대 무료체험 5일 유료 결제 20% 추천 수익 정산",
                 v -> start(ReferralPartnerActivity.class));
 
         Section app = section("앱 관리");

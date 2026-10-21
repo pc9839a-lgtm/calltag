@@ -51,6 +51,13 @@ public final class SmsSender {
             MessageRecord record = store.find(messageId);
             if (record == null || !MessageLogStore.STATUS_READY.equals(record.status)) return;
             if (!CampaignRuntimeManager.allowSend(context, record)) return;
+            if (!MessageAutomationStore.allowsAutomaticTrigger(context, record.triggerType)) {
+                failWithoutTransport(context, store, messageId,
+                        MessageLogStore.STATUS_SKIPPED,
+                        "자동문자 설정이 꺼져 발송하지 않았습니다.");
+                return;
+            }
+
 
             MessageExclusionStore.Decision exclusion = MessageExclusionStore.evaluate(
                     context, record.customerId, record.phone, record.triggerType);
