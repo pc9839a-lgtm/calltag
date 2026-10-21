@@ -53,6 +53,9 @@ const deployHome = read('web/index.html');
 const sourceHome = read('index.html');
 const worker = read('web/_worker.js');
 const sourceWorker = read('_worker-core.js');
+const rootWrapper = read('_worker.js');
+const rootStabilizerVersion = rootWrapper.match(/headers\.set\('x-calltag-landing-stabilizer','([^']+)'\)/)?.[1];
+log(Boolean(rootStabilizerVersion), 'Root Worker wrapper has a traceable stabilizer version');
 log(title(deployHome) === title(sourceHome), 'Root and deployed homepage title match');
 log(description(deployHome) === description(sourceHome), 'Root and deployed homepage description match');
 log(h1(deployHome) === h1(sourceHome), 'Root and deployed homepage H1 match');
@@ -151,7 +154,11 @@ if (live) {
             stabilizer: stabilizer ?? '(missing)',
             site: response.url
           }));
-          log(servedWorker === workerVersion, 'LIVE homepage uses current deployed Worker');
+          // Cloudflare can serve the web/ Worker or the root Worker wrapper.
+          // The root runtime is legitimate only when the wrapper signature matches.
+          const matchesWeb = servedWorker === workerVersion && stabilizer === null;
+          const matchesRoot = servedWorker === rootWorker && stabilizer === rootStabilizerVersion;
+          log(matchesWeb || matchesRoot, 'LIVE homepage uses an approved current Worker runtime');
         }
       } catch (error) { log(false, 'LIVE request ' + path + ': ' + error.message); }
     }));
