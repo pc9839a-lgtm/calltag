@@ -4,9 +4,7 @@
   const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>[...r.querySelectorAll(s)];
   const run=()=>{
     const kicker=q('.hero-kicker'),heroTitle=q('.hero-heading h1'),description=q('.hero-heading > p:last-of-type');
-    if(kicker)kicker.remove();
-    if(heroTitle)heroTitle.innerHTML='통화 후 <span>고객관리.</span>';
-    if(description)description.textContent='고객·일정·문자를 통화 직후 남기세요.';
+    // Keep the server-rendered H1, kicker and product description intact.
     qa('.hero-heading .ad-actions,.hero-heading .ad-offer,.ad-copy').forEach(el=>el.remove());
     qa('.ad-target p,.ad-benefit p,.ad-strength p,.ad-plan-copy').forEach(el=>el.remove());
     qa('.section-copy').forEach((el,index)=>{if(index>0)el.remove();});
@@ -55,7 +53,7 @@
   const make=markup=>{const t=document.createElement('template');t.innerHTML=markup.trim();return t.content.firstElementChild;};
   const byText=needles=>qa('section').find(section=>needles.some(text=>(section.textContent||'').includes(text)));
   const APP='https://pagero.kr/app',GOOGLE_PLAY='https://play.google.com/store/search?q=%EC%BD%9C%ED%83%9C%EA%B7%B8&c=apps',PLAY_LOGO='/assets/google-play-mark.svg?v=20260809-1';
-  const plans={CALL:{key:'call',store:true},MESSAGE:{key:'message',store:true},PAGERO:{key:'pagero',label:'페이지로 시작하기'},'ALL IN ONE':{key:'all',label:'통합권 3일 무료체험'}};
+  const plans={CALL:{key:'call',store:true},MESSAGE:{key:'message',store:true},PAGERO:{key:'pagero',label:'페이지로 시작하기'},'ALL IN ONE':{key:'all',label:'통합권 7일 무료체험'}};
   const makeUrl=(plan='all',position='site')=>{const url=new URL(APP);url.searchParams.set('source','calltag');url.searchParams.set('plan',plan);url.searchParams.set('utm_source','calltag_site');url.searchParams.set('utm_medium','cta');url.searchParams.set('utm_campaign','2026_launch');url.searchParams.set('utm_content',position);return url.toString();};
   const configureLink=(link,plan,position,label)=>{link.className='ct-plan-cta';link.href=makeUrl(plan,position);link.target='_blank';link.rel='noopener';link.dataset.ctUnifiedCta='1';link.textContent=label||'시작하기';link.setAttribute('aria-label',`${label||'콜태그 시작'} · 새 창`);};
   const configureGooglePlay=link=>{link.className='ct-plan-cta ct-google-play-cta';link.href=GOOGLE_PLAY;link.target='_blank';link.rel='noopener';link.dataset.ctUnifiedCta='1';link.innerHTML=`<img src="${PLAY_LOGO}" alt="" aria-hidden="true"><span><small>Google Play</small><strong>앱 다운로드</strong></span>`;link.setAttribute('aria-label','Google Play에서 콜태그 앱 다운로드 · 새 창');};

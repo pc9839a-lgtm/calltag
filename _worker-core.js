@@ -3,11 +3,11 @@ import { handlePartnerAdminSecurity } from './worker/partner-admin-security.js';
 import { handlePartnerApi } from './worker/partner.js';
 
 const CANONICAL='https://calltag.pagero.kr/';
-const SEO_TITLE='고객관리 앱 콜태그 | 통화 후 상담기록·재연락 CRM';
-const SEO_DESCRIPTION='통화 직후 고객 분류, 상담기록, 재연락 일정과 오늘 할 일을 관리하세요. 신규 문의 알림·문자 자동화·PC 웹 연동을 지원하는 Android 고객관리 앱 콜태그.';
+const SEO_TITLE='통화 후 고객관리 앱 콜태그 | 문자 자동화·신규 문의 알림';
+const SEO_DESCRIPTION='콜태그는 통화 후 상담 메모와 재연락 일정을 관리하는 Android 고객관리 앱입니다. 신규 고객 문의 알림, 설정형 후속문자, PC 웹 관리까지 한곳에서 확인하세요.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
 const WORKER_VERSION='v153-partner-totp3';
-const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260918-runtime61';
+const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20261021-seo1';
 const PARTNER_SECURITY_SRC='/web/settlement-security.js?v=20260813-qrfix2';
 const STYLE_BUNDLE_PATH='/assets/calltag-style-bundle.css';
 const STYLE_BUNDLE_VERSION='20260812-cssbundle1';
@@ -74,7 +74,7 @@ const SEO_HEAD=`
 <meta name="twitter:image" content="${OG_IMAGE}" />
 <script type="application/ld+json" id="ct-seo-schema">${JSON.stringify(SEO_SCHEMA).replace(/</g,'\\u003c')}</script>
 <link rel="stylesheet" href="${STYLE_BUNDLE_PATH}?v=${STYLE_BUNDLE_VERSION}" media="print" onload="this.media='all'" /><noscript><link rel="stylesheet" href="${STYLE_BUNDLE_PATH}?v=${STYLE_BUNDLE_VERSION}" /></noscript>
-<style id="ct-initial-layout-guard">html:not(.ct-layout-ready) body>main#top>:not(#app){visibility:hidden!important}</style>
+
 <script>setTimeout(()=>document.documentElement.classList.add('ct-layout-ready'),3000)</script>`;
 
 const stripSeo=body=>body

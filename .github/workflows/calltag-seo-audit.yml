@@ -4,26 +4,30 @@ on:
   pull_request:
     paths:
       - 'index.html'
-      - 'guide/**'
+      - 'web/**'
+      - '_worker-core.js'
       - 'robots.txt'
       - 'sitemap.xml'
+      - 'guide/**'
       - 'scripts/calltag-seo-audit.mjs'
       - '.github/workflows/calltag-seo-audit.yml'
   push:
     branches: [main]
     paths:
       - 'index.html'
-      - 'guide/**'
+      - 'web/**'
+      - '_worker-core.js'
       - 'robots.txt'
       - 'sitemap.xml'
+      - 'guide/**'
       - 'scripts/calltag-seo-audit.mjs'
       - '.github/workflows/calltag-seo-audit.yml'
   schedule:
-    - cron: '17 0 * * 1'
+    - cron: '17 0 * * *'
   workflow_dispatch:
 
 jobs:
-  source-seo:
+  deployed-source-seo:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -31,17 +35,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Check sitemap, source canonicals, robots and headings
+      - name: Check deployed web directory, active Worker and sitemap consistency
         run: node scripts/calltag-seo-audit.mjs
 
   production-seo:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
+    needs: deployed-source-seo
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify public URLs, served canonicals and indexing headers
-        run: node scripts/calltag-seo-audit.mjs --live
+      - name: Allow Cloudflare Pages to deploy main
+        if: github.event_name == 'push'
+        run: sleep 90
+      - name: Check public HTTP responses, Worker SEO, and guide indexability
+        shell: bash
+        run: |
+          for attempt in 1 2 3 4 5; do
+            if node scripts/calltag-seo-audit.mjs --live; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo 'Production SEO parity failed after 5 checks'
+              exit 1
+            fi
+            sleep 40
+          done
