@@ -50,23 +50,26 @@ export async function handleAdminAppAnalytics(request, env) {
       return [item.label,safeNumber(result.rows?.[0]?.metricValues?.[0]?.value)];
     }));
     const values=Object.fromEntries(results);
-    // Cohort uses a fully matured one-day first-session group. No estimate
-    // is shown for missing days or for groups too small to be reported.
-    const cohortDate = daysAgoKst(32);
-    const cohortReport=await gaReport(endpoint,token,{
-      dimensions:[{name:'cohort'},{name:'cohortNthDay'}],
-      metrics:[{name:'retentionFraction',expression:'cohortActiveUsers/cohortTotalUsers'}],
-      cohortSpec:{cohorts:[{dimension:'firstSessionDate',
-        dateRange:{startDate:cohortDate,endDate:cohortDate}}],
-        cohortsRange:{startOffset:0,endOffset:30,granularity:'DAILY'}},
-    }).catch(()=>null);
-    const retention={d1:null,d7:null,d30:null,cohortDate};
-    for(const row of cohortReport?.rows||[]){
-      const n=Number(row.dimensionValues?.[1]?.value);
-      if(![1,7,30].includes(n))continue;
-      const fraction=Number(row.metricValues?.[0]?.value);
-      if(Number.isFinite(fraction)&&fraction>=0&&fraction<=1)retention['d'+n]=Math.round(fraction*1000)/10;
-    }
+    // Each retention window uses its latest fully matured single-day cohort.
+    // D1 can be shown before D7/D30. Empty cohorts never become zero.
+    const retention={d1:null,d7:null,d30:null,cohortDates:{}};
+    await Promise.all([1,7,30].map(async n=>{
+      const cohortDate=daysAgoKst(n+1);
+      retention.cohortDates['d'+n]=cohortDate;
+      const cohortReport=await gaReport(endpoint,token,{
+        dimensions:[{name:'cohort'},{name:'cohortNthDay'}],
+        metrics:[{name:'retentionFraction',expression:'cohortActiveUsers/cohortTotalUsers'}],
+        cohortSpec:{cohorts:[{dimension:'firstSessionDate',
+          dateRange:{startDate:cohortDate,endDate:cohortDate}}],
+          cohortsRange:{startOffset:0,endOffset:n,granularity:'DAILY'}},
+      }).catch(()=>null);
+      const row=(cohortReport?.rows||[]).find(item=>Number(item.dimensionValues?.[1]?.value)===n);
+      const value=row?.metricValues?.[0]?.value;
+      if(value===undefined||value===null)return;
+      const fraction=Number(value);
+      if(Number.isFinite(fraction)&&fraction>=0&&fraction<=1)
+        retention['d'+n]=Math.round(fraction*1000)/10;
+    }));
     // Registered event-scope custom dimension required. Failure is independent
     // of core app usage and deliberately does not fabricate subscriber figures.
     let subscriberActive7d=null;
