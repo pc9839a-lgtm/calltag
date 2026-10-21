@@ -26,19 +26,264 @@
   };
   const channels = { google_play: 'Google Play', play: 'Google Play', web: '웹 결제', admin: '관리자 지급' };
   const entitlementScopes = { all: '전체 이용권', call: '통화관리', message: '문자자동화' };
+  const filterToggle = document.getElementById('memberFilterToggle');
+  const advancedPanel = document.getElementById('memberAdvancedPanel');
+  const filterApply = document.getElementById('memberFilterApply');
+  const filterReset = document.getElementById('memberFilterReset');
+  const filterChips = document.getElementById('memberFilterChips');
+  const filterError = document.getElementById('memberFilterError');
+  const filterFields = {
+    dateRange: document.getElementById('memberDateRange'),
+    dateFrom: document.getElementById('memberDateFrom'),
+    dateTo: document.getElementById('memberDateTo'),
+    plan: document.getElementById('memberPlanFilter'),
+    usage: document.getElementById('memberUsageFilter'),
+    verification: document.getElementById('memberVerificationFilter'),
+    billing: document.getElementById('memberBillingFilter'),
+    channel: document.getElementById('memberChannelFilter'),
+    history: document.getElementById('memberHistoryFilter'),
+    sort: document.getElementById('memberSort'),
+    evidence: evidenceFilter,
+  };
+  const emptyFilters = () => ({
+    dateRange: 'all', dateFrom: '', dateTo: '', plan: 'all',
+    usage: 'all', verification: 'all', billing: 'all', channel: 'all',
+    history: 'all', sort: 'newest', evidence: 'all',
+  });
   const quickFilterGroup = document.getElementById('memberQuickFilters');
   const LOCAL_PAGE_SIZE = 20;
   const MAX_SERVER_PAGES = 80;
   const state = {
     page: 1, totalPages: 1, query: '', filter: 'all',
     quick: 'all', localItems: [], localIncomplete: false, requestId: 0,
+    filters: emptyFilters(), fullCount: null,
   };
 
   searchButton.addEventListener('click', () => runSearch());
-  evidenceFilter?.addEventListener('change', () => {
-    state.filter = evidenceFilter.value;
+
+  function isAdvancedActive() {
+    return Object.entries(state.filters).some(([key, value]) =>
+      value !== (key === 'sort' ? 'newest' : key === 'dateFrom' || key === 'dateTo' ? '' : 'all'));
+  }
+  function hasFilters() {
+    return state.quick !== 'all' || !!state.query || isAdvancedActive();
+  }
+  function clearError() {
+    if (filterError) { filterError.hidden = true; filterError.textContent = ''; }
+  }
+  function toggleDates() {
+    const custom = filterFields.dateRange?.value === 'custom';
+    if (filterFields.dateFrom) filterFields.dateFrom.disabled = !custom;
+    if (filterFields.dateTo) filterFields.dateTo.disabled = !custom;
+  }
+  function showQuickMode() {
+    for (const chip of quickFilterGroup?.querySelectorAll('[data-member-filter]') || []) {
+      const selected = chip.dataset.memberFilter === state.quick;
+      chip.classList.toggle('is-active', selected);
+      chip.setAttribute('aria-pressed', String(selected));
+    }
+  }
+  function filterValues() {
+    const next = emptyFilters();
+    for (const key of Object.keys(next)) {
+      if (filterFields[key]) next[key] = String(filterFields[key].value || next[key]);
+    }
+    if (next.dateRange !== 'custom') { next.dateFrom = ''; next.dateTo = ''; }
+    return next;
+  }
+  function applyAdvancedFilters() {
+    const next = filterValues();
+    if (next.dateRange === 'custom' && next.dateFrom && next.dateTo && next.dateFrom > next.dateTo) {
+      if (filterError) { filterError.textContent = '시작일이 종료일보다 늦습니다.'; filterError.hidden = false; }
+      return;
+    }
+    clearError();
+    state.filters = next;
+    state.filter = next.evidence;
+    showActiveFilters();
     loadMembers(1);
+  }
+  function resetAllFilters() {
+    state.quick = 'all';
+    state.query = '';
+    if (searchInput) searchInput.value = '';
+    state.filter = 'all';
+    state.filters = emptyFilters();
+    for (const [key, value] of Object.entries(state.filters)) {
+      if (filterFields[key]) filterFields[key].value = value;
+    }
+    toggleDates();
+    clearError();
+    showQuickMode();
+    showActiveFilters();
+    loadMembers(1);
+  }
+  function showActiveFilters() {
+    if (!filterChips) return;
+    filterChips.replaceChildren();
+    const chips = [];
+    if (state.quick !== 'all') {
+      const names = { paid:'유료', trial:'체험중', review:'확인필요', admin:'관리자지급' };
+      chips.push(['quick', '빠른필터: ' + (names[state.quick] || state.quick)]);
+    }
+    if (state.query) chips.push(['query', '검색: ' + state.query]);
+    const names = {
+      dateRange:'가입일', plan:'이용권', usage:'이용 상태', verification:'결제 검증',
+      billing:'구독·결제', channel:'결제 채널', history:'결제 이력',
+      evidence:'지급·구매 기록', sort:'정렬',
+    };
+    for (const [key, label] of Object.entries(names)) {
+      const value = state.filters[key];
+      if (!value || value === 'all' || (key === 'sort' && value === 'newest')) continue;
+      let description;
+      if (key === 'dateRange') {
+        description = value === 'today' ? '오늘' : value === '7' ? '최근 7일'
+          : value === '30' ? '최근 30일'
+            : [state.filters.dateFrom || '시작 제한 없음', state.filters.dateTo || '종료 제한 없음'].join(' ~ ');
+      } else {
+        const option = filterFields[key]?.options
+          ? Array.from(filterFields[key].options).find(x => x.value === value) : null;
+        description = option?.textContent || value;
+      }
+      chips.push([key, label + ': ' + description]);
+    }
+    for (const [key, label] of chips) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.textContent = label + ' ×';
+      chip.setAttribute('aria-label', label + ' 필터 해제');
+      chip.addEventListener('click', () => {
+        if (key === 'quick') { state.quick = 'all'; showQuickMode(); }
+        else if (key === 'query') { state.query = ''; searchInput.value = ''; }
+        else {
+          state.filters[key] = key === 'sort' ? 'newest' : 'all';
+          if (key === 'dateRange') { state.filters.dateFrom = ''; state.filters.dateTo = ''; }
+          if (filterFields[key]) filterFields[key].value = state.filters[key];
+          if (key === 'dateRange') {
+            if (filterFields.dateFrom) filterFields.dateFrom.value = '';
+            if (filterFields.dateTo) filterFields.dateTo.value = '';
+            toggleDates();
+          }
+          state.filter = state.filters.evidence;
+        }
+        showActiveFilters();
+        loadMembers(1);
+      });
+      filterChips.append(chip);
+    }
+    filterChips.hidden = chips.length === 0;
+  }
+  filterToggle?.addEventListener('click', () => {
+    if (!advancedPanel) return;
+    advancedPanel.hidden = !advancedPanel.hidden;
+    filterToggle.setAttribute('aria-expanded', String(!advancedPanel.hidden));
   });
+  filterFields.dateRange?.addEventListener('change', toggleDates);
+  filterApply?.addEventListener('click', applyAdvancedFilters);
+  filterReset?.addEventListener('click', resetAllFilters);
+  showActiveFilters();
+
+  function purchaseEvidence(item) {
+    return item?.purchaseHistory?.recorded === true
+      || item?.purchaseHistory?.evidence === 'confirmed_charge'
+      || item?.legacyEntitlement?.source === 'pagero_payment';
+  }
+  function membershipDay(value) {
+    const d = new Date(String(value || ''));
+    return Number.isFinite(d.getTime()) ? new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() : null;
+  }
+  function dateFilterMatch(item) {
+    const { dateRange, dateFrom, dateTo } = state.filters;
+    if (dateRange === 'all') return true;
+    const day = membershipDay(item.createdAt);
+    if (day === null) return false;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    if (dateRange === 'today') return day === today;
+    if (dateRange === '7' || dateRange === '30') {
+      const days = Number(dateRange);
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - days + 1).getTime();
+      return day >= start && day <= today;
+    }
+    if (dateRange === 'custom') {
+      if (dateFrom && day < membershipDay(dateFrom + 'T12:00:00')) return false;
+      if (dateTo && day > membershipDay(dateTo + 'T12:00:00')) return false;
+    }
+    return true;
+  }
+  function advancedFilterMatch(item) {
+    const f = state.filters;
+    const subs = Array.isArray(item?.subscriptions) ? item.subscriptions : [];
+    const current = subs.filter(isCurrentSubscription);
+    const codes = current.map(sub => sub.productCode).filter(Boolean);
+    const activeGift = item?.adminEntitlement?.active === true;
+    if (!dateFilterMatch(item)) return false;
+    if (f.plan !== 'all') {
+      if (f.plan === 'trial') {
+        if (!isTrial(item.trialEndsAt) || !!current.length || activeGift) return false;
+      } else if (f.plan === 'admin') {
+        if (!activeGift) return false;
+      } else if (f.plan === 'other') {
+        if (!codes.some(code => !Object.hasOwn(products, code)) && !item?.legacyEntitlement?.nonDefaultRecord) return false;
+      } else if (!codes.includes(f.plan)) return false;
+    }
+    const usage = usageStatus(item, subs);
+    if (f.usage !== 'all') {
+      const names = { trial:'체험중', active:'활성', cancelled:'취소예정', expired:'만료', suspended:'정지', review:'확인필요' };
+      if (f.usage === 'active' ? !usage.startsWith('활성') : usage !== names[f.usage]) return false;
+    }
+    if (f.verification !== 'all') {
+      const names = { normal:'정상', review:'확인필요', failed:'실패', none:'해당없음' };
+      if (verificationLabel(subs) !== names[f.verification]) return false;
+    }
+    if (f.billing !== 'all') {
+      const bill = classifySubscription(item, subs);
+      if (f.billing === 'paid' && !verifiedActiveSubscription(item)) return false;
+      if (f.billing === 'trial' && bill.badgeClass !== 'member-billing-trial') return false;
+      if (f.billing === 'admin' && !activeGift) return false;
+      if (f.billing === 'past' && bill.badgeClass !== 'member-billing-history') return false;
+      if (f.billing === 'missing' && bill.badgeClass !== 'member-billing-muted') return false;
+      if (f.billing === 'review' && bill.badgeClass !== 'member-billing-review') return false;
+    }
+    if (f.channel !== 'all') {
+      if (f.channel === 'admin') { if (!activeGift) return false; }
+      else if (!subs.some(sub => (f.channel === 'google_play'
+        ? ['google_play', 'play'].includes(String(sub.channel || '').toLowerCase())
+        : String(sub.channel || '').toLowerCase() === 'web'))) return false;
+    }
+    if (f.history !== 'all' && purchaseEvidence(item) !== (f.history === 'yes')) return false;
+    return true;
+  }
+  function sortMembers(items) {
+    const mode = state.filters.sort;
+    return items.sort((a,b) => {
+      if (mode === 'paid' || mode === 'review') {
+        const rank = x => mode === 'paid' ? Number(verifiedActiveSubscription(x))
+          : Number(quickReviewMatch(x));
+        const delta = rank(b) - rank(a);
+        if (delta) return delta;
+      }
+      const first = Date.parse(String(a.createdAt || ''));
+      const second = Date.parse(String(b.createdAt || ''));
+      const aTime = Number.isFinite(first) ? first : (mode === 'oldest' ? Infinity : -Infinity);
+      const bTime = Number.isFinite(second) ? second : (mode === 'oldest' ? Infinity : -Infinity);
+      if (aTime !== bTime) return mode === 'oldest' ? aTime - bTime : bTime - aTime;
+      return String(a.ownerId || '').localeCompare(String(b.ownerId || ''));
+    });
+  }
+  function quickReviewMatch(item) {
+    const subs = Array.isArray(item?.subscriptions) ? item.subscriptions : [];
+    return classifySubscription(item, subs).badgeClass === 'member-billing-review'
+      || subs.some(sub => ['failed','invalid','rejected'].includes(String(sub.verificationState || '').toLowerCase())
+        || String(sub.status || '').toLowerCase() === 'pending');
+  }
+  function countLabel(count, filtered) {
+    const suffix = state.localIncomplete ? ' · 일부만 확인됨' : '';
+    if (!filtered) return '전체 ' + number(count) + '명';
+    return '필터 결과 ' + number(count) + '명 / 전체 '
+      + (state.fullCount === null ? '확인 전' : number(state.fullCount) + '명') + suffix;
+  }
+
   searchInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter') runSearch();
   });
@@ -48,21 +293,18 @@
     const mode = button.dataset.memberFilter || 'all';
     if (!['all', 'paid', 'trial', 'review', 'admin'].includes(mode) || state.quick === mode) return;
     state.quick = mode;
-    for (const chip of quickFilterGroup.querySelectorAll('[data-member-filter]')) {
-      const selected = chip === button;
-      chip.classList.toggle('is-active', selected);
-      chip.setAttribute('aria-pressed', String(selected));
-    }
+    showQuickMode();
+    showActiveFilters();
     loadMembers(1);
   });
   prevButton?.addEventListener('click', () => {
     if (state.page <= 1) return;
-    if (state.quick === 'all') loadMembers(state.page - 1);
+    if (!needsLocalFiltering()) loadMembers(state.page - 1);
     else renderQuickPage(state.page - 1);
   });
   nextButton?.addEventListener('click', () => {
     if (state.page >= state.totalPages) return;
-    if (state.quick === 'all') loadMembers(state.page + 1);
+    if (!needsLocalFiltering()) loadMembers(state.page + 1);
     else renderQuickPage(state.page + 1);
   });
   refreshButton?.addEventListener('click', () => setTimeout(() => loadMembers(state.page), 80));
@@ -70,13 +312,15 @@
 
   function runSearch() {
     state.query = String(searchInput.value || '').trim().slice(0, 80);
+    showActiveFilters();
     loadMembers(1);
   }
 
-  async function getMemberPage(page) {
+  function needsLocalFiltering() { return state.quick !== 'all' || isAdvancedActive(); }
+  async function getMemberPage(page, filter = state.filter, query = state.query) {
     const url = '/admin/api/members?page=' + Math.max(1, page)
-      + '&filter=' + encodeURIComponent(state.filter)
-      + (state.query ? '&q=' + encodeURIComponent(state.query) : '');
+      + '&filter=' + encodeURIComponent(filter)
+      + (query ? '&q=' + encodeURIComponent(query) : '');
     const response = await fetch(url, {
       method: 'GET', cache: 'no-store', credentials: 'same-origin',
       headers: { accept: 'application/json' },
@@ -122,8 +366,7 @@
     state.page = Math.min(Math.max(1, page), state.totalPages);
     const start = (state.page - 1) * LOCAL_PAGE_SIZE;
     renderMembers(state.localItems.slice(start, start + LOCAL_PAGE_SIZE));
-    if (resultCount) resultCount.textContent = number(state.localItems.length)
-      + '명' + (state.localIncomplete ? ' · 일부만 확인됨' : '');
+    if (resultCount) resultCount.textContent = countLabel(state.localItems.length, true);
     updatePageControls();
   }
 
@@ -132,26 +375,34 @@
     searchButton.disabled = true;
     if (resultCount) resultCount.textContent = '조회 중';
     try {
-      const data = await getMemberPage(state.quick === 'all' ? page : 1);
+      const local = needsLocalFiltering();
+      const data = await getMemberPage(local ? 1 : page);
       if (requestId !== state.requestId) return;
-      if (state.quick === 'all') {
+      if (!hasFilters()) state.fullCount = Number(data.total || 0);
+      else if (state.fullCount === null || state.query || state.filter !== 'all') {
+        const baseline = await getMemberPage(1, 'all', '');
+        if (requestId !== state.requestId) return;
+        state.fullCount = Number(baseline.total || 0);
+      }
+      if (!local) {
         state.page = Number(data.page || 1);
         state.totalPages = Math.max(1, Number(data.totalPages || 1));
         renderMembers(Array.isArray(data.members) ? data.members : []);
-        if (resultCount) resultCount.textContent = number(data.total) + '명';
+        if (resultCount) resultCount.textContent = countLabel(Number(data.total || 0), hasFilters());
         updatePageControls();
         return;
       }
-      // Apply quick filters over server pages, not only the first 40 members.
+      // Scan all reachable server pages so filters apply beyond the visible page.
       const all = Array.isArray(data.members) ? [...data.members] : [];
       const pages = Math.max(1, Number(data.totalPages || 1));
-      for (let index = 2; index <= Math.min(pages, MAX_SERVER_PAGES); index++) {
-        const batch = await getMemberPage(index);
+      for (let index = 2; index <= Math.min(pages, MAX_SERVER_PAGES); index += 4) {
+        const ids = Array.from({ length: Math.min(4, pages - index + 1, MAX_SERVER_PAGES - index + 1) }, (_, offset) => index + offset);
+        const batches = await Promise.all(ids.map(id => getMemberPage(id)));
         if (requestId !== state.requestId) return;
-        all.push(...(Array.isArray(batch.members) ? batch.members : []));
+        for (const batch of batches) all.push(...(Array.isArray(batch.members) ? batch.members : []));
       }
       if (requestId !== state.requestId) return;
-      state.localItems = all.filter(quickFilterMatch);
+      state.localItems = sortMembers(all.filter(item => quickFilterMatch(item) && advancedFilterMatch(item)));
       state.localIncomplete = pages > MAX_SERVER_PAGES;
       renderQuickPage(1);
     } catch (error) {
@@ -187,7 +438,7 @@
     rowsEl.replaceChildren();
     if (emptyEl) {
       emptyEl.hidden = items.length > 0;
-      emptyEl.textContent = state.query || state.quick !== 'all'
+      emptyEl.textContent = hasFilters()
         ? '조건에 맞는 회원이 없습니다.' : '회원 데이터가 없습니다.';
     }
     for (const item of items) {
@@ -610,7 +861,8 @@
     if (active.some((x) => x.status === 'pending')) return '확인필요';
     if (active.some((x) => x.status === 'cancelled')) return '취소예정';
     if (active.some((x) => ['active', 'grace'].includes(x.status))) return '활성';
-    return isTrial(item.trialEndsAt) ? '체험중' : '비활성';
+    if (isTrial(item.trialEndsAt)) return '체험중';
+    return subscriptions.length ? '만료' : '비활성';
   }
 
   function verificationLabel(subscriptions) {
