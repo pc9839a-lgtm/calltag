@@ -27,7 +27,7 @@ android {
         minSdk 26
         targetSdk 36
         // 2026-10-19: explicit Call Log opt-in and call-triggered SMS review flow
-        versionCode 2026101901
+        versionCode 2026102101
         versionName '0.44.63'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 

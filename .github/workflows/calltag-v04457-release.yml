@@ -37,7 +37,7 @@ jobs:
           python3 scripts/calltag-receipt-schema-sqlite-check.py
           python3 scripts/calltag-crm-lead-atomicity-check.py
           python3 scripts/calltag-release-origin-contract-check.py
-          grep -F 'versionCode 2026101901' app/build.gradle
+          grep -F 'versionCode 2026102101' app/build.gradle
           grep -F "versionName '0.44.63'" app/build.gradle
           grep -F 'minifyEnabled true' app/build.gradle
           grep -F 'shrinkResources true' app/build.gradle
@@ -228,8 +228,8 @@ jobs:
           grep -F "SHA256: $CALLTAG_EXPECTED_UPLOAD_KEY_SHA256" "$RUNNER_TEMP/CALLTAG_V04463_AAB_CERTIFICATE.txt"
           OUT="$RUNNER_TEMP/calltag-v0.44.63"
           mkdir -p "$OUT"
-          cp "$AAB" "$OUT/CallTag-v0.44.63-code2026101901.aab"
-          cp "$APK" "$OUT/CallTag-v0.44.63-code2026101901-debug.apk"
+          cp "$AAB" "$OUT/CallTag-v0.44.63-code2026102101.aab"
+          cp "$APK" "$OUT/CallTag-v0.44.63-code2026102101-debug.apk"
           cp "$MAPPING" "$OUT/CallTag-v0.44.63-mapping.txt"
           sha256sum "$AAB" > "$OUT/CALLTAG_V04463_AAB_SHA256.txt"
           sha256sum "$APK" > "$OUT/CALLTAG_V04463_DEBUG_APK_SHA256.txt"
