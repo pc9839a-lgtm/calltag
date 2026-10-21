@@ -64,7 +64,7 @@
       parts.ledgerNote.textContent = statusParts.join(' · ');
     } else {
       status(parts.ledger, '확인 전', 'neutral');
-      parts.ledgerNote.textContent = '조회 대기';
+      parts.ledgerNote.textContent = '조회 미완료';
     }
 
     const finance = state.finance;
@@ -125,7 +125,9 @@
       parts.attention.append(item);
     } else if (!warnings.length) {
       const item = document.createElement('li');
-      item.textContent = '추가 확인 항목 없음';
+      item.textContent = state.audit?.available && finance?.status === 'ready'
+        ? '확인할 항목 없음'
+        : '점검 자료 일부 미확인';
       parts.attention.append(item);
     } else {
       for (const issue of warnings.slice(0, 5)) {
