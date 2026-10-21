@@ -8,7 +8,7 @@ const SEO_TITLE='통화 후 고객관리 앱 콜태그 | 문자 자동화·신�
 const SEO_DESCRIPTION='콜태그는 통화 후 상담 메모와 재연락 일정을 관리하는 Android 고객관리 앱입니다. 신규 고객 문의 알림, 설정형 후속문자, PC 웹 관리까지 한곳에서 확인하세요.';
 const OG_IMAGE=`${CANONICAL}assets/calltag-og-20260805.png`;
 const WORKER_VERSION='v152-path-aware-seo';
-const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20260811-runtime60';
+const RUNTIME_SRC='/assets/calltag-runtime-loader.js?v=20261021-seo1';
 const STYLE_BUNDLE_PATH='/assets/calltag-style-bundle.css';
 const STYLE_BUNDLE_VERSION='20260812-cssbundle1';
 const STYLE_ASSETS=[
