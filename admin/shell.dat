@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="/admin/payout-request.css?v=20260813-payout1" />
   <link rel="stylesheet" href="/admin/admin-ops.css?v=20261016-subscriber-parity6" />
   <link rel="stylesheet" href="/admin/admin-theme.css?v=20260813-theme1" />
-  <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261021-dashboard1" />
+  <link rel="stylesheet" href="/admin/ops-dashboard.css?v=20261021-subscribers1" />
   <link rel="stylesheet" href="/admin/member-detail.css?v=20261020-detail-v2" />
 </head>
 <body>
@@ -35,7 +35,9 @@
           <div class="ops-indicator"><span>전체 회원</span><strong id="opsTotalMembers">—</strong></div>
           <div class="ops-indicator"><span>7일 신규</span><strong id="opsNewMembers">—</strong></div>
           <div class="ops-indicator"><span>체험 중</span><strong id="opsTrialMembers">—</strong></div>
-          <div class="ops-indicator"><span>유료 회원</span><strong id="opsVerifiedSubscribers">—</strong></div>
+          <div class="ops-indicator"><span>유료 구독자</span><strong id="opsVerifiedSubscribers">—</strong></div>
+          <div class="ops-indicator"><span>비유료 회원</span><strong id="opsNonPaidMembers">—</strong></div>
+          <div class="ops-indicator"><span>유료 구독 비중</span><strong id="opsPaidShare">—</strong></div>
         </div>
       </section>
       <section id="membersPanel" class="panel">
@@ -233,6 +235,6 @@
   <script src="/admin/member-ops-sync.js?v=20260813-ops1" defer></script>
   <script src="/admin/admin-theme.js?v=20260813-theme1" defer></script>
   <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
-  <script src="/admin/ops-dashboard.js?v=20261021-dashboard1" defer></script>
+  <script src="/admin/ops-dashboard.js?v=20261021-subscribers1" defer></script>
 </body>
 </html>

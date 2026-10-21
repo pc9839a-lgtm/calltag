@@ -14,7 +14,7 @@ const audit=readFileSync('admin/payer-audit.js','utf8');
 const finance=readFileSync('admin/play-finance-monthly.js','utf8');
 new vm.Script(ops,{filename:'admin/ops-dashboard.js'});
 for (const id of ['opsHealthPanel','opsCheckedAt','opsTotalMembers','opsNewMembers','opsTrialMembers',
-  'opsVerifiedSubscribers','memberSearchInput','membersPanel','payerAuditDetails','financeDetails',
+  'opsVerifiedSubscribers','opsNonPaidMembers','opsPaidShare','memberSearchInput','membersPanel','payerAuditDetails','financeDetails',
   'playFinancePanel','payerAuditRefresh']) {
   assert(html.includes('id="' + id + '"'),'missing required dashboard or detailed control: ' + id);
 }
@@ -25,10 +25,10 @@ for (const removed of ['opsFinanceStatus','opsFinanceStatusNote','opsAttention',
   assert(!ops.includes(removed),'removed finance/alert logic in dashboard: ' + removed);
 }
 assert.equal((html.slice(html.indexOf('<div class="ops-health-grid">'),
-  html.indexOf('id="membersPanel"')).match(/class="ops-indicator"/g)||[]).length,4,
-  'four member KPI cards required');
-assert(html.includes('/admin/ops-dashboard.js?v=20261021-dashboard1'));
-assert(html.includes('/admin/ops-dashboard.css?v=20261021-dashboard1'));
+  html.indexOf('id="membersPanel"')).match(/class="ops-indicator"/g)||[]).length,6,
+  'six member/subscriber KPI cards required');
+assert(html.includes('/admin/ops-dashboard.js?v=20261021-subscribers1'));
+assert(html.includes('/admin/ops-dashboard.css?v=20261021-subscribers1'));
 assert(css.includes('.ops-member-dashboard .ops-health-grid'),'dashboard responsive grid styles required');
 for (const key of ['totalMembers','newMembers7d','trialMembers','activePaid']) {
   assert(ops.includes(key),'missing member KPI: ' + key);
@@ -43,7 +43,7 @@ for (const name of ['payerAuditDetails','extraStatsDetails','financeDetails']) {
   assert(html.includes('<details id="' + name + '"'),'existing advanced menu removed ' + name);
 }
 const nodes={};
-for(const id of ['opsHealthPanel','opsCheckedAt','opsTotalMembers','opsNewMembers','opsTrialMembers','opsVerifiedSubscribers']){
+for(const id of ['opsHealthPanel','opsCheckedAt','opsTotalMembers','opsNewMembers','opsTrialMembers','opsVerifiedSubscribers','opsNonPaidMembers','opsPaidShare']){
   nodes[id]={textContent:''};
 }
 const handlers={};
@@ -61,8 +61,14 @@ assert.equal(nodes.opsTotalMembers.textContent,'38명');
 assert.equal(nodes.opsNewMembers.textContent,'5명');
 assert.equal(nodes.opsTrialMembers.textContent,'29명');
 assert.equal(nodes.opsVerifiedSubscribers.textContent,'4명');
+assert.equal(nodes.opsNonPaidMembers.textContent,'34명');
+assert.equal(nodes.opsPaidShare.textContent,'10.5%');
+send({ok:true,metrics:{totalMembers:0,newMembers7d:0,trialMembers:0,activePaid:0}});
+assert.equal(nodes.opsPaidShare.textContent,'—','zero denominator has no paid share');
+send({ok:true,metrics:{totalMembers:4,newMembers7d:0,trialMembers:0,activePaid:5}});
+assert.equal(nodes.opsPaidShare.textContent,'—','inconsistent source totals must not show a percentage');
 send({ok:false});
 for(const id of ['opsTotalMembers','opsNewMembers','opsTrialMembers','opsVerifiedSubscribers']){
   assert.equal(nodes[id].textContent,'—','failed response must not become zero: '+id);
 }
-console.log('PASS: four-member-KPI dashboard, alert/finance card removal, detailed billing preserved');
+console.log('PASS: six member/subscriber KPIs, safe subscription share, detailed billing preserved');
