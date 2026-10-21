@@ -235,6 +235,7 @@ public final class FeatureEntitlementStore {
                 .putBoolean(KEY_PHONE_PURCHASE_AVAILABLE, phonePurchaseAvailable)
                 .putBoolean(KEY_MESSAGE_PURCHASE_AVAILABLE, messagePurchaseAvailable)
                 .apply();
+        CallTagAppAnalytics.onEntitlementUpdated(context);
     }
 
     public static Snapshot snapshot(Context context) {
@@ -315,6 +316,7 @@ public final class FeatureEntitlementStore {
     }
 
     public static void clear(Context context) {
+        CallTagAppAnalytics.clearSubscriptionSegment(context);
         prefs(context).edit().clear().apply();
     }
 
