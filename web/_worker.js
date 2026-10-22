@@ -123,6 +123,13 @@ export default {
     const sitemapPath=new URL(request.url).pathname;
     if(/^\/sitemap\/?$/i.test(sitemapPath))return Response.redirect(new URL('/sitemap.xml',request.url).toString(),301);
     const url=new URL(request.url);
+    // Keep guide discovery and inspection URLs identical to sitemap/canonical URLs.
+    // Redirect only document-like guide paths; preserve query parameters.
+    if((request.method==='GET'||request.method==='HEAD')&&/^\/guide(?:\/[a-z0-9-]+)?$/.test(url.pathname)){
+      const target=new URL(url);
+      target.pathname+='/';
+      return Response.redirect(target.toString(),301);
+    }
     if(url.pathname===STYLE_BUNDLE_PATH){
       if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method Not Allowed',{status:405,headers:{allow:'GET, HEAD'}});
       const bundled=await serveStyleBundle(request,env);
