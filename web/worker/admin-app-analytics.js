@@ -1,125 +1,164 @@
-// Read-only GA4 bridge. Only Cloudflare Access approved administrators may use it.
-// Secrets remain on the Worker and never enter rendered HTML or analytics responses.
-const ROUTE = '/admin/api/app-analytics';
-const UPSTREAM = 'https://inlet-8mr.pages.dev/api/call/admin/overview';
-const GA_API = 'https://analyticsdata.googleapis.com/v1beta/properties/';
-const TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const HEADERS = { 'content-type':'application/json; charset=utf-8', 'cache-control':'private, no-store', 'x-content-type-options':'nosniff' };
+// Server-side GA4 reporting for Cloudflare Access administrators only.
+// Report values are aggregates; service account credentials never reach the client.
+const PATH='/admin/api/app-analytics';
+const AUTH_URL='https://inlet-8mr.pages.dev/api/call/admin/overview';
+const GA_URL='https://analyticsdata.googleapis.com/v1beta/properties/';
+const OAUTH_URL='https://oauth2.googleapis.com/token';
+const HEADERS={'content-type':'application/json; charset=utf-8','cache-control':'private, no-store','x-content-type-options':'nosniff'};
+const TTL_MS=5*60*1000;
+const REPORT_TIMEOUT_MS=8000;
+let cached=null;
+let inflight=null;
 
-export async function handleAdminAppAnalytics(request, env) {
-  const url = new URL(request.url);
-  if (url.pathname !== ROUTE) return null;
-  if (request.method !== 'GET') return reply({ok:false,status:'invalid_method'},405);
-  const assertion = String(request.headers.get('CF-Access-Jwt-Assertion') || '');
-  if (!assertion) return reply({ok:false,status:'unauthorized'},401);
-  // Existing backend validates the actual Cloudflare Access assertion.
-  // A forged request header by itself must not authorize Google reporting.
-  try {
-    const auth = await fetch(UPSTREAM,{
-      method:'GET',headers:{accept:'application/json',
-        'cf-access-jwt-assertion':assertion,'x-calllink-client':'calltag-admin-gateway'},
-      redirect:'manual',
-    });
-    if (!auth.ok) return reply({ok:false,status:'unauthorized'},401);
-    const body = await auth.json().catch(()=>null);
-    if (body?.ok !== true) return reply({ok:false,status:'unauthorized'},401);
-  } catch {
-    return reply({ok:false,status:'verification_unavailable'},503);
+export async function handleAdminAppAnalytics(request,env) {
+  const url=new URL(request.url);
+  if(url.pathname!==PATH)return null;
+  if(request.method!=='GET')return respond({ok:false,status:'invalid_method'},405);
+  const jwt=String(request.headers.get('CF-Access-Jwt-Assertion')||'').trim();
+  if(!jwt)return respond({ok:false,status:'unauthorized'},401);
+  // The operational backend, not the presented JWT's mere presence, decides admin access.
+  try{
+    const auth=await fetchWithDeadline(AUTH_URL,{method:'GET',
+      headers:{accept:'application/json','cf-access-jwt-assertion':jwt,
+        'x-calllink-client':'calltag-admin-gateway'},redirect:'manual'});
+    if(!auth.ok)return respond({ok:false,status:'unauthorized'},401);
+    const body=await auth.json().catch(()=>null);
+    if(body?.ok!==true)return respond({ok:false,status:'unauthorized'},401);
+  }catch{
+    return respond({ok:false,status:'verification_unavailable'},503);
   }
-  const property = String(env?.CALLTAG_GA4_PROPERTY_ID||'').trim();
-  const email = String(env?.CALLTAG_GA4_CLIENT_EMAIL||'').trim();
-  const key = String(env?.CALLTAG_GA4_PRIVATE_KEY||'').trim().replace(/\\n/g,'\n');
-  if (!/^\d{5,}$/.test(property) || !email.endsWith('.gserviceaccount.com') || !key.includes('BEGIN PRIVATE KEY')) {
-    return reply({ok:true,available:false,status:'not_configured'});
+
+  const property=String(env?.CALLTAG_GA4_PROPERTY_ID||'').trim();
+  const email=String(env?.CALLTAG_GA4_CLIENT_EMAIL||'').trim();
+  const key=String(env?.CALLTAG_GA4_PRIVATE_KEY||'').trim().replace(/\\n/g,'\n');
+  if(!/^[0-9]{5,}$/.test(property)||!email.endsWith('.gserviceaccount.com')||
+     !key.includes('BEGIN PRIVATE KEY')){
+    return respond({ok:true,available:false,status:'not_configured'});
   }
-  try {
-    const token = await googleToken(email,key);
-    const today = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-    const reports = [
-      {label:'dau',from:'yesterday',to:'yesterday',metric:'activeUsers'},
-      {label:'wau',from:'7daysAgo',to:'yesterday',metric:'activeUsers'},
-      {label:'mau',from:'30daysAgo',to:'yesterday',metric:'activeUsers'},
-      {label:'appOpens7d',from:'7daysAgo',to:'yesterday',metric:'eventCount',event:'calltag_app_open'},
-      {label:'newUsers7d',from:'7daysAgo',to:'yesterday',metric:'eventCount',event:'first_open'},
-    ];
-    const endpoint = GA_API + property + ':runReport';
-    const results = await Promise.all(reports.map(async item => {
-      const body={dateRanges:[{startDate:item.from,endDate:item.to}],metrics:[{name:item.metric}]};
-      if(item.event)body.dimensionFilter={filter:{fieldName:'eventName',stringFilter:{value:item.event,matchType:'EXACT'}}};
-      const result=await gaReport(endpoint,token,body);
-      return [item.label,safeNumber(result.rows?.[0]?.metricValues?.[0]?.value)];
-    }));
-    const values=Object.fromEntries(results);
-    // Each retention window uses its latest fully matured single-day cohort.
-    // D1 can be shown before D7/D30. Empty cohorts never become zero.
-    const retention={d1:null,d7:null,d30:null,cohortDates:{}};
-    await Promise.all([1,7,30].map(async n=>{
-      const cohortDate=daysAgoKst(n+1);
-      retention.cohortDates['d'+n]=cohortDate;
-      const cohortReport=await gaReport(endpoint,token,{
-        dimensions:[{name:'cohort'},{name:'cohortNthDay'}],
-        metrics:[{name:'retentionFraction',expression:'cohortActiveUsers/cohortTotalUsers'}],
-        cohortSpec:{cohorts:[{dimension:'firstSessionDate',
-          dateRange:{startDate:cohortDate,endDate:cohortDate}}],
-          cohortsRange:{startOffset:0,endOffset:n,granularity:'DAILY'}},
-      }).catch(()=>null);
-      const row=(cohortReport?.rows||[]).find(item=>Number(item.dimensionValues?.[1]?.value)===n);
-      const value=row?.metricValues?.[0]?.value;
-      if(value===undefined||value===null)return;
-      const fraction=Number(value);
-      if(Number.isFinite(fraction)&&fraction>=0&&fraction<=1)
-        retention['d'+n]=Math.round(fraction*1000)/10;
-    }));
-    // Registered event-scope custom dimension required. Failure is independent
-    // of core app usage and deliberately does not fabricate subscriber figures.
-    let subscriberActive7d=null;
-    try {
-      const subscriberReport=await gaReport(endpoint,token,{
-        dateRanges:[{startDate:'7daysAgo',endDate:'yesterday'}],
-        metrics:[{name:'activeUsers'}],
-        dimensionFilter:{andGroup:{expressions:[
-          {filter:{fieldName:'eventName',stringFilter:{value:'calltag_app_open',matchType:'EXACT'}}},
-          {filter:{fieldName:'customEvent:subscriber_status',stringFilter:{value:'subscriber',matchType:'EXACT'}}},
-        ]}},
-      });
-      subscriberActive7d=safeNumber(subscriberReport.rows?.[0]?.metricValues?.[0]?.value);
-    }catch{/* Custom dimension not yet registered, or property restricted. */}
-    return reply({ok:true,available:true,status:'ready',asOf:today,timezone:'Asia/Seoul',
-      metrics:{...values,subscriberActive7d},retention});
-  }catch {
-    return reply({ok:true,available:false,status:'report_unavailable'});
+  const cacheKey=property+'|'+email;
+  if(cached?.key===cacheKey&&Date.now()<cached.expiresAt)
+    return respond(cached.body);
+  if(inflight?.key===cacheKey){
+    try{return respond(await inflight.promise);}
+    catch{return respond({ok:true,available:false,status:'report_unavailable'});}
+  }
+
+  const promise=collectAnalytics(property,email,key);
+  inflight={key:cacheKey,promise};
+  try{
+    const data=await promise;
+    if(data.available===true)cached={key:cacheKey,body:data,expiresAt:Date.now()+TTL_MS};
+    return respond(data);
+  }catch{
+    return respond({ok:true,available:false,status:'report_unavailable'});
+  }finally{
+    if(inflight?.promise===promise)inflight=null;
   }
 }
-function reply(body,status=200){return new Response(JSON.stringify(body),{status,headers:HEADERS});}
-function safeNumber(raw){
+
+async function collectAnalytics(property,email,key){
+  const token=await googleToken(email,key);
+  const endpoint=GA_URL+property+':runReport';
+  const reports=[
+    {field:'dau',from:'yesterday',metric:'activeUsers'},
+    {field:'wau',from:'7daysAgo',metric:'activeUsers'},
+    {field:'mau',from:'30daysAgo',metric:'activeUsers'},
+    {field:'appOpens7d',from:'7daysAgo',metric:'eventCount',event:'calltag_app_open'},
+    {field:'newUsers7d',from:'7daysAgo',metric:'newUsers'},
+  ];
+  const metrics={dau:null,wau:null,mau:null,appOpens7d:null,newUsers7d:null,
+    subscriberActive7d:null,trialActive7d:null,freeActive7d:null,grantedActive7d:null};
+  await Promise.all(reports.map(async row=>{
+    const query={dateRanges:[{startDate:row.from,endDate:'yesterday'}],
+      metrics:[{name:row.metric}]};
+    if(row.event)query.dimensionFilter={filter:{fieldName:'eventName',
+      stringFilter:{value:row.event,matchType:'EXACT'}}};
+    try{
+      const result=await gaReport(endpoint,token,query);
+      metrics[row.field]=finiteCount(result.rows?.[0]?.metricValues?.[0]?.value);
+    }catch{/* Missing data or quota failure must never be treated as a zero. */}
+  }));
+  const retention={d1:null,d7:null,d30:null,cohortDates:{}};
+  await Promise.all([1,7,30].map(async day=>{
+    const date=kstDaysAgo(day+1);
+    retention.cohortDates['d'+day]=date;
+    try{
+      const result=await gaReport(endpoint,token,{
+        dimensions:[{name:'cohort'},{name:'cohortNthDay'}],
+        metrics:[{name:'cohortRetentionFraction',
+          expression:'cohortActiveUsers/cohortTotalUsers'}],
+        cohortSpec:{cohorts:[{dimension:'firstSessionDate',
+          dateRange:{startDate:date,endDate:date}}],
+          cohortsRange:{endOffset:day,granularity:'DAILY'}},
+      });
+      const row=(result.rows||[]).find(x=>Number(x.dimensionValues?.[1]?.value)===day);
+      const raw=row?.metricValues?.[0]?.value;
+      if(raw===undefined||raw===null||raw==='')return;
+      const value=Number(raw);
+      if(Number.isFinite(value)&&value>=0&&value<=1)
+        retention['d'+day]=Math.round(value*1000)/10;
+    }catch{/* A report failure cannot change an unknown cohort into 0%. */}
+  }));
+  try{
+    const result=await gaReport(endpoint,token,{
+      dateRanges:[{startDate:'7daysAgo',endDate:'yesterday'}],
+      dimensions:[{name:'customEvent:subscriber_status'}],
+      metrics:[{name:'activeUsers'}],
+      dimensionFilter:{filter:{fieldName:'eventName',
+        stringFilter:{value:'calltag_app_open',matchType:'EXACT'}}},
+    });
+    const segments={subscriber:'subscriberActive7d',trial:'trialActive7d',
+      free:'freeActive7d',granted:'grantedActive7d'};
+    for(const row of result.rows||[]){
+      const category=row.dimensionValues?.[0]?.value;
+      const target=segments[category];
+      if(target)metrics[target]=finiteCount(row.metricValues?.[0]?.value);
+    }
+  }catch{/* Requires the event-scoped GA4 subscriber_status custom dimension. */}
+  if(Object.entries(metrics).filter(([key])=>!key.endsWith('Active7d')||key==='appOpens7d').every(([,value])=>value===null))
+    return {ok:true,available:false,status:'no_data'};
+  return {ok:true,available:true,status:'ready',timezone:'Asia/Seoul',
+    asOf:kstDaysAgo(1),metrics,retention};
+}
+
+function respond(data,status=200){return new Response(JSON.stringify(data),{status,headers:HEADERS});}
+function finiteCount(raw){
   if(raw===undefined||raw===null||raw==='')return null;
   const n=Number(raw);
   return Number.isSafeInteger(n)&&n>=0?n:null;
 }
-function daysAgoKst(n){
-  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',
-    year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-  const x=new Date(parts+'T00:00:00Z');
-  x.setUTCDate(x.getUTCDate()-n);
-  return x.toISOString().slice(0,10);
+function kstDaysAgo(days){
+  const pieces=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',
+    year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+  const lookup=Object.fromEntries(pieces.map(p=>[p.type,p.value]));
+  const date=new Date(Date.UTC(Number(lookup.year),Number(lookup.month)-1,Number(lookup.day)));
+  date.setUTCDate(date.getUTCDate()-days);
+  return date.toISOString().slice(0,10);
+}
+async function fetchWithDeadline(url,options){
+  return fetch(url,{...options,signal:AbortSignal.timeout(REPORT_TIMEOUT_MS)});
 }
 async function googleToken(email,key){
-  const header={alg:'RS256',typ:'JWT'};
   const now=Math.floor(Date.now()/1000);
-  const claims={iss:email,scope:'https://www.googleapis.com/auth/analytics.readonly',
-    aud:TOKEN_URL,iat:now,exp:now+3300};
-  const data=base64url(JSON.stringify(header))+'.'+base64url(JSON.stringify(claims));
-  const bytes=Uint8Array.from(atob(key.replace(/-----[^-]+-----|\s/g,'')),c=>c.charCodeAt(0));
-  const cryptoKey=await crypto.subtle.importKey('pkcs8',bytes,{name:'RSASSA-PKCS1-v1_5',hash:'SHA-256'},false,['sign']);
-  const sig=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',cryptoKey,new TextEncoder().encode(data));
-  const assertion=data+'.'+base64url(new Uint8Array(sig));
-  const response=await fetch(TOKEN_URL,{method:'POST',
+  const header=base64url(JSON.stringify({alg:'RS256',typ:'JWT'}));
+  const claims=base64url(JSON.stringify({iss:email,scope:'https://www.googleapis.com/auth/analytics.readonly',
+    aud:OAUTH_URL,iat:now,exp:now+3300}));
+  const signed=header+'.'+claims;
+  const pem=key.replace(/-----[^-]+-----|\s/g,'');
+  const bytes=Uint8Array.from(atob(pem),character=>character.charCodeAt(0));
+  const privateKey=await crypto.subtle.importKey('pkcs8',bytes,{name:'RSASSA-PKCS1-v1_5',
+    hash:'SHA-256'},false,['sign']);
+  const signature=await crypto.subtle.sign('RSASSA-PKCS1-v1_5',privateKey,
+    new TextEncoder().encode(signed));
+  const assertion=signed+'.'+base64url(new Uint8Array(signature));
+  const result=await fetchWithDeadline(OAUTH_URL,{method:'POST',
     headers:{'content-type':'application/x-www-form-urlencoded'},
-    body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion}).toString()});
-  if(!response.ok)throw Error('token_unavailable');
-  const json=await response.json();
-  if(!json.access_token)throw Error('token_missing');
-  return json.access_token;
+    body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      assertion}).toString()});
+  if(!result.ok)throw Error('google_token_unavailable');
+  const body=await result.json();
+  if(typeof body.access_token!=='string'||!body.access_token)throw Error('google_token_missing');
+  return body.access_token;
 }
 function base64url(data){
   const bytes=typeof data==='string'?new TextEncoder().encode(data):data;
@@ -128,9 +167,9 @@ function base64url(data){
   return btoa(text).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
 }
 async function gaReport(endpoint,token,body){
-  const r=await fetch(endpoint,{method:'POST',
+  const response=await fetchWithDeadline(endpoint,{method:'POST',
     headers:{authorization:'Bearer '+token,'content-type':'application/json'},
     body:JSON.stringify(body)});
-  if(!r.ok)throw Error('analytics_report_unavailable');
-  return r.json();
+  if(!response.ok)throw Error('ga4_report_unavailable');
+  return response.json();
 }
