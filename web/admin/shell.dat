@@ -43,7 +43,7 @@
       <section id="appAnalyticsPanel" class="ops-health ops-member-dashboard app-analytics-dashboard" aria-label="앱 이용 분석" hidden>
         <div class="ops-health-header">
           <div class="ops-health-heading"><h1>앱 이용 현황</h1></div>
-          <span class="ops-last-checked">Firebase Analytics · 전일 마감 기준</span>
+          <span class="ops-last-checked" id="appAnalyticsAsOf">Firebase Analytics · 전일 기준</span>
         </div>
         <div class="ops-health-grid">
           <div class="ops-indicator"><span>앱 실행 · 7일</span><strong id="appOpens7d">—</strong></div>
@@ -52,6 +52,9 @@
           <div class="ops-indicator"><span>WAU</span><strong id="appWau">—</strong></div>
           <div class="ops-indicator"><span>MAU</span><strong id="appMau">—</strong></div>
           <div class="ops-indicator"><span>유료 이용자 · 7일</span><strong id="appSubscriberActive7d">—</strong></div>
+          <div class="ops-indicator"><span>체험 이용자 · 7일</span><strong id="appTrialActive7d">—</strong></div>
+          <div class="ops-indicator"><span>무료 이용자 · 7일</span><strong id="appFreeActive7d">—</strong></div>
+          <div class="ops-indicator"><span>관리자 지급 이용자 · 7일</span><strong id="appGrantedActive7d">—</strong></div>
           <div class="ops-indicator"><span>D1 유지율</span><strong id="appRetentionD1">—</strong></div>
           <div class="ops-indicator"><span>D7 유지율</span><strong id="appRetentionD7">—</strong></div>
           <div class="ops-indicator"><span>D30 유지율</span><strong id="appRetentionD30">—</strong></div>
@@ -254,6 +257,6 @@
   <script src="/admin/admin-theme.js?v=20260813-theme1" defer></script>
   <script src="/admin/partner-security.js?v=20260813-totp1" defer></script>
   <script src="/admin/ops-dashboard.js?v=20261021-subscribers1" defer></script>
-  <script src="/admin/app-analytics.js?v=20261022-ga4-1" defer></script>
+  <script src="/admin/app-analytics.js?v=20261022-ga4-2" defer></script>
 </body>
 </html>
