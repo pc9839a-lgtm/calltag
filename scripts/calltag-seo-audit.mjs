@@ -143,7 +143,6 @@ for (const url of urls) {
 
 /** Every published guide must be discoverable from the hub, and all in-site
  * HTML links must target actual deployed files or a known app route. */
-const guideHub = read('web/guide/index.html');
 const knownPaths = new Set(urls.map(pathOf));
 const linkedGuides = [...guideHub.matchAll(/<a\\b[^>]*href=["'](\\/guide\\/[^"'#?]*)["']/gi)].map(m => m[1]);
 const guidePaths = urls.map(pathOf).filter(p => p.startsWith('/guide/') && p !== '/guide/');
