@@ -6,6 +6,8 @@
   const ids={
     appOpens7d:'appOpens7d',newUsers7d:'appNewUsers7d',dau:'appDau',
     wau:'appWau',mau:'appMau',subscriberActive7d:'appSubscriberActive7d',
+    trialActive7d:'appTrialActive7d',freeActive7d:'appFreeActive7d',
+    grantedActive7d:'appGrantedActive7d',
   };
   const count=v=>Number.isSafeInteger(v)&&v>=0?v.toLocaleString('ko-KR'):'—';
   const percentage=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=100?v.toFixed(1)+'%':'—';
@@ -27,6 +29,9 @@
         const node=document.getElementById('appRetentionD'+n);
         if(node)node.textContent=percentage(data.retention?.['d'+n]);
       }
+      const timestamp=document.getElementById('appAnalyticsAsOf');
+      if(timestamp)timestamp.textContent=data.asOf
+        ? 'Firebase Analytics · '+data.asOf+' 기준' : 'Firebase Analytics';
       const note=document.getElementById('appRetentionBasis');
       if(note) {
         const days=[1,7,30].map(n=>{
@@ -34,7 +39,7 @@
           return date?'D'+n+' '+date:'';
         }).filter(Boolean);
         note.textContent=days.length
-          ? '최초 사용 코호트: '+days.join(' · ')+' | 구독자 활동은 수집 구간의 유료 상태 기준'
+          ? '최초 사용 코호트: '+days.join(' · ')+' | 이용 상태는 실행 당시 구분이며 중복 상태 사용자는 합산하지 않음'
           : '전일 마감 데이터';
       }
       panel.hidden=false;
