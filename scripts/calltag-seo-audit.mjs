@@ -81,6 +81,27 @@ log(!deployHome.includes('3일 무료체험') && deployHome.includes('7일 무�
 log(!deployHome.includes('베타 테스트 참여자 후기를 준비'), 'No placeholder testimonials on deployed landing');
 log(existsSync(join(root, 'web/account-deletion/index.html')), 'Deployed account-deletion policy exists');
 log(deployHome.includes('href="/account-deletion/"'), 'Deployed account-deletion policy is linked');
+const guideHub = read('web/guide/index.html');
+const guideArticle = read('web/guide/phone-consultation-record/index.html');
+const guideCss = read('web/assets/calltag-guide.css');
+const csvTemplate = read('web/resources/customer-consultation-log-template.csv');
+const csvPath = '/resources/customer-consultation-log-template.csv';
+const decisionGuidePaths = [
+  '/guide/customer-management-app/',
+  '/guide/after-call-customer-management/',
+  '/guide/phone-consultation-record/',
+  '/guide/follow-up-schedule-management/',
+  '/guide/sales-customer-management/',
+  '/guide/external-inquiry-integration/'
+];
+log(read('guide/index.html') === guideHub, 'Guide hub root/web content mirror');
+log(read('guide/phone-consultation-record/index.html') === guideArticle, 'Consultation article root/web content mirror');
+log(read('assets/calltag-guide.css') === guideCss, 'Guide CSS root/web content mirror');
+log(guideHub.includes('class="ctg-choice"') && decisionGuidePaths.every(p => guideHub.includes('href="' + p + '"')), 'Hub provides six contextual choices to real guide URLs');
+log(guideArticle.includes('href="' + csvPath + '"') && guideArticle.includes('download="calltag-consultation-template.csv"'), 'Consultation article offers a real CSV template');
+log(csvTemplate.charCodeAt(0) === 0xfeff && csvTemplate.includes('상담일시,채널,고객명,연락처,고객상태'), 'CSV is UTF-8 BOM and contains reusable Korean headers');
+log(read('resources/customer-consultation-log-template.csv') === csvTemplate, 'CSV root/web content mirror');
+log(guideHub.includes('20261022-guide-practical1') && guideArticle.includes('20261022-guide-practical1'), 'Updated guides use refreshed stylesheet URLs');
 const runtimeLoader = read('web/assets/calltag-runtime-loader.js');
 const runtimeCore = read('web/assets/calltag-core-runtime.js');
 log(runtimeLoader.includes("href='/guide/'"), 'Client runtime retains guide navigation after hydration');
@@ -138,6 +159,10 @@ if (live) {
     log(response.status === 200 && urls.length === actual.length && urls.every(url => actual.includes(url)), 'LIVE sitemap exactly matches deployed source');
   } catch (error) { log(false, 'LIVE sitemap: ' + error.message); }
 
+  try {
+    const { response, body } = await get(origin + csvPath);
+    log(response.status === 200 && body.includes('상담일시,채널,고객명,연락처,고객상태'), 'LIVE downloadable consultation CSV returns expected file');
+  } catch (error) { log(false, 'LIVE CSV resource: ' + error.message); }
   for (let i = 0; i < urls.length; i += 4) {
     await Promise.all(urls.slice(i, i + 4).map(async url => {
       const path = pathOf(url);
@@ -151,6 +176,12 @@ if (live) {
         log(can.count === 1 && can.href === url, 'LIVE single canonical: ' + path);
         log(!hasNoindex(body) && !/\bnoindex\b/i.test(robotsHeader), 'LIVE index permitted: ' + path);
         log(Boolean(title(body)) && Boolean(h1(body)) && Boolean(description(body)), 'LIVE SEO content present: ' + path);
+        if (path === '/guide/') {
+          log(body.includes('class="ctg-choice"') && decisionGuidePaths.every(p => body.includes('href="' + p + '"')), 'LIVE hub displays contextual guide routing');
+        }
+        if (path === '/guide/phone-consultation-record/') {
+          log(body.includes('href="' + csvPath + '"'), 'LIVE consultation guide links real downloadable resource');
+        }
         if (path === '/') {
           log(title(body) === title(deployHome), 'LIVE homepage title is current deployed title');
           log(description(body) === description(deployHome), 'LIVE homepage description is current deployed description');
