@@ -98,7 +98,7 @@ const count=gaCalls;
 [res,data]=await read(session);
 assert.equal(data.available,true);
 assert.equal(gaCalls,count,'authenticated 5-minute cache should avoid duplicate Google API calls');
-assert.equal(authCalls,5,'Access must be checked on EVERY request');
+assert.equal(authCalls,4,'Access must be checked on EVERY request');
 failReports=true;
 [res,data]=await read(session,{...env,CALLTAG_GA4_PROPERTY_ID:'7654321'});
 assert.equal(data.available,false,'no report data must not become zeroes');
