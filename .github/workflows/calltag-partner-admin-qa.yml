@@ -63,6 +63,7 @@ jobs:
           node --check _worker.js
           node --check web/_worker.js
           node scripts/calltag-admin-ga4-quality-check.mjs
+          node scripts/calltag-admin-ga4-runtime-test.mjs
           node --check web/worker/admin.js
           node --check web/worker/admin-ops-bridge.js
           node --check web/worker/admin-payout-bridge.js
