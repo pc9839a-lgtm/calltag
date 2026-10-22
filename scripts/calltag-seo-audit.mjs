@@ -121,6 +121,8 @@ const fallbackRuntimeCore = read('assets/calltag-core-runtime.js');
 log(!fallbackRuntimeCore.includes("document.createTreeWalker(document.body") && !fallbackRuntimeCore.includes("qa('.section-copy').forEach"), 'Fallback runtime also preserves content');
 const workerVersion = worker.match(/const WORKER_VERSION='([^']+)'/)?.[1];
 log(Boolean(workerVersion), 'Worker has a traceable release version');
+log(sourceWorker.includes("target.pathname+='/';") && sourceWorker.includes('Response.redirect(target.toString(),301)'), 'Root Worker explicitly redirects slashless guide URLs');
+log(worker.includes("target.pathname+='/';") && worker.includes('Response.redirect(target.toString(),301)'), 'Deployed Worker explicitly redirects slashless guide URLs');
 
 for (const url of urls) {
   const path = pathOf(url);
@@ -229,6 +231,39 @@ if (live) {
       } catch (error) { log(false, 'LIVE request ' + path + ': ' + error.message); }
     }));
   }
+
+  // Canonicalization for every guide, including the exact slashless URL that
+  // was reported unknown by Search Console. 301 should preserve Google signals.
+  const slashlessGuides = ['/guide', ...urls.map(pathOf)
+    .filter(p => p.startsWith('/guide/') && p !== '/guide/')
+    .map(p => p.slice(0, -1))];
+  for (let i = 0; i < slashlessGuides.length; i += 4) {
+    await Promise.all(slashlessGuides.slice(i, i + 4).map(async path => {
+      try {
+        const result = await fetch(origin + path, {
+          redirect: 'manual',
+          headers: { 'User-Agent': 'CallTag-SEO-Audit/2.0' },
+          signal: AbortSignal.timeout(15000)
+        });
+        const location = result.headers.get('location');
+        const target = location ? new URL(location, origin) : null;
+        log(result.status === 301 && target?.origin === origin &&
+          target.pathname === path + '/',
+          'LIVE slashless guide permanently redirects to canonical: ' + path);
+      } catch (error) {
+        log(false, 'LIVE slashless guide redirect ' + path + ': ' + error.message);
+      }
+    }));
+  }
+  try {
+    const response = await fetch(origin + '/guide/customer-management-app?ref=seo-check', {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(15000)
+    });
+    log(response.status === 301 &&
+      response.headers.get('location')?.endsWith('/guide/customer-management-app/?ref=seo-check'),
+      'LIVE canonical guide redirect preserves query parameters');
+  } catch (error) { log(false, 'LIVE guide query redirect: ' + error.message); }
 
   // Diagnostic only. Googlebot-like User-Agent is not proof that Googlebot's
   // verified IP/rDNS fetch succeeds. Do not change robots/WAF policy solely
