@@ -144,7 +144,7 @@ for (const url of urls) {
 /** Every published guide must be discoverable from the hub, and all in-site
  * HTML links must target actual deployed files or a known app route. */
 const knownPaths = new Set(urls.map(pathOf));
-const linkedGuides = [...guideHub.matchAll(/<a\\b[^>]*href=["'](\\/guide\\/[^"'#?]*)["']/gi)].map(m => m[1]);
+const linkedGuides = [...guideHub.matchAll(/<a\b[^>]*href=["'](\/guide\/[^"'#?]*)["']/gi)].map(m => m[1]);
 const guidePaths = urls.map(pathOf).filter(p => p.startsWith('/guide/') && p !== '/guide/');
 log(guidePaths.every(p => linkedGuides.includes(p)), 'Every sitemap guide has a crawlable link from the guide hub');
 log(linkedGuides.length === new Set(linkedGuides).size, 'Guide hub has no duplicate guide destinations');
@@ -153,12 +153,12 @@ log(allSeoTitles.length === new Set(allSeoTitles).size, 'Every indexed guide and
 for (const url of urls) {
   const path = pathOf(url);
   const html = read(sourcePath(url, 'web/'));
-  const anchors = [...html.matchAll(/<a\\b[^>]*href=["']([^"']+)["']/gi)].map(m => m[1]);
+  const anchors = [...html.matchAll(/<a\b[^>]*href=["']([^"']+)["']/gi)].map(m => m[1]);
   for (const href of anchors) {
     if (!href.startsWith('/') || href.startsWith('//')) continue;
     const dest = href.split(/[?#]/)[0] || '/';
     if (dest === '/' || knownPaths.has(dest)) continue;
-    const normalized = dest.replace(/\\/$/, '');
+    const normalized = dest.replace(/\/$/, '');
     const candidates = ['web' + dest, 'web' + normalized + '/index.html', 'web' + dest + 'index.html'];
     log(candidates.some(p => existsSync(join(root, p))), 'Local link exists: ' + path + ' → ' + dest);
   }
