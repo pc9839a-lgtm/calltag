@@ -164,10 +164,10 @@ for (const url of urls) {
   }
 }
 
-async function get(url) {
+async function get(url, userAgent = 'CallTag-SEO-Audit/2.0') {
   const response = await fetch(url, {
     redirect: 'follow',
-    headers: { 'User-Agent': 'CallTag-SEO-Audit/2.0' },
+    headers: { 'User-Agent': userAgent },
     signal: AbortSignal.timeout(15000)
   });
   return { response, body: await response.text() };
@@ -229,7 +229,33 @@ if (live) {
       } catch (error) { log(false, 'LIVE request ' + path + ': ' + error.message); }
     }));
   }
+
+  // Diagnostic only. Googlebot-like User-Agent is not proof that Googlebot's
+  // verified IP/rDNS fetch succeeds. Do not change robots/WAF policy solely
+  // based on a request originating from GitHub Actions.
+  const botUA = 'Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko; compatible; Googlebot/2.1; +http://www.google.com/bot.html) Chrome/41.0.2272.96 Mobile Safari/537.36';
+  const inspectPaths = ['/', '/guide/', ...priorityGuidePaths];
+  for (const path of inspectPaths) {
+    try {
+      const { response, body } = await get(origin + path, botUA);
+      const pageCanonical = canonical(body);
+      const robotsHeader = response.headers.get('x-robots-tag') ?? '';
+      const ok = response.status === 200 &&
+        (response.headers.get('content-type') ?? '').includes('text/html') &&
+        pageCanonical.count === 1 &&
+        pageCanonical.href === origin + path &&
+        !hasNoindex(body) &&
+        !/\\bnoindex\\b/i.test(robotsHeader) &&
+        Boolean(h1(body));
+      console.log((ok ? 'PASS ' : 'WARN ') + 'Googlebot-UA simulation: ' + path +
+        ' HTTP=' + response.status + ' canonical=' + (pageCanonical.href ?? 'missing') +
+        ' (diagnostic; not verified Googlebot)');
+    } catch (error) {
+      console.log('WARN Googlebot-UA simulation: ' + path + ' ' + error.message +
+        ' (diagnostic; not verified Googlebot)');
+    }
+  }
 }
 
-console.log('\nChecked ' + urls.length + ' URLs from web/, mode=' + (live ? 'live+static' : 'static') + ', failures=' + failures);
+console.log('\\nChecked ' + urls.length + ' URLs from web/, mode=' + (live ? 'live+static' : 'static') + ', failures=' + failures);
 if (failures) process.exitCode = 1;
