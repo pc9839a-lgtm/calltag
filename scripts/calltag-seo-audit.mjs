@@ -245,7 +245,7 @@ if (live) {
         pageCanonical.count === 1 &&
         pageCanonical.href === origin + path &&
         !hasNoindex(body) &&
-        !/\\bnoindex\\b/i.test(robotsHeader) &&
+        !/\bnoindex\b/i.test(robotsHeader) &&
         Boolean(h1(body));
       console.log((ok ? 'PASS ' : 'WARN ') + 'Googlebot-UA simulation: ' + path +
         ' HTTP=' + response.status + ' canonical=' + (pageCanonical.href ?? 'missing') +
@@ -257,5 +257,5 @@ if (live) {
   }
 }
 
-console.log('\\nChecked ' + urls.length + ' URLs from web/, mode=' + (live ? 'live+static' : 'static') + ', failures=' + failures);
+console.log('\nChecked ' + urls.length + ' URLs from web/, mode=' + (live ? 'live+static' : 'static') + ', failures=' + failures);
 if (failures) process.exitCode = 1;
