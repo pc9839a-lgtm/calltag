@@ -31,6 +31,7 @@ public final class CallTagApplication extends Application implements Application
         super.onCreate();
         // Default is black. User-selected white/black is applied before any Activity inflates UI.
         CallTagThemeManager.applyApplicationMode(this);
+        CallTagFirebaseTelemetry.install(this);
         CrashTelemetryStore.install(this);
         registerActivityLifecycleCallbacks(this);
         MessageAutomationStore.ensureDefaults(this);

@@ -16,9 +16,11 @@ public final class CallTagFirebaseInitializer {
     }
 
     public static boolean ensureInitialized(Context context) {
-        if (!configured()) return false;
         try {
             if (!FirebaseApp.getApps(context).isEmpty()) return true;
+            // google-services resources initialize the default app before Application.onCreate.
+            if (FirebaseApp.initializeApp(context.getApplicationContext()) != null) return true;
+            if (!configured()) return false;
             FirebaseOptions options = new FirebaseOptions.Builder()
                     .setApplicationId(clean(BuildConfig.FIREBASE_APPLICATION_ID))
                     .setApiKey(clean(BuildConfig.FIREBASE_API_KEY))
