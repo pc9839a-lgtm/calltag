@@ -223,8 +223,15 @@ public final class CampaignComposerActivity extends Activity {
     private void createCampaign() {
         if (checkSelfPermission(Manifest.permission.SEND_SMS)
                 != PackageManager.PERMISSION_GRANTED) {
-            pendingCreate = true;
-            requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS);
+            new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                    .setTitle("설정한 그룹에 SMS 발송")
+                    .setMessage("선택한 그룹의 고객 번호에 설정한 문구와 발송 시점에 따라 SMS를 보냅니다. 선택한 SIM을 사용하며 수신자 수에 따라 통신사 문자 요금이 발생할 수 있습니다. SMS 발송 권한을 허용할까요?")
+                    .setNegativeButton("취소", null)
+                    .setPositiveButton("SMS 권한 요청", (dialog, which) -> {
+                        pendingCreate = true;
+                        requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS);
+                    })
+                    .show();
             return;
         }
         int minutes;

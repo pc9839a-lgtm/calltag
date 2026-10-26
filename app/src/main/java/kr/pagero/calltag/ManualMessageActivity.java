@@ -48,6 +48,7 @@ public final class ManualMessageActivity extends Activity {
     private boolean ownsSelectedImage;
     private boolean attachmentCommitted;
     private boolean pendingSend;
+    private boolean pendingSchedule;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -364,8 +365,7 @@ public final class ManualMessageActivity extends Activity {
             return;
         }
         if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
-            pendingSend = true;
-            requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS);
+            requestSmsPermission(false);
             return;
         }
         long id = SmsSender.queueAndSend(
@@ -406,6 +406,11 @@ public final class ManualMessageActivity extends Activity {
     private void schedule() {
         String body = validatedBody();
         if (body == null || blockedByPolicy(MessageAutomationManager.TRIGGER_DELAYED)) return;
+        if (!MessageAttachmentStore.exists(this, selectedImageRef)
+                && checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+            requestSmsPermission(true);
+            return;
+        }
         int days;
         try {
             days = Integer.parseInt(delayDaysInput.getText().toString().trim());
@@ -437,6 +442,22 @@ public final class ManualMessageActivity extends Activity {
         showQueueResult(id, MessageAttachmentStore.exists(this, selectedImageRef)
                 ? days + "일 후 이미지 문자 전송 알림으로 예약했습니다."
                 : days + "일 후 후속문자로 예약했습니다.");
+    }
+
+    private void requestSmsPermission(boolean scheduled) {
+        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                .setTitle(scheduled ? "예약한 SMS 발송" : "작성한 SMS 발송")
+                .setMessage((scheduled
+                        ? "선택한 번호에 작성한 문자를 예약 시점에 발송합니다."
+                        : "선택한 번호에 작성한 문자를 지금 발송합니다.")
+                        + " 선택한 SIM을 사용하며 통신사 문자 요금이 발생할 수 있습니다. SMS 발송 권한을 허용할까요?")
+                .setNegativeButton("취소", null)
+                .setPositiveButton("SMS 권한 요청", (dialog, which) -> {
+                    pendingSend = !scheduled;
+                    pendingSchedule = scheduled;
+                    requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS);
+                })
+                .show();
     }
 
     private void showQueueResult(long id, String successMessage) {
@@ -522,12 +543,16 @@ public final class ManualMessageActivity extends Activity {
         if (requestCode != REQUEST_SMS) return;
         boolean granted = grantResults.length > 0
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-        if (granted && pendingSend) {
-            pendingSend = false;
-            sendNow();
-        } else {
-            pendingSend = false;
+        boolean resumeSend = pendingSend;
+        boolean resumeSchedule = pendingSchedule;
+        pendingSend = false;
+        pendingSchedule = false;
+        if (!granted) {
             Toast.makeText(this, "문자 발송 권한이 필요합니다.", Toast.LENGTH_LONG).show();
+        } else if (resumeSchedule) {
+            schedule();
+        } else if (resumeSend) {
+            sendNow();
         }
     }
 

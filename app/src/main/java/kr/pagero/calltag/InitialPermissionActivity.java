@@ -68,7 +68,7 @@ public final class InitialPermissionActivity extends Activity {
         root.addView(title, wrap());
 
         detail = new TextView(this);
-        detail.setText("사용자가 켠 통화 후 고객관리 기능은 통화가 끝난 시각·발신/수신 여부·전화번호를 확인해 상담 이력과 후속 업무를 등록합니다. 이를 위해 전화 상태, 연락처, 통화기록(READ_CALL_LOG)에 접근합니다.\n\n자동문자는 기본 OFF이며, 별도 설정에서 발송 조건·템플릿·회선을 직접 켠 경우에만 SMS 발송 권한(SEND_SMS)을 요청합니다. 기본 전화 앱은 변경되지 않습니다.");
+        detail.setText("사용자가 켠 통화 후 고객관리 기능은 통화가 끝난 시각·발신/수신 여부·전화번호를 확인해 상담 이력과 후속 업무를 등록합니다. 이를 위해 전화 상태, 연락처, 통화기록(READ_CALL_LOG)에 접근합니다. 최근 통화에서 고객 번호를 선택할 때도 통화기록을 사용합니다.\n\n통화 후·문의 접수 자동문자는 기본 OFF입니다. SMS 발송 권한(SEND_SMS)은 문자를 직접 발송·예약하거나 발송 조건·템플릿·회선을 설정해 자동화를 저장할 때 기능별로 별도 요청합니다. 기본 전화 앱은 변경되지 않습니다.");
         detail.setTextColor(getColor(R.color.text_secondary));
         detail.setTextSize(14f);
         detail.setGravity(Gravity.CENTER);
@@ -129,7 +129,7 @@ public final class InitialPermissionActivity extends Activity {
         requestButton.setAlpha(0.6f);
         requestButton.setText("권한 요청 중…");
         settingsButton.setVisibility(View.GONE);
-        detail.setText("사용자가 요청한 통화 후 고객관리 기능에 필요한 연락처 · 전화 상태 · 전화번호 · 통화기록 권한을 요청합니다. 자동문자(SEND_SMS)는 문자 규칙을 켤 때 별도로 요청합니다.");
+        detail.setText("사용자가 요청한 통화 후 고객관리 기능에 필요한 연락처 · 전화 상태 · 전화번호 · 통화기록 권한을 요청합니다. SMS 발송 권한(SEND_SMS)은 문자 발송·예약 또는 자동화 설정을 저장할 때 별도로 요청합니다.");
         requestPermissions(missing.toArray(new String[0]), REQUEST_PERMISSIONS);
     }
 

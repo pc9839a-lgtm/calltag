@@ -26,9 +26,9 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // 2026-10-19: explicit Call Log opt-in and call-triggered SMS review flow
-        versionCode 2026102101
-        versionName '0.44.63'
+        // 2026-10-25: contextual SMS consent and account-scoped inquiry automation
+        versionCode 2026102501
+        versionName '0.44.64'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'

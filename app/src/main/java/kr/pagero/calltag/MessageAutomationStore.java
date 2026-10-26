@@ -102,7 +102,7 @@ public final class MessageAutomationStore {
         prefs(context).edit().putBoolean(KEY_MISSED_ENABLED, enabled).apply();
     }
 
-    /** Recheck consent when a queued automatic call SMS is actually sent. */
+    /** Recheck the matching rule when a queued automatic SMS is actually sent. */
     public static boolean allowsAutomaticTrigger(Context context, String trigger) {
         if (MessageAutomationManager.TRIGGER_CONNECTED.equals(trigger)
                 || MessageAutomationManager.TRIGGER_INCOMING.equals(trigger)
@@ -114,6 +114,9 @@ public final class MessageAutomationStore {
         }
         if (MessageAutomationManager.TRIGGER_DELAYED.equals(trigger)) {
             return isEnabled(context) && delayedEnabled(context);
+        }
+        if (PageroLeadMessageAutomation.TRIGGER_PAGERO_LEAD_RECEIVED.equals(trigger)) {
+            return PageroLeadMessageSettings.enabled(context);
         }
         return true;
     }
