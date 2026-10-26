@@ -27,7 +27,7 @@ assert meta.get('com.google.firebase.components:com.google.firebase.analytics.co
     and any('CrashlyticsRegistrar' in m.get(android + 'name', '') for m in e.findall('meta-data'))
     for e in app.findall('service'))
 values = {}
-for file in build.glob('generated/res/google-services/release/values/values.xml'):
+for file in build.glob('generated/**/values/values.xml'):
     values.update({e.get('name'): e.text for e in ET.parse(file).getroot()})
 assert values.get('google_app_id') == '1:352819510264:android:4417a574453ae5b289340d'
 assert values.get('google_api_key') and values.get('project_id')
