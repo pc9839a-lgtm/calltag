@@ -1,5 +1,7 @@
 plugins {
     id 'com.android.application'
+    id 'com.google.gms.google-services'
+    id 'com.google.firebase.crashlytics'
 }
 
 def envString = { String key ->
@@ -26,9 +28,10 @@ android {
         applicationId 'kr.pagero.calltag'
         minSdk 26
         targetSdk 36
-        // 2026-10-19: explicit Call Log opt-in and call-triggered SMS review flow
-        versionCode 2026102101
-        versionName '0.44.63'
+        // 2026-10-26: Firebase Analytics and Crashlytics, preserving SMS consent fixes.
+        versionCode 2026102601
+        versionName '0.44.65'
+        manifestPlaceholders = [firebaseCollectionEnabled: 'false']
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 
         buildConfigField 'String', 'FIREBASE_APPLICATION_ID', '"' + envString('CALLTAG_FIREBASE_APPLICATION_ID') + '"'
@@ -55,6 +58,7 @@ android {
 
     buildTypes {
         release {
+            manifestPlaceholders.firebaseCollectionEnabled = 'true'
             if (releaseSigningConfigured) {
                 signingConfig signingConfigs.release
             }
@@ -92,7 +96,10 @@ dependencies {
     implementation 'androidx.credentials:credentials-play-services-auth:1.6.0'
     implementation 'com.google.android.libraries.identity.googleid:googleid:1.2.0'
     implementation 'com.google.android.gms:play-services-auth:21.6.0'
-    implementation 'com.google.firebase:firebase-messaging:25.1.1'
+    implementation platform('com.google.firebase:firebase-bom:35.1.0')
+    implementation 'com.google.firebase:firebase-messaging'
+    implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-crashlytics'
     implementation 'com.android.billingclient:billing:9.1.0'
 
     androidTestImplementation 'androidx.test:core:1.6.1'

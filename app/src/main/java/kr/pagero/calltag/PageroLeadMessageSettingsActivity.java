@@ -112,20 +112,11 @@ public final class PageroLeadMessageSettingsActivity extends Activity {
             Toast.makeText(this, "문자 내용을 입력해주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
-        PageroLeadMessageSettings.setEnabled(this, enabled.isChecked());
-        PageroLeadMessageSettings.setDefaultTemplate(this, body);
-        PageroLeadMessageSettings.setDelayMinutes(this, delay);
-        String page = siteId.getText().toString().trim();
-        if (!page.isEmpty()) {
-            PageroLeadMessageSettings.setTemplateFor(this, page,
-                    siteTemplate.getText().toString().trim());
-        }
-
         if (enabled.isChecked() && checkSelfPermission(Manifest.permission.SEND_SMS)
                 != PackageManager.PERMISSION_GRANTED) {
             AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
-                    .setTitle("문자 권한 필요")
-                    .setMessage("자동문자를 보내려면 문자 권한이 필요합니다.")
+                    .setTitle("문의 접수에 따른 SMS 자동 발송")
+                    .setMessage("페이지로 문의가 접수되면 설정한 문구와 지연 시간에 따라 문의자 번호로 SMS를 발송합니다. 선택한 SIM을 사용하며 통신사 문자 요금이 발생할 수 있습니다. 문자 권한을 허용한 뒤에만 이 설정을 켜서 저장합니다.")
                     .setNegativeButton("취소", null)
                     .setPositiveButton("권한 허용", (d, w) -> requestPermissions(
                             new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS))
@@ -133,6 +124,18 @@ public final class PageroLeadMessageSettingsActivity extends Activity {
             dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
             dialog.show();
             return;
+        }
+        saveApprovedSettings(body, delay);
+    }
+
+    private void saveApprovedSettings(String body, int delay) {
+        PageroLeadMessageSettings.setEnabled(this, enabled.isChecked());
+        PageroLeadMessageSettings.setDefaultTemplate(this, body);
+        PageroLeadMessageSettings.setDelayMinutes(this, delay);
+        String page = siteId.getText().toString().trim();
+        if (!page.isEmpty()) {
+            PageroLeadMessageSettings.setTemplateFor(this, page,
+                    siteTemplate.getText().toString().trim());
         }
         Toast.makeText(this, "저장했습니다.", Toast.LENGTH_SHORT).show();
         finish();
@@ -145,8 +148,7 @@ public final class PageroLeadMessageSettingsActivity extends Activity {
         boolean granted = checkSelfPermission(Manifest.permission.SEND_SMS)
                 == PackageManager.PERMISSION_GRANTED;
         if (granted) {
-            Toast.makeText(this, "문자 권한을 허용했습니다.", Toast.LENGTH_SHORT).show();
-            finish();
+            save();
         } else {
             PageroLeadMessageSettings.setEnabled(this, false);
             enabled.setChecked(false);
