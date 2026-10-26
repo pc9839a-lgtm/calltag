@@ -47,7 +47,6 @@ android {
 
     signingConfigs {
         release {
-            manifestPlaceholders.firebaseCollectionEnabled = 'true'
             if (releaseSigningConfigured) {
                 storeFile file(uploadStorePath)
                 storePassword uploadStorePassword
@@ -59,6 +58,7 @@ android {
 
     buildTypes {
         release {
+            manifestPlaceholders.firebaseCollectionEnabled = 'true'
             if (releaseSigningConfigured) {
                 signingConfig signingConfigs.release
             }
