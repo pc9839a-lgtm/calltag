@@ -187,6 +187,11 @@ jobs:
               print('::error::Stable Play upload signing is not fully configured: ' + ', '.join(missing))
               sys.exit(1)
 
+          # Mask decoded credentials before a later step can print its environment.
+          for value in resolved.values():
+              escaped = value.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::add-mask::' + escaped, flush=True)
+
           with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as env:
               for key, value in resolved.items():
                   env.write(f'{key}={value}\n')
