@@ -200,6 +200,21 @@
     .ct-fixed-install__link:focus-visible{outline:3px solid rgba(124,153,255,.8);outline-offset:3px}
     @media(max-width:640px){.ct-fixed-install{bottom:calc(12px + env(safe-area-inset-bottom,0px))}.ct-fixed-install__link{min-height:64px;font-size:18px;border-radius:15px}body.ct-fixed-install-enabled{padding-bottom:calc(108px + env(safe-area-inset-bottom,0px))}}
   </style>
+  <!-- PageRo portfolio analytics; only the CallTag production hostname -->
+  <script data-pagero-portfolio-ga4>
+    (function () {
+      if (window.location.hostname !== 'calltag.pagero.kr') return;
+      var id = 'G-501Z526B8H';
+      window.dataLayer = window.dataLayer || [];
+      window.gtag = window.gtag || function () { window.dataLayer.push(arguments); };
+      window.gtag('js', new Date());
+      window.gtag('config', id);
+      var script = document.createElement('script');
+      script.async = true;
+      script.src = 'https://www.googletagmanager.com/gtag/js?id=' + id;
+      document.head.appendChild(script);
+    })();
+  </script>
 </head>
 <body class="ct-fixed-install-enabled">
   <header class="header" id="header">
