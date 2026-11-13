@@ -102,7 +102,25 @@ public final class MessageAutomationStore {
         prefs(context).edit().putBoolean(KEY_MISSED_ENABLED, enabled).apply();
     }
 
-    /** Recheck the matching rule when a queued automatic SMS is actually sent. */
+    static boolean isCallTriggeredMessage(MessageRecord record) {
+        if (record.callLogId <= 0L) return false;
+        String trigger = record.triggerType;
+        return MessageAutomationManager.TRIGGER_INCOMING.equals(trigger)
+                || MessageAutomationManager.TRIGGER_OUTGOING.equals(trigger)
+                || MessageAutomationManager.TRIGGER_CONNECTED.equals(trigger)
+                || MessageAutomationManager.TRIGGER_MISSED.equals(trigger)
+                || MessageAutomationManager.TRIGGER_DELAYED.equals(trigger);
+    }
+
+    static boolean allowsQueuedMessage(Context context, MessageRecord record) {
+        if (isCallTriggeredMessage(record)
+                || PageroLeadMessageAutomation.TRIGGER_PAGERO_LEAD_RECEIVED.equals(record.triggerType)) {
+            return allowsAutomaticTrigger(context, record.triggerType);
+        }
+        return true;
+    }
+
+    /** Recheck the matching rule at execution time. */
     public static boolean allowsAutomaticTrigger(Context context, String trigger) {
         if (MessageAutomationManager.TRIGGER_CONNECTED.equals(trigger)
                 || MessageAutomationManager.TRIGGER_INCOMING.equals(trigger)

@@ -1,16 +1,14 @@
 package kr.pagero.calltag;
 
-import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Typeface;
 import android.os.Bundle;
-import android.provider.CallLog;
+import android.provider.ContactsContract.CommonDataKinds.Phone;
 import android.text.InputType;
-import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -20,18 +18,10 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Locale;
-
 public final class CustomerAddActivity extends Activity {
-    private static final int REQUEST_CALL_LOG = 2301;
+    private static final int REQUEST_CONTACT = 2301;
 
     private CallTagDbHelper db;
-    private LinearLayout recentCallList;
-    private TextView emptyState;
     private boolean saving;
 
     @Override
@@ -39,13 +29,6 @@ public final class CustomerAddActivity extends Activity {
         super.onCreate(savedInstanceState);
         db = new CallTagDbHelper(this);
         setContentView(buildScreen());
-        renderRecentCalls();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (recentCallList != null) renderRecentCalls();
     }
 
     private View buildScreen() {
@@ -91,19 +74,14 @@ public final class CustomerAddActivity extends Activity {
         });
         content.addView(direct, fixedHeight(52, 0));
 
-        TextView recentTitle = text("최근 통화", 13f, R.color.text_secondary, true);
-        content.addView(recentTitle, topMargin(22));
-
-        recentCallList = new LinearLayout(this);
-        recentCallList.setOrientation(LinearLayout.VERTICAL);
-        content.addView(recentCallList, topMargin(8));
-
-        emptyState = text("불러올 최근 통화가 없습니다", 13f,
-                R.color.text_secondary, false);
-        emptyState.setGravity(Gravity.CENTER);
-        emptyState.setBackgroundResource(R.drawable.bg_card);
-        LinearLayout.LayoutParams emptyParams = fixedHeight(64, 8);
-        content.addView(emptyState, emptyParams);
+        TextView contact = text("연락처에서 선택", 15f, R.color.text_primary, true);
+        contact.setGravity(Gravity.CENTER);
+        contact.setBackgroundResource(R.drawable.bg_clickable_row);
+        contact.setFocusable(true);
+        contact.setOnClickListener(v -> {
+            if (!saving) pickContact();
+        });
+        content.addView(contact, fixedHeight(52, 10));
 
         scroll.addView(content, matchWrap());
         root.addView(scroll, new LinearLayout.LayoutParams(
@@ -111,133 +89,35 @@ public final class CustomerAddActivity extends Activity {
         return root;
     }
 
-    private void renderRecentCalls() {
-        recentCallList.removeAllViews();
-        if (checkSelfPermission(Manifest.permission.READ_CALL_LOG)
-                != PackageManager.PERMISSION_GRANTED) {
-            emptyState.setVisibility(View.VISIBLE);
-            emptyState.setText("최근 통화 불러오기");
-            emptyState.setTextColor(getColor(android.R.color.white));
-            emptyState.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-            emptyState.setBackgroundResource(R.drawable.bg_primary_button);
-            emptyState.setClickable(true);
-            emptyState.setFocusable(true);
-            emptyState.setOnClickListener(v -> requestPermissions(
-                    new String[]{Manifest.permission.READ_CALL_LOG}, REQUEST_CALL_LOG));
-            return;
-        }
-
-        List<RecentCallItem> calls = loadRecentCalls();
-        emptyState.setOnClickListener(null);
-        emptyState.setClickable(false);
-        emptyState.setFocusable(false);
-        emptyState.setBackgroundResource(R.drawable.bg_card);
-        emptyState.setTextColor(getColor(R.color.text_secondary));
-        emptyState.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
-        emptyState.setText("불러올 최근 통화가 없습니다");
-        emptyState.setVisibility(calls.isEmpty() ? View.VISIBLE : View.GONE);
-
-        SimpleDateFormat formatter = new SimpleDateFormat("M월 d일 a h:mm", Locale.KOREA);
-        for (RecentCallItem item : calls) {
-            Customer registered = db.findByPhone(item.number);
-
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(dp(14), dp(11), dp(8), dp(11));
-            row.setBackgroundResource(R.drawable.bg_clickable_row);
-            row.setClickable(true);
-            row.setFocusable(true);
-            row.setOnClickListener(v -> {
-                if (saving) return;
-                Customer existing = db.findByPhone(item.number);
-                if (existing != null) openCustomer(existing.id);
-                else showRegistrationDialog(item.cachedName, item.number);
-            });
-
-            LinearLayout labels = new LinearLayout(this);
-            labels.setOrientation(LinearLayout.VERTICAL);
-            String name = registered != null
-                    ? registered.displayName
-                    : (item.cachedName.isEmpty() ? "이름 없음" : item.cachedName);
-            TextView nameView = text(name, 15f, R.color.text_primary, true);
-            nameView.setSingleLine(true);
-            nameView.setEllipsize(TextUtils.TruncateAt.END);
-            labels.addView(nameView, matchWrap());
-
-            TextView phone = text(item.number, 13f, R.color.text_secondary, false);
-            phone.setSingleLine(true);
-            phone.setEllipsize(TextUtils.TruncateAt.END);
-            labels.addView(phone, topMargin(4));
-
-            String meta = callTypeLabel(item.type) + " · "
-                    + formatter.format(new Date(item.date)) + " · "
-                    + durationLabel(item.durationSec);
-            if (registered != null) meta += " · 등록됨";
-            TextView metaView = text(meta, 11f, R.color.text_muted, false);
-            metaView.setSingleLine(true);
-            metaView.setEllipsize(TextUtils.TruncateAt.END);
-            labels.addView(metaView, topMargin(4));
-            row.addView(labels, new LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
-            TextView arrow = text("›", 23f, R.color.text_muted, false);
-            arrow.setGravity(Gravity.CENTER);
-            row.addView(arrow, new LinearLayout.LayoutParams(dp(30), dp(46)));
-
-            LinearLayout.LayoutParams rowParams = matchWrap();
-            rowParams.bottomMargin = dp(6);
-            recentCallList.addView(row, rowParams);
+    private void pickContact() {
+        try {
+            startActivityForResult(new Intent(Intent.ACTION_PICK, Phone.CONTENT_URI),
+                    REQUEST_CONTACT);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "연락처 앱을 열 수 없습니다. 번호를 직접 입력해주세요.",
+                    Toast.LENGTH_LONG).show();
         }
     }
 
-    /**
-     * Customer-add recent calls intentionally mirrors the device CallLog instead of deduping by
-     * phone number or hiding already-registered CallTag customers. Samsung/Pixel phone apps may
-     * visually group consecutive calls, but every raw CallLog row remains visible here in the same
-     * DATE DESC order so a call made after adding a customer never disappears from this screen.
-     */
-    private List<RecentCallItem> loadRecentCalls() {
-        List<RecentCallItem> rows = new ArrayList<>();
-        String[] projection = {
-                CallLog.Calls.NUMBER,
-                CallLog.Calls.CACHED_NAME,
-                CallLog.Calls.TYPE,
-                CallLog.Calls.DATE,
-                CallLog.Calls.DURATION
-        };
-
-        try (Cursor cursor = getContentResolver().query(
-                CallLog.Calls.CONTENT_URI,
-                projection,
-                null,
-                null,
-                CallLog.Calls.DATE + " DESC")) {
-            if (cursor == null) return rows;
-            int numberIndex = cursor.getColumnIndex(CallLog.Calls.NUMBER);
-            int nameIndex = cursor.getColumnIndex(CallLog.Calls.CACHED_NAME);
-            int typeIndex = cursor.getColumnIndex(CallLog.Calls.TYPE);
-            int dateIndex = cursor.getColumnIndex(CallLog.Calls.DATE);
-            int durationIndex = cursor.getColumnIndex(CallLog.Calls.DURATION);
-
-            while (cursor.moveToNext() && rows.size() < 60) {
-                String number = numberIndex >= 0 ? cursor.getString(numberIndex) : "";
-                String normalized = PhoneNumberNormalizer.normalize(number);
-                if (normalized.length() < 8) continue;
-
-                String name = nameIndex >= 0 ? cursor.getString(nameIndex) : "";
-                int type = typeIndex >= 0 ? cursor.getInt(typeIndex) : CallLog.Calls.INCOMING_TYPE;
-                long date = dateIndex >= 0 ? cursor.getLong(dateIndex) : System.currentTimeMillis();
-                long duration = durationIndex >= 0 ? Math.max(0L, cursor.getLong(durationIndex)) : 0L;
-                rows.add(new RecentCallItem(number, name == null ? "" : name.trim(),
-                        type, date, duration));
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_CONTACT || resultCode != RESULT_OK
+                || data == null || data.getData() == null) return;
+        String name = "";
+        String number = "";
+        try (Cursor cursor = getContentResolver().query(data.getData(),
+                new String[]{Phone.DISPLAY_NAME, Phone.NUMBER}, null, null, null)) {
+            if (cursor != null && cursor.moveToFirst()) {
+                name = cursor.getString(0);
+                number = cursor.getString(1);
             }
-        } catch (SecurityException ignored) {
-            Toast.makeText(this, "통화 목록 권한이 필요합니다.", Toast.LENGTH_SHORT).show();
-        } catch (RuntimeException ignored) {
-            Toast.makeText(this, "통화 목록을 불러오지 못했습니다.", Toast.LENGTH_SHORT).show();
+        } catch (SecurityException | IllegalArgumentException e) {
+            Toast.makeText(this, "선택한 연락처를 읽을 수 없습니다. 번호를 직접 입력해주세요.",
+                    Toast.LENGTH_LONG).show();
+            return;
         }
-        return rows;
+        showRegistrationDialog(name, number);
     }
 
     private void showRegistrationDialog(String defaultName, String defaultPhone) {
@@ -318,31 +198,6 @@ public final class CustomerAddActivity extends Activity {
         finish();
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQUEST_CALL_LOG) return;
-        if (checkSelfPermission(Manifest.permission.READ_CALL_LOG) != PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "직접 입력으로 고객을 추가할 수 있습니다.", Toast.LENGTH_SHORT).show();
-        }
-        renderRecentCalls();
-    }
-
-    private String callTypeLabel(int type) {
-        if (type == CallLog.Calls.OUTGOING_TYPE) return "발신";
-        if (type == CallLog.Calls.MISSED_TYPE) return "부재중";
-        if (type == CallLog.Calls.REJECTED_TYPE) return "거절";
-        if (type == CallLog.Calls.BLOCKED_TYPE) return "차단";
-        return "수신";
-    }
-
-    private String durationLabel(long seconds) {
-        long safeSeconds = Math.max(0L, seconds);
-        long minutes = safeSeconds / 60L;
-        long remain = safeSeconds % 60L;
-        return minutes > 0 ? minutes + "분 " + remain + "초" : remain + "초";
-    }
-
     private TextView text(String value, float size, int color, boolean bold) {
         TextView view = new TextView(this);
         view.setText(value);
@@ -393,22 +248,5 @@ public final class CustomerAddActivity extends Activity {
     protected void onDestroy() {
         if (db != null) db.close();
         super.onDestroy();
-    }
-
-    private static final class RecentCallItem {
-        final String number;
-        final String cachedName;
-        final int type;
-        final long date;
-        final long durationSec;
-
-        RecentCallItem(String number, String cachedName, int type,
-                       long date, long durationSec) {
-            this.number = number;
-            this.cachedName = cachedName;
-            this.type = type;
-            this.date = date;
-            this.durationSec = durationSec;
-        }
     }
 }

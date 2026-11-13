@@ -1,10 +1,8 @@
 package kr.pagero.calltag;
 
-import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Typeface;
 import android.net.Uri;
@@ -28,7 +26,6 @@ public final class ManualMessageActivity extends Activity {
     public static final String EXTRA_PHONE = "phone";
     public static final String EXTRA_CUSTOMER_ID = "customer_id";
 
-    private static final int REQUEST_SMS = 8101;
     private static final int REQUEST_TEMPLATE = 8102;
     private static final int REQUEST_IMAGE = 8103;
     private static final int REQUEST_TEMPLATE_EDIT = 8104;
@@ -47,8 +44,6 @@ public final class ManualMessageActivity extends Activity {
     private String selectedImageRef = "";
     private boolean ownsSelectedImage;
     private boolean attachmentCommitted;
-    private boolean pendingSend;
-    private boolean pendingSchedule;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -203,7 +198,7 @@ public final class ManualMessageActivity extends Activity {
         schedule.setOnClickListener(v -> showScheduleDialog());
         footer.addView(schedule, new LinearLayout.LayoutParams(0, dp(50), 1f));
 
-        Button sendNow = button("지금 보내기", true);
+        Button sendNow = button("메시지 앱 열기", true);
         sendNow.setOnClickListener(v -> sendNow());
         LinearLayout.LayoutParams sendParams = new LinearLayout.LayoutParams(0, dp(50), 1.3f);
         sendParams.leftMargin = dp(8);
@@ -235,7 +230,7 @@ public final class ManualMessageActivity extends Activity {
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(52)));
         new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("후속문자 예약")
-                .setMessage("몇 일 후에 보낼까요?")
+                .setMessage("설정한 날짜에 알림을 받습니다. 메시지 앱에서 문자를 확인하고 전송하세요.")
                 .setView(wrapper)
                 .setNegativeButton("취소", null)
                 .setPositiveButton("예약", (dialog, which) -> {
@@ -360,23 +355,6 @@ public final class ManualMessageActivity extends Activity {
     private void sendNow() {
         String body = validatedBody();
         if (body == null || blockedByPolicy(MessageAutomationManager.TRIGGER_MANUAL)) return;
-        if (MessageAttachmentStore.exists(this, selectedImageRef)) {
-            composeImageNow(body);
-            return;
-        }
-        if (checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
-            requestSmsPermission(false);
-            return;
-        }
-        long id = SmsSender.queueAndSend(
-                this, customerId, 0L, 0L, "", selectedTemplateId,
-                phoneInput.getText().toString(), body,
-                MessageAutomationManager.TRIGGER_MANUAL,
-                MessageAutomationStore.selectedSubscriptionId(this), false);
-        showQueueResult(id, "문자 발송을 요청했습니다.");
-    }
-
-    private void composeImageNow(String body) {
         MessageLogStore store = new MessageLogStore(this);
         long id;
         try {
@@ -387,30 +365,23 @@ public final class ManualMessageActivity extends Activity {
                     MessageAutomationStore.selectedSubscriptionId(this), false);
             MessageRecord record = store.find(id);
             if (record == null || !MessageLogStore.STATUS_READY.equals(record.status)) {
-                showQueueResult(id, "이미지 문자 준비를 요청했습니다.");
+                showQueueResult(id, "문자를 준비했습니다.");
                 return;
             }
-            MmsComposer.remember(this, id, selectedImageRef);
-            attachmentCommitted = true;
+            if (!rememberAttachment(store, id)) return;
         } finally {
             store.close();
         }
         if (!MmsComposer.openComposer(this, id)) {
-            Toast.makeText(this, "이미지 문자 작성창을 열지 못했습니다.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "메시지 앱을 열지 못했습니다.", Toast.LENGTH_LONG).show();
+            return;
         }
-        startActivity(new Intent(this, MessageHistoryActivity.class)
-                .putExtra("focus_message_id", id));
-        finish();
+        Toast.makeText(this, "메시지 앱에서 확인하고 전송하세요.", Toast.LENGTH_LONG).show();
     }
 
     private void schedule() {
         String body = validatedBody();
         if (body == null || blockedByPolicy(MessageAutomationManager.TRIGGER_DELAYED)) return;
-        if (!MessageAttachmentStore.exists(this, selectedImageRef)
-                && checkSelfPermission(Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
-            requestSmsPermission(true);
-            return;
-        }
         int days;
         try {
             days = Integer.parseInt(delayDaysInput.getText().toString().trim());
@@ -430,34 +401,24 @@ public final class ManualMessageActivity extends Activity {
                     MessageAutomationStore.selectedSubscriptionId(this), false);
             MessageRecord created = store.find(id);
             if (created != null && MessageLogStore.STATUS_SCHEDULED.equals(created.status)) {
-                if (MessageAttachmentStore.exists(this, selectedImageRef)) {
-                    MmsComposer.remember(this, id, selectedImageRef);
-                    attachmentCommitted = true;
-                }
+                if (!rememberAttachment(store, id)) return;
                 MessageScheduler.schedule(this, id, when);
             }
         } finally {
             store.close();
         }
-        showQueueResult(id, MessageAttachmentStore.exists(this, selectedImageRef)
-                ? days + "일 후 이미지 문자 전송 알림으로 예약했습니다."
-                : days + "일 후 후속문자로 예약했습니다.");
+        showQueueResult(id, days + "일 후 문자 전송 알림을 예약했습니다.");
     }
 
-    private void requestSmsPermission(boolean scheduled) {
-        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
-                .setTitle(scheduled ? "예약한 SMS 발송" : "작성한 SMS 발송")
-                .setMessage((scheduled
-                        ? "선택한 번호에 작성한 문자를 예약 시점에 발송합니다."
-                        : "선택한 번호에 작성한 문자를 지금 발송합니다.")
-                        + " 선택한 SIM을 사용하며 통신사 문자 요금이 발생할 수 있습니다. SMS 발송 권한을 허용할까요?")
-                .setNegativeButton("취소", null)
-                .setPositiveButton("SMS 권한 요청", (dialog, which) -> {
-                    pendingSend = !scheduled;
-                    pendingSchedule = scheduled;
-                    requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS);
-                })
-                .show();
+    private boolean rememberAttachment(MessageLogStore store, long id) {
+        if (selectedImageRef.isEmpty()) return true;
+        if (MmsComposer.remember(this, id, selectedImageRef)) {
+            attachmentCommitted = true;
+            return true;
+        }
+        store.markFailed(id, "첨부 이미지를 저장하지 못했습니다.");
+        Toast.makeText(this, "첨부 이미지를 다시 선택해주세요.", Toast.LENGTH_LONG).show();
+        return false;
     }
 
     private void showQueueResult(long id, String successMessage) {
@@ -535,25 +496,6 @@ public final class ManualMessageActivity extends Activity {
         CallRecord currentContext = new CallRecord(
                 0L, phone, cachedName, 0, System.currentTimeMillis(), 0L);
         return MessageTemplateEngine.render(this, template, customer, currentContext);
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQUEST_SMS) return;
-        boolean granted = grantResults.length > 0
-                && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-        boolean resumeSend = pendingSend;
-        boolean resumeSchedule = pendingSchedule;
-        pendingSend = false;
-        pendingSchedule = false;
-        if (!granted) {
-            Toast.makeText(this, "문자 발송 권한이 필요합니다.", Toast.LENGTH_LONG).show();
-        } else if (resumeSchedule) {
-            schedule();
-        } else if (resumeSend) {
-            sendNow();
-        }
     }
 
     @Override

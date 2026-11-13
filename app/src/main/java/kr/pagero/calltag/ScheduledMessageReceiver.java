@@ -51,12 +51,6 @@ public final class ScheduledMessageReceiver extends BroadcastReceiver {
                 return;
             }
 
-            if (MmsComposer.hasAttachment(context, messageId)) {
-                MmsComposer.postComposeNotification(context, messageId);
-                DiagnosticEventStore.record(context, "이미지 문자 알림", messageId,
-                        "사용자 확인 필요");
-                return;
-            }
             store.markReady(messageId);
             DiagnosticEventStore.record(context, "예약 발송 준비", messageId, "SMS 발송 요청 전환");
         } finally {

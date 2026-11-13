@@ -126,17 +126,15 @@ public final class CampaignDetailActivity extends Activity {
 
         SimpleDateFormat date = new SimpleDateFormat("M/d a h:mm", Locale.KOREA);
         TextView meta = body(date.format(new Date(campaign.scheduledAt))
-                + " · " + SimProfileManager.labelForId(this, campaign.subscriptionId)
                 + (campaign.templateName.isEmpty() ? "" : " · " + campaign.templateName));
         meta.setSingleLine(true);
         meta.setEllipsize(TextUtils.TruncateAt.END);
         card.addView(meta, topMargin(5));
 
         TextView countsText = text("전체 " + counts.total + " · 완료 " + counts.sent
+                + " · 전송 필요 " + counts.awaitingConfirmation + " · 메시지 앱 열림 " + counts.opened
                 + " · 진행 " + counts.active + " · 실패 " + counts.failed
                 + " · 제외 " + counts.skipped + " · 취소 " + counts.cancelled, 13f, true);
-        countsText.setSingleLine(true);
-        countsText.setEllipsize(TextUtils.TruncateAt.END);
         card.addView(countsText, topMargin(9));
 
         if (CampaignStore.STATUS_PAUSED.equals(campaign.status)
@@ -176,8 +174,9 @@ public final class CampaignDetailActivity extends Activity {
         controlRow.addView(pauseResume, new LinearLayout.LayoutParams(0, dp(48), 1f));
 
         Button cancel = button("남은 발송 취소", false);
-        cancel.setEnabled(counts.active > 0);
-        cancel.setAlpha(counts.active > 0 ? 1f : 0.45f);
+        boolean canCancel = counts.active > 0 || counts.awaitingConfirmation > 0;
+        cancel.setEnabled(canCancel);
+        cancel.setAlpha(canCancel ? 1f : 0.45f);
         cancel.setOnClickListener(v -> confirmCancel());
         LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(0, dp(48), 1f);
         cancelParams.leftMargin = dp(7);
@@ -211,7 +210,10 @@ public final class CampaignDetailActivity extends Activity {
         nameView.setEllipsize(TextUtils.TruncateAt.END);
         header.addView(nameView, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        TextView status = text(MessageDedupeEngine.statusLabel(recipient.status), 12f, true);
+        String statusText = MmsComposer.isComposeRequired(recipient.reason) ? "전송 필요"
+                : MmsComposer.isComposerOpened(recipient.reason) ? "메시지 앱 열림"
+                : MessageDedupeEngine.statusLabel(recipient.status);
+        TextView status = text(statusText, 12f, true);
         status.setTextColor(recipientStatusColor(recipient.status));
         LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -238,6 +240,17 @@ public final class CampaignDetailActivity extends Activity {
             reason.setMaxLines(2);
             reason.setEllipsize(TextUtils.TruncateAt.END);
             card.addView(reason, topMargin(5));
+        }
+        if (recipient.messageId > 0L && (MmsComposer.isComposeRequired(recipient.reason)
+                || MmsComposer.isComposerOpened(recipient.reason))) {
+            Button open = button("메시지 앱에서 전송", true);
+            open.setOnClickListener(v -> {
+                if (!MmsComposer.openComposer(this, recipient.messageId)) {
+                    Toast.makeText(this, "메시지 앱을 열지 못했습니다.", Toast.LENGTH_LONG).show();
+                }
+                render();
+            });
+            card.addView(open, topMargin(8));
         }
         return card;
     }

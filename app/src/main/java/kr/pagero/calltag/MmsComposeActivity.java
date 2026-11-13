@@ -13,7 +13,7 @@ public final class MmsComposeActivity extends Activity {
         long messageId = getIntent().getLongExtra(EXTRA_MESSAGE_ID, -1L);
         boolean opened = MmsComposer.openComposer(this, messageId);
         if (!opened) {
-            Toast.makeText(this, "이미지 문자 작성창을 열지 못했습니다.",
+            Toast.makeText(this, "메시지 앱을 열지 못했습니다. 발송 내역에서 상태를 확인해주세요.",
                     Toast.LENGTH_LONG).show();
         }
         finish();

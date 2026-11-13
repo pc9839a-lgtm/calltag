@@ -1,8 +1,6 @@
 package kr.pagero.calltag;
 
-import android.Manifest;
 import android.content.Context;
-import android.content.pm.PackageManager;
 
 import java.util.HashSet;
 import java.util.List;
@@ -19,7 +17,7 @@ public final class CampaignManager {
                                 String templateId, String templateName,
                                 String bodyTemplate, long startAt) {
         requireAvailable(context);
-        int subscriptionId = CampaignRuntimeManager.requireActiveSubscription(context);
+        int subscriptionId = -1;
         CampaignRuntimeManager.requireNoBlockingCampaign(context, "");
 
         MessageGroupStore groups = new MessageGroupStore(context);
@@ -88,8 +86,10 @@ public final class CampaignManager {
         MessageLogStore messages = new MessageLogStore(context);
         try {
             for (CampaignStore.Recipient recipient : campaigns.recipients(campaignId)) {
-                if (recipient.messageId <= 0L || !isActive(recipient.status)) continue;
+                if (recipient.messageId <= 0L || (!isActive(recipient.status)
+                        && !MmsComposer.isComposeRequired(recipient.reason))) continue;
                 MessageScheduler.cancel(context, recipient.messageId);
+                MmsComposer.cancelNotification(context, recipient.messageId);
                 messages.cancel(recipient.messageId, "캠페인 발송을 취소했습니다.");
                 MmsComposer.forget(context, recipient.messageId);
                 campaigns.replaceRecipientJob(recipient.id, recipient.messageId,
@@ -119,10 +119,12 @@ public final class CampaignManager {
             for (CampaignStore.Recipient recipient : recipients) {
                 if (recipient.messageId <= 0L) continue;
                 MessageScheduler.cancel(context, recipient.messageId);
+                MmsComposer.cancelNotification(context, recipient.messageId);
                 MmsComposer.forget(context, recipient.messageId);
                 MessageRecord record = messages.find(recipient.messageId);
                 if (record != null && (MessageLogStore.STATUS_SCHEDULED.equals(record.status)
-                        || MessageLogStore.STATUS_READY.equals(record.status))) {
+                        || MessageLogStore.STATUS_READY.equals(record.status)
+                        || MmsComposer.isComposeRequired(record.error))) {
                     messages.cancel(record.id, "캠페인 내역 삭제 전 남은 예약을 취소했습니다.");
                 }
             }
@@ -151,7 +153,7 @@ public final class CampaignManager {
     public static int retryFailed(Context context, String campaignId) {
         requireAvailable(context);
         CampaignRuntimeManager.requireNoBlockingCampaign(context, campaignId);
-        int subscriptionId = CampaignRuntimeManager.requireActiveSubscription(context);
+        int subscriptionId = -1;
 
         CampaignStore campaigns = new CampaignStore(context);
         CallTagDbHelper crm = new CallTagDbHelper(context);
@@ -168,7 +170,9 @@ public final class CampaignManager {
             long baseAt = System.currentTimeMillis() + FIRST_DELAY_MS;
             for (CampaignStore.Recipient recipient : campaigns.recipients(campaignId)) {
                 if (MessageLogStore.STATUS_SENT.equals(recipient.status)
-                        || isActive(recipient.status)) continue;
+                        || isActive(recipient.status)
+                        || MmsComposer.isComposeRequired(recipient.reason)
+                        || MmsComposer.isComposerOpened(recipient.reason)) continue;
                 Customer customer = crm.findCustomerById(recipient.customerId);
                 if (customer == null) {
                     campaigns.replaceRecipientJob(recipient.id, 0L,
@@ -282,10 +286,6 @@ public final class CampaignManager {
     private static void requireAvailable(Context context) {
         if (!FeatureEntitlementStore.hasMessageAccess(context)) {
             throw new IllegalArgumentException("문자자동화 이용권이 필요합니다.");
-        }
-        if (context.checkSelfPermission(Manifest.permission.SEND_SMS)
-                != PackageManager.PERMISSION_GRANTED) {
-            throw new IllegalArgumentException("단체문자 발송 권한이 필요합니다.");
         }
     }
 }

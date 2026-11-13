@@ -1,8 +1,6 @@
 package kr.pagero.calltag;
 
-import android.Manifest;
 import android.content.Context;
-import android.content.pm.PackageManager;
 
 import java.util.List;
 
@@ -19,7 +17,7 @@ public final class PageroLeadMessageAutomation {
         try {
             if (!PageroLeadMessageSettings.enabled(context)) {
                 receipts.markSms(lead.eventId, 0L, PageroLeadReceiptStore.SMS_NOT_SENT,
-                        "페이지로 문의 자동문자가 꺼져 있습니다.");
+                        "페이지로 문의 문자 알림이 꺼져 있습니다.");
                 return;
             }
             if (!FeatureEntitlementStore.hasMessageAccess(context)) {
@@ -49,23 +47,7 @@ public final class PageroLeadMessageAutomation {
                 return;
             }
 
-            if (context.checkSelfPermission(Manifest.permission.SEND_SMS)
-                    != PackageManager.PERMISSION_GRANTED) {
-                long jobId = createTerminalJob(context, lead, customer, body,
-                        MessageLogStore.STATUS_FAILED, "문자 보내기 권한이 필요합니다.");
-                receipts.markSms(lead.eventId, jobId, PageroLeadReceiptStore.SMS_FAILED,
-                        "문자 보내기 권한이 필요합니다.");
-                return;
-            }
-
-            int subscriptionId = MessageAutomationStore.selectedSubscriptionId(context);
-            if (!SimProfileManager.isActive(context, subscriptionId)) {
-                long jobId = createTerminalJob(context, lead, customer, body,
-                        MessageLogStore.STATUS_FAILED, "문자 발송 회선을 선택해주세요.");
-                receipts.markSms(lead.eventId, jobId, PageroLeadReceiptStore.SMS_FAILED,
-                        "문자 발송 회선을 선택해주세요.");
-                return;
-            }
+            int subscriptionId = -1;
 
             int delayMinutes = PageroLeadMessageSettings.delayMinutes(context);
             long now = System.currentTimeMillis();
@@ -91,7 +73,7 @@ public final class PageroLeadMessageAutomation {
                     if (created != null && MessageLogStore.STATUS_SCHEDULED.equals(created.status)) {
                         MessageScheduler.schedule(context, jobId, when);
                         receipts.markSms(lead.eventId, jobId, PageroLeadReceiptStore.SMS_NOT_SENT,
-                                delayMinutes + "분 후 발송 예정");
+                                delayMinutes + "분 후 문자 전송 알림 예정");
                     } else {
                         updateReceiptFromJob(receipts, lead.eventId, created, jobId);
                     }

@@ -29,8 +29,8 @@ android {
         minSdk 26
         targetSdk 36
         // 2026-10-26: Firebase Analytics and Crashlytics, preserving SMS consent fixes.
-        versionCode 2026102601
-        versionName '0.44.65'
+        versionCode 2026111301
+        versionName '0.44.66'
         manifestPlaceholders = [firebaseCollectionEnabled: 'false']
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
 

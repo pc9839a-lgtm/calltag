@@ -17,8 +17,7 @@ public final class FeatureAccessGate {
             showPlanRequired(context, feature);
             return;
         }
-        // Opening a feature is not consent to send a message. The destination
-        // requests SEND_SMS after the user configures a rule or chooses to send.
+        // SEND_SMS is requested when a user saves a call automation rule.
         if (PHONE.equals(feature) && !SetupRequirements.hasCoreRuntimePermissions(context)) {
             Intent setup = SetupRequirements.requiredSetupIntent(context);
             if (!(context instanceof Activity)) setup.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

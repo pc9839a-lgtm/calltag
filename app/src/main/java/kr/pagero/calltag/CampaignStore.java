@@ -311,13 +311,17 @@ public final class CampaignStore extends SQLiteOpenHelper {
 
     public Counts counts(String campaignId) {
         Counts counts = new Counts();
-        String sql = "SELECT status,COUNT(*) FROM campaign_recipients WHERE campaign_id=? GROUP BY status";
+        String sql = "SELECT status,reason,COUNT(*) FROM campaign_recipients"
+                + " WHERE campaign_id=? GROUP BY status,reason";
         try (Cursor cursor = getReadableDatabase().rawQuery(sql, new String[]{campaignId})) {
             while (cursor.moveToNext()) {
                 String status = cursor.getString(0);
-                int count = cursor.getInt(1);
+                String reason = cursor.getString(1);
+                int count = cursor.getInt(2);
                 counts.total += count;
-                if (MessageLogStore.STATUS_SENT.equals(status)) counts.sent += count;
+                if (MmsComposer.isComposeRequired(reason)) counts.awaitingConfirmation += count;
+                else if (MmsComposer.isComposerOpened(reason)) counts.opened += count;
+                else if (MessageLogStore.STATUS_SENT.equals(status)) counts.sent += count;
                 else if (MessageLogStore.STATUS_FAILED.equals(status)) counts.failed += count;
                 else if (MessageLogStore.STATUS_SKIPPED.equals(status)) counts.skipped += count;
                 else if (MessageLogStore.STATUS_CANCELLED.equals(status)) counts.cancelled += count;
@@ -445,5 +449,7 @@ public final class CampaignStore extends SQLiteOpenHelper {
         public int failed;
         public int skipped;
         public int cancelled;
+        public int awaitingConfirmation;
+        public int opened;
     }
 }

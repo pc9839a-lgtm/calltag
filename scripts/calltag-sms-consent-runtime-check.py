@@ -103,6 +103,10 @@ public class SmsConsentRegression {
  static int assertions;
  static void check(boolean value,String message){assertions++;if(!value)throw new AssertionError(message);}
  static boolean lead(Context c){return MessageAutomationStore.allowsAutomaticTrigger(c,"PAGERO_LEAD_RECEIVED");}
+ static MessageRecord job(long callId,String trigger) {
+  return new MessageRecord(1,1,callId,"01012345678","01012345678","Test",
+      trigger,"READY",0,0,"",1,0);
+ }
  public static void main(String[] args){
   Activity c=new Activity();
   c.getSharedPreferences("calltag_pagero_lead_message",0).edit().putBoolean("enabled",true).apply();
@@ -117,6 +121,15 @@ public class SmsConsentRegression {
   check(!MessageAutomationStore.allowsAutomaticTrigger(c,"CALL_OUTGOING_END"),"Call master OFF must block queued call SMS");
   MessageAutomationStore.setEnabled(c,true);
   check(MessageAutomationStore.allowsAutomaticTrigger(c,"CALL_OUTGOING_END"),"Enabled connected rule must still work");
+  check(MessageAutomationStore.isCallTriggeredMessage(job(42,"CALL_OUTGOING_END")),"A resolved outgoing call may use direct SMS");
+  check(MessageAutomationStore.isCallTriggeredMessage(job(42,"MISSED_OR_REJECTED_CALL")),"A resolved missed call may use direct SMS");
+  check(MessageAutomationStore.isCallTriggeredMessage(job(42,"DELAY_AFTER_CALL")),"A real call may queue delayed direct SMS");
+  check(!MessageAutomationStore.isCallTriggeredMessage(job(0,"DELAY_AFTER_CALL")),"Legacy manual and task schedules must not use direct SMS");
+  check(!MessageAutomationStore.isCallTriggeredMessage(job(42,"MANUAL_SEND")),"Manual copies must not use direct SMS even with a call ID");
+  check(!MessageAutomationStore.isCallTriggeredMessage(job(0,"CAMPAIGN_SEND")),"Campaigns must not use direct SMS");
+  check(!MessageAutomationStore.isCallTriggeredMessage(job(0,"PAGERO_LEAD_RECEIVED")),"Inquiry jobs must not use direct SMS");
+  check(!MessageAutomationStore.allowsQueuedMessage(c,job(42,"DELAY_AFTER_CALL")),"An OFF delay rule must stop the real call job");
+  check(MessageAutomationStore.allowsQueuedMessage(c,job(0,"DELAY_AFTER_CALL")),"Legacy manual and task reminders remain independent of call automation");
   check(!lead(c),"Call ON must not override inquiry OFF");
   MessageAutomationStore.setEnabled(c,false);
   PageroLeadMessageSettings.setEnabled(c,true);
@@ -170,7 +183,7 @@ with tempfile.TemporaryDirectory(prefix="calltag-sms-consent-") as temp:
         source_paths.append(str(path))
     source_paths.extend(str(PRODUCTION / name) for name in (
         "FeatureAccessGate.java", "AccountDataScope.java",
-        "MessageAutomationStore.java", "PageroLeadMessageSettings.java",
+        "MessageAutomationStore.java", "PageroLeadMessageSettings.java", "MessageRecord.java",
     ))
     classes = temp / "classes"
     classes.mkdir()

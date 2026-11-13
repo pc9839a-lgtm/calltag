@@ -38,20 +38,12 @@ public final class SmsSender {
         }
     }
 
-    public static long forceResend(Context context, MessageRecord source) {
-        if (source == null) return -1L;
-        return queueAndSend(context, source.customerId, source.callLogId,
-                0L, "", "", source.phone, source.body, source.triggerType,
-                source.subscriptionId, true);
-    }
-
     public static void sendExisting(Context context, long messageId) {
         MessageLogStore store = new MessageLogStore(context);
         try {
             MessageRecord record = store.find(messageId);
             if (record == null || !MessageLogStore.STATUS_READY.equals(record.status)) return;
-            if (!CampaignRuntimeManager.allowSend(context, record)) return;
-            if (!MessageAutomationStore.allowsAutomaticTrigger(context, record.triggerType)) {
+            if (!MessageAutomationStore.allowsQueuedMessage(context, record)) {
                 failWithoutTransport(context, store, messageId,
                         MessageLogStore.STATUS_SKIPPED,
                         "자동문자 설정이 꺼져 발송하지 않았습니다.");
@@ -70,6 +62,12 @@ public final class SmsSender {
             if (!FeatureEntitlementStore.hasMessageAccess(context)) {
                 failWithoutTransport(context, store, messageId,
                         MessageLogStore.STATUS_FAILED, "문자자동화 구독 권한이 없습니다.");
+                return;
+            }
+            if (!MessageAutomationStore.isCallTriggeredMessage(record)
+                    || MmsComposer.hasAttachment(context, messageId)) {
+                MmsComposer.postComposeNotification(context, messageId);
+                CampaignRuntimeManager.onSendResult(context, messageId, false, Integer.MIN_VALUE);
                 return;
             }
             if (context.checkSelfPermission(Manifest.permission.SEND_SMS)

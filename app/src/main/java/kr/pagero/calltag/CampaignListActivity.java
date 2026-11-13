@@ -124,19 +124,17 @@ public final class CampaignListActivity extends Activity {
 
         SimpleDateFormat date = new SimpleDateFormat("M/d a h:mm", Locale.KOREA);
         TextView meta = body(campaign.groupName + " · "
-                + date.format(new Date(campaign.scheduledAt)) + " · "
-                + SimProfileManager.labelForId(this, campaign.subscriptionId));
+                + date.format(new Date(campaign.scheduledAt)));
         meta.setSingleLine(true);
         meta.setEllipsize(TextUtils.TruncateAt.END);
         card.addView(meta, topMargin(5));
 
         String progress = "전체 " + counts.total + " · 완료 " + counts.sent
+                + " · 전송 필요 " + counts.awaitingConfirmation + " · 메시지 앱 열림 " + counts.opened
                 + " · 진행 " + counts.active + " · 실패 " + counts.failed
                 + " · 제외 " + counts.skipped + " · 취소 " + counts.cancelled;
         TextView progressText = body(progress);
         progressText.setTextColor(getColor(R.color.text_primary));
-        progressText.setSingleLine(true);
-        progressText.setEllipsize(TextUtils.TruncateAt.END);
         card.addView(progressText, topMargin(7));
 
         if (CampaignStore.STATUS_PAUSED.equals(campaign.status)

@@ -1,10 +1,8 @@
 package kr.pagero.calltag;
 
-import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.InputType;
@@ -25,7 +23,6 @@ import java.util.Locale;
 public final class CampaignComposerActivity extends Activity {
     public static final String EXTRA_GROUP_ID = "group_id";
     private static final int REQUEST_TEMPLATE = 8701;
-    private static final int REQUEST_SMS = 8702;
 
     private MessageGroupStore groups;
     private String selectedGroupId = "";
@@ -37,7 +34,6 @@ public final class CampaignComposerActivity extends Activity {
     private EditText bodyInput;
     private EditText delayInput;
     private TextView groupMeta;
-    private boolean pendingCreate;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,7 +101,7 @@ public final class CampaignComposerActivity extends Activity {
         variables.setEllipsize(TextUtils.TruncateAt.END);
         root.addView(variables, topMargin(6));
 
-        root.addView(label("발송 시작"), topMargin(18));
+        root.addView(label("문자 준비 시점"), topMargin(18));
         LinearLayout delayRow = new LinearLayout(this);
         delayRow.setOrientation(LinearLayout.HORIZONTAL);
         delayRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -214,26 +210,13 @@ public final class CampaignComposerActivity extends Activity {
         new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("단체문자를 만들까요?")
                 .setMessage(group.name + "의 현재 고객 " + count
-                        + "명을 기준으로 발송 작업을 만듭니다. 제외·중복·변수 오류 고객은 발송하지 않습니다.")
+                        + "명의 문자를 준비합니다. 수신자별로 메시지 앱을 열어 직접 전송합니다. 제외·중복·변수 오류 고객은 건너뜁니다.")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("만들기", (dialog, which) -> createCampaign())
                 .show();
     }
 
     private void createCampaign() {
-        if (checkSelfPermission(Manifest.permission.SEND_SMS)
-                != PackageManager.PERMISSION_GRANTED) {
-            new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
-                    .setTitle("설정한 그룹에 SMS 발송")
-                    .setMessage("선택한 그룹의 고객 번호에 설정한 문구와 발송 시점에 따라 SMS를 보냅니다. 선택한 SIM을 사용하며 수신자 수에 따라 통신사 문자 요금이 발생할 수 있습니다. SMS 발송 권한을 허용할까요?")
-                    .setNegativeButton("취소", null)
-                    .setPositiveButton("SMS 권한 요청", (dialog, which) -> {
-                        pendingCreate = true;
-                        requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS);
-                    })
-                    .show();
-            return;
-        }
         int minutes;
         try {
             minutes = Integer.parseInt(delayInput.getText().toString().trim());
@@ -252,23 +235,6 @@ public final class CampaignComposerActivity extends Activity {
             finish();
         } catch (IllegalArgumentException error) {
             Toast.makeText(this, error.getMessage(), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                                           int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQUEST_SMS) return;
-        boolean granted = grantResults.length > 0
-                && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-        if (granted && pendingCreate) {
-            pendingCreate = false;
-            createCampaign();
-        } else {
-            pendingCreate = false;
-            Toast.makeText(this, "단체문자 발송 권한이 필요합니다.",
-                    Toast.LENGTH_LONG).show();
         }
     }
 
