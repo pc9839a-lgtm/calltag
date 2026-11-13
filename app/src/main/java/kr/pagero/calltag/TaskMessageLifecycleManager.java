@@ -49,7 +49,7 @@ public final class TaskMessageLifecycleManager {
                     task.id, task.customerId, mode, 0L, snapshot.templateId,
                     snapshot.body, subscriptionId, task.dueAt, 0L, now));
             notifyChanged(context);
-            return Result.ok("일정 완료 후 후속문자를 발송하도록 연결했습니다.", 0L);
+            return Result.ok("일정 완료 후 문자 전송 알림을 받도록 연결했습니다.", 0L);
         }
 
         if (MODE_NOW.equals(mode)) {
@@ -62,13 +62,16 @@ public final class TaskMessageLifecycleManager {
             notifyChanged(context);
             MessageRecord record = findMessage(context, messageId);
             if (record == null) return Result.fail("안내문자 발송 내역을 만들지 못했습니다.");
+            if (MmsComposer.isComposeRequired(record.error)) {
+                return Result.ok("발송 내역에서 메시지 앱을 열어 전송하세요.", messageId);
+            }
             if (MessageLogStore.STATUS_FAILED.equals(record.status)
                     || MessageLogStore.STATUS_SKIPPED.equals(record.status)
                     || MessageLogStore.STATUS_CANCELLED.equals(record.status)) {
                 return Result.fail(record.error == null || record.error.trim().isEmpty()
                         ? "안내문자를 발송하지 못했습니다." : record.error);
             }
-            return Result.ok("일정 안내문자 발송을 요청했습니다.", messageId);
+            return Result.ok("일정 안내문자를 준비했습니다.", messageId);
         }
 
         messageScheduledAt = scheduledAt(mode, task.dueAt, now);
@@ -97,7 +100,7 @@ public final class TaskMessageLifecycleManager {
         notifyChanged(context);
         String timing = MODE_DAY_BEFORE.equals(mode) && task.dueAt - DAY_MS <= now
                 ? "일정이 24시간 이내라 지금 발송 예정으로 등록했습니다."
-                : modeLabel(mode) + " 후속문자를 예약했습니다.";
+                : modeLabel(mode) + " 문자 전송 알림을 예약했습니다.";
         return Result.ok(timing, messageId);
     }
 
@@ -107,7 +110,7 @@ public final class TaskMessageLifecycleManager {
             return Result.ok("연결된 후속문자가 없습니다.", 0L);
         }
         if (MODE_NOW.equals(link.mode)) {
-            return Result.ok("이미 발송한 일정 안내문자는 유지했습니다.", link.messageId);
+            return Result.ok("준비한 일정 안내문자는 유지했습니다.", link.messageId);
         }
         return attach(context, updatedTask, link.mode);
     }
@@ -119,7 +122,9 @@ public final class TaskMessageLifecycleManager {
             MessageRecord previous = findMessage(context, link.messageId);
             if (previous != null && (MessageLogStore.STATUS_READY.equals(previous.status)
                     || MessageLogStore.STATUS_SENDING.equals(previous.status)
-                    || MessageLogStore.STATUS_SENT.equals(previous.status))) return;
+                    || MessageLogStore.STATUS_SENT.equals(previous.status)
+                    || MmsComposer.isComposeRequired(previous.error)
+                    || MmsComposer.isComposerOpened(previous.error))) return;
 
             String body = link.bodySnapshot;
             String templateId = link.templateId;
@@ -184,8 +189,8 @@ public final class TaskMessageLifecycleManager {
     public static String validateScheduledSend(Context context, long messageId) {
         TaskMessageLinkStore.Link link = TaskMessageLinkStore.findByMessageId(context, messageId);
         if (link == null) return "";
-        FollowUpTask pending = findPendingTask(context, link.taskId, link.customerId);
-        if (pending == null) {
+        FollowUpTask task = findLinkedTask(context, link.taskId, link.customerId);
+        if (task == null || task.isCompleted() != MODE_AFTER_COMPLETE.equals(link.mode)) {
             return "연결된 일정이 완료되거나 삭제돼 발송하지 않았습니다.";
         }
         TaskMessageLinkStore.Link latest = TaskMessageLinkStore.find(context, link.taskId);
@@ -218,8 +223,10 @@ public final class TaskMessageLifecycleManager {
         if (record == null) return prefix + " · 내역 확인 필요";
         if (MessageLogStore.STATUS_SCHEDULED.equals(record.status)) {
             return prefix + " · " + new SimpleDateFormat("M/d a h:mm", Locale.KOREA)
-                    .format(new Date(record.scheduledAt)) + " 발송 예정";
+                    .format(new Date(record.scheduledAt)) + " 알림 예정";
         }
+        if (MmsComposer.isComposeRequired(record.error)) return prefix + " · 전송 필요";
+        if (MmsComposer.isComposerOpened(record.error)) return prefix + " · 메시지 앱 열림";
         if (MessageLogStore.STATUS_SENT.equals(record.status)) return prefix + " · 발송 완료";
         if (MessageLogStore.STATUS_SENDING.equals(record.status)) return prefix + " · 발송 중";
         if (MessageLogStore.STATUS_READY.equals(record.status)) return prefix + " · 발송 준비";
@@ -282,8 +289,10 @@ public final class TaskMessageLifecycleManager {
             MessageRecord record = messages.find(link.messageId);
             if (record == null) return;
             if (MessageLogStore.STATUS_SCHEDULED.equals(record.status)
-                    || MessageLogStore.STATUS_READY.equals(record.status)) {
+                    || MessageLogStore.STATUS_READY.equals(record.status)
+                    || MmsComposer.isComposeRequired(record.error)) {
                 MessageScheduler.cancel(context, record.id);
+                MmsComposer.cancelNotification(context, record.id);
                 messages.cancel(record.id, reason == null ? "연결 일정 변경" : reason);
             }
         } finally {
@@ -291,13 +300,13 @@ public final class TaskMessageLifecycleManager {
         }
     }
 
-    private static FollowUpTask findPendingTask(Context context, long taskId, long customerId) {
+    private static FollowUpTask findLinkedTask(Context context, long taskId, long customerId) {
         CallTagDbHelper db = new CallTagDbHelper(context);
         try {
             List<FollowUpTask> tasks = customerId > 0L
                     ? db.listTasksForCustomer(customerId) : db.listPendingTasks();
             for (FollowUpTask task : tasks) {
-                if (task.id == taskId && !task.isCompleted()) return task;
+                if (task.id == taskId) return task;
             }
             return null;
         } finally {

@@ -9,3 +9,4 @@ app/build
 *.jks
 *.keystore
 private/play-upload-reset/
+app/google-services.json

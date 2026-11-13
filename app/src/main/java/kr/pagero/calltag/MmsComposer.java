@@ -13,10 +13,10 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 
-/** Opens the device messaging app with an image, recipient and body prefilled. */
+/** Hands a prepared SMS or MMS to the device messaging app for user confirmation. */
 public final class MmsComposer {
-    public static final String REQUIRED_PREFIX = "이미지 문자 전송 필요";
-    public static final String OPENED_PREFIX = "이미지 문자 작성창 열림";
+    public static final String REQUIRED_PREFIX = "메시지 앱에서 전송 필요";
+    public static final String OPENED_PREFIX = "메시지 앱 작성창 열림";
 
     private static final String PREFS = "calltag_mms_compose_v1";
     private static final String KEY_PREFIX = "attachment_";
@@ -55,11 +55,36 @@ public final class MmsComposer {
     }
 
     public static boolean isComposeRequired(String reason) {
-        return reason != null && reason.startsWith(REQUIRED_PREFIX);
+        return reason != null && (reason.startsWith(REQUIRED_PREFIX)
+                || reason.startsWith("이미지 문자 전송 필요"));
     }
 
     public static boolean isComposerOpened(String reason) {
-        return reason != null && reason.startsWith(OPENED_PREFIX);
+        return reason != null && (reason.startsWith(OPENED_PREFIX)
+                || reason.startsWith("이미지 문자 작성창 열림"));
+    }
+
+    static boolean canOpen(MessageRecord record) {
+        return record != null && !MessageAutomationStore.isCallTriggeredMessage(record)
+                && (MessageLogStore.STATUS_READY.equals(record.status)
+                || MessageLogStore.STATUS_SCHEDULED.equals(record.status)
+                || isComposeRequired(record.error) || isComposerOpened(record.error));
+    }
+
+    static boolean openManualCopy(Activity activity, MessageRecord source) {
+        if (!FeatureEntitlementStore.hasMessageAccess(activity)) return false;
+        if (MessageExclusionStore.evaluate(activity, source.customerId, source.phone,
+                source.triggerType).blocked) return false;
+        MessageLogStore store = new MessageLogStore(activity);
+        long draftId;
+        try {
+            draftId = store.createJobAdvanced(source.customerId, 0L, 0L, "", "",
+                    source.phone, source.body, MessageAutomationManager.TRIGGER_MANUAL,
+                    MessageLogStore.STATUS_READY, System.currentTimeMillis(), -1, true);
+        } finally {
+            store.close();
+        }
+        return openComposer(activity, draftId);
     }
 
     public static boolean openComposer(Context context, long messageId) {
@@ -67,35 +92,72 @@ public final class MmsComposer {
         MessageLogStore store = new MessageLogStore(context);
         try {
             MessageRecord record = store.find(messageId);
+            if (!canOpen(record)) return false;
+            String campaignId = CampaignRuntimeManager.campaignIdForMessage(context, messageId);
+            if (!campaignId.isEmpty()) {
+                CampaignStore campaigns = new CampaignStore(context);
+                try {
+                    CampaignStore.Campaign campaign = campaigns.find(campaignId);
+                    if (campaign == null || CampaignStore.STATUS_PAUSED.equals(campaign.status)
+                            || CampaignStore.STATUS_CANCELLED.equals(campaign.status)) return false;
+                } finally {
+                    campaigns.close();
+                }
+            }
+            if (!FeatureEntitlementStore.hasMessageAccess(context)) {
+                store.markFailed(messageId, "문자 기능 이용 권한이 필요합니다.");
+                return false;
+            }
+            if (!MessageAutomationStore.allowsQueuedMessage(context, record)) {
+                store.markSkipped(messageId, "문의 문자 알림 설정이 꺼져 있습니다.");
+                return false;
+            }
+            String lifecycleBlock = TaskMessageLifecycleManager.validateScheduledSend(context, messageId);
+            if (!lifecycleBlock.isEmpty()) {
+                store.markSkipped(messageId, lifecycleBlock);
+                return false;
+            }
+            MessageExclusionStore.Decision exclusion = MessageExclusionStore.evaluate(
+                    context, record.customerId, record.phone, record.triggerType);
+            if (exclusion.blocked) {
+                store.markSkipped(messageId, exclusion.reason);
+                return false;
+            }
             String imageRef = attachmentRef(context, messageId);
             Uri image = MessageAttachmentStore.shareUri(context, imageRef);
-            if (record == null || image == null) {
-                if (record != null) store.markFailed(messageId,
+            if (!imageRef.isEmpty() && image == null) {
+                store.markFailed(messageId,
                         "첨부 이미지를 찾을 수 없습니다. 템플릿에서 이미지를 다시 선택해주세요.");
                 return false;
             }
 
             String phone = PhoneNumberNormalizer.normalize(record.phone);
-            Intent intent = new Intent(Intent.ACTION_SEND);
-            intent.setData(Uri.parse("smsto:" + phone));
-            intent.setType("image/jpeg");
-            intent.putExtra("address", phone);
-            intent.putExtra("sms_body", record.body);
-            intent.putExtra(Intent.EXTRA_TEXT, record.body);
-            intent.putExtra(Intent.EXTRA_STREAM, image);
-            intent.setClipData(ClipData.newUri(context.getContentResolver(),
-                    "콜태그 MMS 이미지", image));
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            if (!(context instanceof Activity)) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-            if (intent.resolveActivity(context.getPackageManager()) == null) {
-                store.markFailed(messageId, "이미지 문자를 작성할 메시지 앱을 찾을 수 없습니다.");
+            if (phone.length() < 8 || record.body.trim().isEmpty()
+                    || !MessageTemplateEngine.findPlaceholders(record.body).isEmpty()) {
+                store.markFailed(messageId, "받는 번호와 문자 내용을 확인해주세요.");
                 return false;
             }
+            Uri address = Uri.fromParts("smsto", phone, null);
+            Intent intent = new Intent(Intent.ACTION_SENDTO, address);
+            intent.putExtra("sms_body", record.body);
+            if (image != null) {
+                intent.setAction(Intent.ACTION_SEND);
+                intent.setDataAndType(address, "image/jpeg");
+                intent.putExtra("address", phone);
+                intent.putExtra(Intent.EXTRA_TEXT, record.body);
+                intent.putExtra(Intent.EXTRA_STREAM, image);
+                intent.setClipData(ClipData.newUri(context.getContentResolver(),
+                        "콜태그 MMS 이미지", image));
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            }
+            if (!(context instanceof Activity)) intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
             context.startActivity(intent);
             store.markSkipped(messageId, OPENED_PREFIX
                     + " · 최종 전송 여부는 기본 메시지 앱에서 확인해주세요.");
+            MessageScheduler.cancel(context, messageId);
             cancelNotification(context, messageId);
+            CampaignRuntimeManager.onSendResult(context, messageId, false, Integer.MIN_VALUE);
             return true;
         } catch (RuntimeException error) {
             store.markFailed(messageId, "메시지 앱을 열지 못했습니다.");
@@ -109,14 +171,13 @@ public final class MmsComposer {
         if (context == null || messageId <= 0L) return false;
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (manager == null) return false;
-        if (Build.VERSION.SDK_INT >= 33
+        if (manager == null || !manager.areNotificationsEnabled() || (Build.VERSION.SDK_INT >= 33
                 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED) {
+                != PackageManager.PERMISSION_GRANTED)) {
             MessageLogStore store = new MessageLogStore(context);
             try {
                 store.markFailed(messageId,
-                        "예약 이미지 문자를 열려면 알림 권한이 필요합니다.");
+                        REQUIRED_PREFIX + " · 발송 내역에서 문자를 열어 전송해주세요.");
             } finally {
                 store.close();
             }
@@ -132,9 +193,8 @@ public final class MmsComposer {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         MessageLogStore store = new MessageLogStore(context);
-        MessageRecord record;
         try {
-            record = store.find(messageId);
+            MessageRecord record = store.find(messageId);
             if (record == null) return false;
             store.markSkipped(messageId, REQUIRED_PREFIX
                     + " · 예약 시간이 됐습니다. 알림을 눌러 메시지 앱에서 전송해주세요.");
@@ -144,10 +204,9 @@ public final class MmsComposer {
 
         android.app.Notification notification = new android.app.Notification.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_nav_messages)
-                .setContentTitle("이미지 문자 전송이 필요합니다")
-                .setContentText(record.phone + " · 눌러서 메시지 앱 열기")
-                .setStyle(new android.app.Notification.BigTextStyle()
-                        .bigText(record.body + "\n\n눌러서 이미지가 첨부된 메시지 작성창을 여세요."))
+                .setContentTitle("보낼 문자가 준비됐습니다")
+                .setContentText("눌러서 메시지 앱에서 확인하고 전송하세요.")
+                .setVisibility(android.app.Notification.VISIBILITY_PRIVATE)
                 .setContentIntent(action)
                 .setAutoCancel(true)
                 .setCategory(android.app.Notification.CATEGORY_REMINDER)
@@ -169,8 +228,8 @@ public final class MmsComposer {
     private static void ensureChannel(NotificationManager manager) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
         NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
-                "예약 이미지 문자", NotificationManager.IMPORTANCE_HIGH);
-        channel.setDescription("예약된 이미지 문자를 메시지 앱에서 전송하도록 알려줍니다.");
+                "문자 전송 알림", NotificationManager.IMPORTANCE_HIGH);
+        channel.setDescription("준비된 문자를 메시지 앱에서 전송하도록 알려줍니다.");
         manager.createNotificationChannel(channel);
     }
 

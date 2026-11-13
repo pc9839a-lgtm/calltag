@@ -4,7 +4,6 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.telephony.SmsManager;
-import android.telephony.SubscriptionManager;
 
 public final class CampaignRuntimeManager {
     private static final long FIRST_DELAY_MS = 1_500L;
@@ -12,22 +11,6 @@ public final class CampaignRuntimeManager {
     private static final int AUTO_PAUSE_FAILURE_THRESHOLD = 3;
 
     private CampaignRuntimeManager() {}
-
-    public static int requireActiveSubscription(Context context) {
-        int subscriptionId = selectedActiveSubscriptionId(context);
-        if (!SubscriptionManager.isValidSubscriptionId(subscriptionId)) {
-            throw new IllegalArgumentException("활성 SIM을 확인할 수 없습니다. 문자 설정에서 발송 회선을 다시 선택해주세요.");
-        }
-        return subscriptionId;
-    }
-
-    public static int selectedActiveSubscriptionId(Context context) {
-        int selected = MessageAutomationStore.selectedSubscriptionId(context);
-        if (SimProfileManager.isActive(context, selected)) return selected;
-        int fallback = SimProfileManager.selectedOrDefault(context);
-        return SimProfileManager.isActive(context, fallback)
-                ? fallback : SubscriptionManager.INVALID_SUBSCRIPTION_ID;
-    }
 
     public static void requireNoBlockingCampaign(Context context, String exceptCampaignId) {
         CampaignStore store = new CampaignStore(context);
@@ -45,21 +28,7 @@ public final class CampaignRuntimeManager {
     public static boolean allowSend(Context context, MessageRecord record) {
         if (record == null) return false;
         String campaignId = campaignIdForMessage(context, record.id);
-        if (campaignId.isEmpty()) {
-            if (!SimProfileManager.isActive(context, record.subscriptionId)) {
-                MessageLogStore messages = new MessageLogStore(context);
-                try {
-                    messages.markFailed(record.id,
-                            "선택한 문자 SIM을 사용할 수 없습니다. 발송 회선을 다시 선택해주세요.");
-                } finally {
-                    messages.close();
-                }
-                DiagnosticEventStore.record(context, "SIM 발송 차단", record.id,
-                        "활성 회선 불일치");
-                return false;
-            }
-            return true;
-        }
+        if (campaignId.isEmpty()) return true;
 
         CampaignStore campaigns = new CampaignStore(context);
         try {
@@ -79,16 +48,6 @@ public final class CampaignRuntimeManager {
             if (CampaignStore.STATUS_PAUSED.equals(campaign.status)) return false;
             if (CampaignStore.STATUS_CANCELLED.equals(campaign.status)
                     || CampaignStore.STATUS_COMPLETED.equals(campaign.status)) {
-                return false;
-            }
-
-            int selected = selectedActiveSubscriptionId(context);
-            boolean campaignSimActive = SimProfileManager.isActive(context, campaign.subscriptionId);
-            if (!campaignSimActive || selected != campaign.subscriptionId) {
-                String reason = !campaignSimActive
-                        ? "캠페인에 지정된 SIM이 제거되었거나 비활성화되었습니다."
-                        : "문자 설정의 발송 회선이 캠페인 시작 때와 달라졌습니다.";
-                pause(context, campaignId, reason + " 회선을 확인한 뒤 발송을 재개해주세요.");
                 return false;
             }
 
@@ -140,7 +99,7 @@ public final class CampaignRuntimeManager {
     }
 
     public static int resume(Context context, String campaignId) {
-        int subscriptionId = requireActiveSubscription(context);
+        int subscriptionId = -1;
         requireNoBlockingCampaign(context, campaignId);
 
         CampaignStore campaigns = new CampaignStore(context);

@@ -22,7 +22,23 @@ assert "requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_S
 assert "onRequestPermissionsResult(int requestCode" in settings
 assert "saveApprovedSettings();" in settings
 assert settings.index("if (wantsAutomaticSms && checkSelfPermission") < settings.index("saveApprovedSettings();")
-assert "destination != MessageAutomationSettingsActivity.class" in gate
+assert "requestPermissions(" not in gate, "Navigation must not request SMS permission"
+assert "SetupRequirements.hasSms(context)" not in gate
+lead_settings=(P/"PageroLeadMessageSettings.java").read_text(encoding="utf-8")
+assert "AccountDataScope.preferenceName(context, PREFS)" in lead_settings
+assert "AuthSessionStore.hasSession(context)" in lead_settings
+assert "return PageroLeadMessageSettings.enabled(context);" in store
+for name in ("ManualMessageActivity.java", "CampaignComposerActivity.java",
+             "CampaignManager.java", "PageroLeadMessageSettingsActivity.java",
+             "PageroLeadMessageAutomation.java", "TaskMessageLifecycleManager.java",
+             "MessageHistoryActivity.java"):
+    assert "Manifest.permission.SEND_SMS" not in (P/name).read_text(encoding="utf-8"), name
+assert "READ_CALL_LOG" not in (P/"CustomerAddActivity.java").read_text(encoding="utf-8")
+provider_users={path.name for path in P.glob("*.java")
+                if "CallLog.Calls.CONTENT_URI" in path.read_text(encoding="utf-8")}
+assert provider_users == {"CallLogRepository.java", "CallMonitorService.java"}, provider_users
+transport=(P/"SmsSender.java").read_text(encoding="utf-8")
+assert transport.index("!MessageAutomationStore.isCallTriggeredMessage(record)") < transport.index("manager.sendTextMessage")
 assert "android.permission.READ_CALL_LOG" in manifest
 assert "android.permission.SEND_SMS" in manifest
 assert "android.permission.READ_SMS" not in manifest

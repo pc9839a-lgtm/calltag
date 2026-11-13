@@ -134,17 +134,18 @@ public final class MessageHistoryActivity extends Activity {
             if (scheduled) {
                 LinearLayout actions = new LinearLayout(this);
                 actions.setOrientation(LinearLayout.HORIZONTAL);
-                Button sendNow = button(MmsComposer.hasAttachment(this, record.id)
-                        ? "메시지 앱 열기" : "지금 보내기", true);
-                sendNow.setOnClickListener(v -> sendScheduledNow(record));
-                actions.addView(sendNow, new LinearLayout.LayoutParams(0, dp(44), 1f));
+                if (!MessageAutomationStore.isCallTriggeredMessage(record)) {
+                    Button sendNow = button("메시지 앱 열기", true);
+                    sendNow.setOnClickListener(v -> openMms(record));
+                    actions.addView(sendNow, new LinearLayout.LayoutParams(0, dp(44), 1f));
+                }
                 Button cancel = button("예약 취소", false);
                 cancel.setOnClickListener(v -> cancel(record));
                 LinearLayout.LayoutParams cancelParams = new LinearLayout.LayoutParams(0, dp(44), 1f);
                 cancelParams.leftMargin = dp(7);
                 actions.addView(cancel, cancelParams);
                 card.addView(actions, topMargin(10));
-            } else if (MmsComposer.isComposeRequired(record.error)) {
+            } else if (MmsComposer.canOpen(record)) {
                 Button compose = button("메시지 앱에서 보내기", true);
                 compose.setOnClickListener(v -> openMms(record));
                 LinearLayout.LayoutParams composeParams = new LinearLayout.LayoutParams(
@@ -167,24 +168,12 @@ public final class MessageHistoryActivity extends Activity {
         }
     }
 
-    private void sendScheduledNow(MessageRecord record) {
-        MessageScheduler.cancel(this, record.id);
-        if (MmsComposer.hasAttachment(this, record.id)) {
-            openMms(record);
-            return;
-        }
-        store.markReady(record.id);
-        SmsSender.sendExisting(this, record.id);
-        Toast.makeText(this, "문자 발송을 요청했습니다.", Toast.LENGTH_SHORT).show();
-        render();
-    }
-
     private void openMms(MessageRecord record) {
         if (MmsComposer.openComposer(this, record.id)) {
             Toast.makeText(this, "메시지 앱에서 전송 버튼을 눌러주세요.",
                     Toast.LENGTH_LONG).show();
         } else {
-            Toast.makeText(this, "이미지 문자 작성창을 열지 못했습니다.",
+            Toast.makeText(this, "메시지 앱을 열지 못했습니다.",
                     Toast.LENGTH_LONG).show();
         }
         render();
@@ -202,15 +191,11 @@ public final class MessageHistoryActivity extends Activity {
     private void confirmForceResend(MessageRecord record) {
         new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("다시 보내기")
-                .setMessage("중복방지를 무시하고 다시 발송합니다. 문자요금이 다시 발생할 수 있습니다.")
+                .setMessage("메시지 앱에서 내용을 확인하고 다시 전송하세요.")
                 .setNegativeButton("취소", null)
-                .setPositiveButton("발송", (dialog, which) -> {
-                    long id = SmsSender.forceResend(this, record);
-                    MessageRecord created = store.find(id);
-                    if (created != null && MessageLogStore.STATUS_SKIPPED.equals(created.status)) {
-                        Toast.makeText(this, created.error, Toast.LENGTH_LONG).show();
-                    } else {
-                        Toast.makeText(this, "재발송을 요청했습니다.", Toast.LENGTH_LONG).show();
+                .setPositiveButton("메시지 앱 열기", (dialog, which) -> {
+                    if (!MmsComposer.openManualCopy(this, record)) {
+                        Toast.makeText(this, "메시지 앱을 열지 못했습니다.", Toast.LENGTH_LONG).show();
                     }
                     render();
                 })
@@ -230,6 +215,8 @@ public final class MessageHistoryActivity extends Activity {
     private String statusLabel(MessageRecord record) {
         if (MmsComposer.isComposeRequired(record.error)) return "전송 필요";
         if (MmsComposer.isComposerOpened(record.error)) return "메시지 앱 열림";
+        if (MessageLogStore.STATUS_SCHEDULED.equals(record.status)
+                && !MessageAutomationStore.isCallTriggeredMessage(record)) return "전송 알림 예정";
         return MessageDedupeEngine.statusLabel(record.status);
     }
 

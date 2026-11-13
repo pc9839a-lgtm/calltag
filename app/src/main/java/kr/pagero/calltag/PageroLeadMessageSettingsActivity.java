@@ -1,9 +1,6 @@
 package kr.pagero.calltag;
 
-import android.Manifest;
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.text.InputType;
@@ -16,9 +13,8 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
-/** 페이지로 문의 접수 자동문자 설정. */
+/** 페이지로 문의 접수 문자 알림 설정. */
 public final class PageroLeadMessageSettingsActivity extends Activity {
-    private static final int REQUEST_SMS = 8451;
 
     private Switch enabled;
     private EditText template;
@@ -54,7 +50,7 @@ public final class PageroLeadMessageSettingsActivity extends Activity {
         root.addView(header);
 
         enabled = new Switch(this);
-        enabled.setText("사용");
+        enabled.setText("문의가 오면 문자 전송 알림 받기");
         enabled.setTextSize(15f);
         enabled.setTextColor(getColor(R.color.text_primary));
         enabled.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -69,7 +65,7 @@ public final class PageroLeadMessageSettingsActivity extends Activity {
         template.setText(PageroLeadMessageSettings.defaultTemplate(this));
         root.addView(template, fixed(128, 7));
 
-        root.addView(label("발송 지연(분)"), top(18));
+        root.addView(label("알림 지연(분)"), top(18));
         delayMinutes = input(false);
         delayMinutes.setInputType(InputType.TYPE_CLASS_NUMBER);
         delayMinutes.setText(String.valueOf(PageroLeadMessageSettings.delayMinutes(this)));
@@ -100,11 +96,11 @@ public final class PageroLeadMessageSettingsActivity extends Activity {
         try {
             delay = Integer.parseInt(delayMinutes.getText().toString().trim());
         } catch (NumberFormatException error) {
-            Toast.makeText(this, "발송 지연은 0~1440분으로 입력해주세요.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "알림 지연은 0~1440분으로 입력해주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
         if (delay < 0 || delay > 1440) {
-            Toast.makeText(this, "발송 지연은 0~1440분으로 입력해주세요.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "알림 지연은 0~1440분으로 입력해주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
         String body = template.getText().toString().trim();
@@ -112,6 +108,10 @@ public final class PageroLeadMessageSettingsActivity extends Activity {
             Toast.makeText(this, "문자 내용을 입력해주세요.", Toast.LENGTH_SHORT).show();
             return;
         }
+        saveApprovedSettings(body, delay);
+    }
+
+    private void saveApprovedSettings(String body, int delay) {
         PageroLeadMessageSettings.setEnabled(this, enabled.isChecked());
         PageroLeadMessageSettings.setDefaultTemplate(this, body);
         PageroLeadMessageSettings.setDelayMinutes(this, delay);
@@ -120,38 +120,8 @@ public final class PageroLeadMessageSettingsActivity extends Activity {
             PageroLeadMessageSettings.setTemplateFor(this, page,
                     siteTemplate.getText().toString().trim());
         }
-
-        if (enabled.isChecked() && checkSelfPermission(Manifest.permission.SEND_SMS)
-                != PackageManager.PERMISSION_GRANTED) {
-            AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
-                    .setTitle("문자 권한 필요")
-                    .setMessage("자동문자를 보내려면 문자 권한이 필요합니다.")
-                    .setNegativeButton("취소", null)
-                    .setPositiveButton("권한 허용", (d, w) -> requestPermissions(
-                            new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS))
-                    .create();
-            dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
-            dialog.show();
-            return;
-        }
         Toast.makeText(this, "저장했습니다.", Toast.LENGTH_SHORT).show();
         finish();
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode != REQUEST_SMS) return;
-        boolean granted = checkSelfPermission(Manifest.permission.SEND_SMS)
-                == PackageManager.PERMISSION_GRANTED;
-        if (granted) {
-            Toast.makeText(this, "문자 권한을 허용했습니다.", Toast.LENGTH_SHORT).show();
-            finish();
-        } else {
-            PageroLeadMessageSettings.setEnabled(this, false);
-            enabled.setChecked(false);
-            Toast.makeText(this, "문자 권한이 필요합니다.", Toast.LENGTH_LONG).show();
-        }
     }
 
     private EditText input(boolean multiline) {
