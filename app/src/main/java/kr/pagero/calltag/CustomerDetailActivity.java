@@ -25,6 +25,7 @@ import java.util.Locale;
 
 public final class CustomerDetailActivity extends Activity {
     public static final String EXTRA_CUSTOMER_ID = "customer_id";
+    private static final int REQUEST_DELETE_CUSTOMER = 6101;
 
     private CallTagDbHelper db;
     private TaskTypeStore taskTypes;
@@ -69,12 +70,31 @@ public final class CustomerDetailActivity extends Activity {
 
     private void bindActions() {
         findViewById(R.id.detailBack).setOnClickListener(v -> finish());
+        findViewById(R.id.detailShareCustomer).setOnClickListener(v -> shareCustomer());
+        findViewById(R.id.detailDeleteCustomer).setOnClickListener(v -> {
+            if (customer == null) return;
+            startActivityForResult(new Intent(this, CustomerDeleteActivity.class)
+                    .putExtra(CustomerDeleteActivity.EXTRA_CUSTOMER_ID, customer.id), REQUEST_DELETE_CUSTOMER);
+        });
         findViewById(R.id.detailCall).setOnClickListener(v -> dial());
         findViewById(R.id.detailSchedule).setOnClickListener(v -> showScheduleTypeDialog());
         findViewById(R.id.detailScheduleShortcut).setOnClickListener(v -> showScheduleTypeDialog());
         findViewById(R.id.detailMessage).setOnClickListener(v -> openMessage());
         statusView.setOnClickListener(v -> showStatusDialog());
         findViewById(R.id.detailSaveMemo).setOnClickListener(v -> saveMemo());
+    }
+
+    private void shareCustomer() {
+        if (customer == null) return;
+        Intent send = new Intent(Intent.ACTION_SEND).setType("text/plain")
+                .putExtra(Intent.EXTRA_TEXT, customer.displayName + "\n" + customer.primaryPhone);
+        startActivity(Intent.createChooser(send, "고객 공유"));
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_DELETE_CUSTOMER && resultCode == RESULT_OK) finish();
     }
 
     private void loadCustomer() {

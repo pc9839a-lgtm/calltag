@@ -24,7 +24,7 @@ public final class InitialPermissionActivity extends Activity {
     private static final String PREFS = "calltag_permission_flow";
     private static final String KEY_RUNTIME_REQUESTED_ONCE = "runtime_permissions_requested_once";
     static final String CORE_DISCLOSURE = "전화 상태와 통화기록(번호·시각·유형), 연락처를 사용해 "
-            + "통화 후 상담 기록과 할 일을 연결합니다.";
+            + "통화 후 상담·할 일을 연결하고 최근 통화에서 고객을 추가할 수 있게 합니다.";
 
     private TextView status;
     private TextView requestButton;

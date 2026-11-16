@@ -162,6 +162,7 @@ public final class AccountActivity extends Activity {
         ReferralStateStore.clear(this);
         getSharedPreferences("calltag_settings", MODE_PRIVATE).edit().clear().commit();
         getSharedPreferences("calltag_message_automation", MODE_PRIVATE).edit().clear().commit();
+        RecentCustomerCallStore.clear(this);
         AuthSessionStore.clear(this);
         for (String databaseName : databaseList()) {
             deleteDatabase(databaseName);

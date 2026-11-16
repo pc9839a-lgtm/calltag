@@ -369,6 +369,7 @@ public final class CallMonitorService extends Service {
             boolean deferred = CallDisposition.needsFollowUp(record);
             boolean connected = CallDisposition.isConnected(record);
             if (phoneAccess && pendingStore != null) {
+                RecentCustomerCallStore.remember(this, record);
                 if (deferred) {
                     pendingStore.upsert(record);
                     sendPendingChanged();
