@@ -5,7 +5,7 @@ import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.util.AttributeSet;
 
-/** 하단 중앙 홈은 배경 원 없이 아이콘과 라벨만 한 단계 크게 표시한다. */
+/** Gives the selected home tab a distinct button surface. */
 public final class HomeNavItemTextView extends NavItemTextView {
     public HomeNavItemTextView(Context context) {
         super(context);
@@ -23,12 +23,18 @@ public final class HomeNavItemTextView extends NavItemTextView {
     }
 
     private void init() {
-        setBackground(null);
+        setBackgroundResource(R.drawable.bg_home_tab);
         setElevation(0f);
         setTranslationY(0f);
         setTextSize(13f);
         setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         post(this::enlargeIcon);
+    }
+
+    @Override
+    public void setSelected(boolean selected) {
+        super.setSelected(selected);
+        setTextColor(getContext().getColor(selected ? android.R.color.white : R.color.nav_inactive));
     }
 
     private void enlargeIcon() {

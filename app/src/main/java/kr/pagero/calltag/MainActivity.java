@@ -162,7 +162,7 @@ public final class MainActivity extends Activity {
         sectionMore.setVisibility(section == sectionMore ? View.VISIBLE : View.GONE);
         int active = getColor(R.color.primary);
         int inactive = getColor(R.color.nav_inactive);
-        navToday.setTextColor(nav == navToday ? active : inactive);
+        navToday.setSelected(nav == navToday);
         navCustomers.setTextColor(nav == navCustomers ? active : inactive);
         navConsultations.setTextColor(nav == navConsultations ? active : inactive);
         navMore.setTextColor(nav == navMore ? active : inactive);

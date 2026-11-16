@@ -18,6 +18,10 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.text.DateFormat;
+import java.util.Date;
+import java.util.List;
+
 public final class CustomerAddActivity extends Activity {
     private static final int REQUEST_CONTACT = 2301;
 
@@ -74,6 +78,15 @@ public final class CustomerAddActivity extends Activity {
         });
         content.addView(direct, fixedHeight(52, 0));
 
+        TextView calls = text("최근 통화에서 선택", 15f, R.color.text_primary, true);
+        calls.setGravity(Gravity.CENTER);
+        calls.setBackgroundResource(R.drawable.bg_clickable_row);
+        calls.setFocusable(true);
+        calls.setOnClickListener(v -> {
+            if (!saving) pickRecentCall();
+        });
+        content.addView(calls, fixedHeight(52, 10));
+
         TextView contact = text("연락처에서 선택", 15f, R.color.text_primary, true);
         contact.setGravity(Gravity.CENTER);
         contact.setBackgroundResource(R.drawable.bg_clickable_row);
@@ -97,6 +110,32 @@ public final class CustomerAddActivity extends Activity {
             Toast.makeText(this, "연락처 앱을 열 수 없습니다. 번호를 직접 입력해주세요.",
                     Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void pickRecentCall() {
+        List<CallRecord> calls = RecentCustomerCallStore.recent(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                .setTitle("최근 통화");
+        if (calls.isEmpty()) {
+            builder.setMessage("콜태그가 기록한 최근 통화가 없습니다.")
+                    .setPositiveButton("직접 입력", (dialog, which) -> showRegistrationDialog("", ""));
+        } else {
+            DateFormat format = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT);
+            String[] labels = new String[calls.size()];
+            for (int i = 0; i < calls.size(); i++) {
+                CallRecord call = calls.get(i);
+                String name = call.cachedName.trim();
+                labels[i] = (name.isEmpty() ? "" : name + " · ") + call.phone
+                        + "\n" + CallDisposition.label(call) + " · " + format.format(new Date(call.startedAt));
+            }
+            builder.setItems(labels, (dialog, index) -> {
+                CallRecord call = calls.get(index);
+                showRegistrationDialog(call.cachedName, call.phone);
+            });
+        }
+        AlertDialog dialog = builder.setNegativeButton("취소", null).create();
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.show();
     }
 
     @Override

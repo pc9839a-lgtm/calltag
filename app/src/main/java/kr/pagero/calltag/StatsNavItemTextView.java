@@ -38,7 +38,8 @@ public final class StatsNavItemTextView extends TextView {
         if (stats != null) stats.setVisibility(VISIBLE);
         setNavColor(root, R.id.navCustomers, false);
         setNavColor(root, R.id.navConsultations, false);
-        setNavColor(root, R.id.navToday, false);
+        View home = root.findViewById(R.id.navToday);
+        if (home != null) home.setSelected(false);
         setNavColor(root, R.id.navMore, false);
         syncColor();
     }

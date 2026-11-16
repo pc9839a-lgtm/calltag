@@ -35,8 +35,6 @@ public final class MessageAutomationSettingsActivity extends Activity {
     private TextView connectedTemplate;
     private TextView missedTemplate;
     private TextView followTemplate;
-    private Button followDelayButton;
-    private TextView commonSummary;
 
     private boolean businessHoursValue;
     private int delayDaysValue;
@@ -87,16 +85,21 @@ public final class MessageAutomationSettingsActivity extends Activity {
         enabled = switchCard("자동문자 사용");
         root.addView(enabled, topMargin(14));
 
-        root.addView(sectionLabel("발송 시점"), topMargin(20));
+        root.addView(sectionLabel("언제 보낼까요?"), topMargin(20));
+        LinearLayout rules = new LinearLayout(this);
+        rules.setOrientation(LinearLayout.VERTICAL);
+        rules.setBackgroundResource(R.drawable.bg_card);
+        rules.setPadding(dp(12), dp(3), dp(12), dp(3));
+        root.addView(rules, topMargin(8));
         connected = new Switch(this);
         connectedTemplate = addScenario(
-                root, "통화 후", "연결된 수신·발신 통화", connected, REQUEST_CONNECTED, false);
+                rules, "통화 후", connected, REQUEST_CONNECTED);
         missed = new Switch(this);
         missedTemplate = addScenario(
-                root, "부재중", "받지 못했거나 거절한 전화", missed, REQUEST_MISSED, false);
+                rules, "부재중", missed, REQUEST_MISSED);
         delayed = new Switch(this);
         followTemplate = addScenario(
-                root, "후속 예약", "", delayed, REQUEST_FOLLOW_UP, true);
+                rules, "며칠 뒤", delayed, REQUEST_FOLLOW_UP);
 
         LinearLayout common = new LinearLayout(this);
         common.setOrientation(LinearLayout.HORIZONTAL);
@@ -107,13 +110,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
         common.setFocusable(true);
         common.setOnClickListener(v -> showCommonSettings());
 
-        LinearLayout commonText = new LinearLayout(this);
-        commonText.setOrientation(LinearLayout.VERTICAL);
-        commonText.addView(title("발송 조건·회선", 15f), matchWrap());
-        commonSummary = body("");
-        commonSummary.setMaxLines(4);
-        commonText.addView(commonSummary, topMargin(4));
-        common.addView(commonText, new LinearLayout.LayoutParams(
+        common.addView(title("시간·회선 설정", 15f), new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
         TextView arrow = body("›");
@@ -132,51 +129,50 @@ public final class MessageAutomationSettingsActivity extends Activity {
     }
 
     private TextView addScenario(
-            LinearLayout root,
-            String label,
-            String description,
-            Switch toggle,
-            int requestCode,
-            boolean showDelay) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setPadding(dp(14), dp(13), dp(14), dp(14));
-        card.setBackgroundResource(R.drawable.bg_card);
-
-        LinearLayout top = new LinearLayout(this);
-        top.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout heading = new LinearLayout(this);
-        heading.setOrientation(LinearLayout.VERTICAL);
-        heading.addView(title(label, 15f), matchWrap());
-        if (!description.isEmpty()) heading.addView(body(description), topMargin(2));
-        top.addView(heading, new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            LinearLayout root, String label, Switch toggle, int requestCode) {
+        if (root.getChildCount() > 0) {
+            View divider = new View(this);
+            divider.setBackgroundColor(getColor(R.color.border));
+            root.addView(divider, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(1)));
+        }
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(dp(72));
+        LinearLayout text = new LinearLayout(this);
+        text.setOrientation(LinearLayout.VERTICAL);
+        text.setPadding(dp(4), dp(9), dp(8), dp(9));
+        text.setFocusable(true);
+        text.setOnClickListener(v -> {
+            if (requestCode == REQUEST_FOLLOW_UP) showFollowUpOptions();
+            else openTemplateSelector(requestCode);
+        });
+        text.addView(title(label, 15f), matchWrap());
+        TextView template = body("");
+        template.setMaxLines(2);
+        template.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        text.addView(template, topMargin(3));
+        row.addView(text, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
         toggle.setShowText(false);
         toggle.setContentDescription(label + " 자동문자 사용");
-        top.addView(toggle, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)));
-        card.addView(top, matchWrap());
-
-        LinearLayout actions = new LinearLayout(this);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        Button template = button("문구 선택", false);
-        template.setMinHeight(dp(48));
-        template.setMaxLines(2);
-        template.setOnClickListener(v -> openTemplateSelector(requestCode));
-        actions.addView(template, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
-
-        if (showDelay) {
-            followDelayButton = button("발송일", false);
-            followDelayButton.setMinHeight(dp(48));
-            followDelayButton.setOnClickListener(v -> showDelayPicker());
-            LinearLayout.LayoutParams delayParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
-            delayParams.leftMargin = dp(8);
-            actions.addView(followDelayButton, delayParams);
-        }
-        card.addView(actions, topMargin(8));
-        root.addView(card, topMargin(8));
+        toggle.setMinHeight(dp(48));
+        row.addView(toggle, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
+        root.addView(row, matchWrap());
         return template;
+    }
+
+    private void showFollowUpOptions() {
+        AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+                .setTitle("며칠 뒤")
+                .setItems(new String[]{"문구 바꾸기", "발송일 바꾸기"}, (prompt, which) -> {
+                    if (which == 0) openTemplateSelector(REQUEST_FOLLOW_UP);
+                    else showDelayPicker();
+                })
+                .setNegativeButton("취소", null)
+                .create();
+        dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+        dialog.show();
     }
 
     private void showDelayPicker() {
@@ -376,31 +372,14 @@ public final class MessageAutomationSettingsActivity extends Activity {
         connected.setChecked(MessageAutomationStore.connectedEnabled(this));
         missed.setChecked(MessageAutomationStore.missedEnabled(this));
         delayed.setChecked(MessageAutomationStore.delayedEnabled(this));
-        renderTemplate(connectedTemplate, MessageTemplateStore.PURPOSE_INCOMING);
-        renderTemplate(missedTemplate, MessageTemplateStore.PURPOSE_MISSED);
-        renderTemplate(followTemplate, MessageTemplateStore.PURPOSE_FOLLOW_UP);
-        if (followDelayButton != null) {
-            followDelayButton.setText(delayDaysValue + "일 후");
-            followDelayButton.setContentDescription("발송일 변경 · " + delayDaysValue + "일 후");
-        }
-        commonSummary.setText((businessHoursValue
-                ? startHourValue + ":00–" + endHourValue + ":00"
-                : "시간 제한 없음")
-                + " · " + cooldownHoursValue + "시간 중복 방지"
-                + "\n" + selectedLineLabel());
+        renderTemplate(connectedTemplate, MessageTemplateStore.PURPOSE_INCOMING, "");
+        renderTemplate(missedTemplate, MessageTemplateStore.PURPOSE_MISSED, "");
+        renderTemplate(followTemplate, MessageTemplateStore.PURPOSE_FOLLOW_UP, delayDaysValue + "일 후 · ");
     }
 
-    private String selectedLineLabel() {
-        for (SimProfileManager.Profile profile : profiles) {
-            if (profile.subscriptionId == selectedSubscriptionId) return profile.label();
-        }
-        return "기본 문자 회선";
-    }
-
-    private void renderTemplate(TextView button, String purpose) {
+    private void renderTemplate(TextView view, String purpose, String prefix) {
         String name = MessageTemplateStore.defaultName(this, purpose);
-        button.setText(name == null || name.trim().isEmpty() ? "문구 선택" : name + "  ›");
-        button.setContentDescription("문구 변경" + (name == null || name.isEmpty() ? "" : " · " + name));
+        view.setText(prefix + (name == null || name.trim().isEmpty() ? "문구 선택" : name) + "  ›");
     }
 
     private void save() {
