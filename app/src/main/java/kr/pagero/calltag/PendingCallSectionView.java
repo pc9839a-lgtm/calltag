@@ -93,8 +93,6 @@ public final class PendingCallSectionView extends LinearLayout {
             }
             setVisibility(VISIBLE);
             addView(sectionTitle("확인할 통화", calls.size()), matchWrap());
-            addView(text("부재중·거절·연결되지 않은 발신만 표시됩니다.",
-                    13f, R.color.text_secondary, false), topMargin(6));
             for (PendingCallRecord call : calls) addView(callCard(call, db), cardParams());
         } finally {
             db.close();

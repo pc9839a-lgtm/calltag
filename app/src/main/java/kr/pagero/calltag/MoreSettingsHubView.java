@@ -6,7 +6,9 @@ import android.graphics.Typeface;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.AttributeSet;
+import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -50,13 +52,7 @@ public final class MoreSettingsHubView extends LinearLayout {
         });
         addView(search, new LayoutParams(LayoutParams.MATCH_PARENT, dp(48)));
 
-        Section account = section("내 정보");
-        account.addMenu("계정", "내 정보 로그인 로그아웃 회원탈퇴",
-                v -> start(AccountActivity.class));
-        account.addMenu("이용권", "구독 결제 무료 이용권 요금제 구매 복원",
-                v -> start(BillingEntitlementActivity.class));
-
-        Section work = section("업무 관리");
+        Section work = section("고객과 문자");
         work.addMenu("통화 후 자동문자", "수신 발신 부재중 자동 문자 SMS 발송 설정",
                 v -> start(MessageAutomationSettingsActivity.class));
         work.addMenu("문자 관리", "통화 후 자동문자 템플릿 그룹 단체문자 발송 관리",
@@ -64,7 +60,20 @@ public final class MoreSettingsHubView extends LinearLayout {
         work.addMenu("고객 관리", "고객 상태 일정 종류 통화 후 팝업 제외",
                 v -> start(SettingsGroupActivity.intent(getContext(), SettingsGroupActivity.GROUP_CUSTOMER)));
 
-        Section service = section("서비스");
+        Section phone = section("전화 설정");
+        LayoutInflater.from(getContext()).inflate(R.layout.row_phone_settings, phone.rows, true);
+        phone.register(phone.rows.findViewById(R.id.enableMonitorButton), "통화 감지 권한 기록");
+        View caller = phone.rows.findViewById(R.id.callerIdRow);
+        caller.setOnClickListener(v -> caller.findViewById(R.id.callerIdSetupButton).performClick());
+        phone.register(caller, "발신자 정보 수신 전화 고객정보 권한");
+
+        Section account = section("내 정보");
+        account.addMenu("계정", "내 정보 로그인 로그아웃 회원탈퇴",
+                v -> start(AccountActivity.class));
+        account.addMenu("이용권", "구독 결제 무료 이용권 요금제 구매 복원",
+                v -> start(BillingEntitlementActivity.class));
+
+        Section service = section("연동과 추천");
         service.addMenu("외부 문의 연동", "외부 문의 자동수신 메타 리드 광고 구글 폼 웹훅 연동",
                 v -> start(ExternalLeadIntegrationActivity.class));
         service.addMenu("Webhook 필드 매핑", "외부폼 웹훅 샘플 전화번호 이름 이메일 문의내용 필드 연결",
@@ -89,7 +98,7 @@ public final class MoreSettingsHubView extends LinearLayout {
     private Section section(String title) {
         Section section = new Section(title);
         sections.add(section);
-        addView(section.root, topMargin(sections.size() == 1 ? 24 : 34));
+        addView(section.root, topMargin(sections.size() == 1 ? 18 : 20));
         return section;
     }
 
@@ -133,7 +142,9 @@ public final class MoreSettingsHubView extends LinearLayout {
 
             rows = new LinearLayout(getContext());
             rows.setOrientation(VERTICAL);
-            root.addView(rows, topMargin(10));
+            rows.setBackgroundResource(R.drawable.bg_card);
+            rows.setClipToOutline(true);
+            root.addView(rows, topMargin(8));
         }
 
         void addMenu(String title, String keywords, View.OnClickListener listener) {
@@ -144,16 +155,18 @@ public final class MoreSettingsHubView extends LinearLayout {
             LinearLayout row = new LinearLayout(getContext());
             row.setOrientation(HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setPadding(dp(18), 0, dp(14), 0);
-            row.setBackgroundResource(R.drawable.bg_card);
+            row.setPadding(dp(14), 0, dp(8), 0);
+            row.setMinimumHeight(dp(50));
+            TypedValue background = new TypedValue();
+            if (getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackground,
+                    background, true)) row.setBackgroundResource(background.resourceId);
             row.setClickable(true);
             row.setFocusable(true);
             row.setOnClickListener(listener);
 
             TextView titleView = new TextView(getContext());
             titleView.setText(title);
-            titleView.setTextSize(16f);
-            titleView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+            titleView.setTextSize(15f);
             titleView.setTextColor(getContext().getColor(R.color.text_primary));
             titleView.setIncludeFontPadding(false);
             row.addView(titleView, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
@@ -178,15 +191,14 @@ public final class MoreSettingsHubView extends LinearLayout {
             arrow.setGravity(Gravity.CENTER);
             row.addView(arrow, new LayoutParams(dp(30), dp(52)));
 
-            MenuItem item = new MenuItem(row,
-                    (title + " " + (value == null ? "" : value) + " " + keywords)
-                            .toLowerCase(Locale.KOREA));
+            register(row, title + " " + (value == null ? "" : value) + " " + keywords);
+            rows.addView(row, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
+        }
+
+        void register(View row, String searchText) {
+            MenuItem item = new MenuItem(row, searchText.toLowerCase(Locale.KOREA));
             items.add(item);
             menuItems.add(item);
-
-            LayoutParams params = new LayoutParams(LayoutParams.MATCH_PARENT, dp(64));
-            params.bottomMargin = dp(12);
-            rows.addView(row, params);
         }
 
         void refreshVisibility() {

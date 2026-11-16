@@ -29,7 +29,7 @@ public final class CallerIdSetupButton extends Switch {
         setText("");
         setShowText(false);
         setPadding(0, 0, 0, 0);
-        setContentDescription("수신 전화 고객정보 표시");
+        setContentDescription("발신자 정보");
         setOnCheckedChangeListener((button, checked) -> {
             if (syncing) return;
             if (!checked) {

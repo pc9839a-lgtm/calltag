@@ -51,8 +51,6 @@ public final class MainActivity extends Activity {
     private TextView overdueCount;
     private TextView todayNewCount;
     private TextView todayEmpty;
-    private TextView monitorStateText;
-    private TextView callerIdStateText;
     private Switch enableMonitorButton;
     private LinearLayout todayTaskList;
 
@@ -114,8 +112,6 @@ public final class MainActivity extends Activity {
         overdueCount = findViewById(R.id.overdueCount);
         todayNewCount = findViewById(R.id.todayNewCount);
         todayEmpty = findViewById(R.id.todayEmpty);
-        monitorStateText = findViewById(R.id.monitorStateText);
-        callerIdStateText = findViewById(R.id.callerIdStateText);
         enableMonitorButton = findViewById(R.id.enableMonitorButton);
         todayTaskList = findViewById(R.id.todayTaskList);
 
@@ -142,7 +138,6 @@ public final class MainActivity extends Activity {
 
         findViewById(R.id.quickAddCustomer).setOnClickListener(v -> {});
         findViewById(R.id.addCustomerButton).setOnClickListener(v -> {});
-        findViewById(R.id.quickCustomers).setOnClickListener(v -> selectSection(sectionCustomers, navCustomers));
         findViewById(R.id.quickConsultations).setOnClickListener(v -> selectSection(sectionConsultations, navConsultations));
         findViewById(R.id.stageSettingsButton).setOnClickListener(v -> openStageSettings());
 
@@ -229,7 +224,10 @@ public final class MainActivity extends Activity {
         }
         AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("통화 감지 권한")
-                .setMessage("발신·수신·부재중 통화를 할 일과 연결하는 데 필요합니다.")
+                .setMessage(missing.contains(Manifest.permission.READ_CALL_LOG)
+                        || missing.contains(Manifest.permission.READ_PHONE_STATE)
+                        ? "전화 상태와 통화기록을 사용해 통화 후 할 일을 연결합니다."
+                        : "통화 후 알림을 표시합니다.")
                 .setNegativeButton("취소", null)
                 .setPositiveButton("권한 허용", (value, which) -> requestPermissions(
                         missing.toArray(new String[0]), REQUEST_MONITOR_PERMISSIONS))
@@ -280,17 +278,7 @@ public final class MainActivity extends Activity {
 
     private void renderMonitorState() {
         boolean enabled = hasMonitorPermissions() && SettingsStore.isMonitorEnabled(this);
-        monitorStateText.setText(enabled ? "사용 중" : "꺼짐");
-        monitorStateText.setTextColor(getColor(enabled ? R.color.primary : R.color.text_muted));
         enableMonitorButton.setChecked(enabled);
-
-        boolean callerInfoEnabled = SetupRequirements.hasScreeningRole(this)
-                && SettingsStore.isCallerInfoDisplayEnabled(this);
-        if (callerIdStateText != null) {
-            callerIdStateText.setText(callerInfoEnabled ? "사용 중" : "설정 필요");
-            callerIdStateText.setTextColor(getColor(
-                    callerInfoEnabled ? R.color.primary : R.color.text_muted));
-        }
     }
 
     private void renderTasks() {
