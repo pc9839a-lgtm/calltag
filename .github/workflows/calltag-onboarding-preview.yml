@@ -1,0 +1,39 @@
+name: CallTag onboarding preview
+on:
+  push:
+    branches: [ci/calltag-onboarding-preview-20261116]
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CALLTAG_FIREBASE_APPLICATION_ID: ${{ secrets.CALLTAG_FIREBASE_APPLICATION_ID }}
+      CALLTAG_FIREBASE_API_KEY: ${{ secrets.CALLTAG_FIREBASE_API_KEY }}
+      CALLTAG_FIREBASE_PROJECT_ID: ${{ secrets.CALLTAG_FIREBASE_PROJECT_ID }}
+      CALLTAG_FIREBASE_SENDER_ID: ${{ secrets.CALLTAG_FIREBASE_SENDER_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Validate permission and session behavior
+        run: |
+          python3 scripts/calltag-play-policy-permissions-check.py
+          python3 scripts/calltag-release-origin-contract-check.py
+          python3 scripts/calltag-universal-lead-contract-check.py
+          python3 scripts/calltag-sms-consent-runtime-check.py
+      - name: Build preview APK
+        run: |
+          python3 scripts/calltag-firebase-config.py
+          gradle :app:assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: calltag-onboarding-preview
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
