@@ -30,10 +30,13 @@ jobs:
           python3 scripts/calltag-sms-consent-runtime-check.py
       - name: Build preview APK
         run: |
+          sed -i "s/versionCode 2026111301/versionCode 2026111601/; s/versionName '0.44.66'/versionName '0.44.67-qa'/" app/build.gradle
+          grep -F 'versionCode 2026111601' app/build.gradle
+          grep -F "versionName '0.44.67-qa'" app/build.gradle
           python3 scripts/calltag-firebase-config.py
           gradle :app:assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
-          name: calltag-onboarding-preview
+          name: calltag-onboarding-play-test
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
