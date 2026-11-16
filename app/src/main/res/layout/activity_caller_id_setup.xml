@@ -50,92 +50,46 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:gravity="center_vertical"
             android:paddingLeft="20dp"
             android:paddingTop="28dp"
             android:paddingRight="20dp"
             android:paddingBottom="40dp">
 
             <TextView
-                android:id="@+id/callerIdSetupIntro"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="전화가 오기 전에\n고객명과 최근 메모를 준비합니다."
-                android:textColor="@color/text_primary"
-                android:textSize="27sp"
-                android:textStyle="bold" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:background="@drawable/bg_card"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="통화 전에 바로 확인"
-                    android:textColor="@color/text_primary"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:lineSpacingExtra="5dp"
-                    android:text="김민수 · 견적서 재발송처럼 고객명 옆에 최근 메모가 표시됩니다. 기존 Google·삼성 연락처는 그대로 유지됩니다."
-                    android:textColor="@color/text_secondary"
-                    android:textSize="15sp" />
-            </LinearLayout>
-
-            <TextView
                 android:id="@+id/callerIdSetupStatus"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:background="@drawable/bg_card"
-                android:gravity="center_vertical"
-                android:lineSpacingExtra="5dp"
-                android:minHeight="88dp"
-                android:padding="18dp"
-                android:text="설정을 확인하고 있습니다."
-                android:textColor="@color/text_primary"
+                android:accessibilityLiveRegion="polite"
+                android:lineSpacingExtra="4dp"
+                android:textColor="@color/text_secondary"
                 android:textSize="15sp" />
 
             <Button
                 android:id="@+id/callerIdSetupAction"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:layout_marginTop="16dp"
+                android:layout_height="wrap_content"
+                android:minHeight="52dp"
+                android:layout_marginTop="24dp"
                 android:background="@drawable/bg_primary_button"
-                android:text="필수 권한 허용하고 시작"
                 android:textAllCaps="false"
-                android:textColor="@color/text_primary"
+                android:textColor="@android:color/white"
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
             <Button
-                android:id="@+id/contactNameSyncToggle"
+                android:id="@+id/callerIdSetupSkip"
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
                 android:layout_marginTop="10dp"
                 android:background="@drawable/bg_secondary_button"
-                android:text="전화 화면 메모 켜기"
+                android:text="건너뛰기"
                 android:textAllCaps="false"
                 android:textColor="@color/primary"
                 android:textSize="15sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                android:lineSpacingExtra="4dp"
-                android:text="기능을 끄면 콜태그가 만든 연락처만 삭제되며 기존 연락처는 변경되지 않습니다."
-                android:textColor="@color/text_muted"
-                android:textSize="13sp" />
+                android:textStyle="bold"
+                android:visibility="gone" />
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

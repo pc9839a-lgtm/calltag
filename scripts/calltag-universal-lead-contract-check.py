@@ -184,7 +184,7 @@ require(post_call_recovery, 'CallPopupNotificationManager.showPostCall(', "post-
 # Permission recovery must distinguish a normal denial from a system-blocked re-request.
 require(initial_permission, 'shouldShowRequestPermissionRationale(permission)', "permission rationale gate missing")
 require(initial_permission, 'KEY_RUNTIME_REQUESTED_ONCE', "permission request history missing")
-require(initial_permission, '"권한 설정에서 허용"', "permanent-denial settings CTA missing")
+require(initial_permission, 'settingsRequired ? "설정 열기"', "permanent-denial settings CTA missing")
 require(initial_permission, 'Settings.ACTION_APPLICATION_DETAILS_SETTINGS', "app permission settings recovery missing")
 require(initial_permission, 'if (requiresSettings(missing))', "blocked permission must route to settings")
 require(initial_permission, 'if (!openedSettings) return;', "settings return re-check missing")

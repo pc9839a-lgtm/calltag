@@ -10,8 +10,9 @@ gate=(P/"FeatureAccessGate.java").read_text(encoding="utf-8")
 assert "postDelayed(this::startPermissionFlow" not in init
 assert "requestButton.setOnClickListener(v -> startPermissionFlow());" in init
 assert "READ_CALL_LOG" in init
-assert "SEND_SMS" in init
-assert 'title.setText("통화 후 고객관리 자동화")' in init
+assert "SEND_SMS" not in init, "Onboarding must not request SMS access"
+assert "detail.setText(CORE_DISCLOSURE);" in init
+assert "통화기록(번호·시각·유형), 연락처를 사용해" in init
 assert "if (!p.contains(KEY_ENABLED)) editor.putBoolean(KEY_ENABLED, false);" in store
 assert "return prefs(context).getBoolean(KEY_ENABLED, false);" in store
 assert "getBoolean(KEY_CONNECTED_ENABLED, false)" in store

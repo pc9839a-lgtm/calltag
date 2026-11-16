@@ -26,8 +26,9 @@ assert 'PRODUCTION_API_BASE = "https://pagero.kr"' in auth
 role = (JAVA / "CallerIdSetupActivity.java").read_text(encoding="utf-8")
 assert "RoleManager.ROLE_CALL_SCREENING" in role
 assert "RoleManager.ROLE_DIALER" not in role
-assert "기본 전화 앱은 변경되지 않습니다" in role
-assert "지금은 건너뛰기" in role
+assert "기본 전화 앱은 그대로 사용합니다" in role
+assert "skip.setVisibility(View.VISIBLE)" in role
+assert "if (requiredSetup) finishCoreSetupWithoutScreening();" in role
 
 notice = (JAVA / "EntitlementNoticeActivity.java").read_text(encoding="utf-8")
 gate = (JAVA / "AuthGateActivity.java").read_text(encoding="utf-8")

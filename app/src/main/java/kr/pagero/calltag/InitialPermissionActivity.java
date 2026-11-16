@@ -13,6 +13,7 @@ import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.util.ArrayList;
@@ -22,8 +23,10 @@ public final class InitialPermissionActivity extends Activity {
     private static final int REQUEST_PERMISSIONS = 8401;
     private static final String PREFS = "calltag_permission_flow";
     private static final String KEY_RUNTIME_REQUESTED_ONCE = "runtime_permissions_requested_once";
+    static final String CORE_DISCLOSURE = "전화 상태와 통화기록(번호·시각·유형), 연락처를 사용해 "
+            + "통화 후 상담 기록과 할 일을 연결합니다.";
 
-    private TextView detail;
+    private TextView status;
     private TextView requestButton;
     private TextView settingsButton;
     private boolean requestInFlight;
@@ -52,46 +55,50 @@ public final class InitialPermissionActivity extends Activity {
         }
     }
 
-    private LinearLayout buildContent() {
+    private View buildContent() {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(getColor(R.color.background));
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER);
         root.setPadding(dp(28), dp(32), dp(28), dp(32));
-        root.setBackgroundColor(getColor(R.color.background));
+        scroll.addView(root);
 
         TextView title = new TextView(this);
-        title.setText("통화 후 고객관리 자동화");
+        title.setText("통화 후 기록");
         title.setTextColor(getColor(R.color.text_primary));
         title.setTextSize(23f);
         title.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         title.setGravity(Gravity.CENTER);
         root.addView(title, wrap());
 
-        detail = new TextView(this);
-        detail.setText("통화 후 고객관리를 켜면 전화 상태와 통화기록(READ_CALL_LOG)에서 통화 시각·유형·번호를 확인하고, 연락처를 참고해 상담 이력과 후속 업무를 등록합니다.\n\n통화 후 자동문자는 기본 꺼짐입니다. 통화 유형·문구·회선을 설정해 자동문자를 저장할 때 SMS 발송 권한(SEND_SMS)을 별도로 요청합니다. 작성한 문자와 통화 외 예약 문자는 메시지 앱에서 확인하고 전송합니다.");
+        TextView detail = new TextView(this);
+        detail.setText(CORE_DISCLOSURE);
         detail.setTextColor(getColor(R.color.text_secondary));
         detail.setTextSize(14f);
         detail.setGravity(Gravity.CENTER);
         detail.setLineSpacing(0f, 1.25f);
         root.addView(detail, top(12));
 
-        requestButton = action("통화 후 자동관리 권한 허용", true);
+        status = new TextView(this);
+        status.setTextColor(getColor(R.color.text_secondary));
+        status.setTextSize(13f);
+        status.setGravity(Gravity.CENTER);
+        status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        status.setVisibility(View.GONE);
+        root.addView(status, top(12));
+
+        requestButton = action("권한 허용", true);
         requestButton.setOnClickListener(v -> startPermissionFlow());
         root.addView(requestButton, fixedTop(52, 24));
 
-        settingsButton = action("권한 설정 열기", false);
+        settingsButton = action("설정 열기", false);
         settingsButton.setVisibility(View.GONE);
         settingsButton.setOnClickListener(v -> openAppSettings());
         root.addView(settingsButton, fixedTop(50, 9));
 
-        TextView note = new TextView(this);
-        note.setText("권한 허용 버튼을 눌러야 Android 권한 요청창이 열립니다. 통화기록은 통화 후 업무 생성 및 중복 처리 방지에 사용하며, 통화 내역을 변경하지 않습니다. 현재 전화 앱은 그대로 사용합니다.");
-        note.setTextColor(getColor(R.color.text_muted));
-        note.setTextSize(12f);
-        note.setGravity(Gravity.CENTER);
-        note.setLineSpacing(0f, 1.2f);
-        root.addView(note, top(18));
-        return root;
+        return scroll;
     }
 
     private TextView action(String text, boolean primary) {
@@ -129,7 +136,7 @@ public final class InitialPermissionActivity extends Activity {
         requestButton.setAlpha(0.6f);
         requestButton.setText("권한 요청 중…");
         settingsButton.setVisibility(View.GONE);
-        detail.setText("통화 후 고객관리에 필요한 연락처 · 전화 상태 · 전화번호 · 통화기록 권한을 요청합니다. SMS 발송 권한(SEND_SMS)은 통화 후 자동문자 규칙을 저장할 때 별도로 요청합니다.");
+        status.setVisibility(View.GONE);
         requestPermissions(missing.toArray(new String[0]), REQUEST_PERMISSIONS);
     }
 
@@ -168,12 +175,14 @@ public final class InitialPermissionActivity extends Activity {
 
         requestButton.setEnabled(true);
         requestButton.setAlpha(1f);
-        requestButton.setText(settingsRequired ? "권한 설정에서 허용" : "남은 권한 허용");
-        settingsButton.setVisibility(View.VISIBLE);
-        detail.setText((settingsRequired
-                ? "Android가 권한창 재요청을 제한하고 있습니다. 권한 설정에서 남은 항목을 직접 허용해주세요."
-                : "필수 권한이 남아 있습니다. 위 버튼을 누르면 Android 권한창을 다시 엽니다.")
-                + "\n\n남은 항목: " + missingPermissionLabels());
+        requestButton.setText(settingsRequired ? "설정 열기" : "남은 권한 허용");
+        settingsButton.setVisibility(settingsRequired ? View.GONE : View.VISIBLE);
+        showStatus("남은 권한: " + missingPermissionLabels());
+    }
+
+    private void showStatus(String message) {
+        status.setText(message);
+        status.setVisibility(View.VISIBLE);
     }
 
     private boolean requiresSettings(List<String> missing) {
@@ -210,9 +219,7 @@ public final class InitialPermissionActivity extends Activity {
                     Uri.parse("package:" + getPackageName())));
         } catch (RuntimeException ignored) {
             openedSettings = false;
-            detail.setText("권한 설정 화면을 열지 못했습니다. Android 설정에서 콜태그의 권한을 직접 허용해주세요.\n\n남은 항목: "
-                    + missingPermissionLabels());
-            settingsButton.setVisibility(View.VISIBLE);
+            showStatus("기기 설정 → 앱 → 콜태그 → 권한에서 허용해 주세요.");
         }
     }
 
@@ -221,8 +228,9 @@ public final class InitialPermissionActivity extends Activity {
         completing = true;
         requestButton.setEnabled(false);
         requestButton.setAlpha(0.6f);
-        requestButton.setText("설정 마무리 중…");
-        detail.setText("통화 고객관리를 준비하고 있습니다.");
+        requestButton.setText("준비 중…");
+        settingsButton.setVisibility(View.GONE);
+        status.setVisibility(View.GONE);
 
         new Thread(() -> {
             // Upgrade migration only: remove legacy CallTag-owned contact rows when an older
