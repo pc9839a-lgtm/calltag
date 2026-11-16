@@ -62,7 +62,7 @@ start("HomeTaskEditorActivity")
 tap(retrieve(["QA-Customer"])[1]["QA-Customer"])
 tap(retrieve(["전화하기"])[1]["전화하기"])
 tap(proof("01-task-date", "날짜 선택", "이 날짜로 선택")["이 날짜로 선택"])
-tap(proof("02-task-time", "시간 선택", "이 시간으로 등록")["취소"])
+tap(proof("02-task-time", "시간 선택", "등록")["취소"])
 start("MessageAutomationSettingsActivity")
 try:
     row = retrieve(["발송 조건·회선"])[1]["발송 조건·회선"]

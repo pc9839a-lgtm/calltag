@@ -233,7 +233,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(dp(18), dp(6), dp(18), dp(12));
 
-        Switch business = switchCard("업무시간에만 보내기");
+        Switch business = switchCard("업무시간만 발송");
         business.setChecked(businessHoursValue);
         panel.addView(business, matchWrap());
 
@@ -276,8 +276,8 @@ public final class MessageAutomationSettingsActivity extends Activity {
         for (SimProfileManager.Profile profile : profiles) labels.add(profile.label());
         if (labels.isEmpty()) labels.add("기본 문자 회선");
         line.setAdapter(new CallTagSpinnerAdapter(this, labels));
-        line.setBackgroundResource(R.drawable.bg_secondary_button);
-        line.setPadding(dp(12), 0, dp(12), 0);
+        line.setBackground(null);
+        line.setPadding(0, 0, 0, 0);
         for (int i = 0; i < profiles.size(); i++) {
             if (profiles.get(i).subscriptionId == selectedSubscriptionId) {
                 line.setSelection(i);
