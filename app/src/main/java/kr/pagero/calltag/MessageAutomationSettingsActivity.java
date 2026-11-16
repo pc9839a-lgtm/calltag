@@ -87,23 +87,17 @@ public final class MessageAutomationSettingsActivity extends Activity {
         enabled = switchCard("자동문자 사용");
         root.addView(enabled, topMargin(14));
 
-        TextView consent = title("켜 둔 조건에 해당할 때만 SMS를 보냅니다.", 13f);
-        consent.setTextColor(getColor(R.color.text_secondary));
-        consent.setLineSpacing(0f, 1.18f);
-        root.addView(consent, topMargin(10));
-
         root.addView(sectionLabel("발송 시점"), topMargin(20));
         connected = new Switch(this);
         connectedTemplate = addScenario(
-                root, "통화 후", "수신·발신 통화 종료 후 문자 자동발송", connected, REQUEST_CONNECTED, false);
+                root, "통화 후", "연결된 수신·발신 통화", connected, REQUEST_CONNECTED, false);
         missed = new Switch(this);
         missedTemplate = addScenario(
-                root, "부재중", "부재중·거절 전화에 문자 자동발송", missed, REQUEST_MISSED, false);
+                root, "부재중", "받지 못했거나 거절한 전화", missed, REQUEST_MISSED, false);
         delayed = new Switch(this);
         followTemplate = addScenario(
-                root, "후속 예약", "통화 후 설정한 날짜에 자동발송", delayed, REQUEST_FOLLOW_UP, true);
+                root, "후속 예약", "", delayed, REQUEST_FOLLOW_UP, true);
 
-        root.addView(sectionLabel("공통 설정"), topMargin(20));
         LinearLayout common = new LinearLayout(this);
         common.setOrientation(LinearLayout.HORIZONTAL);
         common.setGravity(Gravity.CENTER_VERTICAL);
@@ -126,7 +120,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
         arrow.setTextSize(24f);
         arrow.setGravity(Gravity.CENTER);
         common.addView(arrow, new LinearLayout.LayoutParams(dp(30), dp(44)));
-        root.addView(common, topMargin(8));
+        root.addView(common, topMargin(16));
 
         Button save = button("저장", true);
         save.setOnClickListener(v -> save());
@@ -154,9 +148,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
         LinearLayout heading = new LinearLayout(this);
         heading.setOrientation(LinearLayout.VERTICAL);
         heading.addView(title(label, 15f), matchWrap());
-        TextView descriptionView = body(description);
-        descriptionView.setTextColor(getColor(R.color.text_secondary));
-        heading.addView(descriptionView, topMargin(4));
+        if (!description.isEmpty()) heading.addView(body(description), topMargin(2));
         top.addView(heading, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
@@ -166,28 +158,25 @@ public final class MessageAutomationSettingsActivity extends Activity {
                 LinearLayout.LayoutParams.WRAP_CONTENT, dp(44)));
         card.addView(top, matchWrap());
 
-        TextView selected = body("");
-        selected.setSingleLine(true);
-        selected.setTextColor(getColor(R.color.text_primary));
-        selected.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        card.addView(selected, topMargin(12));
-
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
-        Button template = button("템플릿 선택", false);
+        Button template = button("문구 선택", false);
+        template.setMinHeight(dp(48));
+        template.setMaxLines(2);
         template.setOnClickListener(v -> openTemplateSelector(requestCode));
-        actions.addView(template, new LinearLayout.LayoutParams(0, dp(46), 1f));
+        actions.addView(template, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
 
         if (showDelay) {
-            followDelayButton = button("기간 선택", false);
+            followDelayButton = button("발송일", false);
+            followDelayButton.setMinHeight(dp(48));
             followDelayButton.setOnClickListener(v -> showDelayPicker());
-            LinearLayout.LayoutParams delayParams = new LinearLayout.LayoutParams(0, dp(46), 1f);
+            LinearLayout.LayoutParams delayParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
             delayParams.leftMargin = dp(8);
             actions.addView(followDelayButton, delayParams);
         }
-        card.addView(actions, topMargin(11));
+        card.addView(actions, topMargin(8));
         root.addView(card, topMargin(8));
-        return selected;
+        return template;
     }
 
     private void showDelayPicker() {
@@ -380,14 +369,12 @@ public final class MessageAutomationSettingsActivity extends Activity {
         connected.setChecked(MessageAutomationStore.connectedEnabled(this));
         missed.setChecked(MessageAutomationStore.missedEnabled(this));
         delayed.setChecked(MessageAutomationStore.delayedEnabled(this));
-        connectedTemplate.setText("선택된 템플릿 · " + MessageTemplateStore.defaultName(
-                this, MessageTemplateStore.PURPOSE_INCOMING));
-        missedTemplate.setText("선택된 템플릿 · " + MessageTemplateStore.defaultName(
-                this, MessageTemplateStore.PURPOSE_MISSED));
-        followTemplate.setText("선택된 템플릿 · " + MessageTemplateStore.defaultName(
-                this, MessageTemplateStore.PURPOSE_FOLLOW_UP));
+        renderTemplate(connectedTemplate, MessageTemplateStore.PURPOSE_INCOMING);
+        renderTemplate(missedTemplate, MessageTemplateStore.PURPOSE_MISSED);
+        renderTemplate(followTemplate, MessageTemplateStore.PURPOSE_FOLLOW_UP);
         if (followDelayButton != null) {
-            followDelayButton.setText("발송 시점 · " + delayDaysValue + "일 후");
+            followDelayButton.setText(delayDaysValue + "일 후");
+            followDelayButton.setContentDescription("발송일 변경 · " + delayDaysValue + "일 후");
         }
         commonSummary.setText((businessHoursValue
                 ? startHourValue + ":00–" + endHourValue + ":00"
@@ -401,6 +388,12 @@ public final class MessageAutomationSettingsActivity extends Activity {
             if (profile.subscriptionId == selectedSubscriptionId) return profile.label();
         }
         return "기본 문자 회선";
+    }
+
+    private void renderTemplate(TextView button, String purpose) {
+        String name = MessageTemplateStore.defaultName(this, purpose);
+        button.setText(name == null || name.trim().isEmpty() ? "문구 선택" : name + "  ›");
+        button.setContentDescription("문구 변경" + (name == null || name.isEmpty() ? "" : " · " + name));
     }
 
     private void save() {

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+    <Switch
+        android:id="@+id/enableMonitorButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:minHeight="50dp"
+        android:paddingHorizontal="14dp"
+        android:showText="false"
+        android:text="통화 감지"
+        android:textColor="@color/text_primary"
+        android:textSize="15sp"
+        android:thumbTint="@color/switch_thumb_tint"
+        android:trackTint="@color/switch_track_tint" />
+
+    <LinearLayout
+        android:id="@+id/callerIdRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:minHeight="50dp"
+        android:orientation="horizontal"
+        android:paddingHorizontal="14dp">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:importantForAccessibility="no"
+            android:text="발신자 정보"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp" />
+
+        <kr.pagero.calltag.CallerIdSetupButton
+            android:id="@+id/callerIdSetupButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:thumbTint="@color/switch_thumb_tint"
+            android:trackTint="@color/switch_track_tint" />
+    </LinearLayout>
+</merge>
