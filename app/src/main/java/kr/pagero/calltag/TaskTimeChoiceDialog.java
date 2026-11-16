@@ -111,7 +111,7 @@ public final class TaskTimeChoiceDialog {
         actions.setOrientation(LinearLayout.HORIZONTAL);
         TextView cancel = action(context, "취소", false);
         String doneLabel = actionLabel == null || actionLabel.trim().isEmpty()
-                ? "확인" : actionLabel.trim();
+                ? "확인" : actionLabel.trim().replaceFirst("^이 시간으로 +", "");
         TextView done = action(context, doneLabel, true);
         actions.addView(cancel, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.9f));
         LinearLayout.LayoutParams doneParams = new LinearLayout.LayoutParams(
