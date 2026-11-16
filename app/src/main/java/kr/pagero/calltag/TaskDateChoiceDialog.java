@@ -43,19 +43,16 @@ public final class TaskDateChoiceDialog {
         LinearLayout root = new LinearLayout(context);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(context, 18), dp(context, 16), dp(context, 18), dp(context, 16));
-        root.setBackgroundResource(R.drawable.bg_dialog_panel);
 
         TextView title = text(context, "날짜 선택", 19f, true, R.color.text_primary);
         root.addView(title, matchWrap());
-        root.addView(text(context, "월을 이동한 뒤 날짜를 선택하세요.",
-                12.5f, false, R.color.text_secondary), top(context, 6));
 
         TextView summary = text(context, "", 18f, true, R.color.primary);
         summary.setGravity(Gravity.CENTER);
         summary.setBackgroundResource(R.drawable.bg_soft_panel);
-        summary.setMinHeight(dp(context, 54));
-        summary.setPadding(dp(context, 8), dp(context, 10), dp(context, 8), dp(context, 10));
-        root.addView(summary, top(context, 14));
+        summary.setMinHeight(dp(context, 48));
+        summary.setPadding(dp(context, 8), dp(context, 8), dp(context, 8), dp(context, 8));
+        root.addView(summary, top(context, 10));
 
         LinearLayout monthHeader = new LinearLayout(context);
         monthHeader.setGravity(Gravity.CENTER_VERTICAL);
@@ -109,7 +106,7 @@ public final class TaskDateChoiceDialog {
         render[0] = () -> {
             monthTitle.setText(new SimpleDateFormat("yyyy년 M월", Locale.KOREA)
                     .format(state.visibleMonth.getTime()));
-            summary.setText(new SimpleDateFormat("yyyy년 M월 d일 EEEE", Locale.KOREA)
+            summary.setText(new SimpleDateFormat("M월 d일 (EEE)", Locale.KOREA)
                     .format(state.selected.getTime()));
             calendarRows.removeAllViews();
 
