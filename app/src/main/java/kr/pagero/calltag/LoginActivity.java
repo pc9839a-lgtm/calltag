@@ -33,10 +33,16 @@ import java.util.concurrent.Executors;
 public final class LoginActivity extends Activity {
     private static final String TAG = "CallTagLogin";
     private static final int RC_GOOGLE_SIGN_IN = 9301;
+    private static final String KEY_AUTH_SCREEN = "auth_screen";
+    private static final int WELCOME = 0;
+    private static final int LOGIN = 1;
+    private static final int SIGNUP = 2;
+    private static final int RESET = 3;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     private View tabs;
+    private View welcome;
     private View loginForm;
     private View signupForm;
     private View resetForm;
@@ -45,6 +51,7 @@ public final class LoginActivity extends Activity {
     private TextView notice;
     private TextView loginButton;
     private TextView googleButton;
+    private TextView emailButton;
     private EditText loginEmail;
     private EditText loginPassword;
     private EditText signupReferral;
@@ -52,6 +59,7 @@ public final class LoginActivity extends Activity {
     private CheckBox termsConsent;
     private boolean working;
     private boolean googleSignInInFlight;
+    private int authScreen;
     private GoogleSignInClient googleSignInClient;
 
     @Override
@@ -59,11 +67,25 @@ public final class LoginActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_auth);
         bindViews();
-        installGoogleButton();
         installSignupReferralField();
         bindActions();
-        showLogin();
+        showScreen(savedInstanceState == null ? WELCOME
+                : savedInstanceState.getInt(KEY_AUTH_SCREEN, WELCOME));
         handleGoogleCallback(getIntent());
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putInt(KEY_AUTH_SCREEN, authScreen);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (working || googleSignInInFlight) return;
+        if (authScreen == RESET || authScreen == SIGNUP) showLogin();
+        else if (authScreen == LOGIN) showScreen(WELCOME);
+        else super.onBackPressed();
     }
 
     @Override
@@ -87,12 +109,12 @@ public final class LoginActivity extends Activity {
         try {
             GoogleSignInAccount account = task.getResult(ApiException.class);
             if (account == null) {
-                finishGoogleError("Google 계정 정보를 받지 못했습니다. 다시 시도해주세요.");
+                finishGoogleError("Google 로그인을 다시 시도해 주세요.");
                 return;
             }
             String idToken = account.getIdToken();
             if (idToken == null || idToken.trim().isEmpty()) {
-                finishGoogleError("Google 로그인 토큰을 받지 못했습니다. 다시 시도해주세요.");
+                finishGoogleError("Google 로그인을 다시 시도해 주세요.");
                 return;
             }
             exchangeLegacyGoogleToken(idToken);
@@ -100,7 +122,9 @@ public final class LoginActivity extends Activity {
             Log.e(TAG, "Native Google Sign-In failed. status=" + error.getStatusCode(), error);
             int status = error.getStatusCode();
             if (status == GoogleSignInStatusCodes.SIGN_IN_CANCELLED) {
-                finishGoogleError("Google 로그인이 취소되었습니다. 다시 시도해주세요.");
+                googleSignInInFlight = false;
+                setFormsEnabled(true);
+                clearNotice();
             } else if (status == GoogleSignInStatusCodes.SIGN_IN_CURRENTLY_IN_PROGRESS) {
                 finishGoogleError("Google 로그인이 이미 진행 중입니다. 잠시 후 다시 시도해주세요.");
             } else if (status == 10) {
@@ -110,10 +134,9 @@ public final class LoginActivity extends Activity {
                         + ",client=" + BuildConfig.GOOGLE_SERVER_CLIENT_ID;
                 Log.e(TAG, "Google developer error. " + detail);
                 CrashTelemetryStore.record(this, "google_login", "developer_error_10", detail);
-                finishGoogleError("Google 앱 인증서 설정이 일치하지 않습니다. 설치 SHA-1: "
-                        + installedSha1);
+                finishGoogleError("Google 로그인을 사용할 수 없습니다. 이메일로 로그인해 주세요.");
             } else {
-                finishGoogleError("Google 로그인을 완료하지 못했습니다. (코드 " + status + ")");
+                finishGoogleError("Google 로그인을 다시 시도해 주세요.");
             }
         } catch (RuntimeException error) {
             Log.e(TAG, "Native Google Sign-In result failure", error);
@@ -123,6 +146,7 @@ public final class LoginActivity extends Activity {
 
     private void bindViews() {
         tabs = findViewById(R.id.authTabs);
+        welcome = findViewById(R.id.authWelcome);
         loginForm = findViewById(R.id.authLoginForm);
         signupForm = findViewById(R.id.authSignupForm);
         resetForm = findViewById(R.id.authResetForm);
@@ -130,25 +154,12 @@ public final class LoginActivity extends Activity {
         signupTab = findViewById(R.id.btnAuthSignupTab);
         notice = findViewById(R.id.txtAuthNotice);
         loginButton = findViewById(R.id.btnAuthLogin);
+        googleButton = findViewById(R.id.btnAuthGoogle);
+        emailButton = findViewById(R.id.btnAuthEmail);
         loginEmail = findViewById(R.id.editLoginEmail);
         loginPassword = findViewById(R.id.editLoginPassword);
         privacyConsent = findViewById(R.id.checkPrivacyConsent);
         termsConsent = findViewById(R.id.checkTermsConsent);
-    }
-
-    private void installGoogleButton() {
-        LinearLayout form = (LinearLayout) loginForm;
-        googleButton = new TextView(this);
-        googleButton.setGravity(Gravity.CENTER);
-        googleButton.setText("G  Google로 계속하기");
-        googleButton.setTextSize(15f);
-        googleButton.setTextColor(getColor(R.color.text_primary));
-        googleButton.setBackgroundResource(R.drawable.bg_secondary_button);
-        googleButton.setContentDescription("Google 계정으로 로그인");
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(52));
-        params.topMargin = dp(8);
-        form.addView(googleButton, Math.min(3, form.getChildCount()), params);
     }
 
     private void installSignupReferralField() {
@@ -194,6 +205,9 @@ public final class LoginActivity extends Activity {
         findViewById(R.id.btnOpenPasswordReset).setOnClickListener(v -> showReset());
         loginButton.setOnClickListener(v -> submitLogin());
         googleButton.setOnClickListener(v -> startGoogleLogin());
+        emailButton.setOnClickListener(v -> showLogin());
+        googleButton.setFocusable(true);
+        emailButton.setFocusable(true);
         findViewById(R.id.btnSignupVerification).setOnClickListener(v -> {
             hideKeyboardAndClearFocus();
             requestSignupVerification();
@@ -232,29 +246,28 @@ public final class LoginActivity extends Activity {
     }
 
     private void showLogin() {
-        showForm(loginForm);
-        setTab(true);
+        showScreen(LOGIN);
     }
 
     private void showSignup() {
-        showForm(signupForm);
-        setTab(false);
+        showScreen(SIGNUP);
     }
 
     private void showReset() {
-        if (working || googleSignInInFlight) return;
-        showForm(resetForm);
-        tabs.setVisibility(View.GONE);
+        showScreen(RESET);
     }
 
-    private void showForm(View target) {
+    private void showScreen(int target) {
         if (working || googleSignInInFlight) return;
         hideKeyboardAndClearFocus();
         clearNotice();
-        tabs.setVisibility(View.VISIBLE);
-        loginForm.setVisibility(target == loginForm ? View.VISIBLE : View.GONE);
-        signupForm.setVisibility(target == signupForm ? View.VISIBLE : View.GONE);
-        resetForm.setVisibility(target == resetForm ? View.VISIBLE : View.GONE);
+        authScreen = target;
+        welcome.setVisibility(target == WELCOME ? View.VISIBLE : View.GONE);
+        tabs.setVisibility(target == LOGIN || target == SIGNUP ? View.VISIBLE : View.GONE);
+        loginForm.setVisibility(target == LOGIN ? View.VISIBLE : View.GONE);
+        signupForm.setVisibility(target == SIGNUP ? View.VISIBLE : View.GONE);
+        resetForm.setVisibility(target == RESET ? View.VISIBLE : View.GONE);
+        if (target == LOGIN || target == SIGNUP) setTab(target == LOGIN);
     }
 
     private void setTab(boolean loginSelected) {
@@ -290,7 +303,7 @@ public final class LoginActivity extends Activity {
         String serverClientId = BuildConfig.GOOGLE_SERVER_CLIENT_ID == null
                 ? "" : BuildConfig.GOOGLE_SERVER_CLIENT_ID.trim();
         if (serverClientId.isEmpty()) {
-            showNotice("Google 로그인 연결 정보를 불러오지 못했습니다.", true);
+            showNotice("Google 로그인을 사용할 수 없습니다. 이메일로 로그인해 주세요.", true);
             return;
         }
 
@@ -303,7 +316,7 @@ public final class LoginActivity extends Activity {
             googleSignInClient = GoogleSignIn.getClient(this, options);
             googleSignInInFlight = true;
             setFormsEnabled(false);
-            showNotice("Google 계정을 선택해주세요.", false);
+            clearNotice();
             startActivityForResult(googleSignInClient.getSignInIntent(), RC_GOOGLE_SIGN_IN);
         } catch (RuntimeException error) {
             Log.e(TAG, "Unable to start native Google Sign-In", error);
@@ -529,6 +542,7 @@ public final class LoginActivity extends Activity {
         loginButton.setAlpha(enabled ? 1f : 0.6f);
         googleButton.setEnabled(enabled);
         googleButton.setAlpha(enabled ? 1f : 0.6f);
+        emailButton.setEnabled(enabled);
         privacyConsent.setEnabled(enabled);
         termsConsent.setEnabled(enabled);
         if (signupReferral != null) signupReferral.setEnabled(enabled);

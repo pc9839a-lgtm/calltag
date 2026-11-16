@@ -27,9 +27,8 @@ public final class CallerIdSetupActivity extends Activity {
 
     private TextView status;
     private TextView title;
-    private TextView intro;
     private Button action;
-    private Button contactSyncToggle;
+    private Button skip;
     private boolean requiredSetup;
     private boolean roleRequestInFlight;
     private boolean overlayRequestInFlight;
@@ -43,20 +42,17 @@ public final class CallerIdSetupActivity extends Activity {
 
         status = findViewById(R.id.callerIdSetupStatus);
         title = findViewById(R.id.callerIdSetupTitle);
-        intro = findViewById(R.id.callerIdSetupIntro);
         action = findViewById(R.id.callerIdSetupAction);
-        contactSyncToggle = findViewById(R.id.contactNameSyncToggle);
+        skip = findViewById(R.id.callerIdSetupSkip);
 
         View back = findViewById(R.id.callerIdSetupBack);
         back.setVisibility(requiredSetup ? View.GONE : View.VISIBLE);
         back.setOnClickListener(v -> finish());
         action.setOnClickListener(v -> beginSetup());
-        contactSyncToggle.setVisibility(View.GONE);
-
-        if (requiredSetup) {
-            title.setText("전화 고객정보 설정");
-            intro.setText("통화가 끝나면 앱 전체화면을 열지 않고\n작은 콜태그 팝업으로 메모를 남깁니다.");
-        }
+        skip.setOnClickListener(v -> {
+            if (requiredSetup) finishCoreSetupWithoutScreening();
+            else finish();
+        });
         render();
     }
 
@@ -78,7 +74,9 @@ public final class CallerIdSetupActivity extends Activity {
             requestPermissions(missing.toArray(new String[0]), REQUEST_RUNTIME_PERMISSIONS);
             return;
         }
-        ensurePostCallOverlayOrContinue();
+        if (!SetupRequirements.hasOverlay(this)) requestOverlayPermission();
+        else if (!SetupRequirements.hasScreeningRole(this)) launchScreeningRoleRequest();
+        else finishCoreSetup();
     }
 
     private List<String> missingCoreRuntimePermissions() {
@@ -93,23 +91,12 @@ public final class CallerIdSetupActivity extends Activity {
         return missing;
     }
 
-    private void ensurePostCallOverlayOrContinue() {
-        if (SetupRequirements.hasOverlay(this)) {
-            ensureScreeningRoleOrFinish();
-            return;
-        }
-        requestOverlayPermission();
-    }
-
     private void requestOverlayPermission() {
-        if (overlayRequestInFlight || SetupRequirements.hasOverlay(this)) {
-            ensureScreeningRoleOrFinish();
-            return;
-        }
+        if (overlayRequestInFlight || SetupRequirements.hasOverlay(this)) return;
         overlayRequestInFlight = true;
         action.setEnabled(false);
         action.setAlpha(0.6f);
-        action.setText("팝업 권한 확인 중…");
+        action.setText("확인 중…");
         try {
             Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                     Uri.parse("package:" + getPackageName()));
@@ -119,33 +106,9 @@ public final class CallerIdSetupActivity extends Activity {
             CrashTelemetryStore.record(this, "post_call_overlay_permission", "open_failed",
                     error.getClass().getSimpleName());
             Toast.makeText(this,
-                    "통화 후 팝업 권한 설정을 열지 못했습니다. 다시 시도해주세요.",
-                    Toast.LENGTH_LONG).show();
+                    "설정을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
             render();
         }
-    }
-
-    private void ensureScreeningRoleOrFinish() {
-        if (SetupRequirements.hasScreeningRole(this)) {
-            finishSetup();
-            return;
-        }
-        requestScreeningRole();
-    }
-
-    private void requestScreeningRole() {
-        // ROLE_CALL_SCREENING does NOT make CallTag the default dialer. Explain this before
-        // handing the user to Android's system role selector, which can be confusing.
-        if (roleRequestInFlight || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return;
-        new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
-                .setTitle("기본 전화 앱은 변경되지 않습니다")
-                .setMessage("콜태그는 기본 전화 앱이 아닙니다. 이 설정은 수신 전화의 고객명과 최근 메모를 표시하기 위한 '발신자 정보' 역할입니다. 지금 쓰는 전화 앱과 통화 기능은 그대로 유지됩니다.\n\n원하지 않으면 지금은 건너뛸 수 있습니다.")
-                .setNegativeButton("지금은 건너뛰기", (dialog, which) -> {
-                    if (requiredSetup) finishCoreSetupWithoutScreening();
-                    else finish();
-                })
-                .setPositiveButton("발신자 정보 설정", (dialog, which) -> launchScreeningRoleRequest())
-                .show();
     }
 
     private void launchScreeningRoleRequest() {
@@ -154,20 +117,17 @@ public final class CallerIdSetupActivity extends Activity {
         RoleManager manager = (RoleManager) getSystemService(ROLE_SERVICE);
         if (manager == null || !manager.isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)) {
             Toast.makeText(this,
-                    "이 기기에서 발신자 정보 역할을 사용할 수 없습니다. 통화 후 고객관리는 계속 사용할 수 있습니다.",
-                    Toast.LENGTH_LONG).show();
+                    "이 기기는 발신자 정보를 지원하지 않습니다.", Toast.LENGTH_SHORT).show();
             finishCoreSetupWithoutScreening();
             return;
         }
         if (manager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)) {
-            finishSetup();
+            finishCoreSetup();
             return;
         }
 
         roleRequestInFlight = true;
-        action.setEnabled(false);
-        action.setAlpha(0.6f);
-        action.setText("발신자 정보 권한 확인 중…");
+        render();
         try {
             startActivityForResult(
                     manager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING),
@@ -177,8 +137,7 @@ public final class CallerIdSetupActivity extends Activity {
             CrashTelemetryStore.record(this, "caller_screening_role", "request_failed",
                     error.getClass().getSimpleName());
             Toast.makeText(this,
-                    "발신자 정보 설정을 열지 못했습니다. 다시 시도해주세요.",
-                    Toast.LENGTH_LONG).show();
+                    "설정을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
             render();
         }
     }
@@ -187,14 +146,12 @@ public final class CallerIdSetupActivity extends Activity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode != REQUEST_RUNTIME_PERMISSIONS) return;
-        if (missingCoreRuntimePermissions().isEmpty()) {
-            ensurePostCallOverlayOrContinue();
-        } else {
-            Toast.makeText(this,
-                    "전화 고객관리에 필요한 권한을 모두 허용해주세요.",
-                    Toast.LENGTH_LONG).show();
-            render();
+        if (SetupRequirements.hasCoreRuntimePermissions(this)
+                && SetupRequirements.hasOverlay(this) && SetupRequirements.hasScreeningRole(this)) {
+            finishCoreSetup();
+            return;
         }
+        render();
     }
 
     @Override
@@ -204,12 +161,10 @@ public final class CallerIdSetupActivity extends Activity {
             overlayRequestInFlight = false;
             if (SetupRequirements.hasOverlay(this)) {
                 CrashTelemetryStore.record(this, "post_call_overlay_permission", "granted", "");
-                ensureScreeningRoleOrFinish();
+                if (SetupRequirements.hasScreeningRole(this)) finishCoreSetup();
+                else render();
             } else {
                 CrashTelemetryStore.record(this, "post_call_overlay_permission", "not_granted", "");
-                Toast.makeText(this,
-                        "통화 종료 후 작은 팝업을 사용하려면 ‘다른 앱 위에 표시’를 허용해주세요.",
-                        Toast.LENGTH_LONG).show();
                 render();
             }
             return;
@@ -218,21 +173,19 @@ public final class CallerIdSetupActivity extends Activity {
         roleRequestInFlight = false;
         if (resultCode == RESULT_OK && SetupRequirements.hasScreeningRole(this)) {
             CrashTelemetryStore.record(this, "caller_screening_role", "granted", "");
-            finishSetup();
+            finishCoreSetup();
             return;
         }
 
         CrashTelemetryStore.record(this, "caller_screening_role", "not_granted", "");
-        Toast.makeText(this,
-                "기본 전화 앱은 그대로 유지됩니다. 발신자 정보는 나중에 설정할 수 있습니다.",
-                Toast.LENGTH_LONG).show();
         render();
     }
 
     private void render() {
-        contactSyncToggle.setVisibility(View.GONE);
+        skip.setVisibility(View.GONE);
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            status.setText("이 기기에서는 발신자 정보 기능을 사용할 수 없습니다.");
+            title.setText("전화 설정");
+            status.setText("Android 10 이상에서 사용할 수 있습니다.");
             action.setEnabled(false);
             action.setAlpha(0.5f);
             action.setText("지원되지 않는 기기");
@@ -241,35 +194,29 @@ public final class CallerIdSetupActivity extends Activity {
 
         boolean coreReady = SetupRequirements.hasCoreRuntimePermissions(this);
         if (!coreReady) {
-            status.setText("설정을 완료하면 수신 고객정보와 통화 후 고객관리 기능을 사용할 수 있습니다.");
-            action.setText("필수 권한 허용하고 시작");
+            title.setText("통화 후 기록");
+            status.setText(InitialPermissionActivity.CORE_DISCLOSURE);
+            action.setText("권한 허용");
         } else if (!SetupRequirements.hasOverlay(this)) {
-            status.setText("통화 종료 후 앱을 열지 않고 작은 팝업만 표시하려면\n‘다른 앱 위에 표시’ 권한이 필요합니다.");
-            action.setText("통화 후 팝업 권한 허용");
+            title.setText("통화 후 팝업");
+            status.setText("통화가 끝나면 메모창을 띄웁니다. ‘다른 앱 위에 표시’를 허용해 주세요.");
+            action.setText("설정 열기");
         } else if (SetupRequirements.hasScreeningRole(this)) {
-            status.setText("전화 고객정보와 통화 후 작은 팝업이 준비되었습니다.\n연락처와 시스템 통화목록은 변경하지 않습니다.");
+            title.setText("설정 완료");
+            status.setText("");
             action.setText("앱 시작");
         } else {
-            status.setText("통화 후 작은 팝업은 준비되었습니다.\n발신자 정보 역할은 기본 전화 앱을 바꾸지 않습니다. 수신 시 고객명·최근 메모 표시에 사용합니다.");
-            action.setText("발신자 정보 역할 켜기");
+            title.setText("발신자 정보 (선택)");
+            status.setText("전화가 오면 고객명과 최근 메모를 표시합니다. 기본 전화 앱은 그대로 사용합니다.");
+            action.setText("발신자 정보 켜기");
+            skip.setVisibility(View.VISIBLE);
         }
 
-        if (!roleRequestInFlight && !overlayRequestInFlight) {
-            action.setEnabled(true);
-            action.setAlpha(1f);
-        }
-    }
-
-    private void finishSetup() {
-        if (!SetupRequirements.hasOverlay(this)) {
-            requestOverlayPermission();
-            return;
-        }
-        if (!SetupRequirements.hasScreeningRole(this)) {
-            requestScreeningRole();
-            return;
-        }
-        finishCoreSetup();
+        boolean busy = roleRequestInFlight || overlayRequestInFlight;
+        action.setEnabled(!busy);
+        action.setAlpha(busy ? 0.6f : 1f);
+        skip.setEnabled(!busy);
+        if (busy) action.setText("확인 중…");
     }
 
     private void finishCoreSetupWithoutScreening() {
@@ -282,6 +229,10 @@ public final class CallerIdSetupActivity extends Activity {
     }
 
     private void finishCoreSetup() {
+        if (!SetupRequirements.hasCoreRuntimePermissions(this) || !SetupRequirements.hasOverlay(this)) {
+            render();
+            return;
+        }
         ContactNameSyncManager.disableAndRestore(this);
         SetupRequirements.markInitialFlowCompleted(this);
         SetupRequirements.startCallMonitoring(this);
@@ -298,7 +249,6 @@ public final class CallerIdSetupActivity extends Activity {
         }
         new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                 .setTitle("설정을 마치지 않고 나갈까요?")
-                .setMessage("통화 후 작은 팝업과 수신 고객정보를 사용하려면 필요한 권한을 설정해주세요.")
                 .setNegativeButton("계속 설정", null)
                 .setPositiveButton("나가기", (dialog, which) -> moveTaskToBack(true))
                 .show();
