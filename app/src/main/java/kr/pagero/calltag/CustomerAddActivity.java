@@ -130,7 +130,7 @@ public final class CustomerAddActivity extends Activity {
 
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
-        form.setPadding(dp(20), dp(8), dp(20), 0);
+        form.setPadding(dp(20), dp(8), dp(20), dp(12));
 
         EditText name = input("고객명 또는 업체명", InputType.TYPE_CLASS_TEXT);
         name.setText(defaultName == null ? "" : defaultName);
