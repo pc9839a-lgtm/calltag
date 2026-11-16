@@ -48,7 +48,6 @@ public final class TaskTimeChoiceDialog {
         LinearLayout root = new LinearLayout(context);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(context, 18), dp(context, 18), dp(context, 18), dp(context, 18));
-        root.setBackgroundResource(R.drawable.bg_dialog_panel);
 
         LinearLayout heading = new LinearLayout(context);
         heading.setOrientation(LinearLayout.HORIZONTAL);
