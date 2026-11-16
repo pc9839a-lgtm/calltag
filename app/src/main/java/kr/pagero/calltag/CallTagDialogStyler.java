@@ -3,7 +3,9 @@ package kr.pagero.calltag;
 import android.app.AlertDialog;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,7 +20,6 @@ public final class CallTagDialogStyler {
     private static final int MAX_WIDTH_DP = 420;
     private static final int SIDE_MARGIN_DP = 28;
     private static final int ACTION_SIDE_MARGIN_DP = 6;
-    private static final int ACTION_VERTICAL_MARGIN_DP = 4;
 
     private CallTagDialogStyler() {}
 
@@ -125,7 +126,7 @@ public final class CallTagDialogStyler {
                 ? R.color.danger : R.color.secondary_button_border);
         button.setTextColor(destructive
                 ? Color.WHITE : button.getContext().getColor(R.color.text_primary));
-        button.setBackground(rounded(button, fill, stroke));
+        setActionBackground(button, rounded(button, fill, stroke));
         button.setMinWidth(0);
         button.setMinimumWidth(0);
         button.setPadding(dp(button, 14), dp(button, 2), dp(button, 14), dp(button, 2));
@@ -167,21 +168,23 @@ public final class CallTagDialogStyler {
         button.setTextSize(14f);
         button.setMinHeight(dp(button, 48));
         button.setMinimumHeight(dp(button, 48));
+        setActionBackground(button, button.getContext().getDrawable(primary
+                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button));
         button.setPadding(dp(button, 16), dp(button, 6), dp(button, 16), dp(button, 6));
-        button.setBackgroundResource(primary
-                ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
 
         ViewGroup.LayoutParams raw = button.getLayoutParams();
         if (raw instanceof ViewGroup.MarginLayoutParams) {
             ViewGroup.MarginLayoutParams margins = (ViewGroup.MarginLayoutParams) raw;
             int side = dp(button, ACTION_SIDE_MARGIN_DP);
-            int vertical = dp(button, ACTION_VERTICAL_MARGIN_DP);
             margins.setMarginStart(Math.max(margins.getMarginStart(), side));
             margins.setMarginEnd(Math.max(margins.getMarginEnd(), side));
-            margins.topMargin = Math.max(margins.topMargin, vertical);
-            margins.bottomMargin = Math.max(margins.bottomMargin, vertical);
             button.setLayoutParams(margins);
         }
+    }
+
+    private static void setActionBackground(Button button, Drawable background) {
+        int verticalInset = dp(button, 2);
+        button.setBackground(new InsetDrawable(background, 0, verticalInset, 0, verticalInset));
     }
 
     private static int dp(AlertDialog dialog, int value) {
