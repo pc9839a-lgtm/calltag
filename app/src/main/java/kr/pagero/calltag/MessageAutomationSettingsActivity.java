@@ -201,13 +201,13 @@ public final class MessageAutomationSettingsActivity extends Activity {
         input.setText(String.valueOf(delayDaysValue));
         input.setSelectAllOnFocus(true);
         LinearLayout container = new LinearLayout(this);
-        container.setPadding(dp(22), dp(8), dp(22), 0);
+        container.setPadding(dp(22), dp(8), dp(22), dp(12));
         container.addView(input, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(50)));
 
         AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
-                .setTitle("발송일까지 입력")
-                .setMessage("1일부터 30일까지 선택할 수 있습니다.")
+                .setTitle("며칠 후에 보낼까요?")
+                .setMessage("1~30일")
                 .setView(container)
                 .setNegativeButton("취소", null)
                 .setPositiveButton("적용", null)
@@ -231,7 +231,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
     private void showCommonSettings() {
         LinearLayout panel = new LinearLayout(this);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setPadding(dp(18), dp(6), dp(18), dp(2));
+        panel.setPadding(dp(18), dp(6), dp(18), dp(12));
 
         Switch business = switchCard("업무시간에만 보내기");
         business.setChecked(businessHoursValue);
@@ -241,17 +241,19 @@ public final class MessageAutomationSettingsActivity extends Activity {
         LinearLayout hours = new LinearLayout(this);
         hours.setGravity(Gravity.CENTER_VERTICAL);
         EditText start = numberInput(String.valueOf(startHourValue));
+        start.setContentDescription("시작 시간");
         start.setText(String.valueOf(startHourValue));
         hours.addView(start, new LinearLayout.LayoutParams(0, dp(48), 1f));
-        TextView from = body("시부터");
+        TextView from = body("~");
         from.setGravity(Gravity.CENTER);
-        hours.addView(from, new LinearLayout.LayoutParams(dp(58), dp(48)));
+        hours.addView(from, new LinearLayout.LayoutParams(dp(28), dp(48)));
         EditText end = numberInput(String.valueOf(endHourValue));
+        end.setContentDescription("종료 시간");
         end.setText(String.valueOf(endHourValue));
         hours.addView(end, new LinearLayout.LayoutParams(0, dp(48), 1f));
-        TextView until = body("시까지");
+        TextView until = body("시");
         until.setGravity(Gravity.CENTER);
-        hours.addView(until, new LinearLayout.LayoutParams(dp(62), dp(48)));
+        hours.addView(until, new LinearLayout.LayoutParams(dp(28), dp(48)));
         panel.addView(hours, topMargin(6));
 
         panel.addView(fieldLabel("중복 발송 방지"), topMargin(14));
@@ -260,7 +262,7 @@ public final class MessageAutomationSettingsActivity extends Activity {
         EditText cooldownInput = numberInput(String.valueOf(cooldownHoursValue));
         cooldownInput.setText(String.valueOf(cooldownHoursValue));
         cooldown.addView(cooldownInput, new LinearLayout.LayoutParams(0, dp(48), 1f));
-        TextView cooldownSuffix = body("시간 동안 다시 보내지 않음");
+        TextView cooldownSuffix = body("시간");
         cooldownSuffix.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout.LayoutParams cooldownSuffixParams = new LinearLayout.LayoutParams(
                 0, dp(48), 2.2f);
@@ -284,31 +286,36 @@ public final class MessageAutomationSettingsActivity extends Activity {
         }
         panel.addView(line, topMarginHeight(6, 50));
 
+        ScrollView scroll = new ScrollView(this);
+        scroll.addView(panel, matchWrap());
         AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
-                .setTitle("공통 발송 설정")
-                .setView(panel)
+                .setTitle("발송 조건·회선")
+                .setView(scroll)
                 .setNegativeButton("취소", null)
                 .setPositiveButton("적용", null)
                 .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
-                    int startValue = clamp(parse(start, 9), 0, 23);
-                    int endValue = clamp(parse(end, 20), 1, 24);
-                    if (business.isChecked() && startValue >= endValue) {
-                        Toast.makeText(this, "종료 시간은 시작 시간보다 늦어야 합니다.",
-                                Toast.LENGTH_LONG).show();
-                        return;
-                    }
-                    businessHoursValue = business.isChecked();
-                    startHourValue = startValue;
-                    endHourValue = endValue;
-                    cooldownHoursValue = clamp(parse(cooldownInput, 24), 1, 168);
-                    if (!profiles.isEmpty() && line.getSelectedItemPosition() < profiles.size()) {
-                        selectedSubscriptionId = profiles.get(line.getSelectedItemPosition()).subscriptionId;
-                    }
-                    renderValues();
-                    dialog.dismiss();
-                }));
+        dialog.setOnShowListener(ignored -> {
+            CallTagDialogStyler.apply(dialog);
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                int startValue = clamp(parse(start, 9), 0, 23);
+                int endValue = clamp(parse(end, 20), 1, 24);
+                if (business.isChecked() && startValue >= endValue) {
+                    Toast.makeText(this, "종료 시간은 시작 시간보다 늦어야 합니다.",
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+                businessHoursValue = business.isChecked();
+                startHourValue = startValue;
+                endHourValue = endValue;
+                cooldownHoursValue = clamp(parse(cooldownInput, 24), 1, 168);
+                int selectedLine = line.getSelectedItemPosition();
+                if (selectedLine >= 0 && selectedLine < profiles.size()) {
+                    selectedSubscriptionId = profiles.get(selectedLine).subscriptionId;
+                }
+                renderValues();
+                dialog.dismiss();
+            });
+        });
         dialog.show();
     }
 
@@ -405,13 +412,15 @@ public final class MessageAutomationSettingsActivity extends Activity {
                 && (connected.isChecked() || missed.isChecked() || delayed.isChecked());
         if (wantsAutomaticSms && checkSelfPermission(Manifest.permission.SEND_SMS)
                 != PackageManager.PERMISSION_GRANTED) {
-            new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
+            AlertDialog dialog = new AlertDialog.Builder(this, R.style.Theme_CallTag_Dialog)
                     .setTitle("자동문자 권한")
                     .setMessage("설정한 통화 조건에 맞으면 상대방에게 SMS를 보냅니다. 통신사 요금이 발생할 수 있습니다.")
                     .setNegativeButton("취소", null)
-                    .setPositiveButton("SMS 권한 요청", (dialog, which) ->
+                    .setPositiveButton("SMS 권한 요청", (prompt, which) ->
                             requestPermissions(new String[]{Manifest.permission.SEND_SMS}, REQUEST_SMS))
-                    .show();
+                    .create();
+            dialog.setOnShowListener(ignored -> CallTagDialogStyler.apply(dialog));
+            dialog.show();
             return;
         }
         saveApprovedSettings();

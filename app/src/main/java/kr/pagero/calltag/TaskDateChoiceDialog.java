@@ -93,7 +93,7 @@ public final class TaskDateChoiceDialog {
         TextView done = action(context, doneLabel, true);
         actions.addView(cancel, weighted(context, 0.8f));
         LinearLayout.LayoutParams doneParams = weighted(context, 1.4f);
-        doneParams.leftMargin = dp(context, 8);
+        doneParams.setMarginStart(dp(context, 12));
         actions.addView(done, doneParams);
         root.addView(actions, top(context, 16));
 
@@ -202,7 +202,7 @@ public final class TaskDateChoiceDialog {
         TextView view = text(context, value, 14f, true,
                 primary ? android.R.color.white : R.color.text_primary);
         view.setGravity(Gravity.CENTER);
-        view.setMinHeight(dp(context, 46));
+        view.setMinHeight(dp(context, 48));
         view.setPadding(dp(context, 8), dp(context, 8), dp(context, 8), dp(context, 8));
         view.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);

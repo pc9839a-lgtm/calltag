@@ -9,6 +9,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -40,11 +41,13 @@ public final class QuickCustomerEditDialog {
 
         LinearLayout root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(activity, 18), dp(activity, 8), dp(activity, 18), dp(activity, 8));
+        root.setPadding(dp(activity, 18), dp(activity, 8), dp(activity, 18), dp(activity, 12));
 
-        TextView nameLabel = label(activity, "고객명");
+        TextView nameLabel = label(activity, "고객·업체명");
         root.addView(nameLabel, matchWrap());
-        EditText nameInput = input(activity, "고객명 또는 업체명", InputType.TYPE_CLASS_TEXT);
+        EditText nameInput = input(activity, null, InputType.TYPE_CLASS_TEXT);
+        nameInput.setId(View.generateViewId());
+        nameLabel.setLabelFor(nameInput.getId());
         nameInput.setText(initialName);
         nameInput.setSelection(nameInput.length());
         root.addView(nameInput, height(activity, 52, 7));
@@ -59,9 +62,12 @@ public final class QuickCustomerEditDialog {
         statusButton.setText(selectedStatus[0] + "  ▾");
         root.addView(statusButton, height(activity, 50, 7));
 
-        root.addView(labelWithTop(activity, "메모", 15), matchWrap());
-        EditText memoInput = input(activity, "고객 메모를 입력하세요",
+        TextView memoLabel = labelWithTop(activity, "메모", 15);
+        root.addView(memoLabel, matchWrap());
+        EditText memoInput = input(activity, null,
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        memoInput.setId(View.generateViewId());
+        memoLabel.setLabelFor(memoInput.getId());
         memoInput.setSingleLine(false);
         memoInput.setGravity(Gravity.TOP | Gravity.START);
         memoInput.setPadding(dp(activity, 14), dp(activity, 12), dp(activity, 14), dp(activity, 12));
@@ -69,9 +75,11 @@ public final class QuickCustomerEditDialog {
         memoInput.setSelection(memoInput.length());
         root.addView(memoInput, height(activity, 128, 7));
 
+        ScrollView scroll = new ScrollView(activity);
+        scroll.addView(root, matchWrap());
         AlertDialog dialog = new AlertDialog.Builder(activity, R.style.Theme_CallTag_Dialog)
                 .setTitle("고객 정보 수정")
-                .setView(root)
+                .setView(scroll)
                 .setNegativeButton("취소", null)
                 .setPositiveButton("저장", null)
                 .create();

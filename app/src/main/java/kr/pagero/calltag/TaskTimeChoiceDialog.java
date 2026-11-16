@@ -11,6 +11,7 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.NumberPicker;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.util.Calendar;
@@ -112,15 +113,18 @@ public final class TaskTimeChoiceDialog {
         TextView cancel = action(context, "취소", false);
         String doneLabel = actionLabel == null || actionLabel.trim().isEmpty()
                 ? "확인" : actionLabel.trim();
-        TextView done = action(context, "✓  " + doneLabel, true);
-        actions.addView(cancel, weightedHeight(context, 0.9f, 50));
-        LinearLayout.LayoutParams doneParams = weightedHeight(context, 1.55f, 50);
-        doneParams.leftMargin = dp(context, 8);
+        TextView done = action(context, doneLabel, true);
+        actions.addView(cancel, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 0.9f));
+        LinearLayout.LayoutParams doneParams = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.MATCH_PARENT, 1.55f);
+        doneParams.setMarginStart(dp(context, 12));
         actions.addView(done, doneParams);
         root.addView(actions, top(context, 14));
 
+        ScrollView scroll = new ScrollView(context);
+        scroll.addView(root, matchWrap());
         AlertDialog dialog = new AlertDialog.Builder(context, R.style.Theme_CallTag_Dialog)
-                .setView(root)
+                .setView(scroll)
                 .create();
 
         Runnable render = () -> {
@@ -214,6 +218,7 @@ public final class TaskTimeChoiceDialog {
         TextView view = text(context, value, 14f, true,
                 primary ? android.R.color.white : R.color.text_primary);
         view.setGravity(Gravity.CENTER);
+        view.setMinHeight(dp(context, 48));
         view.setBackgroundResource(primary
                 ? R.drawable.bg_primary_button : R.drawable.bg_secondary_button);
         view.setPadding(dp(context, 8), dp(context, 8), dp(context, 8), dp(context, 8));
