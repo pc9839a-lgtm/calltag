@@ -156,16 +156,7 @@ public final class MainActivity extends Activity {
     }
 
     private void selectSection(View section, NavItemTextView nav) {
-        sectionToday.setVisibility(section == sectionToday ? View.VISIBLE : View.GONE);
-        sectionCustomers.setVisibility(section == sectionCustomers ? View.VISIBLE : View.GONE);
-        sectionConsultations.setVisibility(section == sectionConsultations ? View.VISIBLE : View.GONE);
-        sectionMore.setVisibility(section == sectionMore ? View.VISIBLE : View.GONE);
-        int active = getColor(R.color.primary);
-        int inactive = getColor(R.color.nav_inactive);
-        navToday.setSelected(nav == navToday);
-        navCustomers.setTextColor(nav == navCustomers ? active : inactive);
-        navConsultations.setTextColor(nav == navConsultations ? active : inactive);
-        navMore.setTextColor(nav == navMore ? active : inactive);
+        MainSectionRouter.select(section.getRootView(), section.getId(), nav.getId());
         refreshAll();
     }
 

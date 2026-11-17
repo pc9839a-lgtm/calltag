@@ -24,6 +24,8 @@ import java.util.List;
 public final class CustomerQuickEditActivity extends Activity {
     public static final String EXTRA_CUSTOMER_ID = "customer_id";
     public static final String EXTRA_FALLBACK_PHONE = "fallback_phone";
+    private static final int REQUEST_DELETE_CUSTOMER = 6101;
+    private static final int REQUEST_CUSTOMER_DETAIL = 6102;
 
     private CallTagDbHelper db;
     private long customerId;
@@ -80,6 +82,18 @@ public final class CustomerQuickEditActivity extends Activity {
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(16), dp(16), dp(16), dp(32));
+
+        View actions = getLayoutInflater().inflate(R.layout.row_customer_actions, content, false);
+        LinearLayout.LayoutParams actionParams = (LinearLayout.LayoutParams) actions.getLayoutParams();
+        actionParams.topMargin = 0;
+        actionParams.bottomMargin = dp(16);
+        content.addView(actions, actionParams);
+        actions.findViewById(R.id.detailShareCustomer).setOnClickListener(v -> {
+            if (!saving) CustomerActions.share(this, customer);
+        });
+        actions.findViewById(R.id.detailDeleteCustomer).setOnClickListener(v -> {
+            if (!saving) CustomerActions.confirmDeletion(this, customer, REQUEST_DELETE_CUSTOMER);
+        });
 
         content.addView(label("고객명"), matchWrap());
         nameInput = input("고객명 또는 업체명", InputType.TYPE_CLASS_TEXT);
@@ -251,10 +265,19 @@ public final class CustomerQuickEditActivity extends Activity {
     private void openDetail() {
         if (customerId <= 0L || saving) return;
         try {
-            startActivity(new Intent(this, CustomerDetailActivity.class)
-                    .putExtra(CustomerDetailActivity.EXTRA_CUSTOMER_ID, customerId));
+            startActivityForResult(new Intent(this, CustomerDetailActivity.class)
+                    .putExtra(CustomerDetailActivity.EXTRA_CUSTOMER_ID, customerId), REQUEST_CUSTOMER_DETAIL);
         } catch (RuntimeException error) {
             Toast.makeText(this, "상세 화면을 열지 못했습니다.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode == RESULT_OK
+                && (requestCode == REQUEST_DELETE_CUSTOMER || requestCode == REQUEST_CUSTOMER_DETAIL)) {
+            finish();
         }
     }
 
