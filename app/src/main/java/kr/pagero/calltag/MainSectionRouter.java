@@ -17,21 +17,27 @@ public final class MainSectionRouter {
 
     private static void show(MainActivity activity, int sectionId, int navId, String source) {
         if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
+        select(activity.getWindow().getDecorView(), sectionId, navId);
+        CrashTelemetryStore.record(activity, "main_section", "show", source);
+    }
+
+    static void select(View root, int sectionId, int navId) {
         int[] sections = {R.id.sectionToday, R.id.sectionCustomers,
-                R.id.sectionConsultations, R.id.sectionMore};
-        int[] navs = {R.id.navToday, R.id.navCustomers, R.id.navConsultations, R.id.navMore};
+                R.id.sectionConsultations, R.id.sectionStats, R.id.sectionMore};
+        int[] navs = {R.id.navToday, R.id.navCustomers, R.id.navConsultations, R.id.navStats, R.id.navMore};
         for (int id : sections) {
-            View view = activity.findViewById(id);
+            View view = root.findViewById(id);
             if (view != null) view.setVisibility(id == sectionId ? View.VISIBLE : View.GONE);
         }
-        int active = activity.getColor(R.color.primary);
-        int inactive = activity.getColor(R.color.nav_inactive);
+        int active = root.getContext().getColor(R.color.primary);
+        int inactive = root.getContext().getColor(R.color.nav_inactive);
         for (int id : navs) {
-            View view = activity.findViewById(id);
-            if (view instanceof TextView) {
+            View view = root.findViewById(id);
+            if (view instanceof HomeNavItemTextView) {
+                view.setSelected(id == navId);
+            } else if (view instanceof TextView) {
                 ((TextView) view).setTextColor(id == navId ? active : inactive);
             }
         }
-        CrashTelemetryStore.record(activity, "main_section", "show", source);
     }
 }

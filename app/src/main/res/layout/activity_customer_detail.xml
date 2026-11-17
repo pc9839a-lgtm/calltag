@@ -116,37 +116,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/detailShareCustomer"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_secondary_button"
-                    android:minHeight="48dp"
-                    android:text="고객 공유"
-                    android:textAllCaps="false"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp" />
-
-                <Button
-                    android:id="@+id/detailDeleteCustomer"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_secondary_button"
-                    android:minHeight="48dp"
-                    android:text="고객 삭제"
-                    android:textAllCaps="false"
-                    android:textColor="@color/danger"
-                    android:textSize="14sp" />
-            </LinearLayout>
+            <include layout="@layout/row_customer_actions" />
 
             <LinearLayout
                 android:layout_width="match_parent"
