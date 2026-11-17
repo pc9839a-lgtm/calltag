@@ -12,6 +12,7 @@ def shell(*args):
     return adb("shell", *args).decode(errors="replace").strip()
 def start(name):
     result = shell("am", "start", "-W", "-n", f"{PKG}/.{name}")
+    print(result, flush=True)
     assert "Error" not in result and "Exception" not in result, result
 def node(key, nodes):
     return next((n for n in nodes if n.get("text") == key or n.get("content-desc") == key),
@@ -53,7 +54,16 @@ instrument = shell("am", "instrument", "-w", "-e", "class",
 assert "OK (1 test)" in instrument, instrument
 print(instrument, flush=True)
 start("MainActivity")
-home = screen("01-home", "고객 추가", "홈")
+try:
+    home = screen("01-home", "고객 추가", "홈")
+except AssertionError:
+    crash = shell("logcat", "-b", "crash", "-d", "-t", "80")
+    print(crash, flush=True)
+    if "Process: " + PKG in crash:
+        raise
+    shell("am", "force-stop", "com.google.android.apps.nexuslauncher")
+    start("MainActivity")
+    home = screen("01-home-retry", "고객 추가", "홈")
 assert node("홈", home).get("selected") == "true"
 tap("고객 추가", home)
 tap("최근 통화에서 선택", screen("02-customer-add", "최근 통화에서 선택"))
