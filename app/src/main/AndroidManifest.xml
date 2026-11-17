@@ -116,7 +116,8 @@
         <activity android:name=".CustomerDeleteActivity" android:exported="false" />
         <activity android:name=".HomeTaskEditorActivity" android:exported="false" />
         <activity android:name=".PostCallActivity" android:excludeFromRecents="true" android:exported="false" android:launchMode="singleTop" android:noHistory="false" android:showWhenLocked="true" android:theme="@style/Theme.CallTag.PostCallPopup" android:turnScreenOn="true" android:windowSoftInputMode="adjustResize" />
-        <activity android:name=".MainActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".MainActivity" android:exported="false"
+            android:enableOnBackInvokedCallback="true" android:windowSoftInputMode="adjustResize" />
 
         <activity android:name=".AuthGateActivity" android:exported="true" android:launchMode="singleTop">
             <intent-filter>

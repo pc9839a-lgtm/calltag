@@ -92,6 +92,11 @@ public final class MainActivity extends Activity {
         PlaySubscriptionReconcileManager.reconcileIfDue(this);
     }
 
+    @Override
+    public void onBackPressed() {
+        MainExitGuard.handleBack(this);
+    }
+
     private void normalizeCalendarState() {
         visibleCalendarMonth.set(Calendar.DAY_OF_MONTH, 1);
         clearTime(visibleCalendarMonth);
